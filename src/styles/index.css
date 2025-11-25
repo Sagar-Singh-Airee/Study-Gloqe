@@ -1,0 +1,151 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    body {
+        @apply bg-primary-950 text-primary-50 font-sans antialiased;
+        background-image:
+            radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.1) 0px, transparent 50%),
+            radial-gradient(at 100% 100%, rgba(99, 102, 241, 0.1) 0px, transparent 50%);
+        min-height: 100vh;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        @apply font-display;
+    }
+}
+
+@layer components {
+
+    /* Glass morphism effect */
+    .glass {
+        @apply bg-white/5 backdrop-blur-xl border border-white/10;
+    }
+
+    .glass-hover {
+        @apply glass transition-all hover:bg-white/10 hover:border-white/20;
+    }
+
+    /* Card styles */
+    .card {
+        @apply glass rounded-2xl p-6 shadow-xl;
+    }
+
+    .card-hover {
+        @apply card transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl;
+    }
+
+    /* Button styles */
+    .btn {
+        @apply px-6 py-3 rounded-xl font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed;
+    }
+
+    .btn-primary {
+        @apply btn bg-accent text-white hover:bg-accent-dark hover:scale-105 active:scale-95;
+    }
+
+    .btn-secondary {
+        @apply btn glass-hover text-primary-100;
+    }
+
+    .btn-ghost {
+        @apply btn hover:bg-white/5;
+    }
+
+    /* Input styles */
+    .input {
+        @apply w-full px-4 py-3 rounded-xl glass border-white/10 focus:border-accent focus:ring-2 focus:ring-accent/50 outline-none transition-all text-primary-50 placeholder-primary-400;
+    }
+
+    /* Gradient text */
+    .gradient-text {
+        @apply bg-clip-text text-transparent bg-gradient-to-r from-accent-light via-accent to-blue-600;
+    }
+
+    /* Scrollbar */
+    .custom-scrollbar::-webkit-scrollbar {
+        @apply w-2;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+        @apply bg-primary-900 rounded-full;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        @apply bg-primary-700 rounded-full hover:bg-primary-600;
+    }
+
+    /* Loading animation */
+    .loading {
+        @apply animate-pulse;
+    }
+
+    /* Badge */
+    .badge {
+        @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium;
+    }
+
+    .badge-primary {
+        @apply badge bg-accent/20 text-accent-light;
+    }
+
+    .badge-success {
+        @apply badge bg-success/20 text-success;
+    }
+
+    .badge-warning {
+        @apply badge bg-warning/20 text-warning;
+    }
+
+    .badge-error {
+        @apply badge bg-error/20 text-error;
+    }
+
+    /* Focus ring */
+    .focus-ring {
+        @apply focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-primary-950;
+    }
+}
+
+@layer utilities {
+    .text-balance {
+        text-wrap: balance;
+    }
+}
+
+/* React PDF styles */
+.react-pdf__Page {
+    @apply mx-auto shadow-2xl;
+}
+
+.react-pdf__Page__canvas {
+    @apply rounded-lg;
+}
+
+/* Animations */
+@keyframes shimmer {
+    0% {
+        background-position: -1000px 0;
+    }
+
+    100% {
+        background-position: 1000px 0;
+    }
+}
+
+.shimmer {
+    animation: shimmer 2s infinite;
+    background: linear-gradient(to right,
+            rgba(255, 255, 255, 0) 0%,
+            rgba(255, 255, 255, 0.05) 50%,
+            rgba(255, 255, 255, 0) 100%);
+    background-size: 1000px 100%;
+}
