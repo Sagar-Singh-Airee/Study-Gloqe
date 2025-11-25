@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import Spline from '@splinetool/react-spline';
 import { ArrowRight, Sparkles, Zap, Shield, Award } from 'lucide-react';
+import robotGif from '@/assets/robo/robot.gif'; // Your robot image (static)
 
 const LandingPage = () => {
     const features = [
@@ -27,44 +26,122 @@ const LandingPage = () => {
         }
     ];
 
+    // Static Robot Component - No animations
+    const StaticRobot = () => {
+        return (
+            <div className="relative w-full h-full flex items-center justify-center">
+                {/* Static Background Gradient */}
+                <div
+                    className="absolute w-[500px] h-[500px] rounded-full opacity-10 blur-[80px]"
+                    style={{
+                        background: 'radial-gradient(circle, rgba(192, 192, 192, 0.5) 0%, transparent 70%)',
+                        top: '5%',
+                        left: '5%',
+                    }}
+                />
+                <div
+                    className="absolute w-[450px] h-[450px] rounded-full opacity-10 blur-[80px]"
+                    style={{
+                        background: 'radial-gradient(circle, rgba(255, 255, 255, 0.4) 0%, transparent 70%)',
+                        bottom: '5%',
+                        right: '5%',
+                    }}
+                />
+
+                {/* Static Light Rays */}
+                <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                    {[...Array(8)].map((_, i) => (
+                        <div
+                            key={`ray-${i}`}
+                            className="absolute top-0 left-1/2 w-0.5 h-full origin-top opacity-15"
+                            style={{
+                                background: i % 2 === 0
+                                    ? 'linear-gradient(to bottom, rgba(192, 192, 192, 0.2) 0%, transparent 60%)'
+                                    : 'linear-gradient(to bottom, rgba(255, 255, 255, 0.15) 0%, transparent 60%)',
+                                transform: `translateX(-50%) rotate(${i * 22.5}deg)`,
+                            }}
+                        />
+                    ))}
+                </div>
+
+                {/* Robot Image - Static Display */}
+                <div className="relative z-10">
+                    <img
+                        src={robotGif}
+                        alt="AI Robot"
+                        className="max-w-md h-auto"
+                        style={{
+                            filter: 'drop-shadow(0 0 30px rgba(192, 192, 192, 0.3))',
+                        }}
+                    />
+                </div>
+            </div>
+        );
+    };
+
     return (
-        <div className="min-h-screen relative overflow-hidden">
-            {/* Premium Navigation */}
-            <nav className="fixed top-0 left-0 right-0 z-50 glass border-b border-white/[0.08]">
+        <div className="min-h-screen relative overflow-hidden bg-black">
+            {/* Premium Navigation with Silver Accent */}
+            <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-2xl bg-black/80 border-b border-white/10">
                 <div className="container mx-auto px-6">
                     <div className="flex items-center justify-between h-20">
                         {/* Logo */}
-                        <Link to="/" className="flex items-center gap-4 group">
+                        <Link to="/" className="flex items-center gap-4">
                             <div className="relative">
-                                <div className="absolute inset-0 bg-accent/20 blur-xl rounded-full group-hover:bg-accent/40 transition-all"></div>
+                                <div className="absolute inset-0 bg-white/10 blur-xl rounded-full" />
                                 <img
                                     src="/logo.svg"
                                     alt="StudyGloqe"
-                                    className="h-12 w-12 relative z-10 drop-shadow-[0_0_15px_rgba(229,231,235,0.5)]"
+                                    className="h-12 w-12 relative z-10"
+                                    style={{
+                                        filter: 'drop-shadow(0 0 20px rgba(192, 192, 192, 0.6))',
+                                    }}
                                     onError={(e) => {
                                         e.target.style.display = 'none';
                                         e.target.nextElementSibling.style.display = 'flex';
                                     }}
                                 />
                                 {/* Fallback Logo */}
-                                <div className="hidden h-12 w-12 rounded-2xl bg-gradient-to-br from-accent to-accent-dark items-center justify-center shadow-glass-lg relative z-10">
+                                <div className="hidden h-12 w-12 rounded-2xl bg-gradient-to-br from-white to-gray-400 items-center justify-center relative z-10">
                                     <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                                        <circle cx="16" cy="16" r="12" stroke="currentColor" strokeWidth="2" className="text-primary-950"/>
-                                        <circle cx="16" cy="16" r="6" fill="currentColor" className="text-primary-950"/>
+                                        <circle cx="16" cy="16" r="12" stroke="#000000" strokeWidth="2" />
+                                        <circle cx="16" cy="16" r="6" fill="#000000" />
                                     </svg>
                                 </div>
                             </div>
-                            <span className="text-2xl font-display font-bold gradient-text">
+                            <span
+                                className="text-2xl font-bold tracking-tight"
+                                style={{
+                                    fontFamily: "'Inter', 'SF Pro Display', -apple-system, sans-serif",
+                                    background: 'linear-gradient(135deg, #FFFFFF 0%, #C0C0C0 100%)',
+                                    WebkitBackgroundClip: 'text',
+                                    WebkitTextFillColor: 'transparent',
+                                    backgroundClip: 'text',
+                                }}
+                            >
                                 StudyGloqe
                             </span>
                         </Link>
 
                         {/* Auth Buttons */}
                         <div className="flex items-center gap-4">
-                            <Link to="/login" className="btn-ghost">
+                            <Link
+                                to="/login"
+                                className="px-6 py-2.5 rounded-xl font-semibold text-white/90 hover:text-white hover:bg-white/5 transition-colors"
+                                style={{
+                                    fontFamily: "'Inter', 'SF Pro Display', -apple-system, sans-serif",
+                                }}
+                            >
                                 Sign In
                             </Link>
-                            <Link to="/register" className="btn-primary">
+                            <Link
+                                to="/register"
+                                className="px-6 py-2.5 rounded-xl font-semibold text-black hover:opacity-90 transition-opacity shadow-lg shadow-white/20"
+                                style={{
+                                    background: 'linear-gradient(135deg, #FFFFFF 0%, #C0C0C0 100%)',
+                                    fontFamily: "'Inter', 'SF Pro Display', -apple-system, sans-serif",
+                                }}
+                            >
                                 Get Started
                             </Link>
                         </div>
@@ -72,222 +149,120 @@ const LandingPage = () => {
                 </div>
             </nav>
 
-            {/* Hero Section with Spline */}
+            {/* Hero Section with Static Robot */}
             <section className="relative min-h-screen flex items-center pt-20">
-                <div className="container mx-auto px-6">
-                    <div className="grid lg:grid-cols-2 gap-16 items-center">
-                        {/* Left Content */}
-                        <motion.div
-                            initial={{ opacity: 0, x: -50 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ duration: 1, ease: 'easeOut' }}
-                            className="space-y-8 z-10"
-                        >
+                <div className="container mx-auto px-6 py-16">
+                    <div className="grid lg:grid-cols-2 gap-24 items-center">
+                        {/* Left Content - No animations */}
+                        <div className="space-y-10 z-10">
                             {/* Badge */}
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.2, duration: 0.8 }}
-                                className="inline-flex items-center gap-3 px-6 py-3 rounded-full glass border border-accent/30 glow"
+                            <div
+                                className="inline-flex items-center gap-3 px-7 py-3.5 rounded-full backdrop-blur-xl bg-white/5 border border-white/10"
+                                style={{
+                                    boxShadow: '0 0 30px rgba(192, 192, 192, 0.1)',
+                                }}
                             >
-                                <Sparkles size={18} className="text-accent" />
-                                <span className="text-sm font-semibold">Premium AI-Powered Platform</span>
-                            </motion.div>
-
-                            {/* Headline */}
-                            <motion.h1
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.4, duration: 0.8 }}
-                                className="text-6xl lg:text-7xl font-display font-black leading-tight"
-                            >
-                                Study Smarter,
-                                <br />
-                                <span className="gradient-text">Not Harder</span>
-                            </motion.h1>
-
-                            {/* Description */}
-                            <motion.p
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.6, duration: 0.8 }}
-                                className="text-xl text-primary-300 leading-relaxed max-w-xl"
-                            >
-                                Transform any PDF into interactive quizzes, flashcards, and personalized learning paths. 
-                                Powered by cutting-edge AI technology.
-                            </motion.p>
-
-                            {/* CTA Buttons */}
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.8, duration: 0.8 }}
-                                className="flex flex-wrap gap-4"
-                            >
-                                <Link
-                                    to="/register"
-                                    className="btn-primary flex items-center gap-3 text-lg group"
+                                <Sparkles size={19} className="text-white" />
+                                <span
+                                    className="text-sm font-semibold tracking-wide text-white/90"
+                                    style={{
+                                        fontFamily: "'Inter', 'SF Pro Display', -apple-system, sans-serif",
+                                    }}
                                 >
-                                    Start Learning Free
-                                    <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
-                                </Link>
-                                <button className="btn-secondary text-lg">
-                                    Watch Demo
-                                </button>
-                            </motion.div>
-
-                            {/* Stats */}
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 1, duration: 0.8 }}
-                                className="flex gap-12 pt-8"
-                            >
-                                {[
-                                    { label: 'Active Students', value: '10K+' },
-                                    { label: 'Quizzes Generated', value: '500K+' },
-                                    { label: 'Success Rate', value: '95%' }
-                                ].map((stat, i) => (
-                                    <div key={i}>
-                                        <div className="text-4xl font-bold gradient-text mb-1">
-                                            {stat.value}
-                                        </div>
-                                        <div className="text-sm text-primary-400">
-                                            {stat.label}
-                                        </div>
-                                    </div>
-                                ))}
-                            </motion.div>
-                        </motion.div>
-
-                        {/* Right - Spline 3D */}
-                        <motion.div
-                            initial={{ opacity: 0, x: 50 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ duration: 1, ease: 'easeOut', delay: 0.3 }}
-                            className="relative h-[700px] rounded-3xl overflow-hidden"
-                        >
-                            {/* Glow Effect */}
-                            <div className="absolute inset-0 bg-gradient-to-br from-accent/10 via-transparent to-accent-dark/10 rounded-3xl animate-pulse-slow"></div>
-                            
-                            {/* Spline Scene */}
-                            <div className="spline-container h-full">
-                                <Spline 
-                                    scene="https://prod.spline.design/8cfb6748-f3dd-44dd-89fb-f46c7ab4186e/scene.splinecode"
-                                    className="w-full h-full"
-                                />
+                                    Premium AI-Powered Platform
+                                </span>
                             </div>
 
-                            {/* Border Glow */}
-                            <div className="absolute inset-0 rounded-3xl border border-accent/20 pointer-events-none"></div>
-                        </motion.div>
+                            {/* Main Heading */}
+                            <div className="space-y-6">
+                                <h1
+                                    className="text-6xl font-black tracking-tight leading-tight"
+                                    style={{
+                                        fontFamily: "'Inter', 'SF Pro Display', -apple-system, sans-serif",
+                                        background: 'linear-gradient(135deg, #FFFFFF 0%, #C0C0C0 100%)',
+                                        WebkitBackgroundClip: 'text',
+                                        WebkitTextFillColor: 'transparent',
+                                        backgroundClip: 'text',
+                                    }}
+                                >
+                                    Master Any Subject with AI-Powered Learning
+                                </h1>
+                                <p className="text-xl text-white/70 max-w-xl leading-relaxed">
+                                    Transform your PDFs into interactive study materials. Get instant quizzes, detailed explanations, and personalized learning paths powered by advanced AI.
+                                </p>
+                            </div>
+
+                            {/* CTA Buttons */}
+                            <div className="flex flex-wrap gap-4 pt-6">
+                                <Link
+                                    to="/register"
+                                    className="px-8 py-4 rounded-xl font-semibold text-black hover:opacity-90 transition-opacity shadow-lg shadow-white/20 flex items-center gap-2"
+                                    style={{
+                                        background: 'linear-gradient(135deg, #FFFFFF 0%, #C0C0C0 100%)',
+                                        fontFamily: "'Inter', 'SF Pro Display', -apple-system, sans-serif",
+                                    }}
+                                >
+                                    Start Learning Free
+                                    <ArrowRight size={20} />
+                                </Link>
+                                <Link
+                                    to="/demo"
+                                    className="px-8 py-4 rounded-xl font-semibold text-white border border-white/20 hover:bg-white/5 transition-colors"
+                                    style={{
+                                        fontFamily: "'Inter', 'SF Pro Display', -apple-system, sans-serif",
+                                    }}
+                                >
+                                    Watch Demo
+                                </Link>
+                            </div>
+                        </div>
+
+                        {/* Right Side - Static Robot */}
+                        <div className="hidden lg:flex items-center justify-center">
+                            <StaticRobot />
+                        </div>
                     </div>
                 </div>
-
-                {/* Ambient Background */}
-                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-accent/5 rounded-full blur-[100px] animate-pulse-slow"></div>
-                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent-dark/5 rounded-full blur-[100px] animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
             </section>
 
-            {/* Features Section */}
-            <section className="py-32 relative">
+            {/* Features Section - Static */}
+            <section className="relative py-24">
                 <div className="container mx-auto px-6">
-                    {/* Section Header */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 30 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.8 }}
-                        className="text-center mb-20"
-                    >
-                        <h2 className="text-5xl lg:text-6xl font-display font-bold mb-6">
-                            Everything You Need to <span className="gradient-text">Excel</span>
+                    <div className="text-center mb-20">
+                        <h2
+                            className="text-5xl font-black mb-4"
+                            style={{
+                                fontFamily: "'Inter', 'SF Pro Display', -apple-system, sans-serif",
+                                background: 'linear-gradient(135deg, #FFFFFF 0%, #C0C0C0 100%)',
+                                WebkitBackgroundClip: 'text',
+                                WebkitTextFillColor: 'transparent',
+                                backgroundClip: 'text',
+                            }}
+                        >
+                            Powerful Features
                         </h2>
-                        <p className="text-xl text-primary-300 max-w-2xl mx-auto">
-                            Premium tools designed to maximize your learning potential
-                        </p>
-                    </motion.div>
+                        <p className="text-white/60 text-xl">Everything you need to ace your exams</p>
+                    </div>
 
-                    {/* Feature Cards */}
-                    <div className="grid md:grid-cols-2 gap-8">
-                        {features.map((feature, index) => (
-                            <motion.div
-                                key={index}
-                                initial={{ opacity: 0, y: 30 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                viewport={{ once: true }}
-                                transition={{ duration: 0.6, delay: index * 0.1 }}
-                                className="card-hover group"
-                            >
-                                <div className="flex items-start gap-6">
-                                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-accent/20 to-accent-dark/20 border border-accent/30 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform glow">
-                                        <feature.icon size={28} className="text-accent" />
+                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {features.map((feature, index) => {
+                            const IconComponent = feature.icon;
+                            return (
+                                <div
+                                    key={index}
+                                    className="p-8 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+                                >
+                                    <div className="flex items-center justify-center w-12 h-12 rounded-full bg-white/10 mb-4">
+                                        <IconComponent size={24} className="text-white" />
                                     </div>
-                                    <div>
-                                        <h3 className="text-2xl font-display font-semibold mb-3">
-                                            {feature.title}
-                                        </h3>
-                                        <p className="text-primary-300 leading-relaxed">
-                                            {feature.description}
-                                        </p>
-                                    </div>
+                                    <h3 className="text-xl font-bold text-white mb-3">{feature.title}</h3>
+                                    <p className="text-white/60">{feature.description}</p>
                                 </div>
-                            </motion.div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             </section>
-
-            {/* CTA Section */}
-            <section className="py-32 relative">
-                <div className="container mx-auto px-6">
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        whileInView={{ opacity: 1, scale: 1 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.8 }}
-                        className="card text-center max-w-4xl mx-auto relative overflow-hidden"
-                    >
-                        {/* Animated Background */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-accent/5 via-transparent to-accent-dark/5"></div>
-                        
-                        <div className="relative z-10">
-                            <h2 className="text-5xl lg:text-6xl font-display font-bold mb-6">
-                                Ready to Transform Your Learning?
-                            </h2>
-                            <p className="text-xl text-primary-300 mb-10 max-w-2xl mx-auto">
-                                Join thousands of students who are already studying smarter with StudyGloqe
-                            </p>
-                            <Link
-                                to="/register"
-                                className="btn-primary inline-flex items-center gap-3 text-lg group"
-                            >
-                                Start Your Free Trial
-                                <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
-                            </Link>
-                        </div>
-                    </motion.div>
-                </div>
-            </section>
-
-            {/* Footer */}
-            <footer className="border-t border-white/[0.08] py-12 glass">
-                <div className="container mx-auto px-6">
-                    <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-                        <div className="flex items-center gap-4">
-                            <img
-                                src="/logo.svg"
-                                alt="StudyGloqe"
-                                className="h-8 w-8"
-                            />
-                            <span className="font-display font-bold text-lg">StudyGloqe</span>
-                        </div>
-                        <div className="text-sm text-primary-400">
-                            © 2024 StudyGloqe. All rights reserved.
-                        </div>
-                    </div>
-                </div>
-            </footer>
         </div>
     );
 };
