@@ -6,9 +6,10 @@ import { AuthProvider } from '@contexts/AuthContext';
 import Layout from '@components/common/Layout';
 import ProtectedRoute from '@components/common/ProtectedRoute';
 
-// Pages (only existing ones)
+// Pages
 import LandingPage from '@pages/LandingPage';
 import LoginPage from '@pages/auth/LoginPage';
+import RegisterPage from '@pages/auth/RegisterPage';
 import Dashboard from '@pages/Dashboard';
 
 function App() {
@@ -20,9 +21,9 @@ function App() {
                     toastOptions={{
                         duration: 3000,
                         style: {
-                            background: 'rgba(15, 23, 42, 0.95)',
+                            background: 'rgba(13, 15, 17, 0.95)',
                             color: '#f1f5f9',
-                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            border: '1px solid rgba(229, 231, 235, 0.1)',
                             backdropFilter: 'blur(12px)',
                         },
                         success: {
@@ -44,7 +45,7 @@ function App() {
                     {/* Public Routes */}
                     <Route path="/" element={<LandingPage />} />
                     <Route path="/login" element={<LoginPage />} />
-                    <Route path="/register" element={<LoginPage />} />
+                    <Route path="/register" element={<RegisterPage />} />
 
                     {/* Protected Student Routes */}
                     <Route

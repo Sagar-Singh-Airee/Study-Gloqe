@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Spline from '@splinetool/react-spline';
-import { Mail, Lock, Eye, EyeOff, LogIn, Sparkles } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, LogIn, Sparkles, ArrowRight } from 'lucide-react';
 import { useAuth } from '@contexts/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -60,7 +60,7 @@ const LoginPage = () => {
             <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent-dark/5 rounded-full blur-[100px] animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
 
             <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-12 items-center">
-                {/* Left - Spline 3D */}
+                {/* Left - Spline 3D Silver Robot */}
                 <motion.div
                     initial={{ opacity: 0, x: -50 }}
                     animate={{ opacity: 1, x: 0 }}
