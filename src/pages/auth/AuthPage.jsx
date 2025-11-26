@@ -298,9 +298,7 @@ const AuthPage = () => {
                     <div className="toggle">
                         <div className="toggle-panel toggle-left">
                             <div className="logo-container">
-                                <svg width="48" height="48" viewBox="0 0 32 32">
-                                    <circle cx="16" cy="16" r="12" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" fill="rgba(255,255,255,0.95)" />
-                                </svg>
+                                <img src="/src/assets/logo/logo.svg" alt="StudyGloqe Logo" className="logo-image" />
                                 <h2 className="logo-text">StudyGloqe</h2>
                             </div>
                             <h1>Welcome Back!</h1>
@@ -312,9 +310,7 @@ const AuthPage = () => {
 
                         <div className="toggle-panel toggle-right">
                             <div className="logo-container">
-                                <svg width="48" height="48" viewBox="0 0 32 32">
-                                    <circle cx="16" cy="16" r="12" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" fill="rgba(255,255,255,0.95)" />
-                                </svg>
+                                <img src="/src/assets/logo/logo.svg" alt="StudyGloqe Logo" className="logo-image" />
                                 <h2 className="logo-text">StudyGloqe</h2>
                             </div>
                             <h1>Hello, Friend!</h1>
