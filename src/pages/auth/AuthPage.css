@@ -1,0 +1,584 @@
+/* src/pages/AuthPage.css */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap');
+
+/* ==================== ROOT & RESET ==================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* ==================== AUTH PAGE CONTAINER ==================== */
+.auth-page {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0f0f0f 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Montserrat', sans-serif;
+    position: relative;
+    overflow: hidden;
+    padding: 20px;
+}
+
+/* ==================== AMBIENT GLOWS ==================== */
+.ambient-glow {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.glow-1 {
+    width: 500px;
+    height: 500px;
+    top: -10%;
+    left: -10%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.03) 0%, transparent 70%);
+    filter: blur(80px);
+    animation: float 8s ease-in-out infinite;
+}
+
+.glow-2 {
+    width: 400px;
+    height: 400px;
+    bottom: -10%;
+    right: -10%;
+    background: radial-gradient(circle, rgba(200, 200, 200, 0.02) 0%, transparent 70%);
+    filter: blur(60px);
+    animation: float 10s ease-in-out infinite reverse;
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translate(0, 0);
+    }
+    50% {
+        transform: translate(30px, -30px);
+    }
+}
+
+/* ==================== MAIN CONTAINER ==================== */
+.auth-container {
+    background: linear-gradient(145deg, #1a1a1a, #0d0d0d);
+    border-radius: 30px;
+    box-shadow: 
+        0 20px 60px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    position: relative;
+    overflow: hidden;
+    width: 850px;
+    max-width: 100%;
+    min-height: 550px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    z-index: 1;
+}
+
+/* ==================== TYPOGRAPHY ==================== */
+.auth-container h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin: 0;
+}
+
+.auth-container p {
+    font-size: 14px;
+    line-height: 22px;
+    letter-spacing: 0.3px;
+    margin: 20px 0;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.auth-container span {
+    font-size: 12px;
+    color: #666;
+}
+
+.auth-container a {
+    color: #888;
+    font-size: 13px;
+    text-decoration: none;
+    margin: 15px 0 10px;
+    transition: color 0.3s ease;
+}
+
+.auth-container a:hover {
+    color: #bbb;
+}
+
+/* ==================== FORM CONTAINERS ==================== */
+.form-container {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    transition: all 0.6s ease-in-out;
+}
+
+.sign-in {
+    left: 0;
+    width: 50%;
+    z-index: 2;
+}
+
+.auth-container.active .sign-in {
+    transform: translateX(100%);
+}
+
+.sign-up {
+    left: 0;
+    width: 50%;
+    opacity: 0;
+    z-index: 1;
+}
+
+.auth-container.active .sign-up {
+    transform: translateX(100%);
+    opacity: 1;
+    z-index: 5;
+    animation: fadeInSlide 0.6s;
+}
+
+@keyframes fadeInSlide {
+    0%, 49.99% {
+        opacity: 0;
+        z-index: 1;
+    }
+    50%, 100% {
+        opacity: 1;
+        z-index: 5;
+    }
+}
+
+/* ==================== FORM STYLING ==================== */
+.form-container form {
+    background: #f5f5f5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: 0 50px;
+    height: 100%;
+    position: relative;
+}
+
+.form-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.sparkle-icon {
+    color: #333;
+    animation: sparkle 2s ease-in-out infinite;
+}
+
+@keyframes sparkle {
+    0%, 100% {
+        opacity: 0.5;
+        transform: rotate(0deg) scale(1);
+    }
+    50% {
+        opacity: 1;
+        transform: rotate(180deg) scale(1.1);
+    }
+}
+
+/* ==================== INPUT GROUPS ==================== */
+.input-group {
+    position: relative;
+    width: 100%;
+    margin: 8px 0;
+}
+
+.input-icon {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #666;
+    z-index: 1;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 12px 15px 12px 45px;
+    font-size: 13px;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    background: #fff;
+    color: #333;
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+.input-group input:focus {
+    border-color: #999;
+    box-shadow: 0 0 0 3px rgba(150, 150, 150, 0.1);
+}
+
+.input-group input::placeholder {
+    color: #999;
+}
+
+.toggle-password {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    padding: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.3s ease;
+}
+
+.toggle-password:hover {
+    color: #333;
+}
+
+/* ==================== ROLE SELECTION ==================== */
+.role-selection {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    margin: 10px 0;
+}
+
+.role-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 10px;
+    border: 2px solid #ddd;
+    border-radius: 12px;
+    background: #fff;
+    color: #666;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.role-btn:hover {
+    border-color: #999;
+    transform: translateY(-2px);
+}
+
+.role-btn.active {
+    border-color: #555;
+    background: linear-gradient(135deg, #e8e8e8, #f5f5f5);
+    color: #1a1a1a;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* ==================== SOCIAL ICONS ==================== */
+.social-icons {
+    margin: 20px 0;
+    display: flex;
+    gap: 10px;
+}
+
+.social-icons .icon {
+    width: 45px;
+    height: 45px;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    background: #fff;
+    color: #555;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.social-icons .icon:hover {
+    background: #f0f0f0;
+    border-color: #999;
+    transform: translateY(-3px);
+}
+
+.social-icons .icon:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ==================== DIVIDER TEXT ==================== */
+.divider-text {
+    display: block;
+    margin: 15px 0;
+    color: #999;
+    font-size: 12px;
+    text-align: center;
+}
+
+/* ==================== BUTTONS ==================== */
+.submit-btn {
+    background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 12px 50px;
+    border: none;
+    border-radius: 10px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    margin-top: 15px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.submit-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transition: left 0.5s ease;
+}
+
+.submit-btn:hover::before {
+    left: 100%;
+}
+
+.submit-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+.submit-btn:active {
+    transform: translateY(0);
+}
+
+.submit-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* ==================== SPINNER ==================== */
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ==================== FORGOT LINK ==================== */
+.forgot-link {
+    align-self: flex-end;
+    margin-top: 5px;
+    font-size: 12px;
+}
+
+/* ==================== TOGGLE CONTAINER ==================== */
+.toggle-container {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 50%;
+    height: 100%;
+    overflow: hidden;
+    transition: all 0.6s ease-in-out;
+    border-radius: 0 30px 30px 0;
+    z-index: 1000;
+}
+
+.auth-container.active .toggle-container {
+    transform: translateX(-100%);
+    border-radius: 30px 0 0 30px;
+}
+
+.toggle {
+    background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 50%, #0d0d0d 100%);
+    height: 100%;
+    position: relative;
+    left: -100%;
+    width: 200%;
+    transform: translateX(0);
+    transition: all 0.6s ease-in-out;
+    box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.3);
+}
+
+.auth-container.active .toggle {
+    transform: translateX(50%);
+}
+
+/* ==================== TOGGLE PANELS ==================== */
+.toggle-panel {
+    position: absolute;
+    width: 50%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: 0 40px;
+    text-align: center;
+    top: 0;
+    transform: translateX(0);
+    transition: all 0.6s ease-in-out;
+    color: #fff;
+}
+
+.toggle-panel h1 {
+    color: #fff;
+    font-size: 2rem;
+    margin: 20px 0 10px;
+}
+
+.toggle-left {
+    transform: translateX(-200%);
+}
+
+.auth-container.active .toggle-left {
+    transform: translateX(0);
+}
+
+.toggle-right {
+    right: 0;
+    transform: translateX(0);
+}
+
+.auth-container.active .toggle-right {
+    transform: translateX(200%);
+}
+
+/* ==================== LOGO ==================== */
+.logo-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.logo-container svg {
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+}
+
+.logo-text {
+    font-size: 1.5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #fff, #c0c0c0);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: 1px;
+}
+
+/* ==================== TOGGLE BUTTON ==================== */
+.toggle-btn {
+    background: transparent;
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 12px 45px;
+    border-radius: 10px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    margin-top: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: #fff;
+    transform: scale(1.05);
+}
+
+.toggle-btn:active {
+    transform: scale(0.98);
+}
+
+/* ==================== RESPONSIVE DESIGN ==================== */
+@media (max-width: 768px) {
+    .auth-container {
+        width: 100%;
+        min-height: 600px;
+    }
+
+    .form-container {
+        width: 100% !important;
+        position: relative;
+    }
+
+    .auth-container.active .sign-in,
+    .auth-container.active .sign-up {
+        transform: translateX(0);
+    }
+
+    .sign-up {
+        display: none;
+    }
+
+    .auth-container.active .sign-up {
+        display: flex;
+    }
+
+    .auth-container.active .sign-in {
+        display: none;
+    }
+
+    .toggle-container {
+        display: none;
+    }
+
+    .form-container form {
+        padding: 30px;
+    }
+
+    .auth-container h1 {
+        font-size: 1.8rem;
+    }
+
+    .role-selection {
+        flex-direction: column;
+    }
+
+    .role-btn {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .auth-page {
+        padding: 10px;
+    }
+
+    .form-container form {
+        padding: 20px;
+    }
+
+    .auth-container h1 {
+        font-size: 1.5rem;
+    }
+
+    .submit-btn {
+        padding: 10px 40px;
+        font-size: 12px;
+    }
+}

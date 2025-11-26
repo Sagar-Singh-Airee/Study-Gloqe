@@ -326,7 +326,7 @@ const LandingPage = () => {
 
                         <div className="flex items-center gap-3">
                             <Link
-                                to="/login"
+                                to="/auth"
                                 className="group relative px-5 py-2 rounded-lg text-sm font-medium text-white/80 hover:text-white transition-all duration-300 overflow-hidden"
                             >
                                 <span className="relative z-10">Sign In</span>
@@ -335,7 +335,7 @@ const LandingPage = () => {
                                 </span>
                             </Link>
                             <Link
-                                to="/register"
+                                to="/auth"
                                 className="group relative px-5 py-2 bg-white text-black rounded-lg text-sm font-semibold transition-all duration-300 hover:scale-105 overflow-hidden"
                             >
                                 <span className="relative z-10">Get Started</span>
@@ -485,7 +485,7 @@ const LandingPage = () => {
                             data-aos-delay="500"
                         >
                             <Link
-                                to="/register"
+                                to="/auth"
                                 className="group relative inline-flex items-center justify-center gap-2.5 px-9 py-4 bg-white text-black rounded-xl text-lg font-bold transition-all duration-300 hover:scale-105 overflow-hidden"
                             >
                                 <span className="relative z-10 flex items-center gap-2.5 whitespace-nowrap">
@@ -625,7 +625,7 @@ const LandingPage = () => {
                                 </ul>
 
                                 <Link
-                                    to="/register"
+                                    to="/auth"
                                     className={`group/btn relative block w-full py-2.5 rounded-lg text-sm font-semibold text-center transition-all duration-300 overflow-hidden ${
                                         plan.highlighted
                                             ? 'bg-white text-black'
@@ -858,7 +858,7 @@ const LandingPage = () => {
                             Join thousands transforming their learning experience
                         </p>
                         <Link
-                            to="/register"
+                            to="/auth"
                             className="group relative inline-flex items-center gap-2 px-8 py-3.5 bg-white text-black rounded-xl text-lg font-bold transition-all duration-300 hover:scale-105 overflow-hidden"
                         >
                             <span className="relative z-10 flex items-center gap-2 whitespace-nowrap">

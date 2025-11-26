@@ -8,8 +8,7 @@ import ProtectedRoute from '@components/common/ProtectedRoute';
 
 // Pages
 import LandingPage from '@pages/LandingPage';
-import LoginPage from '@pages/auth/LoginPage';
-import RegisterPage from '@pages/auth/RegisterPage';
+import AuthPage from '@pages/auth/AuthPage';  // ✅ Single auth page
 import Dashboard from '@pages/Dashboard';
 
 function App() {
@@ -44,8 +43,9 @@ function App() {
                 <Routes>
                     {/* Public Routes */}
                     <Route path="/" element={<LandingPage />} />
-                    <Route path="/login" element={<LoginPage />} />
-                    <Route path="/register" element={<RegisterPage />} />
+                    <Route path="/auth" element={<AuthPage />} />
+                    <Route path="/login" element={<AuthPage />} />
+                    <Route path="/register" element={<AuthPage />} />
 
                     {/* Protected Student Routes */}
                     <Route
