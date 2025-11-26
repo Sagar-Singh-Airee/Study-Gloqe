@@ -1,4 +1,3 @@
-// src/contexts/AuthContext.jsx
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
     signInWithEmailAndPassword,
@@ -19,12 +18,16 @@ import {
 import { doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { auth, db, COLLECTIONS } from '@config/firebase';
 
-
 const AuthContext = createContext({});
 
-
-// Custom error messages
+// Enhanced error messages
 const getErrorMessage = (error) => {
+    console.error('Auth Error Details:', {
+        code: error.code,
+        message: error.message,
+        stack: error.stack
+    });
+
     const errorMessages = {
         'auth/email-already-in-use': 'This email is already registered. Please sign in instead.',
         'auth/invalid-email': 'Please enter a valid email address.',
@@ -38,11 +41,12 @@ const getErrorMessage = (error) => {
         'auth/popup-closed-by-user': 'Sign-in popup was closed. Please try again.',
         'auth/cancelled-popup-request': 'Only one popup request is allowed at a time.',
         'auth/requires-recent-login': 'Please sign in again to perform this action.',
+        'auth/invalid-credential': 'Invalid email or password. Please check and try again.',
+        'permission-denied': 'Permission denied. Please check your Firestore security rules.',
     };
 
     return errorMessages[error.code] || error.message || 'An unexpected error occurred. Please try again.';
 };
-
 
 export const useAuth = () => {
     const context = useContext(AuthContext);
@@ -52,13 +56,11 @@ export const useAuth = () => {
     return context;
 };
 
-
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [userData, setUserData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [authError, setAuthError] = useState(null);
-
 
     // Clear error after 5 seconds
     useEffect(() => {
@@ -68,45 +70,62 @@ export const AuthProvider = ({ children }) => {
         }
     }, [authError]);
 
-
     // Fetch user data from Firestore with real-time updates
     const fetchUserData = useCallback(async (uid) => {
         try {
+            console.log('📥 Fetching user data for:', uid);
             const userDocRef = doc(db, COLLECTIONS.USERS, uid);
             
             // Set up real-time listener
-            const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    setUserData(docSnap.data());
-                } else {
-                    console.error('User document does not exist');
-                    setUserData(null);
+            const unsubscribe = onSnapshot(
+                userDocRef,
+                (docSnap) => {
+                    if (docSnap.exists()) {
+                        console.log('✅ User data loaded:', docSnap.data());
+                        setUserData(docSnap.data());
+                    } else {
+                        console.error('❌ User document does not exist');
+                        setUserData(null);
+                    }
+                },
+                (error) => {
+                    console.error('❌ Error fetching user data:', error);
+                    setAuthError(getErrorMessage(error));
                 }
-            }, (error) => {
-                console.error('Error fetching user data:', error);
-                setAuthError(getErrorMessage(error));
-            });
+            );
 
             return unsubscribe;
         } catch (error) {
-            console.error('Error setting up user data listener:', error);
+            console.error('❌ Error setting up user data listener:', error);
             setAuthError(getErrorMessage(error));
         }
     }, []);
 
-
     // Sign up with email and password
     const signup = async (email, password, additionalData = {}) => {
         try {
+            console.log('🔐 Starting signup process...');
             setAuthError(null);
             setLoading(true);
 
+            // Validate inputs
+            if (!email || !password) {
+                throw new Error('Email and password are required');
+            }
+
+            if (password.length < 6) {
+                throw new Error('Password must be at least 6 characters long');
+            }
+
+            console.log('📝 Creating user account...');
             const { user: newUser } = await createUserWithEmailAndPassword(auth, email, password);
+            console.log('✅ User account created:', newUser.uid);
 
             // Update Firebase Auth profile
             await updateProfile(newUser, {
                 displayName: additionalData.name || ''
             });
+            console.log('✅ Profile updated');
 
             // Create user document in Firestore
             const userDocData = {
@@ -134,9 +153,12 @@ export const AuthProvider = ({ children }) => {
                 }
             };
 
+            console.log('📝 Creating Firestore user document...');
             await setDoc(doc(db, COLLECTIONS.USERS, newUser.uid), userDocData);
+            console.log('✅ User document created');
 
             // Initialize gamification
+            console.log('🎮 Initializing gamification...');
             await setDoc(doc(db, COLLECTIONS.GAMIFICATION, newUser.uid), {
                 xp: 0,
                 level: 1,
@@ -147,13 +169,16 @@ export const AuthProvider = ({ children }) => {
                 history: [],
                 milestones: []
             });
+            console.log('✅ Gamification initialized');
 
             // Send email verification
             await sendEmailVerification(newUser);
+            console.log('✅ Verification email sent');
 
+            console.log('🎉 Signup complete!');
             return newUser;
         } catch (error) {
-            console.error('Signup error:', error);
+            console.error('❌ Signup error:', error);
             const errorMessage = getErrorMessage(error);
             setAuthError(errorMessage);
             throw new Error(errorMessage);
@@ -161,24 +186,33 @@ export const AuthProvider = ({ children }) => {
             setLoading(false);
         }
     };
-
 
     // Login with email and password
     const login = async (email, password) => {
         try {
+            console.log('🔐 Starting login process...');
             setAuthError(null);
             setLoading(true);
 
+            // Validate inputs
+            if (!email || !password) {
+                throw new Error('Email and password are required');
+            }
+
+            console.log('🔑 Signing in...');
             const result = await signInWithEmailAndPassword(auth, email, password);
+            console.log('✅ Signed in successfully:', result.user.uid);
 
             // Update last login time
+            console.log('📝 Updating last login time...');
             await updateDoc(doc(db, COLLECTIONS.USERS, result.user.uid), {
                 lastLoginAt: serverTimestamp()
             });
 
+            console.log('🎉 Login complete!');
             return result.user;
         } catch (error) {
-            console.error('Login error:', error);
+            console.error('❌ Login error:', error);
             const errorMessage = getErrorMessage(error);
             setAuthError(errorMessage);
             throw new Error(errorMessage);
@@ -187,10 +221,10 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-
     // Login with Google
     const loginWithGoogle = async () => {
         try {
+            console.log('🔐 Starting Google login...');
             setAuthError(null);
             setLoading(true);
 
@@ -199,13 +233,16 @@ export const AuthProvider = ({ children }) => {
                 prompt: 'select_account'
             });
 
+            console.log('🔑 Opening Google popup...');
             const result = await signInWithPopup(auth, provider);
+            console.log('✅ Google sign-in successful:', result.user.uid);
 
-            // Check if user document exists, if not create it
+            // Check if user document exists
             const userDocRef = doc(db, COLLECTIONS.USERS, result.user.uid);
             const userDoc = await getDoc(userDocRef);
 
             if (!userDoc.exists()) {
+                console.log('📝 Creating new user document...');
                 const userDocData = {
                     uid: result.user.uid,
                     email: result.user.email,
@@ -244,16 +281,18 @@ export const AuthProvider = ({ children }) => {
                     history: [],
                     milestones: []
                 });
+                console.log('✅ User document created');
             } else {
-                // Update last login time
+                console.log('📝 Updating last login time...');
                 await updateDoc(userDocRef, {
                     lastLoginAt: serverTimestamp()
                 });
             }
 
+            console.log('🎉 Google login complete!');
             return result.user;
         } catch (error) {
-            console.error('Google auth error:', error);
+            console.error('❌ Google auth error:', error);
             const errorMessage = getErrorMessage(error);
             setAuthError(errorMessage);
             throw new Error(errorMessage);
@@ -262,36 +301,36 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-
     // Logout
     const logout = async () => {
         try {
+            console.log('👋 Logging out...');
             setAuthError(null);
             await signOut(auth);
             setUser(null);
             setUserData(null);
+            console.log('✅ Logged out successfully');
         } catch (error) {
-            console.error('Logout error:', error);
+            console.error('❌ Logout error:', error);
             const errorMessage = getErrorMessage(error);
             setAuthError(errorMessage);
             throw new Error(errorMessage);
         }
     };
-
 
     // Send password reset email
     const resetPassword = async (email) => {
         try {
             setAuthError(null);
             await sendPasswordResetEmail(auth, email);
+            console.log('✅ Password reset email sent');
         } catch (error) {
-            console.error('Password reset error:', error);
+            console.error('❌ Password reset error:', error);
             const errorMessage = getErrorMessage(error);
             setAuthError(errorMessage);
             throw new Error(errorMessage);
         }
     };
-
 
     // Update user password
     const changePassword = async (newPassword) => {
@@ -300,13 +339,12 @@ export const AuthProvider = ({ children }) => {
             if (!user) throw new Error('No user logged in');
             await updatePassword(user, newPassword);
         } catch (error) {
-            console.error('Change password error:', error);
+            console.error('❌ Change password error:', error);
             const errorMessage = getErrorMessage(error);
             setAuthError(errorMessage);
             throw new Error(errorMessage);
         }
     };
-
 
     // Update user email
     const changeEmail = async (newEmail) => {
@@ -324,13 +362,12 @@ export const AuthProvider = ({ children }) => {
             // Send verification email
             await sendEmailVerification(user);
         } catch (error) {
-            console.error('Change email error:', error);
+            console.error('❌ Change email error:', error);
             const errorMessage = getErrorMessage(error);
             setAuthError(errorMessage);
             throw new Error(errorMessage);
         }
     };
-
 
     // Update user profile
     const updateUserProfile = async (updates) => {
@@ -358,13 +395,12 @@ export const AuthProvider = ({ children }) => {
 
             await updateDoc(userDocRef, updateData);
         } catch (error) {
-            console.error('Update profile error:', error);
+            console.error('❌ Update profile error:', error);
             const errorMessage = getErrorMessage(error);
             setAuthError(errorMessage);
             throw new Error(errorMessage);
         }
     };
-
 
     // Resend email verification
     const resendVerificationEmail = async () => {
@@ -373,15 +409,14 @@ export const AuthProvider = ({ children }) => {
             if (!user) throw new Error('No user logged in');
             await sendEmailVerification(user);
         } catch (error) {
-            console.error('Resend verification error:', error);
+            console.error('❌ Resend verification error:', error);
             const errorMessage = getErrorMessage(error);
             setAuthError(errorMessage);
             throw new Error(errorMessage);
         }
     };
 
-
-    // Reauthenticate user (required for sensitive operations)
+    // Reauthenticate user
     const reauthenticate = async (password) => {
         try {
             setAuthError(null);
@@ -390,13 +425,12 @@ export const AuthProvider = ({ children }) => {
             const credential = EmailAuthProvider.credential(user.email, password);
             await reauthenticateWithCredential(user, credential);
         } catch (error) {
-            console.error('Reauthentication error:', error);
+            console.error('❌ Reauthentication error:', error);
             const errorMessage = getErrorMessage(error);
             setAuthError(errorMessage);
             throw new Error(errorMessage);
         }
     };
-
 
     // Delete user account
     const deleteAccount = async () => {
@@ -404,26 +438,22 @@ export const AuthProvider = ({ children }) => {
             setAuthError(null);
             if (!user) throw new Error('No user logged in');
 
-            // Delete user data from Firestore
-            // Note: Consider using Cloud Functions for complete data deletion
             await updateDoc(doc(db, COLLECTIONS.USERS, user.uid), {
                 deleted: true,
                 deletedAt: serverTimestamp()
             });
 
-            // Delete Firebase Auth account
             await deleteUser(user);
             
             setUser(null);
             setUserData(null);
         } catch (error) {
-            console.error('Delete account error:', error);
+            console.error('❌ Delete account error:', error);
             const errorMessage = getErrorMessage(error);
             setAuthError(errorMessage);
             throw new Error(errorMessage);
         }
     };
-
 
     // Update user stats
     const updateUserStats = async (statUpdates) => {
@@ -435,13 +465,12 @@ export const AuthProvider = ({ children }) => {
                 [`stats.${Object.keys(statUpdates)[0]}`]: Object.values(statUpdates)[0]
             });
         } catch (error) {
-            console.error('Update stats error:', error);
+            console.error('❌ Update stats error:', error);
             throw error;
         }
     };
 
-
-    // Update user XP and level
+    // Add XP
     const addXP = async (xpAmount) => {
         try {
             if (!user) throw new Error('No user logged in');
@@ -452,7 +481,7 @@ export const AuthProvider = ({ children }) => {
             if (gamificationDoc.exists()) {
                 const currentData = gamificationDoc.data();
                 const newXP = (currentData.xp || 0) + xpAmount;
-                const newLevel = Math.floor(newXP / 100) + 1; // 100 XP per level
+                const newLevel = Math.floor(newXP / 100) + 1;
 
                 await updateDoc(gamificationRef, {
                     xp: newXP,
@@ -467,22 +496,22 @@ export const AuthProvider = ({ children }) => {
                     ]
                 });
 
-                // Update user document
                 await updateDoc(doc(db, COLLECTIONS.USERS, user.uid), {
                     xp: newXP,
                     level: newLevel
                 });
             }
         } catch (error) {
-            console.error('Add XP error:', error);
+            console.error('❌ Add XP error:', error);
             throw error;
         }
     };
 
-
     // Listen to auth state changes
     useEffect(() => {
+        console.log('👂 Setting up auth state listener...');
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            console.log('🔄 Auth state changed:', user ? user.uid : 'No user');
             setUser(user);
             if (user) {
                 await fetchUserData(user.uid);
@@ -494,7 +523,6 @@ export const AuthProvider = ({ children }) => {
 
         return unsubscribe;
     }, [fetchUserData]);
-
 
     const value = {
         // State
@@ -529,13 +557,11 @@ export const AuthProvider = ({ children }) => {
         clearError: () => setAuthError(null)
     };
 
-
     return (
         <AuthContext.Provider value={value}>
             {!loading && children}
         </AuthContext.Provider>
     );
 };
-
 
 export default AuthContext;

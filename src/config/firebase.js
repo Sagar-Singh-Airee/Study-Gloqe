@@ -1,3 +1,4 @@
+// src/config/firebase.js
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
@@ -5,8 +6,28 @@ import { getStorage } from 'firebase/storage';
 import { getFunctions } from 'firebase/functions';
 import { getAnalytics } from 'firebase/analytics';
 
-// Your Firebase configuration
-// Replace with your actual Firebase config from Firebase Console
+// Validate environment variables
+const requiredEnvVars = [
+    'VITE_FIREBASE_API_KEY',
+    'VITE_FIREBASE_AUTH_DOMAIN',
+    'VITE_FIREBASE_PROJECT_ID',
+    'VITE_FIREBASE_STORAGE_BUCKET',
+    'VITE_FIREBASE_MESSAGING_SENDER_ID',
+    'VITE_FIREBASE_APP_ID'
+];
+
+const missingVars = requiredEnvVars.filter(varName => !import.meta.env[varName]);
+
+if (missingVars.length > 0) {
+    console.error('❌ Missing Firebase environment variables:', missingVars);
+    console.error('📝 Please create a .env file in your project root with the following variables:');
+    missingVars.forEach(varName => {
+        console.error(`   ${varName}=your_value_here`);
+    });
+    throw new Error(`Missing Firebase configuration. Please check your .env file.`);
+}
+
+// Firebase configuration
 const firebaseConfig = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
     authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -17,8 +38,21 @@ const firebaseConfig = {
     measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
+// Log config status (only in development)
+if (import.meta.env.DEV) {
+    console.log('🔥 Firebase Config Loaded Successfully');
+    console.log('📦 Project ID:', firebaseConfig.projectId);
+}
+
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
+let app;
+try {
+    app = initializeApp(firebaseConfig);
+    console.log('✅ Firebase initialized successfully');
+} catch (error) {
+    console.error('❌ Firebase initialization error:', error);
+    throw error;
+}
 
 // Initialize services
 export const auth = getAuth(app);

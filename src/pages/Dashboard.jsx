@@ -1,3 +1,4 @@
+// src/pages/Dashboard.jsx
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -11,16 +12,16 @@ import {
     Calendar,
     Zap,
     Award,
-    Play
+    Play,
+    LogOut
 } from 'lucide-react';
 import { useAuth } from '@contexts/AuthContext';
-import { getUserDocuments } from '@services/documentService';
-import { getUserQuizzes } from '@services/quizService';
+import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 
 const Dashboard = () => {
-    const { userData } = useAuth();
-    const [documents, setDocuments] = useState([]);
-    const [quizzes, setQuizzes] = useState([]);
+    const { user, userData, logout } = useAuth();
+    const navigate = useNavigate();
     const [stats, setStats] = useState({
         totalDocuments: 0,
         completedQuizzes: 0,
@@ -30,28 +31,37 @@ const Dashboard = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        loadDashboardData();
-    }, []);
+        // Only load data when user and userData are available
+        if (user && userData) {
+            loadDashboardData();
+        }
+    }, [user, userData]); // Added dependencies
 
     const loadDashboardData = async () => {
         try {
-            const [docsData, quizzesData] = await Promise.all([
-                getUserDocuments(userData.uid, 5),
-                getUserQuizzes(userData.uid, userData.role)
-            ]);
-
-            setDocuments(docsData);
-            setQuizzes(quizzesData);
+            // For now, set mock data
+            // Once you create the services, uncomment the real API calls
             setStats({
-                totalDocuments: docsData.length,
-                completedQuizzes: quizzesData.filter(q => q.status === 'completed').length,
-                currentStreak: 3,
+                totalDocuments: 0,
+                completedQuizzes: 0,
+                currentStreak: userData?.streakDays || 0,
                 weeklyProgress: 65
             });
         } catch (error) {
             console.error('Error loading dashboard:', error);
+            toast.error('Failed to load dashboard data');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleLogout = async () => {
+        try {
+            await logout();
+            toast.success('Logged out successfully');
+            navigate('/auth');
+        } catch (error) {
+            toast.error('Failed to logout');
         }
     };
 
@@ -84,242 +94,225 @@ const Dashboard = () => {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-black">
                 <div className="text-center">
-                    <div className="w-16 h-16 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto"></div>
-                    <p className="mt-4 text-primary-300">Loading dashboard...</p>
+                    <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                    <p className="mt-4 text-gray-300">Loading dashboard...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!userData) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-black">
+                <div className="text-center">
+                    <p className="text-gray-300">No user data found. Please try logging in again.</p>
+                    <button onClick={() => navigate('/auth')} className="mt-4 px-6 py-2 bg-blue-600 rounded-lg">
+                        Go to Login
+                    </button>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="space-y-8">
-            {/* Welcome Section */}
-            <motion.div
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-            >
-                <h1 className="text-4xl font-display font-bold mb-2">
-                    Welcome back, <span className="gradient-text">{userData?.name || 'Student'}</span>!
-                </h1>
-                <p className="text-primary-300">Ready to continue your learning journey?</p>
-            </motion.div>
-
-            {/* Quick Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {quickStats.map((stat, index) => (
+        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white p-8">
+            <div className="max-w-7xl mx-auto space-y-8">
+                {/* Header with Logout */}
+                <div className="flex justify-between items-center">
                     <motion.div
-                        key={index}
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: index * 0.1 }}
-                        className="card-hover"
+                        transition={{ duration: 0.5 }}
                     >
-                        <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${stat.color} flex items-center justify-center mb-4`}>
-                            <stat.icon size={24} />
-                        </div>
-                        <div className="text-3xl font-bold mb-1">{stat.value}</div>
-                        <div className="text-sm text-primary-400">{stat.label}</div>
-                    </motion.div>
-                ))}
-            </div>
-
-            {/* Main Content Grid */}
-            <div className="grid lg:grid-cols-3 gap-6">
-                {/* Left Column - Recent Activity & Recommendations */}
-                <div className="lg:col-span-2 space-y-6">
-                    {/* Recommended Next Steps */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: 0.4 }}
-                        className="card bg-gradient-to-br from-accent/20 to-blue-600/20 border-accent/30"
-                    >
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center">
-                                <Zap size={20} />
-                            </div>
-                            <div>
-                                <h3 className="text-xl font-display font-semibold">AI Recommended</h3>
-                                <p className="text-sm text-primary-300">Personalized for your learning path</p>
-                            </div>
-                        </div>
-
-                        <div className="space-y-3">
-                            <button className="w-full p-4 rounded-xl glass-hover text-left flex items-center justify-between group">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
-                                        <Play size={18} />
-                                    </div>
-                                    <div>
-                                        <div className="font-medium">Continue: Physics Chapter 5 Quiz</div>
-                                        <div className="text-sm text-primary-400">3 questions remaining</div>
-                                    </div>
-                                </div>
-                                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <Play size={20} />
-                                </div>
-                            </button>
-
-                            <Link
-                                to="/upload"
-                                className="w-full p-4 rounded-xl glass-hover text-left flex items-center justify-between group"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
-                                        <Upload size={18} />
-                                    </div>
-                                    <div>
-                                        <div className="font-medium">Upload new study material</div>
-                                        <div className="text-sm text-primary-400">Generate instant quizzes</div>
-                                    </div>
-                                </div>
-                                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <Upload size={20} />
-                                </div>
-                            </Link>
-                        </div>
+                        <h1 className="text-4xl font-bold mb-2">
+                            Welcome back, <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">{userData?.name || user?.email?.split('@')[0]}</span>!
+                        </h1>
+                        <p className="text-gray-400">Ready to continue your learning journey?</p>
                     </motion.div>
 
-                    {/* Recent Documents */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: 0.5 }}
-                        className="card"
+                    <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-2 px-4 py-2 bg-red-600/20 border border-red-500/30 rounded-lg hover:bg-red-600/30 transition-colors"
                     >
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-2xl font-display font-semibold">Recent Documents</h2>
-                            <Link to="/upload" className="text-accent hover:text-accent-light text-sm font-medium">
-                                View All
-                            </Link>
-                        </div>
+                        <LogOut size={18} />
+                        Logout
+                    </button>
+                </div>
 
-                        {documents.length === 0 ? (
+                {/* Quick Stats */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {quickStats.map((stat, index) => (
+                        <motion.div
+                            key={index}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5, delay: index * 0.1 }}
+                            className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-2xl p-6 hover:border-gray-600 transition-all"
+                        >
+                            <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${stat.color} flex items-center justify-center mb-4`}>
+                                <stat.icon size={24} />
+                            </div>
+                            <div className="text-3xl font-bold mb-1">{stat.value}</div>
+                            <div className="text-sm text-gray-400">{stat.label}</div>
+                        </motion.div>
+                    ))}
+                </div>
+
+                {/* Main Content Grid */}
+                <div className="grid lg:grid-cols-3 gap-6">
+                    {/* Left Column */}
+                    <div className="lg:col-span-2 space-y-6">
+                        {/* AI Recommended */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5, delay: 0.4 }}
+                            className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border border-blue-500/30 rounded-2xl p-6"
+                        >
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center">
+                                    <Zap size={20} />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-semibold">AI Recommended</h3>
+                                    <p className="text-sm text-gray-400">Personalized for your learning path</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <Link
+                                    to="/upload"
+                                    className="w-full p-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-left flex items-center justify-between group transition-all"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
+                                            <Upload size={18} />
+                                        </div>
+                                        <div>
+                                            <div className="font-medium">Upload new study material</div>
+                                            <div className="text-sm text-gray-400">Generate instant quizzes</div>
+                                        </div>
+                                    </div>
+                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Play size={20} />
+                                    </div>
+                                </Link>
+                            </div>
+                        </motion.div>
+
+                        {/* Recent Documents */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5, delay: 0.5 }}
+                            className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-2xl p-6"
+                        >
+                            <div className="flex items-center justify-between mb-6">
+                                <h2 className="text-2xl font-semibold">Recent Documents</h2>
+                                <Link to="/upload" className="text-blue-400 hover:text-blue-300 text-sm font-medium">
+                                    View All
+                                </Link>
+                            </div>
+
                             <div className="text-center py-12">
-                                <BookOpen size={48} className="mx-auto text-primary-400 mb-4" />
-                                <p className="text-primary-300 mb-4">No documents yet</p>
-                                <Link to="/upload" className="btn-primary inline-flex items-center gap-2">
+                                <BookOpen size={48} className="mx-auto text-gray-500 mb-4" />
+                                <p className="text-gray-400 mb-4">No documents yet</p>
+                                <Link to="/upload" className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
                                     <Upload size={18} />
                                     Upload Your First PDF
                                 </Link>
                             </div>
-                        ) : (
-                            <div className="space-y-3">
-                                {documents.slice(0, 5).map((doc, index) => (
-                                    <Link
-                                        key={doc.id}
-                                        to={`/reader/${doc.docId}`}
-                                        className="flex items-center gap-4 p-4 rounded-xl glass-hover group"
-                                    >
-                                        <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-accent to-blue-600 flex items-center justify-center flex-shrink-0">
-                                            <BookOpen size={20} />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="font-medium truncate">{doc.title}</div>
-                                            <div className="text-sm text-primary-400">
-                                                {doc.pages || 0} pages • {doc.subject || 'Uncategorized'}
-                                            </div>
-                                        </div>
-                                        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <Play size={20} />
-                                        </div>
-                                    </Link>
-                                ))}
-                            </div>
-                        )}
-                    </motion.div>
-                </div>
+                        </motion.div>
+                    </div>
 
-                {/* Right Column - Progress & Calendar */}
-                <div className="space-y-6">
-                    {/* XP Progress */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: 0.6 }}
-                        className="card"
-                    >
-                        <h3 className="text-xl font-display font-semibold mb-4">Your Progress</h3>
+                    {/* Right Column */}
+                    <div className="space-y-6">
+                        {/* XP Progress */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5, delay: 0.6 }}
+                            className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-2xl p-6"
+                        >
+                            <h3 className="text-xl font-semibold mb-4">Your Progress</h3>
 
-                        {/* Level Badge */}
-                        <div className="flex items-center gap-4 mb-6">
-                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-r from-yellow-400 to-orange-500 flex items-center justify-center">
-                                <span className="text-2xl font-bold">{userData?.level || 1}</span>
-                            </div>
-                            <div className="flex-1">
-                                <div className="flex justify-between text-sm mb-1">
-                                    <span className="font-medium">Level {userData?.level || 1}</span>
-                                    <span className="text-primary-400">{userData?.xp || 0}/500 XP</span>
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-16 h-16 rounded-2xl bg-gradient-to-r from-yellow-400 to-orange-500 flex items-center justify-center">
+                                    <span className="text-2xl font-bold text-white">{userData?.level || 1}</span>
                                 </div>
-                                <div className="h-2 bg-primary-800 rounded-full overflow-hidden">
-                                    <div
-                                        className="h-full bg-gradient-to-r from-accent to-blue-600 transition-all duration-500"
-                                        style={{ width: `${((userData?.xp || 0) / 500) * 100}%` }}
-                                    ></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Recent Badges */}
-                        <div>
-                            <div className="text-sm font-medium mb-3">Recent Achievements</div>
-                            <div className="grid grid-cols-3 gap-2">
-                                {[1, 2, 3].map((i) => (
-                                    <div key={i} className="aspect-square rounded-lg bg-gradient-to-br from-accent/20 to-blue-600/20 border border-accent/30 flex items-center justify-center">
-                                        <Award size={24} className="text-accent" />
+                                <div className="flex-1">
+                                    <div className="flex justify-between text-sm mb-1">
+                                        <span className="font-medium">Level {userData?.level || 1}</span>
+                                        <span className="text-gray-400">{userData?.xp || 0}/100 XP</span>
                                     </div>
-                                ))}
+                                    <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 transition-all duration-500"
+                                            style={{ width: `${((userData?.xp || 0) % 100)}%` }}
+                                        ></div>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    </motion.div>
 
-                    {/* Study Streak */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: 0.7 }}
-                        className="card bg-gradient-to-br from-orange-500/20 to-red-500/20 border-orange-500/30"
-                    >
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center">
-                                <Zap size={20} />
-                            </div>
                             <div>
-                                <div className="text-2xl font-bold">{stats.currentStreak} Days</div>
-                                <div className="text-sm text-primary-300">Current Streak</div>
+                                <div className="text-sm font-medium mb-3">Recent Achievements</div>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {[1, 2, 3].map((i) => (
+                                        <div key={i} className="aspect-square rounded-lg bg-gradient-to-br from-blue-900/30 to-purple-900/30 border border-blue-500/30 flex items-center justify-center">
+                                            <Award size={24} className="text-blue-400" />
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
-                        <p className="text-sm text-primary-300">
-                            Keep it up! Study today to maintain your streak 🔥
-                        </p>
-                    </motion.div>
+                        </motion.div>
 
-                    {/* Quick Actions */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: 0.8 }}
-                        className="card"
-                    >
-                        <h3 className="text-xl font-display font-semibold mb-4">Quick Actions</h3>
-                        <div className="space-y-2">
-                            <Link to="/rooms" className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors">
-                                <Calendar size={18} />
-                                <span>Join Study Room</span>
-                            </Link>
-                            <Link to="/leaderboard" className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors">
-                                <Trophy size={18} />
-                                <span>View Leaderboard</span>
-                            </Link>
-                            <Link to="/flashcards" className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors">
-                                <TrendingUp size={18} />
-                                <span>Review Flashcards</span>
-                            </Link>
-                        </div>
-                    </motion.div>
+                        {/* Study Streak */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5, delay: 0.7 }}
+                            className="bg-gradient-to-br from-orange-900/30 to-red-900/30 border border-orange-500/30 rounded-2xl p-6"
+                        >
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center">
+                                    <Zap size={20} />
+                                </div>
+                                <div>
+                                    <div className="text-2xl font-bold">{stats.currentStreak} Days</div>
+                                    <div className="text-sm text-gray-400">Current Streak</div>
+                                </div>
+                            </div>
+                            <p className="text-sm text-gray-400">
+                                Keep it up! Study today to maintain your streak 🔥
+                            </p>
+                        </motion.div>
+
+                        {/* Quick Actions */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5, delay: 0.8 }}
+                            className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-2xl p-6"
+                        >
+                            <h3 className="text-xl font-semibold mb-4">Quick Actions</h3>
+                            <div className="space-y-2">
+                                <button onClick={() => toast.success('Feature coming soon!')} className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors text-left">
+                                    <Calendar size={18} />
+                                    <span>Join Study Room</span>
+                                </button>
+                                <button onClick={() => toast.success('Feature coming soon!')} className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors text-left">
+                                    <Trophy size={18} />
+                                    <span>View Leaderboard</span>
+                                </button>
+                                <button onClick={() => toast.success('Feature coming soon!')} className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors text-left">
+                                    <TrendingUp size={18} />
+                                    <span>Review Flashcards</span>
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
                 </div>
             </div>
         </div>
