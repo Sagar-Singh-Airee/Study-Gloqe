@@ -1,6 +1,5 @@
-// src/pages/Dashboard.jsx
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
     BookOpen,
@@ -16,44 +15,23 @@ import {
     LogOut
 } from 'lucide-react';
 import { useAuth } from '@contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
 const Dashboard = () => {
     const { user, userData, logout } = useAuth();
     const navigate = useNavigate();
-    const [stats, setStats] = useState({
+    const [stats] = useState({
         totalDocuments: 0,
         completedQuizzes: 0,
-        currentStreak: 3,
+        currentStreak: 0,
         weeklyProgress: 65
     });
-    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Only load data when user and userData are available
-        if (user && userData) {
-            loadDashboardData();
-        }
-    }, [user, userData]); // Added dependencies
-
-    const loadDashboardData = async () => {
-        try {
-            // For now, set mock data
-            // Once you create the services, uncomment the real API calls
-            setStats({
-                totalDocuments: 0,
-                completedQuizzes: 0,
-                currentStreak: userData?.streakDays || 0,
-                weeklyProgress: 65
-            });
-        } catch (error) {
-            console.error('Error loading dashboard:', error);
-            toast.error('Failed to load dashboard data');
-        } finally {
-            setLoading(false);
-        }
-    };
+        console.log('Dashboard mounted');
+        console.log('User:', user);
+        console.log('UserData:', userData);
+    }, [user, userData]);
 
     const handleLogout = async () => {
         try {
@@ -92,32 +70,9 @@ const Dashboard = () => {
         }
     ];
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-black">
-                <div className="text-center">
-                    <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                    <p className="mt-4 text-gray-300">Loading dashboard...</p>
-                </div>
-            </div>
-        );
-    }
-
-    if (!userData) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-black">
-                <div className="text-center">
-                    <p className="text-gray-300">No user data found. Please try logging in again.</p>
-                    <button onClick={() => navigate('/auth')} className="mt-4 px-6 py-2 bg-blue-600 rounded-lg">
-                        Go to Login
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
+    // Always render the dashboard, don't block on userData
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white p-8">
+        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white p-4 md:p-8">
             <div className="max-w-7xl mx-auto space-y-8">
                 {/* Header with Logout */}
                 <div className="flex justify-between items-center">
@@ -126,8 +81,12 @@ const Dashboard = () => {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.5 }}
                     >
-                        <h1 className="text-4xl font-bold mb-2">
-                            Welcome back, <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">{userData?.name || user?.email?.split('@')[0]}</span>!
+                        <h1 className="text-3xl md:text-4xl font-bold mb-2">
+                            Welcome back,{' '}
+                            <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+                                {userData?.name || user?.email?.split('@')[0] || 'User'}
+                            </span>
+                            !
                         </h1>
                         <p className="text-gray-400">Ready to continue your learning journey?</p>
                     </motion.div>
@@ -137,12 +96,12 @@ const Dashboard = () => {
                         className="flex items-center gap-2 px-4 py-2 bg-red-600/20 border border-red-500/30 rounded-lg hover:bg-red-600/30 transition-colors"
                     >
                         <LogOut size={18} />
-                        Logout
+                        <span className="hidden sm:inline">Logout</span>
                     </button>
                 </div>
 
                 {/* Quick Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                     {quickStats.map((stat, index) => (
                         <motion.div
                             key={index}
@@ -154,7 +113,7 @@ const Dashboard = () => {
                             <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${stat.color} flex items-center justify-center mb-4`}>
                                 <stat.icon size={24} />
                             </div>
-                            <div className="text-3xl font-bold mb-1">{stat.value}</div>
+                            <div className="text-2xl md:text-3xl font-bold mb-1">{stat.value}</div>
                             <div className="text-sm text-gray-400">{stat.label}</div>
                         </motion.div>
                     ))}

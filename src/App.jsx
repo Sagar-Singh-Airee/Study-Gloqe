@@ -1,67 +1,52 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { AuthProvider } from '@contexts/AuthContext';
+import { AuthProvider, useAuth } from '@contexts/AuthContext';
+import AuthPage from './pages/auth/AuthPage';
+import Dashboard from './pages/Dashboard';
 
-// Layout
-import Layout from '@components/common/Layout';
-import ProtectedRoute from '@components/common/ProtectedRoute';
+const ProtectedRoute = ({ children }) => {
+    const { user, loading } = useAuth();
+    
+    console.log('🛡️ ProtectedRoute:', { hasUser: !!user, loading });
+    
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-black text-white">
+                <div>Loading...</div>
+            </div>
+        );
+    }
+    
+    return user ? children : <Navigate to="/auth" replace />;
+};
 
-// Pages
-import LandingPage from '@pages/LandingPage';
-import AuthPage from '@pages/auth/AuthPage';  // ✅ Single auth page
-import Dashboard from '@pages/Dashboard';
+const PublicRoute = ({ children }) => {
+    const { user, loading } = useAuth();
+    
+    console.log('🌐 PublicRoute:', { hasUser: !!user, loading });
+    
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-black text-white">
+                <div>Loading...</div>
+            </div>
+        );
+    }
+    
+    return !user ? children : <Navigate to="/dashboard" replace />;
+};
 
 function App() {
     return (
         <AuthProvider>
             <Router>
-                <Toaster
-                    position="top-right"
-                    toastOptions={{
-                        duration: 3000,
-                        style: {
-                            background: 'rgba(13, 15, 17, 0.95)',
-                            color: '#f1f5f9',
-                            border: '1px solid rgba(229, 231, 235, 0.1)',
-                            backdropFilter: 'blur(12px)',
-                        },
-                        success: {
-                            iconTheme: {
-                                primary: '#10b981',
-                                secondary: '#f1f5f9',
-                            },
-                        },
-                        error: {
-                            iconTheme: {
-                                primary: '#ef4444',
-                                secondary: '#f1f5f9',
-                            },
-                        },
-                    }}
-                />
+                <Toaster position="top-right" />
 
                 <Routes>
-                    {/* Public Routes */}
-                    <Route path="/" element={<LandingPage />} />
-                    <Route path="/auth" element={<AuthPage />} />
-                    <Route path="/login" element={<AuthPage />} />
-                    <Route path="/register" element={<AuthPage />} />
-
-                    {/* Protected Student Routes */}
-                    <Route
-                        path="/dashboard"
-                        element={
-                            <ProtectedRoute>
-                                <Layout />
-                            </ProtectedRoute>
-                        }
-                    >
-                        <Route index element={<Dashboard />} />
-                        {/* TODO: Add more routes as pages are created */}
-                    </Route>
-
-                    {/* Fallback */}
-                    <Route path="*" element={<Navigate to="/" replace />} />
+                    <Route path="/" element={<Navigate to="/auth" replace />} />
+                    <Route path="/auth" element={<PublicRoute><AuthPage /></PublicRoute>} />
+                    <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                    <Route path="*" element={<Navigate to="/auth" replace />} />
                 </Routes>
             </Router>
         </AuthProvider>
