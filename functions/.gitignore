@@ -1,0 +1,29 @@
+# Node modules
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Firebase
+.runtimeconfig.json
+
+# Service account keys (NEVER commit these!)
+*.json
+service-account-key.json
+credentials.json
+
+# Logs
+npm-debug.log
+yarn-error.log
+firebase-debug.log
+firestore-debug.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build files
+lib/
+dist/

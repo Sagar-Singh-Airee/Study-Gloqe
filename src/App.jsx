@@ -1,21 +1,20 @@
-// src/App.jsx - COMPLETE WITH ALL ROUTES + SETTINGS
+// src/App.jsx - WITH STUDY SESSION ROUTE
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from '@contexts/AuthContext';
-
 
 // Auth & Landing
 import AuthPage from './pages/auth/AuthPage';
 import LandingPage from './pages/LandingPage';
 
-
 // Student Pages
 import Dashboard from './pages/Dashboard';
-import StudentHub from './pages/StudentHub'; // NEW - Unified Workspace
+import StudentHub from './pages/StudentHub';
 import Classes from './pages/Classes';
 import ClassDetails from './pages/ClassDetails';
 import PDFUpload from './pages/PDFUpload';
 import PDFReader from './pages/PDFReader';
+import StudySession from './pages/StudySession'; // NEW - Study Session
 import QuizPage from './pages/QuizPage';
 import QuizResults from './pages/QuizResults';
 import Flashcards from './pages/Flashcards';
@@ -23,15 +22,12 @@ import Notes from './pages/Notes';
 import StudyRooms from './pages/StudyRooms';
 import Leaderboard from './pages/Leaderboard';
 import Profile from './pages/Profile';
-import Settings from './pages/Settings'; // NEW
-
+import Settings from './pages/Settings';
 
 // Teacher Pages
 import TeacherDashboard from './pages/teacher/TeacherDashboard';
 import ClassManagement from './pages/teacher/ClassManagement';
 
-
-// ===== ENHANCED PROTECTED ROUTE WITH ROLE CHECK =====
 const ProtectedRoute = ({ children, teacherOnly = false }) => {
     const { user, userData, loading } = useAuth();
 
@@ -53,21 +49,16 @@ const ProtectedRoute = ({ children, teacherOnly = false }) => {
         );
     }
 
-    // Not logged in - redirect to auth
     if (!user) {
         console.log('❌ No user, redirecting to /auth');
         return <Navigate to="/auth" replace />;
     }
 
-
-    // Teacher-only route protection
     if (teacherOnly && userData?.role !== 'teacher') {
         console.log('❌ Teacher-only route, but user is student');
         return <Navigate to="/dashboard" replace />;
     }
 
-
-    // Redirect teachers from student dashboard to teacher dashboard
     if (!teacherOnly && userData?.role === 'teacher') {
         const currentPath = window.location.pathname;
         if (currentPath === '/dashboard' || currentPath.startsWith('/classes')) {
@@ -79,8 +70,6 @@ const ProtectedRoute = ({ children, teacherOnly = false }) => {
     return children;
 };
 
-
-// ===== PUBLIC ROUTE WITH ROLE-BASED REDIRECT =====
 const PublicRoute = ({ children }) => {
     const { user, userData, loading } = useAuth();
 
@@ -97,7 +86,6 @@ const PublicRoute = ({ children }) => {
         );
     }
 
-    // Already logged in - redirect based on role
     if (user) {
         if (userData?.role === 'teacher') {
             console.log('🔀 Teacher logged in, redirecting to teacher dashboard');
@@ -109,7 +97,6 @@ const PublicRoute = ({ children }) => {
 
     return children;
 };
-
 
 function App() {
     return (
@@ -132,107 +119,52 @@ function App() {
                     }}
                 />
 
-
                 <Routes>
-                    {/* ===== PUBLIC ROUTES ===== */}
+                    {/* PUBLIC ROUTES */}
                     <Route path="/" element={<LandingPage />} />
                     <Route path="/auth" element={<PublicRoute><AuthPage /></PublicRoute>} />
 
-                    {/* ===== STUDENT ROUTES ===== */}
-                    <Route
-                        path="/dashboard"
-                        element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
-                    />
-                    <Route
-                        path="/hub"
-                        element={<ProtectedRoute><StudentHub /></ProtectedRoute>}
-                    />
+                    {/* STUDENT ROUTES */}
+                    <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                    <Route path="/hub" element={<ProtectedRoute><StudentHub /></ProtectedRoute>} />
 
                     {/* Classes */}
-                    <Route
-                        path="/classes"
-                        element={<ProtectedRoute><Classes /></ProtectedRoute>}
-                    />
-                    <Route
-                        path="/classes/:classId"
-                        element={<ProtectedRoute><ClassDetails /></ProtectedRoute>}
-                    />
+                    <Route path="/classes" element={<ProtectedRoute><Classes /></ProtectedRoute>} />
+                    <Route path="/classes/:classId" element={<ProtectedRoute><ClassDetails /></ProtectedRoute>} />
 
                     {/* Documents & PDFs */}
-                    <Route
-                        path="/upload"
-                        element={<ProtectedRoute><PDFUpload /></ProtectedRoute>}
-                    />
-                    <Route
-                        path="/documents"
-                        element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
-                    />
-                    <Route
-                        path="/documents/:docId"
-                        element={<ProtectedRoute><PDFReader /></ProtectedRoute>}
-                    />
+                    <Route path="/upload" element={<ProtectedRoute><PDFUpload /></ProtectedRoute>} />
+                    <Route path="/documents" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                    <Route path="/documents/:docId" element={<ProtectedRoute><PDFReader /></ProtectedRoute>} />
+                    
+                    {/* NEW - STUDY SESSION */}
+                    <Route path="/study/:docId" element={<ProtectedRoute><StudySession /></ProtectedRoute>} />
 
                     {/* Quizzes */}
-                    <Route
-                        path="/quizzes"
-                        element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
-                    />
-                    <Route
-                        path="/quizzes/:quizId"
-                        element={<ProtectedRoute><QuizPage /></ProtectedRoute>}
-                    />
-                    <Route
-                        path="/results/:sessionId"
-                        element={<ProtectedRoute><QuizResults /></ProtectedRoute>}
-                    />
+                    <Route path="/quizzes" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                    <Route path="/quizzes/:quizId" element={<ProtectedRoute><QuizPage /></ProtectedRoute>} />
+                    <Route path="/results/:sessionId" element={<ProtectedRoute><QuizResults /></ProtectedRoute>} />
 
                     {/* Learning Tools */}
-                    <Route
-                        path="/flashcards"
-                        element={<ProtectedRoute><Flashcards /></ProtectedRoute>}
-                    />
-                    <Route
-                        path="/notes"
-                        element={<ProtectedRoute><Notes /></ProtectedRoute>}
-                    />
+                    <Route path="/flashcards" element={<ProtectedRoute><Flashcards /></ProtectedRoute>} />
+                    <Route path="/notes" element={<ProtectedRoute><Notes /></ProtectedRoute>} />
 
                     {/* Collaboration */}
-                    <Route
-                        path="/study-rooms"
-                        element={<ProtectedRoute><StudyRooms /></ProtectedRoute>}
-                    />
+                    <Route path="/study-rooms" element={<ProtectedRoute><StudyRooms /></ProtectedRoute>} />
 
                     {/* Gamification */}
-                    <Route
-                        path="/leaderboard"
-                        element={<ProtectedRoute><Leaderboard /></ProtectedRoute>}
-                    />
+                    <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
 
                     {/* User */}
-                    <Route
-                        path="/profile"
-                        element={<ProtectedRoute><Profile /></ProtectedRoute>}
-                    />
-                    <Route
-                        path="/settings"
-                        element={<ProtectedRoute><Settings /></ProtectedRoute>}
-                    />
-                    <Route
-                        path="/analytics"
-                        element={<ProtectedRoute><ComingSoon page="Analytics" /></ProtectedRoute>}
-                    />
+                    <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                    <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+                    <Route path="/analytics" element={<ProtectedRoute><ComingSoon page="Analytics" /></ProtectedRoute>} />
 
-                    {/* ===== TEACHER ROUTES (ROLE-PROTECTED) ===== */}
-                    <Route
-                        path="/teacher/dashboard"
-                        element={<ProtectedRoute teacherOnly><TeacherDashboard /></ProtectedRoute>}
-                    />
-                    <Route
-                        path="/teacher/classes"
-                        element={<ProtectedRoute teacherOnly><ClassManagement /></ProtectedRoute>}
-                    />
+                    {/* TEACHER ROUTES */}
+                    <Route path="/teacher/dashboard" element={<ProtectedRoute teacherOnly><TeacherDashboard /></ProtectedRoute>} />
+                    <Route path="/teacher/classes" element={<ProtectedRoute teacherOnly><ClassManagement /></ProtectedRoute>} />
 
-                    {/* ===== CATCH ALL ===== */}
+                    {/* CATCH ALL */}
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
             </Router>
@@ -240,8 +172,6 @@ function App() {
     );
 }
 
-
-// Coming Soon Placeholder Component
 const ComingSoon = ({ page }) => (
     <div className="min-h-screen bg-white flex items-center justify-center p-4">
         <div className="text-center max-w-md">
@@ -259,6 +189,5 @@ const ComingSoon = ({ page }) => (
         </div>
     </div>
 );
-
 
 export default App;
