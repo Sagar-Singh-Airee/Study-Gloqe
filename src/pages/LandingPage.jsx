@@ -22,13 +22,12 @@ const LandingPage = () => {
 
     useEffect(() => {
         AOS.init({
-            duration: 800,
+            duration: 1000,
             easing: 'ease-out-cubic',
             once: true,
             offset: 50,
         });
 
-        // Smooth scroll handler with requestAnimationFrame
         const handleScroll = () => {
             if (rafId.current) {
                 cancelAnimationFrame(rafId.current);
@@ -38,7 +37,6 @@ const LandingPage = () => {
                 const scrolled = window.pageYOffset;
                 setIsScrolled(scrolled > 30);
 
-                // Optimized parallax with smooth transforms
                 if (textBehindRef.current && heroRef.current) {
                     const heroHeight = heroRef.current.offsetHeight;
                     const scrollProgress = Math.min(scrolled / heroHeight, 1);
@@ -50,7 +48,6 @@ const LandingPage = () => {
                     textBehindRef.current.style.opacity = textOpacity;
                 }
 
-                // Smooth mascot parallax
                 if (mascotRef.current) {
                     const mascotYPos = scrolled * 0.1;
                     const scale = Math.max(0.95, 1 - (scrolled * 0.0002));
@@ -60,7 +57,6 @@ const LandingPage = () => {
             });
         };
 
-        // Throttled mouse move
         let mouseTimer;
         const handleMouseMove = (e) => {
             if (mouseTimer) return;
@@ -70,7 +66,7 @@ const LandingPage = () => {
                 const y = (e.clientY / window.innerHeight) * 2 - 1;
                 setMousePosition({ x, y });
                 mouseTimer = null;
-            }, 16); // ~60fps
+            }, 16);
         };
 
         window.addEventListener('scroll', handleScroll, { passive: true });
@@ -273,40 +269,44 @@ const LandingPage = () => {
             {/* Enhanced gradient background */}
             <div className="fixed inset-0 z-0 bg-gradient-to-br from-zinc-950 via-black to-zinc-900 pointer-events-none" />
 
-            {/* Dynamic Gradient Orbs */}
+            {/* Enhanced Dynamic Gradient Orbs with more depth */}
             <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
                 <div 
-                    className="absolute top-1/4 -left-32 w-96 h-96 bg-gradient-to-r from-white/[0.03] to-transparent rounded-full blur-3xl transition-transform duration-700 ease-out"
+                    className="absolute top-1/4 -left-32 w-[500px] h-[500px] bg-gradient-to-r from-white/[0.06] to-transparent rounded-full blur-3xl transition-transform duration-700 ease-out"
                     style={{
-                        transform: `translate(${mousePosition.x * 40}px, ${mousePosition.y * 40}px)`,
+                        transform: `translate(${mousePosition.x * 50}px, ${mousePosition.y * 50}px)`,
                         willChange: 'transform'
                     }}
                 />
                 <div 
-                    className="absolute bottom-1/4 -right-32 w-80 h-80 bg-gradient-to-l from-white/[0.02] to-transparent rounded-full blur-3xl transition-transform duration-700 ease-out"
+                    className="absolute bottom-1/4 -right-32 w-[400px] h-[400px] bg-gradient-to-l from-white/[0.04] to-transparent rounded-full blur-3xl transition-transform duration-700 ease-out"
                     style={{
-                        transform: `translate(${mousePosition.x * -30}px, ${mousePosition.y * -30}px)`,
+                        transform: `translate(${mousePosition.x * -40}px, ${mousePosition.y * -40}px)`,
                         willChange: 'transform'
                     }}
+                />
+                <div 
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-white/[0.02] rounded-full blur-3xl animate-pulse"
+                    style={{ animationDuration: '8s' }}
                 />
             </div>
 
-            {/* Premium Navigation */}
-            <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+            {/* Premium Navigation with enhanced effects */}
+            <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
                 isScrolled 
-                    ? 'backdrop-blur-2xl bg-black/70 border-b border-white/10 shadow-2xl' 
+                    ? 'backdrop-blur-2xl bg-black/80 border-b border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]' 
                     : 'bg-transparent'
             }`}>
                 <div className="container mx-auto px-8">
                     <div className="flex items-center justify-between h-20">
                         <Link to="/" className="flex items-center gap-3 group relative">
-                            <div className="absolute -inset-2 bg-gradient-to-r from-white/10 to-transparent rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                            <div className="absolute -inset-3 bg-gradient-to-r from-white/10 to-transparent rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-all duration-500" />
                             <img
                                 src={logoImage}
                                 alt="StudyGloqe"
-                                className="relative h-10 w-10 transition-transform duration-300 group-hover:scale-110"
+                                className="relative h-10 w-10 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3"
                             />
-                            <span className="relative text-xl font-black tracking-tight bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+                            <span className="relative text-xl font-black tracking-tight bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent group-hover:from-gray-100 group-hover:to-gray-300 transition-all duration-300">
                                 StudyGloqe
                             </span>
                         </Link>
@@ -316,10 +316,10 @@ const LandingPage = () => {
                                 <a 
                                     key={item}
                                     href={`#${item.toLowerCase()}`}
-                                    className="relative text-sm font-semibold text-gray-400 hover:text-white transition-colors group"
+                                    className="relative text-sm font-semibold text-gray-400 hover:text-white transition-all duration-300 group"
                                 >
                                     {item}
-                                    <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-gradient-to-r from-white to-gray-500 group-hover:w-full transition-all duration-300" />
+                                    <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-gradient-to-r from-white via-gray-400 to-transparent group-hover:w-full transition-all duration-500" />
                                 </a>
                             ))}
                         </div>
@@ -327,19 +327,18 @@ const LandingPage = () => {
                         <div className="flex items-center gap-3">
                             <Link
                                 to="/auth"
-                                className="group relative px-5 py-2 rounded-lg text-sm font-medium text-white/80 hover:text-white transition-all duration-300 overflow-hidden"
+                                className="group relative px-5 py-2.5 rounded-xl text-sm font-medium text-white/80 hover:text-white transition-all duration-300 overflow-hidden"
                             >
                                 <span className="relative z-10">Sign In</span>
-                                <span className="absolute inset-0 rounded-lg border border-transparent group-hover:border-white/20 transition-all duration-300">
-                                    <span className="absolute inset-0 rounded-lg border-2 border-white/0 group-hover:border-white/40 animate-border-draw" />
-                                </span>
+                                <span className="absolute inset-0 rounded-xl border border-transparent group-hover:border-white/20 transition-all duration-300" />
+                                <div className="absolute inset-0 bg-white/5 rounded-xl scale-0 group-hover:scale-100 transition-transform duration-300" />
                             </Link>
                             <Link
                                 to="/auth"
-                                className="group relative px-5 py-2 bg-white text-black rounded-lg text-sm font-semibold transition-all duration-300 hover:scale-105 overflow-hidden"
+                                className="group relative px-6 py-2.5 bg-white text-black rounded-xl text-sm font-semibold transition-all duration-300 hover:scale-105 hover:shadow-[0_8px_30px_rgba(255,255,255,0.15)] overflow-hidden"
                             >
                                 <span className="relative z-10">Get Started</span>
-                                <span className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                <span className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                                     <span className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-gray-400 to-transparent animate-line-x" />
                                     <span className="absolute bottom-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-gray-400 to-transparent animate-line-x-reverse" />
                                 </span>
@@ -354,19 +353,19 @@ const LandingPage = () => {
                 <div className="container mx-auto px-8">
                     <div className="flex flex-col items-center text-center">
 
-                        {/* Top Badge */}
+                        {/* Enhanced Top Badge */}
                         <div
-                            className="inline-flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-xl bg-white/5 border border-white/10 mb-8"
+                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full backdrop-blur-xl bg-white/[0.08] border border-white/20 mb-8 shadow-[0_8px_32px_rgba(255,255,255,0.1)] hover:scale-105 transition-transform duration-300"
                             data-aos="fade-down"
                             data-aos-delay="100"
                         >
-                            <Sparkles size={16} className="text-white" />
+                            <Sparkles size={16} className="text-white animate-pulse" />
                             <span className="text-sm font-bold tracking-widest text-white uppercase">
                                 Introducing
                             </span>
                         </div>
 
-                        {/* MINIMALIST Background Text - Bigger, Clearer, Dull */}
+                        {/* MINIMALIST Background Text - Enhanced */}
                         <div 
                             ref={textBehindRef}
                             className="absolute top-1/2 left-1/2 w-[98vw] max-w-[1800px] text-center pointer-events-none select-none z-0"
@@ -378,13 +377,14 @@ const LandingPage = () => {
                             <h1 
                                 className="text-[18vw] sm:text-[16vw] md:text-[15vw] lg:text-[14vw] xl:text-[13vw] leading-[0.9] font-black tracking-tighter"
                                 style={{
-                                    background: 'linear-gradient(180deg, rgba(140,140,140,0.35) 0%, rgba(120,120,120,0.28) 35%, rgba(100,100,100,0.22) 70%, rgba(80,80,80,0.18) 100%)',
+                                    background: 'linear-gradient(180deg, rgba(160,160,160,0.45) 0%, rgba(130,130,130,0.35) 35%, rgba(110,110,110,0.25) 70%, rgba(90,90,90,0.18) 100%)',
                                     WebkitBackgroundClip: 'text',
                                     WebkitTextFillColor: 'transparent',
                                     backgroundClip: 'text',
                                     fontFamily: 'system-ui, -apple-system, sans-serif',
                                     letterSpacing: '-0.055em',
-                                    textAlign: 'center'
+                                    textAlign: 'center',
+                                    textShadow: '0 0 80px rgba(255,255,255,0.03)'
                                 }}
                             >
                                 LET'S BUILD
@@ -393,39 +393,42 @@ const LandingPage = () => {
                             </h1>
                         </div>
 
-                        {/* Mascot Container */}
+                        {/* Enhanced Mascot Container */}
                         <div className="relative z-10 w-full max-w-md mx-auto px-6 mb-8">
                             <div 
                                 ref={mascotRef} 
-                                className="relative"
+                                className="relative group"
                                 style={{ willChange: 'transform' }}
                             >
-                                {/* Glow Effects */}
-                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[140%] h-[140%] bg-gradient-radial from-white/15 via-white/5 to-transparent blur-3xl animate-pulse" 
-                                     style={{ animationDuration: '5s' }} />
-                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[100%] h-[100%] bg-white/8 blur-2xl" />
+                                {/* Multi-layer Enhanced Glow Effects */}
+                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] h-[150%] bg-gradient-radial from-white/20 via-white/8 to-transparent blur-3xl animate-pulse" 
+                                     style={{ animationDuration: '6s' }} />
+                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-white/10 blur-2xl" />
+                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-gradient-to-t from-white/5 to-transparent blur-xl animate-pulse" style={{ animationDuration: '4s', animationDelay: '1s' }} />
 
-                                {/* Mascot Image */}
+                                {/* Mascot Image with enhanced effects */}
                                 <img
                                     src={mascotImage}
                                     alt="StudyGloqe AI Robot"
-                                    className="relative w-full h-auto mx-auto"
+                                    className="relative w-full h-auto mx-auto transform group-hover:scale-105 transition-transform duration-500"
                                     style={{
-                                        filter: 'drop-shadow(0 25px 50px rgba(255, 255, 255, 0.2))',
-                                        animation: 'gentle-float 8s ease-in-out infinite'
+                                        filter: 'drop-shadow(0 30px 60px rgba(255, 255, 255, 0.25)) drop-shadow(0 15px 30px rgba(255, 255, 255, 0.15))',
+                                        animation: 'gentle-float 10s ease-in-out infinite'
                                     }}
                                 />
 
-                                {/* Floating Elements */}
+                                {/* Enhanced Floating Elements with better shadows */}
                                 <div 
-                                    className="absolute top-[15%] -left-4 md:-left-8 p-3 rounded-xl bg-black/60 backdrop-blur-2xl border border-white/10 shadow-2xl transition-transform duration-300 ease-out"
+                                    className="absolute top-[15%] -left-4 md:-left-8 p-3.5 rounded-xl bg-black/80 backdrop-blur-2xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.6)] transition-all duration-500 ease-out hover:scale-110 hover:shadow-[0_12px_48px_rgba(255,255,255,0.15)]"
                                     style={{
-                                        transform: `translate(${mousePosition.x * 8}px, ${mousePosition.y * 8}px)`,
+                                        transform: `translate(${mousePosition.x * 10}px, ${mousePosition.y * 10}px)`,
                                         willChange: 'transform'
                                     }}
+                                    data-aos="fade-right"
+                                    data-aos-delay="600"
                                 >
                                     <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                                        <div className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse shadow-lg shadow-green-400/50" />
                                         <div>
                                             <div className="text-sm font-semibold text-white whitespace-nowrap">AI Ready</div>
                                             <div className="text-xs text-gray-400 mt-0.5 whitespace-nowrap">Physics Detected</div>
@@ -434,15 +437,17 @@ const LandingPage = () => {
                                 </div>
 
                                 <div 
-                                    className="absolute bottom-[18%] -right-4 md:-right-8 p-3 rounded-xl bg-black/60 backdrop-blur-2xl border border-white/10 shadow-2xl transition-transform duration-300 ease-out"
+                                    className="absolute bottom-[18%] -right-4 md:-right-8 p-3.5 rounded-xl bg-black/80 backdrop-blur-2xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.6)] transition-all duration-500 ease-out hover:scale-110 hover:shadow-[0_12px_48px_rgba(255,255,255,0.15)]"
                                     style={{
-                                        transform: `translate(${mousePosition.x * -6}px, ${mousePosition.y * -6}px)`,
+                                        transform: `translate(${mousePosition.x * -8}px, ${mousePosition.y * -8}px)`,
                                         willChange: 'transform'
                                     }}
+                                    data-aos="fade-left"
+                                    data-aos-delay="700"
                                 >
                                     <div className="flex items-center gap-2">
-                                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-white/20 to-white/10 flex items-center justify-center">
-                                            <Brain size={16} className="text-white" />
+                                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-white/30 to-white/10 flex items-center justify-center shadow-lg">
+                                            <Brain size={18} className="text-white" />
                                         </div>
                                         <div>
                                             <div className="text-sm font-bold text-white whitespace-nowrap">Quiz Ready</div>
@@ -452,14 +457,16 @@ const LandingPage = () => {
                                 </div>
 
                                 <div 
-                                    className="absolute top-[45%] -right-3 md:-right-6 p-2 rounded-lg bg-black/60 backdrop-blur-2xl border border-white/10 shadow-2xl transition-transform duration-300 ease-out"
+                                    className="absolute top-[45%] -right-3 md:-right-6 p-2.5 rounded-xl bg-black/80 backdrop-blur-2xl border border-orange-500/30 shadow-[0_8px_32px_rgba(251,146,60,0.25)] transition-all duration-500 ease-out hover:scale-110"
                                     style={{
-                                        transform: `translateY(${mousePosition.y * 4}px)`,
+                                        transform: `translateY(${mousePosition.y * 5}px)`,
                                         willChange: 'transform'
                                     }}
+                                    data-aos="fade-left"
+                                    data-aos-delay="800"
                                 >
-                                    <div className="flex items-center gap-1">
-                                        <Flame size={14} className="text-orange-400" />
+                                    <div className="flex items-center gap-2">
+                                        <Flame size={16} className="text-orange-400 animate-pulse" />
                                         <span className="text-sm font-bold text-white whitespace-nowrap">+250 XP</span>
                                     </div>
                                 </div>
@@ -486,7 +493,7 @@ const LandingPage = () => {
                         >
                             <Link
                                 to="/auth"
-                                className="group relative inline-flex items-center justify-center gap-2.5 px-9 py-4 bg-white text-black rounded-xl text-lg font-bold transition-all duration-300 hover:scale-105 overflow-hidden"
+                                className="group relative inline-flex items-center justify-center gap-2.5 px-10 py-4 bg-white text-black rounded-xl text-lg font-bold transition-all duration-500 hover:scale-105 hover:shadow-[0_20px_60px_rgba(255,255,255,0.25)] overflow-hidden"
                             >
                                 <span className="relative z-10 flex items-center gap-2.5 whitespace-nowrap">
                                     Start Learning Free
@@ -499,13 +506,16 @@ const LandingPage = () => {
                                     <span className="absolute top-0 left-0 w-[2px] h-full bg-gradient-to-b from-transparent via-gray-400 to-transparent animate-line-y" />
                                     <span className="absolute top-0 right-0 w-[2px] h-full bg-gradient-to-b from-transparent via-gray-400 to-transparent animate-line-y-reverse" />
                                 </span>
+                                
+                                {/* Shimmer effect */}
+                                <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000" />
                             </Link>
                         </div>
                     </div>
                 </div>
             </section>
 
-            {/* Core Features Section */}
+            {/* Core Features Section - SMALLER FONT FOR PREMIUM LOOK */}
             <section id="features" className="relative py-20 z-10">
                 <div className="container mx-auto px-8">
                     <div className="text-center mb-16" data-aos="fade-up">
@@ -521,17 +531,20 @@ const LandingPage = () => {
                         {coreFeatures.map((feature, index) => (
                             <div
                                 key={index}
-                                className="group relative p-6 rounded-2xl backdrop-blur-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-white/10 transition-all duration-300"
+                                className="group relative p-6 rounded-2xl backdrop-blur-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-white/20 transition-all duration-500 hover:scale-[1.02] hover:shadow-[0_8px_32px_rgba(255,255,255,0.08)]"
                                 data-aos="fade-up"
-                                data-aos-delay={index * 50}
+                                data-aos-delay={index * 100}
                             >
-                                <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-white/5 mb-5 group-hover:bg-white/10 transition-colors duration-300">
+                                {/* Hover gradient overlay */}
+                                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                
+                                <div className="relative flex items-center justify-center w-12 h-12 rounded-xl bg-white/5 mb-5 group-hover:bg-white/10 group-hover:scale-110 transition-all duration-500 shadow-lg group-hover:shadow-white/10">
                                     <feature.icon size={24} className="text-white" />
                                 </div>
-                                <h3 className="text-lg font-semibold text-white mb-2">
+                                <h3 className="relative text-base font-semibold text-white mb-2 group-hover:text-gray-100 transition-colors">
                                     {feature.title}
                                 </h3>
-                                <p className="text-base text-gray-400 leading-relaxed">
+                                <p className="relative text-sm text-gray-400 leading-relaxed group-hover:text-gray-300 transition-colors">
                                     {feature.description}
                                 </p>
                             </div>
@@ -540,7 +553,7 @@ const LandingPage = () => {
                 </div>
             </section>
 
-            {/* Pricing Section */}
+            {/* Pricing Section - Enhanced */}
             <section id="pricing" className="relative py-20 z-10">
                 <div className="container mx-auto px-8">
                     <div className="text-center mb-16" data-aos="fade-up">
@@ -551,45 +564,45 @@ const LandingPage = () => {
                             Choose the plan that fits your needs
                         </p>
 
-                        <div className="inline-flex items-center gap-2 p-1 rounded-lg backdrop-blur-xl bg-white/5 border border-white/10">
+                        <div className="inline-flex items-center gap-2 p-1.5 rounded-xl backdrop-blur-xl bg-white/5 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
                             <button
                                 onClick={() => setSelectedPlan('monthly')}
-                                className={`px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 ${
+                                className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${
                                     selectedPlan === 'monthly'
-                                        ? 'bg-white text-black'
-                                        : 'text-gray-400 hover:text-white'
+                                        ? 'bg-white text-black shadow-lg'
+                                        : 'text-gray-400 hover:text-white hover:bg-white/5'
                                 }`}
                             >
                                 Monthly
                             </button>
                             <button
                                 onClick={() => setSelectedPlan('yearly')}
-                                className={`px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 relative ${
+                                className={`relative px-5 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${
                                     selectedPlan === 'yearly'
-                                        ? 'bg-white text-black'
-                                        : 'text-gray-400 hover:text-white'
+                                        ? 'bg-white text-black shadow-lg'
+                                        : 'text-gray-400 hover:text-white hover:bg-white/5'
                                 }`}
                             >
                                 Yearly
-                                <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />
+                                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse shadow-lg shadow-green-500/50" />
                             </button>
                         </div>
                     </div>
 
-                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto">
+                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
                         {pricingPlans.map((plan, index) => (
                             <div
                                 key={index}
-                                className={`relative p-6 rounded-2xl backdrop-blur-xl border transition-all duration-300 ${
+                                className={`relative p-6 rounded-2xl backdrop-blur-xl border transition-all duration-500 hover:scale-[1.02] ${
                                     plan.highlighted
-                                        ? 'bg-white/[0.05] border-white/20 scale-[1.02]'
-                                        : 'bg-white/[0.02] border-white/5 hover:border-white/10'
+                                        ? 'bg-white/[0.06] border-white/25 shadow-[0_8px_32px_rgba(255,255,255,0.12)] scale-[1.02]'
+                                        : 'bg-white/[0.02] border-white/5 hover:border-white/15 hover:shadow-[0_8px_32px_rgba(255,255,255,0.06)]'
                                 }`}
                                 data-aos="fade-up"
-                                data-aos-delay={index * 50}
+                                data-aos-delay={index * 100}
                             >
                                 {plan.badge && (
-                                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-white text-black text-xs font-bold z-10 whitespace-nowrap">
+                                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-white text-black text-xs font-bold z-10 whitespace-nowrap shadow-lg animate-pulse" style={{ animationDuration: '3s' }}>
                                         {plan.badge}
                                     </div>
                                 )}
@@ -609,13 +622,13 @@ const LandingPage = () => {
                                     </p>
                                 </div>
 
-                                <ul className="space-y-2 mb-6">
+                                <ul className="space-y-2.5 mb-6">
                                     {plan.features.map((feature, idx) => (
                                         <li key={idx} className="flex items-start gap-2">
                                             {feature.included ? (
-                                                <Check size={14} className="text-green-500 mt-0.5 flex-shrink-0" />
+                                                <Check size={16} className="text-green-500 mt-0.5 flex-shrink-0" />
                                             ) : (
-                                                <X size={14} className="text-white/20 mt-0.5 flex-shrink-0" />
+                                                <X size={16} className="text-white/20 mt-0.5 flex-shrink-0" />
                                             )}
                                             <span className={`text-xs ${feature.included ? 'text-gray-300' : 'text-gray-600'}`}>
                                                 {feature.text}
@@ -626,17 +639,17 @@ const LandingPage = () => {
 
                                 <Link
                                     to="/auth"
-                                    className={`group/btn relative block w-full py-2.5 rounded-lg text-sm font-semibold text-center transition-all duration-300 overflow-hidden ${
+                                    className={`group/btn relative block w-full py-3 rounded-xl text-sm font-semibold text-center transition-all duration-500 overflow-hidden ${
                                         plan.highlighted
-                                            ? 'bg-white text-black'
-                                            : 'border border-white/20 text-white hover:bg-white/5'
+                                            ? 'bg-white text-black hover:shadow-[0_8px_32px_rgba(255,255,255,0.25)]'
+                                            : 'border-2 border-white/20 text-white hover:bg-white/5 hover:border-white/40'
                                     }`}
                                 >
                                     <span className="relative z-10 whitespace-nowrap">
                                         {plan.price === 'Custom' ? 'Contact Sales' : 'Get Started'}
                                     </span>
                                     
-                                    <span className="absolute inset-0 rounded-lg opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300">
+                                    <span className="absolute inset-0 rounded-xl opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300">
                                         <span className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/40 to-transparent animate-line-x" />
                                         <span className="absolute bottom-0 right-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/40 to-transparent animate-line-x-reverse" />
                                     </span>
@@ -647,12 +660,12 @@ const LandingPage = () => {
                 </div>
             </section>
 
-            {/* Teacher Section */}
+            {/* Teacher Section - Enhanced */}
             <section id="teachers" className="relative py-20 z-10">
                 <div className="container mx-auto px-8">
                     <div className="grid lg:grid-cols-2 gap-12 items-center max-w-5xl mx-auto">
                         <div data-aos="fade-right">
-                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-xl bg-white/5 border border-white/10 mb-6">
+                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-xl bg-white/5 border border-white/10 mb-6 shadow-lg">
                                 <GraduationCap size={16} className="text-white" />
                                 <span className="text-sm font-semibold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent whitespace-nowrap">
                                     For Educators
@@ -667,14 +680,14 @@ const LandingPage = () => {
                             </p>
                             <Link
                                 to="/teachers"
-                                className="group relative inline-flex items-center gap-2 px-6 py-3 rounded-lg font-semibold text-base text-black bg-white transition-all duration-300 hover:scale-105 overflow-hidden"
+                                className="group relative inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-base text-black bg-white transition-all duration-500 hover:scale-105 hover:shadow-[0_12px_40px_rgba(255,255,255,0.2)] overflow-hidden"
                             >
                                 <span className="relative z-10 flex items-center gap-2 whitespace-nowrap">
                                     Explore Tools
-                                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform duration-300" />
                                 </span>
                                 
-                                <span className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                <span className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                                     <span className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-gray-400 to-transparent animate-line-x" />
                                     <span className="absolute bottom-0 right-0 w-full h-[2px] bg-gradient-to-r from-transparent via-gray-400 to-transparent animate-line-x-reverse" />
                                 </span>
@@ -685,15 +698,16 @@ const LandingPage = () => {
                             {teacherFeatures.map((feature, index) => (
                                 <div
                                     key={index}
-                                    className="relative p-5 rounded-xl backdrop-blur-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-white/10 transition-all duration-300"
+                                    className="group relative p-5 rounded-xl backdrop-blur-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-white/15 transition-all duration-500 hover:scale-[1.03] hover:shadow-[0_8px_32px_rgba(255,255,255,0.08)]"
                                     data-aos="fade-up"
-                                    data-aos-delay={index * 50}
+                                    data-aos-delay={index * 100}
                                 >
-                                    <feature.icon size={22} className="text-white mb-4" />
-                                    <h4 className="text-base font-semibold text-white mb-1.5">
+                                    <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                    <feature.icon size={22} className="relative text-white mb-4 group-hover:scale-110 transition-transform duration-300" />
+                                    <h4 className="relative text-base font-semibold text-white mb-1.5">
                                         {feature.title}
                                     </h4>
-                                    <p className="text-sm text-gray-500">
+                                    <p className="relative text-sm text-gray-500 group-hover:text-gray-400 transition-colors">
                                         {feature.description}
                                     </p>
                                 </div>
@@ -703,15 +717,18 @@ const LandingPage = () => {
                 </div>
             </section>
 
-            {/* Gamification Section */}
+            {/* Gamification Section - Enhanced */}
             <section className="relative py-20 z-10">
                 <div className="container mx-auto px-8">
                     <div 
-                        className="relative p-12 rounded-3xl backdrop-blur-xl bg-white/[0.02] border border-white/5 max-w-5xl mx-auto"
+                        className="relative p-12 rounded-3xl backdrop-blur-xl bg-white/[0.02] border border-white/5 max-w-5xl mx-auto shadow-[0_8px_32px_rgba(0,0,0,0.3)] hover:border-white/10 transition-all duration-500"
                         data-aos="fade-up"
                     >
-                        <div className="text-center mb-12">
-                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-xl bg-white/5 border border-white/10 mb-6">
+                        {/* Decorative gradient */}
+                        <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/[0.03] to-transparent opacity-0 hover:opacity-100 transition-opacity duration-500" />
+                        
+                        <div className="relative text-center mb-12">
+                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-xl bg-white/5 border border-white/10 mb-6 shadow-lg">
                                 <Trophy size={16} className="text-white" />
                                 <span className="text-sm font-semibold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent whitespace-nowrap">
                                     Gamification
@@ -725,19 +742,19 @@ const LandingPage = () => {
                             </p>
                         </div>
 
-                        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="relative grid md:grid-cols-2 lg:grid-cols-4 gap-4">
                             {gamificationFeatures.map((feature, index) => (
                                 <div
                                     key={index}
-                                    className="p-5 rounded-xl backdrop-blur-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.05] hover:border-white/10 transition-all duration-300 text-center"
+                                    className="group p-5 rounded-xl backdrop-blur-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.05] hover:border-white/15 transition-all duration-500 text-center hover:scale-105 hover:shadow-[0_8px_32px_rgba(255,255,255,0.08)]"
                                     data-aos="zoom-in"
-                                    data-aos-delay={index * 50}
+                                    data-aos-delay={index * 100}
                                 >
-                                    <feature.icon size={22} className="text-white mb-4 mx-auto" />
+                                    <feature.icon size={22} className="text-white mb-4 mx-auto group-hover:scale-110 transition-transform duration-300" />
                                     <h4 className="text-base font-semibold text-white mb-1.5">
                                         {feature.title}
                                     </h4>
-                                    <p className="text-sm text-gray-500">
+                                    <p className="text-sm text-gray-500 group-hover:text-gray-400 transition-colors">
                                         {feature.description}
                                     </p>
                                 </div>
@@ -747,7 +764,7 @@ const LandingPage = () => {
                 </div>
             </section>
 
-            {/* Collaboration Section */}
+            {/* Collaboration Section - Enhanced */}
             <section className="relative py-20 z-10">
                 <div className="container mx-auto px-8">
                     <div className="grid lg:grid-cols-2 gap-12 items-center max-w-5xl mx-auto">
@@ -755,15 +772,16 @@ const LandingPage = () => {
                             {collaborationTools.map((tool, index) => (
                                 <div
                                     key={index}
-                                    className="p-5 rounded-xl backdrop-blur-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-white/10 transition-all duration-300"
+                                    className="group p-5 rounded-xl backdrop-blur-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-white/15 transition-all duration-500 hover:scale-[1.03] hover:shadow-[0_8px_32px_rgba(255,255,255,0.08)]"
                                     data-aos="fade-up"
-                                    data-aos-delay={index * 50}
+                                    data-aos-delay={index * 100}
                                 >
-                                    <tool.icon size={22} className="text-white mb-4" />
-                                    <h4 className="text-base font-semibold text-white mb-1.5">
+                                    <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                    <tool.icon size={22} className="relative text-white mb-4 group-hover:scale-110 transition-transform duration-300" />
+                                    <h4 className="relative text-base font-semibold text-white mb-1.5">
                                         {tool.title}
                                     </h4>
-                                    <p className="text-sm text-gray-500">
+                                    <p className="relative text-sm text-gray-500 group-hover:text-gray-400 transition-colors">
                                         {tool.description}
                                     </p>
                                 </div>
@@ -771,7 +789,7 @@ const LandingPage = () => {
                         </div>
 
                         <div data-aos="fade-left">
-                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-xl bg-white/5 border border-white/10 mb-6">
+                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-xl bg-white/5 border border-white/10 mb-6 shadow-lg">
                                 <Users size={16} className="text-white" />
                                 <span className="text-sm font-semibold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent whitespace-nowrap">
                                     Collaboration
@@ -786,14 +804,14 @@ const LandingPage = () => {
                             </p>
                             <Link
                                 to="/study-rooms"
-                                className="group relative inline-flex items-center gap-2 px-6 py-3 rounded-lg font-semibold text-base text-white border border-white/20 hover:bg-white/5 transition-all duration-300 overflow-hidden"
+                                className="group relative inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-base text-white border-2 border-white/20 hover:bg-white/5 hover:border-white/40 transition-all duration-500 overflow-hidden hover:shadow-[0_8px_32px_rgba(255,255,255,0.12)]"
                             >
                                 <span className="relative z-10 flex items-center gap-2 whitespace-nowrap">
                                     Explore Rooms
-                                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform duration-300" />
                                 </span>
 
-                                <span className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                <span className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                                     <span className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/40 to-transparent animate-line-x" />
                                     <span className="absolute bottom-0 right-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/40 to-transparent animate-line-x-reverse" />
                                 </span>
@@ -803,11 +821,11 @@ const LandingPage = () => {
                 </div>
             </section>
 
-            {/* Security Section */}
+            {/* Security Section - Enhanced */}
             <section className="relative py-20 z-10">
                 <div className="container mx-auto px-8">
                     <div className="text-center mb-16" data-aos="fade-up">
-                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-xl bg-white/5 border border-white/10 mb-6">
+                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-xl bg-white/5 border border-white/10 mb-6 shadow-lg">
                             <Lock size={16} className="text-white" />
                             <span className="text-sm font-semibold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent whitespace-nowrap">
                                 Security
@@ -825,17 +843,18 @@ const LandingPage = () => {
                         {securityFeatures.map((feature, index) => (
                             <div
                                 key={index}
-                                className="p-6 rounded-2xl backdrop-blur-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-white/10 transition-all duration-300 text-center"
+                                className="group p-6 rounded-2xl backdrop-blur-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-white/15 transition-all duration-500 text-center hover:scale-105 hover:shadow-[0_8px_32px_rgba(255,255,255,0.08)]"
                                 data-aos="fade-up"
-                                data-aos-delay={index * 50}
+                                data-aos-delay={index * 100}
                             >
-                                <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-white/5 mb-4 mx-auto">
+                                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                <div className="relative flex items-center justify-center w-12 h-12 rounded-xl bg-white/5 mb-4 mx-auto group-hover:bg-white/10 group-hover:scale-110 transition-all duration-500 shadow-lg group-hover:shadow-white/10">
                                     <feature.icon size={24} className="text-white" />
                                 </div>
-                                <h3 className="text-lg font-semibold text-white mb-2">
+                                <h3 className="relative text-lg font-semibold text-white mb-2">
                                     {feature.title}
                                 </h3>
-                                <p className="text-base text-gray-500">
+                                <p className="relative text-base text-gray-500 group-hover:text-gray-400 transition-colors">
                                     {feature.description}
                                 </p>
                             </div>
@@ -844,46 +863,55 @@ const LandingPage = () => {
                 </div>
             </section>
 
-            {/* CTA Section */}
+            {/* CTA Section - Enhanced */}
             <section className="relative py-20 z-10">
                 <div className="container mx-auto px-8">
                     <div 
-                        className="relative p-12 rounded-3xl backdrop-blur-xl bg-white/[0.02] border border-white/5 text-center max-w-3xl mx-auto"
+                        className="relative p-12 rounded-3xl backdrop-blur-xl bg-white/[0.02] border border-white/5 text-center max-w-3xl mx-auto shadow-[0_8px_32px_rgba(0,0,0,0.3)] hover:border-white/10 transition-all duration-500"
                         data-aos="fade-up"
                     >
-                        <h2 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent px-4">
-                            Ready to Get Started?
-                        </h2>
-                        <p className="text-lg text-gray-400 mb-8 px-4">
-                            Join thousands transforming their learning experience
-                        </p>
-                        <Link
-                            to="/auth"
-                            className="group relative inline-flex items-center gap-2 px-8 py-3.5 bg-white text-black rounded-xl text-lg font-bold transition-all duration-300 hover:scale-105 overflow-hidden"
-                        >
-                            <span className="relative z-10 flex items-center gap-2 whitespace-nowrap">
-                                Start Free Today
-                                <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                            </span>
+                        {/* Decorative gradients */}
+                        <div className="absolute top-0 left-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
+                        <div className="absolute bottom-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
+                        
+                        <div className="relative">
+                            <h2 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent px-4">
+                                Ready to Get Started?
+                            </h2>
+                            <p className="text-lg text-gray-400 mb-8 px-4">
+                                Join thousands transforming their learning experience
+                            </p>
+                            <Link
+                                to="/auth"
+                                className="group relative inline-flex items-center gap-2 px-8 py-4 bg-white text-black rounded-xl text-lg font-bold transition-all duration-500 hover:scale-105 hover:shadow-[0_20px_60px_rgba(255,255,255,0.25)] overflow-hidden"
+                            >
+                                <span className="relative z-10 flex items-center gap-2 whitespace-nowrap">
+                                    Start Free Today
+                                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform duration-300" />
+                                </span>
 
-                            <span className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                <span className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-gray-400 to-transparent animate-line-x" />
-                                <span className="absolute bottom-0 right-0 w-full h-[2px] bg-gradient-to-r from-transparent via-gray-400 to-transparent animate-line-x-reverse" />
-                                <span className="absolute top-0 left-0 w-[2px] h-full bg-gradient-to-b from-transparent via-gray-400 to-transparent animate-line-y" />
-                                <span className="absolute top-0 right-0 w-[2px] h-full bg-gradient-to-b from-transparent via-gray-400 to-transparent animate-line-y-reverse" />
-                            </span>
-                        </Link>
+                                <span className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                    <span className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-gray-400 to-transparent animate-line-x" />
+                                    <span className="absolute bottom-0 right-0 w-full h-[2px] bg-gradient-to-r from-transparent via-gray-400 to-transparent animate-line-x-reverse" />
+                                    <span className="absolute top-0 left-0 w-[2px] h-full bg-gradient-to-b from-transparent via-gray-400 to-transparent animate-line-y" />
+                                    <span className="absolute top-0 right-0 w-[2px] h-full bg-gradient-to-b from-transparent via-gray-400 to-transparent animate-line-y-reverse" />
+                                </span>
+                                
+                                {/* Shimmer effect */}
+                                <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000" />
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </section>
 
-            {/* Footer */}
+            {/* Footer - Enhanced */}
             <footer className="relative py-16 z-10 border-t border-white/5">
                 <div className="container mx-auto px-8">
                     <div className="grid md:grid-cols-4 gap-12 mb-12">
                         <div>
-                            <div className="flex items-center gap-2 mb-4">
-                                <img src={logoImage} alt="StudyGloqe" className="h-7 w-7" />
+                            <div className="flex items-center gap-2 mb-4 group">
+                                <img src={logoImage} alt="StudyGloqe" className="h-7 w-7 group-hover:scale-110 transition-transform duration-300" />
                                 <span className="text-base font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent whitespace-nowrap">
                                     StudyGloqe
                                 </span>
@@ -907,7 +935,7 @@ const LandingPage = () => {
                                         <li key={link}>
                                             <Link 
                                                 to={`/${link.toLowerCase()}`} 
-                                                className="text-sm text-gray-500 hover:text-white transition-colors"
+                                                className="text-sm text-gray-500 hover:text-white transition-colors duration-300 inline-block hover:translate-x-1"
                                             >
                                                 {link}
                                             </Link>
@@ -928,13 +956,8 @@ const LandingPage = () => {
             <style>{`
                 @keyframes gentle-float {
                     0%, 100% { transform: translateY(0px) rotate(0deg); }
-                    33% { transform: translateY(-10px) rotate(0.5deg); }
-                    66% { transform: translateY(5px) rotate(-0.5deg); }
-                }
-
-                @keyframes fade-in-up {
-                    from { opacity: 0; transform: translateY(30px); }
-                    to { opacity: 1; transform: translateY(0); }
+                    33% { transform: translateY(-12px) rotate(0.8deg); }
+                    66% { transform: translateY(5px) rotate(-0.8deg); }
                 }
 
                 @keyframes line-x {
@@ -961,35 +984,32 @@ const LandingPage = () => {
                     100% { transform: translateY(-100%); opacity: 0; }
                 }
 
-                @keyframes border-draw {
-                    0% { clip-path: inset(0 100% 100% 0); }
-                    25% { clip-path: inset(0 0 100% 0); }
-                    50% { clip-path: inset(0 0 0 0); }
-                    75% { clip-path: inset(0 0 0 100%); }
-                    100% { clip-path: inset(100% 0 0 100%); }
-                }
-
                 .animate-line-x {
-                    animation: line-x 2s ease-in-out infinite;
+                    animation: line-x 2.5s ease-in-out infinite;
                 }
 
                 .animate-line-x-reverse {
-                    animation: line-x-reverse 2s ease-in-out infinite;
-                    animation-delay: 1s;
+                    animation: line-x-reverse 2.5s ease-in-out infinite;
+                    animation-delay: 1.25s;
                 }
 
                 .animate-line-y {
-                    animation: line-y 2s ease-in-out infinite;
-                    animation-delay: 0.5s;
+                    animation: line-y 2.5s ease-in-out infinite;
+                    animation-delay: 0.625s;
                 }
 
                 .animate-line-y-reverse {
-                    animation: line-y-reverse 2s ease-in-out infinite;
-                    animation-delay: 1.5s;
+                    animation: line-y-reverse 2.5s ease-in-out infinite;
+                    animation-delay: 1.875s;
                 }
 
-                .animate-border-draw {
-                    animation: border-draw 3s linear infinite;
+                .bg-gradient-radial {
+                    background: radial-gradient(circle, var(--tw-gradient-stops));
+                }
+
+                /* Smooth scroll */
+                html {
+                    scroll-behavior: smooth;
                 }
             `}</style>
         </div>
