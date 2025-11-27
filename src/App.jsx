@@ -1,26 +1,47 @@
-// src/App.jsx - COMPLETE WITH ROLE-BASED ROUTING
+// src/App.jsx - COMPLETE WITH ALL ROUTES + SETTINGS
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from '@contexts/AuthContext';
+
+
+// Auth & Landing
 import AuthPage from './pages/auth/AuthPage';
-import Dashboard from './pages/Dashboard';
 import LandingPage from './pages/LandingPage';
+
+
+// Student Pages
+import Dashboard from './pages/Dashboard';
+import StudentHub from './pages/StudentHub'; // NEW - Unified Workspace
 import Classes from './pages/Classes';
 import ClassDetails from './pages/ClassDetails';
-import TeacherDashboard from './pages/teacher/TeacherDashboard'; // ← NEW IMPORT
+import PDFUpload from './pages/PDFUpload';
+import PDFReader from './pages/PDFReader';
+import QuizPage from './pages/QuizPage';
+import QuizResults from './pages/QuizResults';
+import Flashcards from './pages/Flashcards';
+import Notes from './pages/Notes';
+import StudyRooms from './pages/StudyRooms';
+import Leaderboard from './pages/Leaderboard';
+import Profile from './pages/Profile';
+import Settings from './pages/Settings'; // NEW
+
+
+// Teacher Pages
+import TeacherDashboard from './pages/teacher/TeacherDashboard';
 import ClassManagement from './pages/teacher/ClassManagement';
+
 
 // ===== ENHANCED PROTECTED ROUTE WITH ROLE CHECK =====
 const ProtectedRoute = ({ children, teacherOnly = false }) => {
     const { user, userData, loading } = useAuth();
-    
-    console.log('🛡️ ProtectedRoute:', { 
-        hasUser: !!user, 
+
+    console.log('🛡️ ProtectedRoute:', {
+        hasUser: !!user,
         role: userData?.role,
         teacherOnly,
-        loading 
+        loading
     });
-    
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-black text-white">
@@ -31,18 +52,20 @@ const ProtectedRoute = ({ children, teacherOnly = false }) => {
             </div>
         );
     }
-    
+
     // Not logged in - redirect to auth
     if (!user) {
         console.log('❌ No user, redirecting to /auth');
         return <Navigate to="/auth" replace />;
     }
 
+
     // Teacher-only route protection
     if (teacherOnly && userData?.role !== 'teacher') {
         console.log('❌ Teacher-only route, but user is student');
         return <Navigate to="/dashboard" replace />;
     }
+
 
     // Redirect teachers from student dashboard to teacher dashboard
     if (!teacherOnly && userData?.role === 'teacher') {
@@ -52,16 +75,17 @@ const ProtectedRoute = ({ children, teacherOnly = false }) => {
             return <Navigate to="/teacher/dashboard" replace />;
         }
     }
-    
+
     return children;
 };
+
 
 // ===== PUBLIC ROUTE WITH ROLE-BASED REDIRECT =====
 const PublicRoute = ({ children }) => {
     const { user, userData, loading } = useAuth();
-    
+
     console.log('🌐 PublicRoute:', { hasUser: !!user, role: userData?.role, loading });
-    
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-black text-white">
@@ -72,7 +96,7 @@ const PublicRoute = ({ children }) => {
             </div>
         );
     }
-    
+
     // Already logged in - redirect based on role
     if (user) {
         if (userData?.role === 'teacher') {
@@ -82,15 +106,16 @@ const PublicRoute = ({ children }) => {
         console.log('🔀 Student logged in, redirecting to dashboard');
         return <Navigate to="/dashboard" replace />;
     }
-    
+
     return children;
 };
+
 
 function App() {
     return (
         <AuthProvider>
             <Router>
-                <Toaster 
+                <Toaster
                     position="top-right"
                     toastOptions={{
                         duration: 3000,
@@ -107,64 +132,106 @@ function App() {
                     }}
                 />
 
+
                 <Routes>
                     {/* ===== PUBLIC ROUTES ===== */}
                     <Route path="/" element={<LandingPage />} />
                     <Route path="/auth" element={<PublicRoute><AuthPage /></PublicRoute>} />
-                    
+
                     {/* ===== STUDENT ROUTES ===== */}
-                    <Route 
-                        path="/dashboard" 
-                        element={
-                            <ProtectedRoute>
-                                <Dashboard />
-                            </ProtectedRoute>
-                        } 
+                    <Route
+                        path="/dashboard"
+                        element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
                     />
-                    <Route 
-                        path="/classes" 
-                        element={
-                            <ProtectedRoute>
-                                <Classes />
-                            </ProtectedRoute>
-                        } 
+                    <Route
+                        path="/hub"
+                        element={<ProtectedRoute><StudentHub /></ProtectedRoute>}
                     />
-                    <Route 
-                        path="/classes/:classId" 
-                        element={
-                            <ProtectedRoute>
-                                <ClassDetails />
-                            </ProtectedRoute>
-                        } 
+
+                    {/* Classes */}
+                    <Route
+                        path="/classes"
+                        element={<ProtectedRoute><Classes /></ProtectedRoute>}
                     />
-                    
+                    <Route
+                        path="/classes/:classId"
+                        element={<ProtectedRoute><ClassDetails /></ProtectedRoute>}
+                    />
+
+                    {/* Documents & PDFs */}
+                    <Route
+                        path="/upload"
+                        element={<ProtectedRoute><PDFUpload /></ProtectedRoute>}
+                    />
+                    <Route
+                        path="/documents"
+                        element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
+                    />
+                    <Route
+                        path="/documents/:docId"
+                        element={<ProtectedRoute><PDFReader /></ProtectedRoute>}
+                    />
+
+                    {/* Quizzes */}
+                    <Route
+                        path="/quizzes"
+                        element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
+                    />
+                    <Route
+                        path="/quizzes/:quizId"
+                        element={<ProtectedRoute><QuizPage /></ProtectedRoute>}
+                    />
+                    <Route
+                        path="/results/:sessionId"
+                        element={<ProtectedRoute><QuizResults /></ProtectedRoute>}
+                    />
+
+                    {/* Learning Tools */}
+                    <Route
+                        path="/flashcards"
+                        element={<ProtectedRoute><Flashcards /></ProtectedRoute>}
+                    />
+                    <Route
+                        path="/notes"
+                        element={<ProtectedRoute><Notes /></ProtectedRoute>}
+                    />
+
+                    {/* Collaboration */}
+                    <Route
+                        path="/study-rooms"
+                        element={<ProtectedRoute><StudyRooms /></ProtectedRoute>}
+                    />
+
+                    {/* Gamification */}
+                    <Route
+                        path="/leaderboard"
+                        element={<ProtectedRoute><Leaderboard /></ProtectedRoute>}
+                    />
+
+                    {/* User */}
+                    <Route
+                        path="/profile"
+                        element={<ProtectedRoute><Profile /></ProtectedRoute>}
+                    />
+                    <Route
+                        path="/settings"
+                        element={<ProtectedRoute><Settings /></ProtectedRoute>}
+                    />
+                    <Route
+                        path="/analytics"
+                        element={<ProtectedRoute><ComingSoon page="Analytics" /></ProtectedRoute>}
+                    />
+
                     {/* ===== TEACHER ROUTES (ROLE-PROTECTED) ===== */}
-                    <Route 
-                        path="/teacher/dashboard" 
-                        element={
-                            <ProtectedRoute teacherOnly>
-                                <TeacherDashboard />
-                            </ProtectedRoute>
-                        } 
+                    <Route
+                        path="/teacher/dashboard"
+                        element={<ProtectedRoute teacherOnly><TeacherDashboard /></ProtectedRoute>}
                     />
-                    <Route 
-                        path="/teacher/classes" 
-                        element={
-                            <ProtectedRoute teacherOnly>
-                                <ClassManagement />
-                            </ProtectedRoute>
-                        } 
+                    <Route
+                        path="/teacher/classes"
+                        element={<ProtectedRoute teacherOnly><ClassManagement /></ProtectedRoute>}
                     />
-                    
-                    {/* ===== PLACEHOLDER ROUTES ===== */}
-                    <Route path="/upload" element={<ProtectedRoute><ComingSoon page="Upload PDF" /></ProtectedRoute>} />
-                    <Route path="/documents" element={<ProtectedRoute><ComingSoon page="My Documents" /></ProtectedRoute>} />
-                    <Route path="/quizzes" element={<ProtectedRoute><ComingSoon page="AI Quizzes" /></ProtectedRoute>} />
-                    <Route path="/flashcards" element={<ProtectedRoute><ComingSoon page="Flashcards" /></ProtectedRoute>} />
-                    <Route path="/study-rooms" element={<ProtectedRoute><ComingSoon page="Study Rooms" /></ProtectedRoute>} />
-                    <Route path="/leaderboard" element={<ProtectedRoute><ComingSoon page="Leaderboard" /></ProtectedRoute>} />
-                    <Route path="/analytics" element={<ProtectedRoute><ComingSoon page="Analytics" /></ProtectedRoute>} />
-                    
+
                     {/* ===== CATCH ALL ===== */}
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
@@ -172,6 +239,7 @@ function App() {
         </AuthProvider>
     );
 }
+
 
 // Coming Soon Placeholder Component
 const ComingSoon = ({ page }) => (
@@ -182,8 +250,8 @@ const ComingSoon = ({ page }) => (
             <p className="text-gray-600 mb-8">
                 This feature is under development and will be available soon!
             </p>
-            <a 
-                href="/dashboard" 
+            <a
+                href="/dashboard"
                 className="inline-block px-6 py-3 bg-black text-white rounded-xl font-bold hover:scale-105 transition-all"
             >
                 ← Back to Dashboard
@@ -191,5 +259,6 @@ const ComingSoon = ({ page }) => (
         </div>
     </div>
 );
+
 
 export default App;

@@ -4,15 +4,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     BookOpen, Upload, Trophy, Target, Clock, TrendingUp, Zap, Award, Play, LogOut,
     Users, Brain, ChevronRight, Flame, BarChart3, FileText, Video, Home, Bell, Search,
-    Sparkles, Layers, Mic, Plus
+    Sparkles, Layers, Mic, Plus, Settings
 } from 'lucide-react';
 import { useAuth } from '@contexts/AuthContext';
-import { 
-    useDashboardData, 
-    awardXP, 
-    completeQuiz, 
+import {
+    useDashboardData,
+    awardXP,
+    completeQuiz,
     joinStudyRoom,
-    claimDailyBonus 
+    claimDailyBonus
 } from '@/hooks/useDashboardData';
 import toast from 'react-hot-toast';
 import logoImage from '@/assets/logo/logo.svg';
@@ -20,7 +20,7 @@ import logoImage from '@/assets/logo/logo.svg';
 const Dashboard = () => {
     const { user, userData, logout } = useAuth();
     const navigate = useNavigate();
-    const { data, loading } = useDashboardData(); // REAL-TIME DATA
+    const { data, loading } = useDashboardData();
     const [showXPAnimation, setShowXPAnimation] = useState(false);
 
     // Auto-claim daily bonus on mount
@@ -28,11 +28,20 @@ const Dashboard = () => {
         if (user?.uid) {
             const lastLogin = localStorage.getItem(`lastLogin_${user.uid}`);
             const today = new Date().toDateString();
-            
+
             if (lastLogin !== today) {
                 claimDailyBonus(user.uid);
                 localStorage.setItem(`lastLogin_${user.uid}`, today);
-                toast.success('🎁 Daily bonus: +5 XP!');
+                toast.success('🎁 Daily bonus: +5 XP!', {
+                    duration: 3000,
+                    style: {
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        color: '#fff',
+                        fontWeight: 'bold',
+                        borderRadius: '12px',
+                        padding: '16px 24px',
+                    },
+                });
             }
         }
     }, [user?.uid]);
@@ -48,57 +57,62 @@ const Dashboard = () => {
     const handleLogout = async () => {
         try {
             await logout();
-            toast.success('Logged out successfully');
+            toast.success('👋 See you soon!', {
+                style: {
+                    background: '#000',
+                    color: '#fff',
+                    fontWeight: 'bold',
+                    borderRadius: '12px',
+                    padding: '16px 24px',
+                },
+            });
             navigate('/auth');
         } catch (error) {
             toast.error('Failed to logout');
         }
     };
 
-    // REAL ACTION: Upload PDF
     const handleUploadClick = () => {
         navigate('/upload');
-        // XP will be awarded automatically when upload completes (Cloud Function)
     };
 
-    // REAL ACTION: Take Quiz
     const handleTakeQuiz = (quizId) => {
         navigate(`/quizzes/${quizId}`);
-        // XP will be awarded when quiz is completed
     };
 
-    // REAL ACTION: Join Room
     const handleJoinRoom = async (roomId) => {
         try {
             await joinStudyRoom(user.uid, roomId);
             await awardXP(user.uid, 5, 'joined-study-room');
             navigate(`/study-rooms/${roomId}`);
-            toast.success('🎉 Joined room! +5 XP');
+            toast.success('🎉 Joined room! +5 XP', {
+                duration: 3000,
+                style: {
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    color: '#fff',
+                    fontWeight: 'bold',
+                    borderRadius: '12px',
+                    padding: '16px 24px',
+                },
+            });
         } catch (error) {
             toast.error('Failed to join room');
         }
     };
 
-    // Navigation items
-   // src/pages/Dashboard.jsx - UPDATE navigation items
-const navItems = [
-    { icon: Home, label: 'Dashboard', active: true, path: '/dashboard' },
-    { icon: Users, label: 'My Classes', path: '/classes' }, // NEW - Classes
-    { icon: Upload, label: 'Upload PDF', path: '/upload' },
-    { icon: BookOpen, label: 'My Documents', path: '/documents' },
-    { icon: Brain, label: 'AI Quizzes', path: '/quizzes' },
-    { icon: Layers, label: 'Flashcards', path: '/flashcards' },
-    { icon: Video, label: 'Study Rooms', path: '/study-rooms' },
-    { icon: Trophy, label: 'Leaderboard', path: '/leaderboard' },
-    { icon: BarChart3, label: 'Analytics', path: '/analytics' }
-];
-
+    // Navigation items - Simplified
+    const navItems = [
+        { icon: Home, label: 'Dashboard', active: true, path: '/dashboard' },
+        { icon: Layers, label: 'Workspace', path: '/hub' },
+        { icon: Upload, label: 'Upload PDF', path: '/upload' },
+        { icon: Trophy, label: 'Leaderboard', path: '/leaderboard' }
+    ];
 
     const quickActions = [
         { icon: Upload, label: 'Upload PDF', desc: 'Generate instant quizzes', action: handleUploadClick },
-        { icon: Brain, label: 'Take Quiz', desc: 'Test your knowledge', path: '/quizzes' },
-        { icon: Video, label: 'Join Room', desc: 'Study with peers', path: '/study-rooms' },
-        { icon: Mic, label: 'Voice Mode', desc: 'Hands-free learning', action: () => toast.success('Voice assistant coming soon!') }
+        { icon: Layers, label: 'Open Workspace', desc: 'Access all features', path: '/hub' },
+        { icon: Brain, label: 'Take Quiz', desc: 'Test your knowledge', path: '/hub?tab=quizzes' },
+        { icon: Video, label: 'Join Room', desc: 'Study with peers', path: '/hub?tab=rooms' }
     ];
 
     if (loading) {
@@ -119,7 +133,6 @@ const navItems = [
 
     return (
         <div className="min-h-screen bg-white flex">
-            
             {/* XP Floating Animation */}
             <AnimatePresence>
                 {showXPAnimation && (
@@ -153,11 +166,10 @@ const navItems = [
                         <Link
                             key={idx}
                             to={item.path || '#'}
-                            className={`group flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                                item.active
+                            className={`group flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${item.active
                                     ? 'bg-white/10 text-white shadow-lg'
                                     : 'text-gray-400 hover:bg-white/5 hover:text-white'
-                            }`}
+                                }`}
                         >
                             <item.icon size={20} />
                             <span className="flex-1">{item.label}</span>
@@ -166,24 +178,33 @@ const navItems = [
                     ))}
                 </nav>
 
-                {/* User Profile - REAL-TIME XP */}
-                <div className="p-4 border-t border-white/10">
-                    <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-white/5 mb-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-white to-gray-300 flex items-center justify-center text-black font-bold text-lg">
+                {/* User Profile Section */}
+                <div className="p-4 border-t border-white/10 space-y-3">
+                    <Link
+                        to="/settings"
+                        onClick={() => console.log('🖱️ Settings link clicked!')}
+                        className="flex items-center gap-3 px-3 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition-all group cursor-pointer"
+                    >
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-white to-gray-300 flex items-center justify-center text-black font-bold text-lg flex-shrink-0">
                             {userData?.name?.charAt(0) || user?.email?.charAt(0).toUpperCase() || 'U'}
                         </div>
                         <div className="flex-1 min-w-0">
-                            <div className="text-sm font-bold text-white truncate">
+                            <div className="text-sm font-bold text-white truncate group-hover:text-gray-200 transition-colors">
                                 {userData?.name || user?.email?.split('@')[0] || 'User'}
                             </div>
                             <div className="text-xs text-gray-400">
                                 Level {stats.level} • {stats.xp} XP
                             </div>
                         </div>
-                    </div>
+                        <Settings
+                            size={18}
+                            className="text-gray-500 group-hover:text-white group-hover:rotate-90 transition-all duration-300"
+                        />
+                    </Link>
+
                     <button
                         onClick={handleLogout}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-gray-400 hover:bg-white/5 hover:text-white transition-all"
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-gray-400 hover:bg-red-500/10 hover:text-red-400 transition-all"
                     >
                         <LogOut size={18} />
                         <span>Logout</span>
@@ -194,7 +215,6 @@ const navItems = [
             {/* MAIN CONTENT */}
             <div className="flex-1 ml-72">
                 <div className="p-8 space-y-6">
-                    
                     {/* TOP HEADER */}
                     <div className="flex items-center justify-between">
                         <div>
@@ -204,6 +224,9 @@ const navItems = [
                             <h1 className="text-3xl font-black text-black">
                                 Good morning, {userData?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Student'} 👋
                             </h1>
+                            <p className="text-gray-500 text-sm mt-2">
+                                Here's your learning overview for today
+                            </p>
                         </div>
 
                         <div className="flex items-center gap-3">
@@ -211,7 +234,7 @@ const navItems = [
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                                 <input
                                     type="text"
-                                    placeholder="Search documents, quizzes..."
+                                    placeholder="Search..."
                                     className="w-80 pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-gray-300 transition-all"
                                 />
                             </div>
@@ -222,11 +245,10 @@ const navItems = [
                         </div>
                     </div>
 
-                    {/* REAL-TIME STATS GRID */}
+                    {/* STATS GRID */}
                     <div className="grid grid-cols-4 gap-4">
-                        {/* Documents - REAL-TIME */}
                         <motion.div
-                            key={stats.totalDocuments}
+                            key={`doc-${stats.totalDocuments}`}
                             initial={{ scale: 1 }}
                             animate={{ scale: [1, 1.05, 1] }}
                             transition={{ duration: 0.3 }}
@@ -242,9 +264,8 @@ const navItems = [
                             <div className="text-sm text-gray-400">Documents Uploaded</div>
                         </motion.div>
 
-                        {/* Quizzes - REAL-TIME */}
                         <motion.div
-                            key={stats.quizzesGenerated}
+                            key={`quiz-${stats.quizzesGenerated}`}
                             initial={{ scale: 1 }}
                             animate={{ scale: [1, 1.05, 1] }}
                             transition={{ duration: 0.3 }}
@@ -260,9 +281,8 @@ const navItems = [
                             <div className="text-sm text-gray-500">AI Quizzes Generated</div>
                         </motion.div>
 
-                        {/* Accuracy - REAL-TIME */}
                         <motion.div
-                            key={stats.averageAccuracy}
+                            key={`acc-${stats.averageAccuracy}`}
                             initial={{ scale: 1 }}
                             animate={{ scale: [1, 1.05, 1] }}
                             transition={{ duration: 0.3 }}
@@ -278,9 +298,8 @@ const navItems = [
                             <div className="text-sm text-gray-500">Quiz Accuracy</div>
                         </motion.div>
 
-                        {/* Streak - REAL-TIME */}
                         <motion.div
-                            key={stats.currentStreak}
+                            key={`streak-${stats.currentStreak}`}
                             initial={{ scale: 1 }}
                             animate={{ scale: [1, 1.1, 1] }}
                             transition={{ duration: 0.5 }}
@@ -301,22 +320,25 @@ const navItems = [
 
                     {/* MAIN GRID */}
                     <div className="grid grid-cols-12 gap-6">
-                        
-                        {/* LEFT - AI RECOMMENDATIONS */}
+                        {/* LEFT - Recent Activity */}
                         <div className="col-span-8 space-y-6">
-                            
-                            {/* AI Recommendations - REAL-TIME */}
+                            {/* AI Recommendations */}
                             <div>
-                                <div className="flex items-center gap-2 mb-4">
-                                    <Sparkles size={20} className="text-black" />
-                                    <h2 className="text-xl font-black text-black">AI Recommended for You</h2>
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center gap-2">
+                                        <Sparkles size={20} className="text-black" />
+                                        <h2 className="text-xl font-black text-black">Recommended for You</h2>
+                                    </div>
+                                    <Link to="/hub?tab=quizzes" className="text-sm font-bold text-black hover:underline">
+                                        View all quizzes →
+                                    </Link>
                                 </div>
 
                                 {aiRecommendations.length > 0 ? (
                                     <div className="grid grid-cols-2 gap-4">
                                         {aiRecommendations.slice(0, 2).map((rec, idx) => (
                                             <motion.div
-                                                key={rec.quizId || idx}
+                                                key={`rec-${rec.quizId || idx}`}
                                                 initial={{ opacity: 0, x: -20 }}
                                                 animate={{ opacity: 1, x: 0 }}
                                                 transition={{ delay: idx * 0.1 }}
@@ -332,7 +354,7 @@ const navItems = [
                                                 </div>
                                                 <h3 className="text-lg font-bold mb-1">{rec.title || 'Continue Learning'}</h3>
                                                 <p className="text-sm text-white/70 mb-4">{rec.description || 'Personalized by AI'}</p>
-                                                <button 
+                                                <button
                                                     onClick={() => handleTakeQuiz(rec.quizId)}
                                                     className="w-full py-2.5 bg-white/20 hover:bg-white/30 rounded-xl text-sm font-bold backdrop-blur-sm transition-all flex items-center justify-center gap-2 group-hover:gap-3"
                                                 >
@@ -346,7 +368,7 @@ const navItems = [
                                     <div className="bg-gray-50 border border-gray-200 rounded-2xl p-8 text-center">
                                         <Brain size={48} className="mx-auto text-gray-300 mb-4" />
                                         <p className="text-gray-600 mb-4">Upload your first PDF to get AI-powered recommendations!</p>
-                                        <button 
+                                        <button
                                             onClick={handleUploadClick}
                                             className="inline-flex items-center gap-2 px-6 py-3 bg-black text-white rounded-xl font-bold hover:scale-105 transition-all"
                                         >
@@ -357,11 +379,11 @@ const navItems = [
                                 )}
                             </div>
 
-                            {/* Recent Documents - REAL-TIME */}
+                            {/* Recent Documents */}
                             <div>
                                 <div className="flex items-center justify-between mb-4">
                                     <h2 className="text-xl font-black text-black">Recent Documents</h2>
-                                    <Link to="/documents" className="text-sm font-bold text-black hover:underline">
+                                    <Link to="/hub?tab=documents" className="text-sm font-bold text-black hover:underline">
                                         View all →
                                     </Link>
                                 </div>
@@ -369,14 +391,13 @@ const navItems = [
                                 <AnimatePresence mode="popLayout">
                                     {recentDocuments.length > 0 ? (
                                         <div className="space-y-3">
-                                            {recentDocuments.map((doc, idx) => (
+                                            {recentDocuments.slice(0, 3).map((doc) => (
                                                 <motion.div
                                                     key={doc.id}
                                                     layout
                                                     initial={{ opacity: 0, y: 20 }}
                                                     animate={{ opacity: 1, y: 0 }}
                                                     exit={{ opacity: 0, x: -100 }}
-                                                    transition={{ delay: idx * 0.05 }}
                                                     className="bg-white border border-gray-200 rounded-2xl p-5 hover:border-black hover:shadow-lg transition-all cursor-pointer group"
                                                     onClick={() => navigate(`/pdf-reader/${doc.id}`)}
                                                 >
@@ -405,14 +426,14 @@ const navItems = [
                                             ))}
                                         </div>
                                     ) : (
-                                        <motion.div 
+                                        <motion.div
                                             initial={{ opacity: 0 }}
                                             animate={{ opacity: 1 }}
                                             className="bg-gray-50 border border-gray-200 rounded-2xl p-8 text-center"
                                         >
                                             <FileText size={48} className="mx-auto text-gray-300 mb-4" />
                                             <p className="text-gray-600 mb-4">No documents yet. Upload your first PDF!</p>
-                                            <button 
+                                            <button
                                                 onClick={handleUploadClick}
                                                 className="inline-flex items-center gap-2 px-6 py-3 bg-black text-white rounded-xl font-bold hover:scale-105 transition-all"
                                             >
@@ -427,14 +448,13 @@ const navItems = [
 
                         {/* RIGHT SIDEBAR */}
                         <div className="col-span-4 space-y-6">
-                            
                             {/* Quick Actions */}
                             <div className="bg-gray-50 border border-gray-200 rounded-2xl p-5">
                                 <h3 className="text-sm font-black text-black mb-4 uppercase tracking-wider">Quick Actions</h3>
                                 <div className="grid grid-cols-2 gap-2">
                                     {quickActions.map((action, idx) => (
                                         <button
-                                            key={idx}
+                                            key={`action-${idx}`}
                                             onClick={() => {
                                                 if (action.action) {
                                                     action.action();
@@ -452,13 +472,13 @@ const navItems = [
                                 </div>
                             </div>
 
-                            {/* Progress - REAL-TIME */}
+                            {/* Progress */}
                             <motion.div
-                                key={stats.xp}
+                                key={`progress-${stats.xp}`}
                                 className="bg-gradient-to-br from-black to-gray-900 rounded-2xl p-6 text-white"
                             >
                                 <h3 className="text-sm font-black mb-4 uppercase tracking-wider text-gray-400">Level Progress</h3>
-                                
+
                                 <div className="flex items-center gap-4 mb-6">
                                     <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm">
                                         <div className="text-2xl font-black">{stats.level}</div>
@@ -497,7 +517,7 @@ const navItems = [
                                 </div>
                             </motion.div>
 
-                            {/* Live Rooms - REAL-TIME */}
+                            {/* Live Rooms */}
                             <div className="bg-white border border-gray-200 rounded-2xl p-5">
                                 <div className="flex items-center justify-between mb-4">
                                     <h3 className="text-sm font-black text-black uppercase tracking-wider">Live Rooms</h3>
@@ -506,7 +526,7 @@ const navItems = [
                                         <span className="text-xs text-gray-500">{activeRooms.length} active</span>
                                     </div>
                                 </div>
-                                
+
                                 <AnimatePresence mode="popLayout">
                                     {activeRooms.length > 0 ? (
                                         <div className="space-y-3">
@@ -538,7 +558,7 @@ const navItems = [
                                             ))}
                                         </div>
                                     ) : (
-                                        <motion.div 
+                                        <motion.div
                                             initial={{ opacity: 0 }}
                                             animate={{ opacity: 1 }}
                                             className="text-center py-6"
