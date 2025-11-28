@@ -9,18 +9,12 @@ import LandingPage from './pages/LandingPage';
 
 // Student Pages
 import Dashboard from './pages/Dashboard';
-import StudentHub from './pages/StudentHub';
-import Classes from './pages/Classes';
 import ClassDetails from './pages/ClassDetails';
 import PDFUpload from './pages/PDFUpload';
 import PDFReader from './pages/PDFReader';
 import StudySession from './pages/StudySession'; // NEW - Study Session
 import QuizPage from './pages/QuizPage';
 import QuizResults from './pages/QuizResults';
-import Flashcards from './pages/Flashcards';
-import Notes from './pages/Notes';
-import StudyRooms from './pages/StudyRooms';
-import Leaderboard from './pages/Leaderboard';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 
@@ -126,34 +120,36 @@ function App() {
 
                     {/* STUDENT ROUTES */}
                     <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-                    <Route path="/hub" element={<ProtectedRoute><StudentHub /></ProtectedRoute>} />
+
+                    {/* Redirect /hub to dashboard */}
+                    <Route path="/hub" element={<Navigate to="/dashboard" replace />} />
 
                     {/* Classes */}
-                    <Route path="/classes" element={<ProtectedRoute><Classes /></ProtectedRoute>} />
+                    <Route path="/classes" element={<Navigate to="/dashboard?tab=classes" replace />} />
                     <Route path="/classes/:classId" element={<ProtectedRoute><ClassDetails /></ProtectedRoute>} />
 
                     {/* Documents & PDFs */}
                     <Route path="/upload" element={<ProtectedRoute><PDFUpload /></ProtectedRoute>} />
-                    <Route path="/documents" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                    <Route path="/documents" element={<Navigate to="/dashboard?tab=documents" replace />} />
                     <Route path="/documents/:docId" element={<ProtectedRoute><PDFReader /></ProtectedRoute>} />
-                    
+
                     {/* NEW - STUDY SESSION */}
                     <Route path="/study/:docId" element={<ProtectedRoute><StudySession /></ProtectedRoute>} />
 
                     {/* Quizzes */}
-                    <Route path="/quizzes" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                    <Route path="/quizzes" element={<Navigate to="/dashboard?tab=quizzes" replace />} />
                     <Route path="/quizzes/:quizId" element={<ProtectedRoute><QuizPage /></ProtectedRoute>} />
                     <Route path="/results/:sessionId" element={<ProtectedRoute><QuizResults /></ProtectedRoute>} />
 
                     {/* Learning Tools */}
-                    <Route path="/flashcards" element={<ProtectedRoute><Flashcards /></ProtectedRoute>} />
-                    <Route path="/notes" element={<ProtectedRoute><Notes /></ProtectedRoute>} />
+                    <Route path="/flashcards" element={<Navigate to="/dashboard?tab=flashcards" replace />} />
+                    <Route path="/notes" element={<Navigate to="/dashboard?tab=notes" replace />} />
 
                     {/* Collaboration */}
-                    <Route path="/study-rooms" element={<ProtectedRoute><StudyRooms /></ProtectedRoute>} />
+                    <Route path="/study-rooms" element={<Navigate to="/dashboard?tab=rooms" replace />} />
 
                     {/* Gamification */}
-                    <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
+                    <Route path="/leaderboard" element={<Navigate to="/dashboard?tab=leaderboard" replace />} />
 
                     {/* User */}
                     <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

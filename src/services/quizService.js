@@ -99,7 +99,7 @@ export const getUserQuizzes = async (userId, userRole = 'student') => {
     try {
         let q;
 
-        if (userRole === 'teacher' || userRole === 'admin') {
+        if (userRole === 'teacher') {
             // Teachers see their own created quizzes
             q = query(
                 collection(db, COLLECTIONS.QUIZZES),

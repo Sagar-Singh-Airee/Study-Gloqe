@@ -1,14 +1,13 @@
 // src/components/settings/ProfileSettings.jsx
 import { useState, useEffect } from 'react';
-import { Camera, Upload, X, Loader, Save } from 'lucide-react';
+import { Camera, Loader, Save } from 'lucide-react';
 import { useAuth } from '@contexts/AuthContext';
-import { db, storage } from '@/config/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { storage } from '@/config/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import toast from 'react-hot-toast';
 
 const ProfileSettings = ({ onChangeDetected }) => {
-    const { user, userData } = useAuth();
+    const { user, userData, updateUserProfile } = useAuth();
     const [formData, setFormData] = useState({
         name: '',
         bio: '',
@@ -33,7 +32,7 @@ const ProfileSettings = ({ onChangeDetected }) => {
                 major: userData.major || '',
                 dateOfBirth: userData.dateOfBirth || ''
             });
-            setPreviewUrl(userData.photoURL || '');
+            setPreviewUrl(userData.photoURL || userData.profilePicture || '');
         }
     }, [userData]);
 
@@ -64,52 +63,59 @@ const ProfileSettings = ({ onChangeDetected }) => {
     const handleSave = async () => {
         try {
             setUploading(true);
+            console.log('💾 Starting profile save...');
+
             let photoURL = previewUrl;
 
-            // Upload profile image if changed
             if (profileImage) {
-                const storageRef = ref(storage, `profileImages/${user.uid}`);
+                console.log('📤 Uploading profile image...');
+                const storageRef = ref(storage, `avatars/${user.uid}/${profileImage.name}`);
                 await uploadBytes(storageRef, profileImage);
                 photoURL = await getDownloadURL(storageRef);
+                console.log('✅ Image uploaded:', photoURL);
             }
 
-            // Update Firestore
-            const userRef = doc(db, 'users', user.uid);
-            await updateDoc(userRef, {
-                ...formData,
-                photoURL,
-                updatedAt: new Date()
-            });
+            const updateData = {
+                name: formData.name,
+                bio: formData.bio,
+                phone: formData.phone,
+                studentId: formData.studentId,
+                grade: formData.grade,
+                major: formData.major,
+                dateOfBirth: formData.dateOfBirth,
+                profilePicture: photoURL,
+                photoURL: photoURL
+            };
+
+            console.log('📝 Calling updateUserProfile with:', updateData);
+            await updateUserProfile(updateData);
 
             toast.success('✅ Profile updated successfully!', {
                 style: {
-                    background: '#000',
+                    background: '#1e3a8a',
                     color: '#fff',
                     fontWeight: 'bold',
-                    borderRadius: '12px',
-                    padding: '16px 24px',
+                    borderRadius: '8px',
+                    padding: '12px 20px',
                 },
             });
+
             onChangeDetected(false);
+            setProfileImage(null);
         } catch (error) {
-            console.error(error);
-            toast.error('Failed to update profile');
+            console.error('❌ Save failed:', error);
+            toast.error(error.message || 'Failed to update profile');
         } finally {
             setUploading(false);
         }
     };
 
     return (
-        <div className="space-y-8">
-            <div>
-                <h2 className="text-2xl font-black text-black mb-2">Profile Settings</h2>
-                <p className="text-gray-500 text-sm">Update your personal information and profile picture</p>
-            </div>
-
-            {/* Profile Picture */}
-            <div className="flex items-center gap-6 pb-6 border-b border-gray-200">
-                <div className="relative">
-                    <div className="w-24 h-24 rounded-full bg-gradient-to-br from-black to-gray-700 flex items-center justify-center text-3xl font-bold overflow-hidden">
+        <div className="space-y-5">
+            {/* Profile Picture - Minimal */}
+            <div className="flex items-center gap-5">
+                <div className="relative group">
+                    <div className="w-18 h-18 rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center text-xl font-bold overflow-hidden border border-gray-200 group-hover:border-blue-400 transition-colors">
                         {previewUrl ? (
                             <img src={previewUrl} alt="Profile" className="w-full h-full object-cover" />
                         ) : (
@@ -118,9 +124,9 @@ const ProfileSettings = ({ onChangeDetected }) => {
                     </div>
                     <label
                         htmlFor="profile-upload"
-                        className="absolute bottom-0 right-0 w-8 h-8 bg-black hover:bg-gray-800 rounded-full flex items-center justify-center cursor-pointer transition-all shadow-lg"
+                        className="absolute -bottom-2 -right-2 w-7 h-7 bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center justify-center cursor-pointer transition-colors shadow-lg"
                     >
-                        <Camera size={16} className="text-white" />
+                        <Camera size={14} className="text-white" />
                     </label>
                     <input
                         id="profile-upload"
@@ -131,19 +137,18 @@ const ProfileSettings = ({ onChangeDetected }) => {
                     />
                 </div>
                 <div className="flex-1">
-                    <h3 className="font-bold text-black mb-1">Profile Picture</h3>
-                    <p className="text-sm text-gray-500 mb-3">PNG, JPG up to 5MB</p>
+                    <p className="text-xs font-semibold text-gray-700 mb-1.5">Profile Photo</p>
                     <div className="flex gap-2">
                         <label
                             htmlFor="profile-upload"
-                            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-black rounded-lg text-sm font-bold cursor-pointer transition-all"
+                            className="px-2.5 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-md cursor-pointer transition-colors"
                         >
-                            Upload New
+                            Change
                         </label>
                         {previewUrl && (
                             <button
                                 onClick={handleRemovePhoto}
-                                className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm font-bold transition-all"
+                                className="px-2.5 py-1.5 text-xs font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
                             >
                                 Remove
                             </button>
@@ -152,75 +157,83 @@ const ProfileSettings = ({ onChangeDetected }) => {
                 </div>
             </div>
 
-            {/* Form Fields */}
-            <div className="grid md:grid-cols-2 gap-6">
+            {/* Divider */}
+            <div className="border-b border-gray-200"></div>
+
+            {/* Form Fields - Minimal Grid */}
+            <div className="grid md:grid-cols-2 gap-4">
+                {/* Full Name */}
                 <div>
-                    <label className="block text-sm font-bold text-black mb-2">Full Name *</label>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">Full Name</label>
                     <input
                         type="text"
                         name="name"
                         value={formData.name}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-black transition-all text-black font-medium"
-                        placeholder="Enter your full name"
+                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-xs font-medium text-gray-900 placeholder:text-gray-400"
+                        placeholder="Your name"
                     />
                 </div>
 
+                {/* Student ID */}
                 <div>
-                    <label className="block text-sm font-bold text-black mb-2">Student ID</label>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">Student ID</label>
                     <input
                         type="text"
                         name="studentId"
                         value={formData.studentId}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-black transition-all text-black font-medium"
+                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-xs font-medium text-gray-900 placeholder:text-gray-400"
                         placeholder="12345678"
                     />
                 </div>
 
+                {/* Email */}
                 <div>
-                    <label className="block text-sm font-bold text-black mb-2">Email Address</label>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">Email Address</label>
                     <input
                         type="email"
                         value={user?.email || ''}
                         disabled
-                        className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-500 font-medium cursor-not-allowed"
+                        className="w-full px-3 py-2 bg-gray-100 border border-gray-200 rounded-md text-xs font-medium text-gray-500 cursor-not-allowed"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Email cannot be changed here</p>
                 </div>
 
+                {/* Phone */}
                 <div>
-                    <label className="block text-sm font-bold text-black mb-2">Phone Number</label>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">Phone Number</label>
                     <input
                         type="tel"
                         name="phone"
                         value={formData.phone}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-black transition-all text-black font-medium"
-                        placeholder="+91 1234567890"
+                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-xs font-medium text-gray-900 placeholder:text-gray-400"
+                        placeholder="+91 98765 43210"
                     />
                 </div>
 
+                {/* Date of Birth */}
                 <div>
-                    <label className="block text-sm font-bold text-black mb-2">Date of Birth</label>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">Date of Birth</label>
                     <input
                         type="date"
                         name="dateOfBirth"
                         value={formData.dateOfBirth}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-black transition-all text-black font-medium"
+                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-xs font-medium text-gray-900"
                     />
                 </div>
 
+                {/* Grade/Year */}
                 <div>
-                    <label className="block text-sm font-bold text-black mb-2">Grade/Year</label>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">Grade/Year</label>
                     <select
                         name="grade"
                         value={formData.grade}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-black transition-all text-black font-medium"
+                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-xs font-medium text-gray-900 cursor-pointer"
                     >
-                        <option value="">Select your grade</option>
+                        <option value="">Select grade</option>
                         <option value="1st Year">1st Year</option>
                         <option value="2nd Year">2nd Year</option>
                         <option value="3rd Year">3rd Year</option>
@@ -229,55 +242,62 @@ const ProfileSettings = ({ onChangeDetected }) => {
                     </select>
                 </div>
 
+                {/* Major/Course */}
                 <div className="md:col-span-2">
-                    <label className="block text-sm font-bold text-black mb-2">Major/Course</label>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">Major/Course</label>
                     <input
                         type="text"
                         name="major"
                         value={formData.major}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-black transition-all text-black font-medium"
+                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-xs font-medium text-gray-900 placeholder:text-gray-400"
                         placeholder="e.g. Computer Science & Engineering"
                     />
                 </div>
 
+                {/* Bio */}
                 <div className="md:col-span-2">
-                    <label className="block text-sm font-bold text-black mb-2">Bio</label>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">Bio</label>
                     <textarea
                         name="bio"
                         value={formData.bio}
                         onChange={handleInputChange}
-                        rows={4}
+                        rows={2}
                         maxLength={200}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-black transition-all resize-none text-black font-medium"
+                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all resize-none text-xs font-medium text-gray-900 placeholder:text-gray-400"
                         placeholder="Tell us about yourself..."
                     />
-                    <p className="text-xs text-gray-500 mt-1">{formData.bio.length}/200 characters</p>
+                    <div className="flex justify-end mt-0.5">
+                        <p className="text-xs text-gray-500 font-medium">{formData.bio.length}/200</p>
+                    </div>
                 </div>
             </div>
 
-            {/* Save Button */}
-            <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
+            {/* Divider */}
+            <div className="border-b border-gray-200"></div>
+
+            {/* Action Buttons - Minimal */}
+            <div className="flex justify-end gap-2 pt-1">
                 <button
                     onClick={() => window.location.reload()}
-                    className="px-6 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-bold transition-all text-black"
+                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md text-xs font-semibold transition-colors"
                 >
                     Cancel
                 </button>
                 <button
                     onClick={handleSave}
                     disabled={uploading}
-                    className="px-6 py-3 bg-black hover:bg-gray-800 text-white rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
                 >
                     {uploading ? (
                         <>
-                            <Loader size={18} className="animate-spin" />
+                            <Loader size={14} className="animate-spin" />
                             Saving...
                         </>
                     ) : (
                         <>
-                            <Save size={18} />
-                            Save Changes
+                            <Save size={14} />
+                            Save
                         </>
                     )}
                 </button>

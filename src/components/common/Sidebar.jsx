@@ -18,7 +18,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const Sidebar = ({ isOpen, onClose }) => {
     const { userData } = useAuth();
-    const isTeacher = userData?.role === 'teacher' || userData?.role === 'admin';
+    const isTeacher = userData?.role === 'teacher';
 
     const studentLinks = [
         { to: '/dashboard', icon: Home, label: 'Dashboard' },
@@ -70,10 +70,9 @@ const Sidebar = ({ isOpen, onClose }) => {
                                 to={link.to}
                                 onClick={() => onClose()}
                                 className={({ isActive }) =>
-                                    `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-                                        isActive
-                                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/50'
-                                            : 'hover:bg-white/5 text-gray-300 hover:text-white'
+                                    `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive
+                                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/50'
+                                        : 'hover:bg-white/5 text-gray-300 hover:text-white'
                                     }`
                                 }
                             >
