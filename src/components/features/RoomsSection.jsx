@@ -1,6 +1,23 @@
-// src/components/features/RoomsSection.jsx
-import { useState } from 'react';
+// src/components/features/RoomsSection.jsx - FIXED
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { 
+    collection, 
+    query, 
+    onSnapshot, 
+    addDoc, 
+    serverTimestamp,
+    orderBy,
+    where,
+    updateDoc,
+    doc,
+    arrayUnion,
+    increment,
+    getDocs
+} from 'firebase/firestore';
+import { db } from '@/config/firebase';
+import { useAuth } from '@/contexts/AuthContext';
 import {
     Video,
     Users,
@@ -8,126 +25,170 @@ import {
     Clock,
     Lock,
     Globe,
-    MessageCircle,
-    Mic,
-    MicOff,
-    VideoOff as VideoOffIcon,
-    PhoneOff,
-    Share2
+    Loader2
 } from 'lucide-react';
 
 const RoomsSection = () => {
-    const [rooms, setRooms] = useState([
-        {
-            id: 1,
-            name: 'Physics Study Group',
-            topic: 'Thermodynamics',
-            members: 5,
-            maxMembers: 10,
-            isPrivate: false,
-            host: 'Sarah Johnson',
-            startedAt: new Date()
-        },
-        {
-            id: 2,
-            name: 'Math Homework Help',
-            topic: 'Calculus',
-            members: 3,
-            maxMembers: 6,
-            isPrivate: true,
-            host: 'Mike Chen',
-            startedAt: new Date()
-        },
-        {
-            id: 3,
-            name: 'General Study Room',
-            topic: 'Mixed Subjects',
-            members: 8,
-            maxMembers: 15,
-            isPrivate: false,
-            host: 'Emma Williams',
-            startedAt: new Date()
+    const { currentUser } = useAuth();
+    const navigate = useNavigate();
+    const [rooms, setRooms] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [newRoom, setNewRoom] = useState({
+        name: '',
+        topic: '',
+        maxMembers: 10,
+        isPrivate: false
+    });
+
+    // Real-time listener for active rooms (FIXED - removed orderBy to avoid index requirement)
+    useEffect(() => {
+        if (!currentUser) {
+            setLoading(false);
+            return;
         }
-    ]);
 
-    const [inRoom, setInRoom] = useState(false);
-    const [currentRoom, setCurrentRoom] = useState(null);
-    const [isMuted, setIsMuted] = useState(false);
-    const [isVideoOff, setIsVideoOff] = useState(false);
+        console.log('🔍 Setting up rooms listener...');
 
-    const joinRoom = (room) => {
-        setCurrentRoom(room);
-        setInRoom(true);
+        const roomsRef = collection(db, 'rooms');
+        
+        // OPTION 1: Simple query without orderBy (no index needed)
+        const q = query(
+            roomsRef,
+            where('isActive', '==', true)
+        );
+
+        const unsubscribe = onSnapshot(
+            q, 
+            (snapshot) => {
+                console.log('📦 Received', snapshot.docs.length, 'rooms');
+                
+                const roomsData = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                    startedAt: doc.data().createdAt?.toDate()
+                }));
+                
+                // Sort client-side (no index needed)
+                roomsData.sort((a, b) => {
+                    if (!a.createdAt) return 1;
+                    if (!b.createdAt) return -1;
+                    return b.createdAt.seconds - a.createdAt.seconds;
+                });
+                
+                setRooms(roomsData);
+                setLoading(false);
+            }, 
+            (error) => {
+                console.error('❌ Error fetching rooms:', error);
+                console.error('Error code:', error.code);
+                console.error('Error message:', error.message);
+                
+                // If it's an index error, fall back to getting all rooms
+                if (error.code === 'failed-precondition') {
+                    console.log('⚠️ Index missing, fetching all rooms...');
+                    fetchAllRooms();
+                } else {
+                    setLoading(false);
+                }
+            }
+        );
+
+        return () => unsubscribe();
+    }, [currentUser]);
+
+    // Fallback: fetch all rooms without real-time updates
+    const fetchAllRooms = async () => {
+        try {
+            const roomsRef = collection(db, 'rooms');
+            const snapshot = await getDocs(roomsRef);
+            
+            const roomsData = snapshot.docs
+                .map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                    startedAt: doc.data().createdAt?.toDate()
+                }))
+                .filter(room => room.isActive === true)
+                .sort((a, b) => {
+                    if (!a.createdAt) return 1;
+                    if (!b.createdAt) return -1;
+                    return b.createdAt.seconds - a.createdAt.seconds;
+                });
+            
+            setRooms(roomsData);
+            setLoading(false);
+            console.log('✅ Fetched rooms (fallback):', roomsData.length);
+        } catch (error) {
+            console.error('❌ Fallback fetch failed:', error);
+            setLoading(false);
+        }
     };
 
-    const leaveRoom = () => {
-        setInRoom(false);
-        setCurrentRoom(null);
-        setIsMuted(false);
-        setIsVideoOff(false);
+    // Create new room
+    const createRoom = async (e) => {
+        e.preventDefault();
+        if (!newRoom.name.trim() || !newRoom.topic.trim()) return;
+
+        try {
+            const roomData = {
+                name: newRoom.name.trim(),
+                topic: newRoom.topic.trim(),
+                maxMembers: parseInt(newRoom.maxMembers),
+                isPrivate: newRoom.isPrivate,
+                hostId: currentUser.uid,
+                hostName: currentUser.displayName || 'Anonymous',
+                members: [currentUser.uid],
+                memberCount: 1,
+                isActive: true,
+                participants: [], // For WebRTC tracking
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+            };
+
+            const docRef = await addDoc(collection(db, 'rooms'), roomData);
+            console.log('✅ Room created:', docRef.id);
+            
+            // Navigate to room
+            navigate(`/study-room/${docRef.id}`);
+            
+            // Reset form
+            setNewRoom({ name: '', topic: '', maxMembers: 10, isPrivate: false });
+            setShowCreateModal(false);
+        } catch (error) {
+            console.error('❌ Error creating room:', error);
+            alert('Failed to create room. Please try again.');
+        }
     };
 
-    if (inRoom && currentRoom) {
+    // Join existing room
+    const joinRoom = async (room) => {
+        if (room.memberCount >= room.maxMembers) {
+            alert('Room is full!');
+            return;
+        }
+
+        try {
+            const roomRef = doc(db, 'rooms', room.id);
+            await updateDoc(roomRef, {
+                members: arrayUnion(currentUser.uid),
+                memberCount: increment(1),
+                updatedAt: serverTimestamp()
+            });
+
+            console.log('✅ Joined room:', room.id);
+            navigate(`/study-room/${room.id}`);
+        } catch (error) {
+            console.error('❌ Error joining room:', error);
+            alert('Failed to join room. Please try again.');
+        }
+    };
+
+    if (loading) {
         return (
-            <div className="max-w-6xl mx-auto">
-                {/* Video Grid */}
-                <div className="bg-black rounded-3xl p-6 mb-6">
-                    <div className="grid grid-cols-2 gap-4 mb-6">
-                        {[1, 2, 3, 4].map((i) => (
-                            <div key={i} className="aspect-video bg-gray-900 rounded-xl flex items-center justify-center relative overflow-hidden">
-                                <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center">
-                                    <Users size={32} className="text-white" />
-                                </div>
-                                <div className="absolute bottom-3 left-3 px-3 py-1 bg-black/50 rounded-lg text-white text-sm font-semibold backdrop-blur-sm">
-                                    Student {i}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Controls */}
-                    <div className="flex items-center justify-center gap-4">
-                        <button
-                            onClick={() => setIsMuted(!isMuted)}
-                            className={`p-4 rounded-xl transition-all ${isMuted ? 'bg-red-500 hover:bg-red-600' : 'bg-white/10 hover:bg-white/20'
-                                } text-white`}
-                        >
-                            {isMuted ? <MicOff size={24} /> : <Mic size={24} />}
-                        </button>
-                        <button
-                            onClick={() => setIsVideoOff(!isVideoOff)}
-                            className={`p-4 rounded-xl transition-all ${isVideoOff ? 'bg-red-500 hover:bg-red-600' : 'bg-white/10 hover:bg-white/20'
-                                } text-white`}
-                        >
-                            {isVideoOff ? <VideoOffIcon size={24} /> : <Video size={24} />}
-                        </button>
-                        <button className="p-4 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all">
-                            <Share2 size={24} />
-                        </button>
-                        <button
-                            onClick={leaveRoom}
-                            className="p-4 rounded-xl bg-red-500 hover:bg-red-600 text-white transition-all"
-                        >
-                            <PhoneOff size={24} />
-                        </button>
-                    </div>
-                </div>
-
-                {/* Info */}
-                <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6">
-                    <h3 className="text-xl font-bold text-black mb-2">{currentRoom.name}</h3>
-                    <p className="text-gray-600 mb-4">Topic: {currentRoom.topic}</p>
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
-                        <span className="flex items-center gap-1">
-                            <Users size={16} />
-                            {currentRoom.members} members
-                        </span>
-                        <span className="flex items-center gap-1">
-                            <Clock size={16} />
-                            Started {new Date(currentRoom.startedAt).toLocaleTimeString()}
-                        </span>
-                    </div>
-                </div>
+            <div className="flex items-center justify-center py-20">
+                <Loader2 size={48} className="animate-spin text-gray-400" />
+                <p className="text-gray-500 mt-4">Loading rooms...</p>
             </div>
         );
     }
@@ -140,11 +201,97 @@ const RoomsSection = () => {
                     <h1 className="text-4xl font-black text-black mb-2">Study Rooms</h1>
                     <p className="text-gray-600">Collaborate with peers in real-time</p>
                 </div>
-                <button className="flex items-center gap-2 px-6 py-3 bg-black text-white rounded-xl font-bold hover:scale-105 transition-all">
+                <button 
+                    onClick={() => setShowCreateModal(true)}
+                    className="flex items-center gap-2 px-6 py-3 bg-black text-white rounded-xl font-bold hover:scale-105 transition-all"
+                >
                     <Plus size={20} />
                     Create Room
                 </button>
             </div>
+
+            {/* Create Room Modal */}
+            {showCreateModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="bg-white rounded-3xl p-8 max-w-md w-full"
+                    >
+                        <h2 className="text-2xl font-black text-black mb-6">Create Study Room</h2>
+                        <form onSubmit={createRoom} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Room Name
+                                </label>
+                                <input
+                                    type="text"
+                                    value={newRoom.name}
+                                    onChange={(e) => setNewRoom({...newRoom, name: e.target.value})}
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-black focus:outline-none"
+                                    placeholder="e.g., Physics Study Group"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Topic
+                                </label>
+                                <input
+                                    type="text"
+                                    value={newRoom.topic}
+                                    onChange={(e) => setNewRoom({...newRoom, topic: e.target.value})}
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-black focus:outline-none"
+                                    placeholder="e.g., Thermodynamics"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Max Members
+                                </label>
+                                <select
+                                    value={newRoom.maxMembers}
+                                    onChange={(e) => setNewRoom({...newRoom, maxMembers: e.target.value})}
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-black focus:outline-none"
+                                >
+                                    <option value="6">6 members</option>
+                                    <option value="10">10 members</option>
+                                    <option value="15">15 members</option>
+                                    <option value="20">20 members</option>
+                                </select>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <input
+                                    type="checkbox"
+                                    id="private"
+                                    checked={newRoom.isPrivate}
+                                    onChange={(e) => setNewRoom({...newRoom, isPrivate: e.target.checked})}
+                                    className="w-5 h-5"
+                                />
+                                <label htmlFor="private" className="text-sm font-semibold text-gray-700">
+                                    Private Room (invite only)
+                                </label>
+                            </div>
+                            <div className="flex gap-3 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowCreateModal(false)}
+                                    className="flex-1 py-3 border-2 border-gray-200 text-black rounded-xl font-bold hover:bg-gray-50 transition-all"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="flex-1 py-3 bg-black text-white rounded-xl font-bold hover:scale-105 transition-all"
+                                >
+                                    Create Room
+                                </button>
+                            </div>
+                        </form>
+                    </motion.div>
+                </div>
+            )}
 
             {/* Rooms Grid */}
             {rooms.length > 0 ? (
@@ -179,20 +326,33 @@ const RoomsSection = () => {
                             <div className="space-y-2 mb-4 pb-4 border-b border-gray-200">
                                 <div className="flex items-center justify-between text-sm">
                                     <span className="text-gray-500">Host</span>
-                                    <span className="font-semibold text-black">{room.host}</span>
+                                    <span className="font-semibold text-black">{room.hostName}</span>
                                 </div>
                                 <div className="flex items-center justify-between text-sm">
                                     <span className="text-gray-500">Members</span>
-                                    <span className="font-semibold text-black">{room.members}/{room.maxMembers}</span>
+                                    <span className="font-semibold text-black">
+                                        {room.memberCount}/{room.maxMembers}
+                                    </span>
                                 </div>
+                                {room.startedAt && (
+                                    <div className="flex items-center gap-1 text-xs text-gray-400">
+                                        <Clock size={14} />
+                                        {room.startedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Join Button */}
                             <button
                                 onClick={() => joinRoom(room)}
-                                className="w-full py-3 bg-black text-white rounded-xl font-bold hover:scale-105 transition-all"
+                                disabled={room.memberCount >= room.maxMembers}
+                                className={`w-full py-3 rounded-xl font-bold transition-all ${
+                                    room.memberCount >= room.maxMembers
+                                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                        : 'bg-black text-white hover:scale-105'
+                                }`}
                             >
-                                Join Room
+                                {room.memberCount >= room.maxMembers ? 'Room Full' : 'Join Room'}
                             </button>
                         </motion.div>
                     ))}
@@ -202,7 +362,10 @@ const RoomsSection = () => {
                     <Video size={64} className="mx-auto text-gray-300 mb-4" />
                     <h3 className="text-2xl font-bold text-black mb-2">No Active Rooms</h3>
                     <p className="text-gray-600 mb-6">Create a room to start studying with others</p>
-                    <button className="inline-flex items-center gap-2 px-6 py-3 bg-black text-white rounded-xl font-bold hover:scale-105 transition-all">
+                    <button 
+                        onClick={() => setShowCreateModal(true)}
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-black text-white rounded-xl font-bold hover:scale-105 transition-all"
+                    >
                         <Plus size={20} />
                         Create Your First Room
                     </button>

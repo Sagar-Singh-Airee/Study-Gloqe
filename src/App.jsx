@@ -1,4 +1,4 @@
-// src/App.jsx - WITH STUDY SESSION ROUTE
+// src/App.jsx - WITH STUDY SESSION & STUDY ROOM ROUTES
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from '@contexts/AuthContext';
@@ -12,11 +12,14 @@ import Dashboard from './pages/Dashboard';
 import ClassDetails from './pages/ClassDetails';
 import PDFUpload from './pages/PDFUpload';
 import PDFReader from './pages/PDFReader';
-import StudySession from './pages/StudySession'; // NEW - Study Session
+import StudySession from './pages/StudySession';
 import QuizPage from './pages/QuizPage';
 import QuizResults from './pages/QuizResults';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
+
+// Study Room (WebRTC)
+import StudyRoom from './pages/StudyRoom';
 
 // Teacher Pages
 import TeacherDashboard from './pages/teacher/TeacherDashboard';
@@ -133,8 +136,11 @@ function App() {
                     <Route path="/documents" element={<Navigate to="/dashboard?tab=documents" replace />} />
                     <Route path="/documents/:docId" element={<ProtectedRoute><PDFReader /></ProtectedRoute>} />
 
-                    {/* NEW - STUDY SESSION */}
+                    {/* STUDY SESSION (PDF → Text Study Mode) */}
                     <Route path="/study/:docId" element={<ProtectedRoute><StudySession /></ProtectedRoute>} />
+
+                    {/* STUDY ROOM (WebRTC Video/Audio Collaboration) */}
+                    <Route path="/study-room/:roomId" element={<ProtectedRoute><StudyRoom /></ProtectedRoute>} />
 
                     {/* Quizzes */}
                     <Route path="/quizzes" element={<Navigate to="/dashboard?tab=quizzes" replace />} />

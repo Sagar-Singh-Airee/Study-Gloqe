@@ -1,234 +1,382 @@
 // src/components/features/LeaderboardSection.jsx
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Trophy, Medal, Crown, TrendingUp, Users, Calendar, Award } from 'lucide-react';
-import { useAuth } from '@contexts/AuthContext';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+    Trophy, 
+    Medal, 
+    Crown, 
+    Award,
+    Target,
+    Loader2,
+    Sparkles,
+    Users,
+    Shield
+} from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { 
+    collection, 
+    query, 
+    orderBy, 
+    limit, 
+    onSnapshot
+} from 'firebase/firestore';
+import { db } from '@/config/firebase';
 
 const LeaderboardSection = () => {
-    const { userData, user } = useAuth();
-    const [timeframe, setTimeframe] = useState('month');
-    const [scope, setScope] = useState('class');
+    const { userData, currentUser } = useAuth();
+    const [scope, setScope] = useState('global');
     const [leaderboardData, setLeaderboardData] = useState([]);
     const [userRank, setUserRank] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
+    // Real-time leaderboard listener
     useEffect(() => {
-        loadLeaderboard();
-    }, [timeframe, scope]);
+        if (!currentUser) {
+            setLoading(false);
+            return;
+        }
 
-    const loadLeaderboard = async () => {
-        const mockData = [
-            { id: '1', name: 'Alice Johnson', xp: 4500, level: 45, badges: 12, streak: 15, avatar: 'AJ' },
-            { id: '2', name: 'Bob Smith', xp: 4200, level: 42, badges: 10, streak: 12, avatar: 'BS' },
-            { id: '3', name: 'Charlie Brown', xp: 3800, level: 38, badges: 9, stretch: 10, avatar: 'CB' },
-            { id: '4', name: 'Diana Prince', xp: 3500, level: 35, badges: 8, streak: 8, avatar: 'DP' },
-            { id: '5', name: 'Eve Wilson', xp: 3200, level: 32, badges: 7, streak: 7, avatar: 'EW' },
-            { id: '6', name: 'Frank Miller', xp: 3000, level: 30, badges: 6, streak: 6, avatar: 'FM' },
-            { id: '7', name: 'Grace Lee', xp: 2800, level: 28, badges: 5, streak: 5, avatar: 'GL' },
-            { id: '8', name: 'Henry Davis', xp: 2600, level: 26, badges: 5, streak: 4, avatar: 'HD' },
-            { id: '9', name: 'Ivy Chen', xp: 2400, level: 24, badges: 4, streak: 3, avatar: 'IC' },
-            { id: '10', name: 'Jack Ryan', xp: 2200, level: 22, badges: 4, streak: 3, avatar: 'JR' },
-        ];
+        // Reset state when scope changes
+        setLoading(true);
+        setError(null);
 
-        setLeaderboardData(mockData);
-        setUserRank({ rank: 8, xp: 2600, change: '+2' });
-    };
+        try {
+            // We fetch the top 100 global users first
+            // This avoids complex composite index requirements for filtering by classId
+            const usersRef = collection(db, 'users');
+            const q = query(
+                usersRef,
+                orderBy('xp', 'desc'),
+                limit(100)
+            );
 
+            const unsubscribe = onSnapshot(q, (snapshot) => {
+                const users = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+
+                // Filter client-side for specific scopes
+                let filteredUsers = users;
+                if (scope === 'class' && userData?.classId) {
+                    filteredUsers = users.filter(u => u.classId === userData.classId);
+                }
+
+                setLeaderboardData(filteredUsers);
+
+                // Determine current user's standing
+                const currentUserIndex = filteredUsers.findIndex(u => u.id === currentUser.uid);
+                
+                if (currentUserIndex !== -1) {
+                    const currentStats = filteredUsers[currentUserIndex];
+                    setUserRank({
+                        rank: currentUserIndex + 1,
+                        xp: currentStats.xp || 0,
+                        level: currentStats.level || 1,
+                        inTop100: true
+                    });
+                } else {
+                    // Fallback if user is not in the fetched top 100
+                    setUserRank({
+                        rank: '>100',
+                        xp: userData?.xp || 0,
+                        level: userData?.level || 1,
+                        inTop100: false
+                    });
+                }
+
+                setLoading(false);
+            }, (err) => {
+                console.error('❌ Firestore error:', err);
+                setError('Unable to load live rankings.');
+                setLoading(false);
+            });
+
+            return () => unsubscribe();
+        } catch (err) {
+            console.error('❌ Error:', err);
+            setError(err.message);
+            setLoading(false);
+        }
+    }, [currentUser, userData, scope]);
+
+    // UI Helpers
     const getRankIcon = (rank) => {
-        if (rank === 1) return <Crown className="text-yellow-400" size={24} />;
-        if (rank === 2) return <Medal className="text-gray-400" size={24} />;
-        if (rank === 3) return <Medal className="text-orange-400" size={24} />;
-        return null;
+        if (rank === 1) return <Crown className="text-white" size={24} />;
+        if (rank === 2) return <Medal className="text-white" size={24} />;
+        if (rank === 3) return <Medal className="text-white" size={24} />;
+        return <span className="text-lg font-bold text-white">{rank}</span>;
     };
 
-    const getRankColor = (rank) => {
-        if (rank === 1) return 'from-yellow-500 to-orange-500';
-        if (rank === 2) return 'from-gray-400 to-gray-600';
-        if (rank === 3) return 'from-orange-500 to-red-500';
-        return 'from-black to-gray-800';
+    const getRankGradient = (rank) => {
+        if (rank === 1) return 'from-yellow-600 via-yellow-500 to-yellow-400'; // Goldish tone for #1
+        if (rank === 2) return 'from-gray-400 via-gray-300 to-gray-200'; // Silver
+        if (rank === 3) return 'from-orange-700 via-orange-600 to-orange-500'; // Bronze
+        return 'from-black to-gray-800'; // Default Black/Dark
     };
+
+    const getInitials = (name) => {
+        if (!name) return '??';
+        return name
+            .split(' ')
+            .slice(0, 2)
+            .map(n => n[0])
+            .join('')
+            .toUpperCase();
+    };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center py-20">
+                <div className="text-center">
+                    <Loader2 size={48} className="animate-spin text-black mx-auto mb-4" />
+                    <p className="text-gray-500 font-medium">Updating rankings...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="flex items-center justify-center py-20">
+                <div className="text-center max-w-md mx-auto p-6 bg-red-50 rounded-2xl">
+                    <Shield size={48} className="mx-auto text-red-400 mb-4" />
+                    <h3 className="text-xl font-bold text-red-900 mb-2">Connection Issue</h3>
+                    <p className="text-red-600 mb-4">{error}</p>
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="px-6 py-2 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all"
+                    >
+                        Retry
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <>
-            {/* Header */}
-            <div className="mb-8">
-                <h1 className="text-4xl font-black text-black mb-2">Leaderboard</h1>
-                <p className="text-gray-600">Compete with peers and climb to the top!</p>
-            </div>
-
-            {/* Filters */}
-            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-5 mb-6">
-                <div className="flex flex-wrap gap-6">
-                    {/* Timeframe */}
-                    <div>
-                        <label className="block text-sm font-bold text-black mb-2">Timeframe</label>
-                        <div className="flex gap-2">
-                            {['week', 'month', 'all-time'].map((tf) => (
-                                <button
-                                    key={tf}
-                                    onClick={() => setTimeframe(tf)}
-                                    className={`px-4 py-2 rounded-xl font-bold transition-all ${timeframe === tf
-                                            ? 'bg-black text-white'
-                                            : 'bg-white border border-gray-300 hover:border-black'
-                                        }`}
-                                >
-                                    {tf.charAt(0).toUpperCase() + tf.slice(1).replace('-', ' ')}
-                                </button>
-                            ))}
+            {/* Header Section */}
+            <motion.div 
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8"
+            >
+                <div>
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className="p-3 bg-black rounded-2xl shadow-lg">
+                            <Trophy className="text-white" size={24} />
                         </div>
+                        <h1 className="text-4xl font-black text-black tracking-tight">
+                            Leaderboard
+                        </h1>
                     </div>
-
-                    {/* Scope */}
-                    <div>
-                        <label className="block text-sm font-bold text-black mb-2">Scope</label>
-                        <div className="flex gap-2">
-                            {['class', 'school', 'global'].map((sc) => (
-                                <button
-                                    key={sc}
-                                    onClick={() => setScope(sc)}
-                                    className={`px-4 py-2 rounded-xl font-bold transition-all ${scope === sc
-                                            ? 'bg-black text-white'
-                                            : 'bg-white border border-gray-300 hover:border-black'
-                                        }`}
-                                >
-                                    {sc.charAt(0).toUpperCase() + sc.slice(1)}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
+                    <p className="text-gray-600 font-medium">
+                        Top students ranked by Total XP
+                    </p>
                 </div>
-            </div>
 
-            {/* User's Rank Card */}
+                {/* Scope Toggle */}
+                <div className="flex bg-white border-2 border-gray-100 p-1 rounded-xl">
+                    <button
+                        onClick={() => setScope('global')}
+                        className={`flex items-center gap-2 px-6 py-2.5 rounded-lg font-bold transition-all ${
+                            scope === 'global'
+                                ? 'bg-black text-white shadow-md'
+                                : 'text-gray-500 hover:bg-gray-50 hover:text-black'
+                        }`}
+                    >
+                        <Users size={18} />
+                        Global
+                    </button>
+                    <button
+                        onClick={() => setScope('class')}
+                        className={`flex items-center gap-2 px-6 py-2.5 rounded-lg font-bold transition-all ${
+                            scope === 'class'
+                                ? 'bg-black text-white shadow-md'
+                                : 'text-gray-500 hover:bg-gray-50 hover:text-black'
+                        }`}
+                    >
+                        <Target size={18} />
+                        Class
+                    </button>
+                </div>
+            </motion.div>
+
+            {/* Current User Stats Card */}
             {userRank && (
-                <div className="bg-gradient-to-br from-black to-gray-900 rounded-2xl p-6 text-white mb-6">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center">
-                                <span className="text-2xl font-black">{userData?.level || 1}</span>
+                <motion.div 
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-gradient-to-r from-black to-gray-900 rounded-2xl p-6 text-white mb-10 shadow-2xl relative overflow-hidden"
+                >
+                    {/* Abstract Background Shapes */}
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-20 -mt-20 blur-3xl" />
+                    <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full -ml-10 -mb-10 blur-2xl" />
+                    
+                    <div className="relative flex items-center justify-between z-10">
+                        <div className="flex items-center gap-5">
+                            <div className="w-20 h-20 bg-white/10 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center border border-white/10">
+                                <span className="text-xs text-white/60 font-bold uppercase tracking-wider">Rank</span>
+                                <span className="text-3xl font-black text-white">#{userRank.rank}</span>
                             </div>
                             <div>
-                                <div className="text-sm text-gray-400">Your Rank</div>
-                                <div className="text-3xl font-black">#{userRank.rank}</div>
+                                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                                    Your Performance
+                                    {userRank.inTop100 && <Sparkles size={18} className="text-yellow-400" />}
+                                </h2>
+                                <p className="text-white/60">
+                                    {scope === 'global' ? 'Global Ranking' : 'Class Ranking'}
+                                </p>
                             </div>
                         </div>
 
                         <div className="text-right">
-                            <div className="text-sm text-gray-400">XP This Period</div>
-                            <div className="text-2xl font-black">{userRank.xp}</div>
-                            <div className="text-sm text-green-400 flex items-center gap-1 justify-end">
-                                <TrendingUp size={14} />
-                                {userRank.change}
+                            <div className="text-sm text-white/60 mb-1">Total XP Earned</div>
+                            <div className="text-4xl font-black text-white tracking-tight">
+                                {(userRank.xp || 0).toLocaleString()}
                             </div>
                         </div>
                     </div>
+                </motion.div>
+            )}
+
+            {/* Top 3 Podium (Only shows if we have at least 3 users) */}
+            {leaderboardData.length >= 3 && (
+                <div className="grid grid-cols-3 gap-4 md:gap-8 mb-12 items-end max-w-4xl mx-auto">
+                    {/* 2nd Place */}
+                    <motion.div 
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 }}
+                        className="order-1"
+                    >
+                        <div className="bg-white border-2 border-gray-200 rounded-t-2xl rounded-b-lg p-4 pt-8 text-center relative hover:-translate-y-2 transition-transform duration-300 shadow-lg">
+                            <div className="absolute -top-10 left-1/2 -translate-x-1/2">
+                                <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${getRankGradient(2)} flex items-center justify-center text-white font-black shadow-xl border-4 border-white`}>
+                                    2
+                                </div>
+                            </div>
+                            <div className="mt-6">
+                                <div className="font-bold text-black truncate">{leaderboardData[1]?.displayName || 'User'}</div>
+                                <div className="text-sm text-gray-500 font-medium">{(leaderboardData[1]?.xp || 0).toLocaleString()} XP</div>
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    {/* 1st Place */}
+                    <motion.div 
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="order-2 -mt-8"
+                    >
+                        <div className="bg-gradient-to-b from-black to-gray-900 rounded-t-2xl rounded-b-lg p-6 pt-10 text-center relative hover:-translate-y-2 transition-transform duration-300 shadow-2xl border-4 border-yellow-500/20">
+                            <div className="absolute -top-12 left-1/2 -translate-x-1/2">
+                                <Crown size={48} className="text-yellow-400 drop-shadow-lg mb-2 absolute -top-10 left-1/2 -translate-x-1/2" />
+                                <div className={`w-20 h-20 rounded-full bg-gradient-to-br ${getRankGradient(1)} flex items-center justify-center text-white text-2xl font-black shadow-xl border-4 border-black`}>
+                                    1
+                                </div>
+                            </div>
+                            <div className="mt-8">
+                                <div className="font-bold text-white text-lg truncate">{leaderboardData[0]?.displayName || 'Champion'}</div>
+                                <div className="text-yellow-400 font-black text-xl">{(leaderboardData[0]?.xp || 0).toLocaleString()} XP</div>
+                                <div className="text-xs text-gray-500 mt-2 uppercase tracking-widest font-bold">Leader</div>
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    {/* 3rd Place */}
+                    <motion.div 
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2 }}
+                        className="order-3"
+                    >
+                        <div className="bg-white border-2 border-gray-200 rounded-t-2xl rounded-b-lg p-4 pt-8 text-center relative hover:-translate-y-2 transition-transform duration-300 shadow-lg">
+                            <div className="absolute -top-10 left-1/2 -translate-x-1/2">
+                                <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${getRankGradient(3)} flex items-center justify-center text-white font-black shadow-xl border-4 border-white`}>
+                                    3
+                                </div>
+                            </div>
+                            <div className="mt-6">
+                                <div className="font-bold text-black truncate">{leaderboardData[2]?.displayName || 'User'}</div>
+                                <div className="text-sm text-gray-500 font-medium">{(leaderboardData[2]?.xp || 0).toLocaleString()} XP</div>
+                            </div>
+                        </div>
+                    </motion.div>
                 </div>
             )}
 
-            {/* Top 3 Podium */}
-            <div className="grid grid-cols-3 gap-6 mb-6">
-                {leaderboardData.slice(0, 3).map((user, index) => {
-                    const actualRank = index + 1;
-                    return (
-                        <div
-                            key={user.id}
-                            className={`bg-white border-2 border-gray-200 rounded-2xl p-6 text-center hover:border-black transition-all ${actualRank === 1 ? 'order-2 scale-110' : actualRank === 2 ? 'order-1' : 'order-3'
-                                }`}
-                        >
-                            <div className={`w-16 h-16 rounded-full bg-gradient-to-r ${getRankColor(actualRank)} flex items-center justify-center mx-auto mb-3 text-white text-xl font-black`}>
-                                {user.avatar}
-                            </div>
-
-                            <div className="mb-2 flex justify-center">
-                                {getRankIcon(actualRank)}
-                            </div>
-
-                            <div className="font-bold text-black mb-1">{user.name}</div>
-                            <div className="text-sm text-gray-500 mb-3">Level {user.level}</div>
-
-                            <div className="space-y-1 text-sm">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-gray-500">XP:</span>
-                                    <span className="font-semibold text-black">{user.xp.toLocaleString()}</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-gray-500">Badges:</span>
-                                    <span className="font-semibold text-black">{user.badges}</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-gray-500">Streak:</span>
-                                    <span className="font-semibold text-black">{user.streak} days</span>
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-
-            {/* Full Leaderboard */}
-            <div className="bg-white border border-gray-200 rounded-2xl p-6">
-                <h2 className="text-2xl font-black text-black mb-6">Rankings</h2>
-
+            {/* Full List */}
+            <div className="bg-white border-2 border-gray-200 rounded-2xl p-6 shadow-sm">
+                <h3 className="text-xl font-black text-black mb-6 flex items-center gap-2">
+                    <Award className="text-black" />
+                    Full Rankings
+                </h3>
+                
                 <div className="space-y-2">
-                    {leaderboardData.map((user, index) => {
-                        const rank = index + 1;
-                        const isCurrentUser = userData?.uid === user.id;
+                    <AnimatePresence>
+                        {leaderboardData.map((user, index) => {
+                            const rank = index + 1;
+                            const isCurrentUser = user.id === currentUser?.uid;
 
-                        return (
-                            <div
-                                key={user.id}
-                                className={`flex items-center gap-4 p-4 rounded-xl transition-all ${isCurrentUser
-                                        ? 'bg-black/5 border-2 border-black'
-                                        : 'hover:bg-gray-50'
+                            return (
+                                <motion.div
+                                    key={user.id}
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: index * 0.05 }}
+                                    className={`flex items-center gap-4 p-4 rounded-xl transition-all ${
+                                        isCurrentUser
+                                            ? 'bg-black text-white shadow-lg scale-[1.02]'
+                                            : 'hover:bg-gray-50 border border-transparent hover:border-gray-200'
                                     }`}
-                            >
-                                {/* Rank */}
-                                <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${getRankColor(rank)} flex items-center justify-center flex-shrink-0 font-black text-white`}>
-                                    {rank <= 3 ? getRankIcon(rank) : rank}
-                                </div>
+                                >
+                                    {/* Rank Badge */}
+                                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-black flex-shrink-0 ${
+                                        isCurrentUser 
+                                            ? 'bg-white/20 text-white' 
+                                            : 'bg-gray-100 text-black'
+                                    }`}>
+                                        {rank}
+                                    </div>
 
-                                {/* Avatar */}
-                                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center font-black text-white flex-shrink-0">
-                                    {user.avatar}
-                                </div>
+                                    {/* Avatar */}
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 ${
+                                        isCurrentUser
+                                            ? 'bg-white text-black'
+                                            : 'bg-gradient-to-br from-gray-800 to-black text-white'
+                                    }`}>
+                                        {getInitials(user.displayName || user.name)}
+                                    </div>
 
-                                {/* Info */}
-                                <div className="flex-1 min-w-0">
-                                    <div className="font-bold text-black flex items-center gap-2">
-                                        {user.name}
-                                        {isCurrentUser && (
-                                            <span className="text-xs px-2 py-1 rounded-full bg-black/10 text-black">
-                                                You
-                                            </span>
-                                        )}
+                                    {/* Info */}
+                                    <div className="flex-1 min-w-0">
+                                        <div className={`font-bold truncate ${isCurrentUser ? 'text-white' : 'text-black'}`}>
+                                            {user.displayName || user.name || 'Anonymous'}
+                                        </div>
+                                        <div className={`text-xs ${isCurrentUser ? 'text-gray-400' : 'text-gray-500'}`}>
+                                            Level {user.level || 1}
+                                        </div>
                                     </div>
-                                    <div className="text-sm text-gray-500">
-                                        Level {user.level} • {user.xp.toLocaleString()} XP
-                                    </div>
-                                </div>
 
-                                {/* Stats */}
-                                <div className="hidden md:flex items-center gap-6 text-sm">
-                                    <div className="text-center">
-                                        <div className="text-gray-500">Badges</div>
-                                        <div className="font-semibold text-black">{user.badges}</div>
+                                    {/* XP */}
+                                    <div className={`font-black text-right ${isCurrentUser ? 'text-yellow-400' : 'text-black'}`}>
+                                        {(user.xp || 0).toLocaleString()}
+                                        <span className={`text-xs font-normal ml-1 ${isCurrentUser ? 'text-gray-400' : 'text-gray-500'}`}>XP</span>
                                     </div>
-                                    <div className="text-center">
-                                        <div className="text-gray-500">Streak</div>
-                                        <div className="font-semibold text-black">{user.streak}d</div>
-                                    </div>
-                                </div>
-
-                                {/* Badge */}
-                                {rank <= 10 && (
-                                    <div className="flex items-center gap-1">
-                                        <Trophy size={18} className="text-yellow-400" />
-                                        <span className="text-xs text-gray-500">Top 10</span>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
+                                </motion.div>
+                            );
+                        })}
+                    </AnimatePresence>
                 </div>
+
+                {leaderboardData.length === 0 && (
+                    <div className="text-center py-12 text-gray-500">
+                        No active users found in this scope.
+                    </div>
+                )}
             </div>
         </>
     );
