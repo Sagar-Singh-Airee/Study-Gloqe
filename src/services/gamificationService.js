@@ -1,223 +1,228 @@
-import {
-  doc,
-  getDoc,
-  updateDoc,
-  increment,
-  arrayUnion,
-  serverTimestamp
+// REAL-TIME GAMIFICATION SERVICE
+import { 
+    doc, 
+    updateDoc, 
+    increment, 
+    setDoc, 
+    getDoc,
+    serverTimestamp 
 } from 'firebase/firestore';
-import { db, COLLECTIONS } from '@config/firebase';
+import { db } from '@config/firebase';
 
-/**
- * Award XP to a user
- */
-export const awardXP = async (userId, points, reason) => {
-  try {
-    const gamificationRef = doc(db, COLLECTIONS.GAMIFICATION, userId);
-    const gamificationSnap = await getDoc(gamificationRef);
-
-    if (!gamificationSnap.exists()) {
-      throw new Error('Gamification profile not found');
-    }
-
-    const currentData = gamificationSnap.data();
-    const newXP = (currentData.xp || 0) + points;
-    const newLevel = Math.floor(newXP / 100) + 1; // 100 XP per level
-
-    await updateDoc(gamificationRef, {
-      xp: newXP,
-      level: newLevel,
-      history: arrayUnion({
-        points,
-        reason,
-        timestamp: new Date().toISOString()
-      })
-    });
-
-    // Also update user document
-    const userRef = doc(db, COLLECTIONS.USERS, userId);
-    await updateDoc(userRef, {
-      xp: newXP,
-      level: newLevel
-    });
-
-    return { newXP, newLevel, pointsAwarded: points };
-  } catch (error) {
-    console.error('Error awarding XP:', error);
-    throw error;
-  }
+// XP Rewards Configuration
+const XP_REWARDS = {
+    COMPLETE_QUIZ: 20,
+    CORRECT_ANSWER: 10,
+    UPLOAD_PDF: 15,
+    CREATE_NOTE: 5,
+    DAILY_LOGIN: 5,
+    STUDY_SESSION_30MIN: 25,
+    JOIN_ROOM: 10,
+    CREATE_FLASHCARD: 8,
+    COMPLETE_MISSION: 50,
+    STREAK_BONUS: 10
 };
 
-/**
- * Award a badge to a user
- */
-export const awardBadge = async (userId, badge) => {
-  try {
-    const gamificationRef = doc(db, COLLECTIONS.GAMIFICATION, userId);
-    
-    await updateDoc(gamificationRef, {
-      badges: arrayUnion({
-        id: badge.id,
-        name: badge.name,
-        description: badge.description,
-        icon: badge.icon,
-        earnedAt: serverTimestamp()
-      })
-    });
+// Initialize user gamification data
+export const initializeGamification = async (userId) => {
+    const gamificationRef = doc(db, 'gamification', userId);
+    const userRef = doc(db, 'users', userId);
 
-    return true;
-  } catch (error) {
-    console.error('Error awarding badge:', error);
-    throw error;
-  }
-};
+    // Initialize missions
+    const dailyMissions = [
+        {
+            id: 'daily_quiz',
+            type: 'daily',
+            title: 'Complete 3 Quizzes',
+            description: 'Test your knowledge today',
+            target: 3,
+            current: 0,
+            xpReward: 50,
+            expiresAt: getEndOfDay()
+        },
+        {
+            id: 'daily_study',
+            type: 'daily',
+            title: 'Study for 30 minutes',
+            description: 'Focus time counts',
+            target: 30,
+            current: 0,
+            xpReward: 40,
+            expiresAt: getEndOfDay()
+        },
+        {
+            id: 'daily_upload',
+            type: 'daily',
+            title: 'Upload 1 Document',
+            description: 'Add learning materials',
+            target: 1,
+            current: 0,
+            xpReward: 30,
+            expiresAt: getEndOfDay()
+        }
+    ];
 
-/**
- * Get user's gamification data
- */
-export const getUserGamification = async (userId) => {
-  try {
-    const gamificationRef = doc(db, COLLECTIONS.GAMIFICATION, userId);
-    const gamificationSnap = await getDoc(gamificationRef);
+    const weeklyMissions = [
+        {
+            id: 'weekly_quizzes',
+            type: 'weekly',
+            title: 'Complete 15 Quizzes',
+            description: 'Consistency is key',
+            target: 15,
+            current: 0,
+            xpReward: 200,
+            expiresAt: getEndOfWeek()
+        },
+        {
+            id: 'weekly_rooms',
+            type: 'weekly',
+            title: 'Join 5 Study Rooms',
+            description: 'Learn with peers',
+            target: 5,
+            current: 0,
+            xpReward: 150,
+            expiresAt: getEndOfWeek()
+        }
+    ];
 
-    if (!gamificationSnap.exists()) {
-      return {
+    await setDoc(gamificationRef, {
+        missions: [...dailyMissions, ...weeklyMissions],
+        achievements: [],
+        lastLoginDate: new Date().toDateString(),
+        createdAt: serverTimestamp()
+    }, { merge: true });
+
+    await setDoc(userRef, {
         xp: 0,
         level: 1,
-        badges: [],
-        history: []
-      };
-    }
-
-    return gamificationSnap.data();
-  } catch (error) {
-    console.error('Error getting gamification data:', error);
-    throw error;
-  }
+        streak: 0,
+        totalQuizzes: 0,
+        totalStudyTime: 0,
+        levelUp: false
+    }, { merge: true });
 };
 
-/**
- * Get leaderboard
- */
-export const getLeaderboard = async (scope = 'global', timeframe = 'all-time', limit = 100) => {
-  try {
-    // This would be implemented with BigQuery or Firestore aggregation
-    // For now, return mock data
-    return [
-      { userId: '1', name: 'Alice Johnson', xp: 4500, level: 45, badges: 12 },
-      { userId: '2', name: 'Bob Smith', xp: 4200, level: 42, badges: 10 }
-    ];
-  } catch (error) {
-    console.error('Error getting leaderboard:', error);
-    throw error;
-  }
-};
+// Award XP and check for level up
+export const awardXP = async (userId, xpAmount, reason) => {
+    const userRef = doc(db, 'users', userId);
+    const userSnap = await getDoc(userRef);
+    const userData = userSnap.data();
 
-/**
- * Update user streak
- */
-export const updateStreak = async (userId) => {
-  try {
-    const gamificationRef = doc(db, COLLECTIONS.GAMIFICATION, userId);
-    const gamificationSnap = await getDoc(gamificationRef);
+    const currentXP = userData?.xp || 0;
+    const currentLevel = userData?.level || 1;
+    const newXP = currentXP + xpAmount;
+    const xpForNextLevel = currentLevel * 100;
 
-    if (!gamificationSnap.exists()) {
-      return;
+    let levelUp = false;
+    let newLevel = currentLevel;
+
+    // Check for level up
+    if (newXP >= xpForNextLevel) {
+        newLevel = currentLevel + 1;
+        levelUp = true;
     }
 
-    const data = gamificationSnap.data();
-    const lastActivity = data.lastActivity?.toDate();
-    const now = new Date();
-    
-    let newStreak = data.currentStreak || 0;
-
-    if (!lastActivity) {
-      newStreak = 1;
-    } else {
-      const daysSinceLastActivity = Math.floor((now - lastActivity) / (1000 * 60 * 60 * 24));
-      
-      if (daysSinceLastActivity === 1) {
-        // Consecutive day
-        newStreak += 1;
-      } else if (daysSinceLastActivity > 1) {
-        // Streak broken
-        newStreak = 1;
-      }
-      // If same day, don't change streak
-    }
-
-    await updateDoc(gamificationRef, {
-      currentStreak: newStreak,
-      lastActivity: serverTimestamp(),
-      longestStreak: Math.max(newStreak, data.longestStreak || 0)
+    await updateDoc(userRef, {
+        xp: newXP,
+        level: newLevel,
+        levelUp: levelUp,
+        lastXPReason: reason,
+        lastXPAmount: xpAmount,
+        lastXPTime: serverTimestamp()
     });
 
-    // Award badges for streaks
-    if (newStreak === 7) {
-      await awardBadge(userId, {
-        id: '7-day-streak',
-        name: '7 Day Streak',
-        description: 'Studied for 7 days in a row',
-        icon: 'fire'
-      });
+    // Reset levelUp after 3 seconds
+    if (levelUp) {
+        setTimeout(async () => {
+            await updateDoc(userRef, { levelUp: false });
+        }, 3000);
     }
 
-    return newStreak;
-  } catch (error) {
-    console.error('Error updating streak:', error);
-    throw error;
-  }
+    return { newXP, newLevel, levelUp };
 };
 
-/**
- * Check and award achievement badges
- */
-export const checkAchievements = async (userId, action, metadata = {}) => {
-  try {
-    const gamificationData = await getUserGamification(userId);
-    const earnedBadgeIds = gamificationData.badges?.map(b => b.id) || [];
+// Update mission progress
+export const updateMission = async (userId, missionId, incrementBy = 1) => {
+    const gamificationRef = doc(db, 'gamification', userId);
+    const gamificationSnap = await getDoc(gamificationRef);
+    const data = gamificationSnap.data();
 
-    const achievements = {
-      'first-quiz': {
-        condition: action === 'quiz_completed' && !earnedBadgeIds.includes('first-quiz'),
-        badge: {
-          id: 'first-quiz',
-          name: 'First Quiz',
-          description: 'Complete your first quiz',
-          icon: 'check'
-        }
-      },
-      'perfect-score': {
-        condition: action === 'quiz_completed' && metadata.score === 100 && !earnedBadgeIds.includes('perfect-score'),
-        badge: {
-          id: 'perfect-score',
-          name: 'Perfect Score',
-          description: 'Get 100% on a quiz',
-          icon: 'star'
-        }
-      },
-      'quiz-master': {
-        condition: action === 'quiz_completed' && metadata.totalQuizzes >= 50 && !earnedBadgeIds.includes('quiz-master'),
-        badge: {
-          id: 'quiz-master',
-          name: 'Quiz Master',
-          description: 'Complete 50 quizzes',
-          icon: 'trophy'
-        }
-      }
-    };
+    const missions = data?.missions || [];
+    const missionIndex = missions.findIndex(m => m.id === missionId);
 
-    const badgesToAward = Object.values(achievements)
-      .filter(achievement => achievement.condition)
-      .map(achievement => achievement.badge);
+    if (missionIndex !== -1) {
+        const mission = missions[missionIndex];
+        const newCurrent = Math.min(mission.current + incrementBy, mission.target);
+        missions[missionIndex].current = newCurrent;
 
-    for (const badge of badgesToAward) {
-      await awardBadge(userId, badge);
+        // Check if mission just completed
+        if (newCurrent === mission.target && mission.current !== mission.target) {
+            await awardXP(userId, mission.xpReward, `Completed: ${mission.title}`);
+        }
+
+        await updateDoc(gamificationRef, { missions });
     }
-
-    return badgesToAward;
-  } catch (error) {
-    console.error('Error checking achievements:', error);
-    throw error;
-  }
 };
+
+// Update daily streak
+export const updateStreak = async (userId) => {
+    const userRef = doc(db, 'users', userId);
+    const gamificationRef = doc(db, 'gamification', userId);
+    
+    const userSnap = await getDoc(userRef);
+    const gamificationSnap = await getDoc(gamificationRef);
+    
+    const userData = userSnap.data();
+    const gamificationData = gamificationSnap.data();
+
+    const today = new Date().toDateString();
+    const lastLogin = gamificationData?.lastLoginDate;
+
+    if (lastLogin !== today) {
+        const yesterday = new Date(Date.now() - 86400000).toDateString();
+        const isConsecutive = lastLogin === yesterday;
+
+        const newStreak = isConsecutive ? (userData?.streak || 0) + 1 : 1;
+
+        await updateDoc(userRef, { streak: newStreak });
+        await updateDoc(gamificationRef, { lastLoginDate: today });
+
+        // Award streak bonus
+        if (newStreak > 0) {
+            await awardXP(userId, XP_REWARDS.STREAK_BONUS * newStreak, `${newStreak}-day streak!`);
+        }
+    }
+};
+
+// Reset daily missions (call via Cloud Function at midnight)
+export const resetDailyMissions = async (userId) => {
+    const gamificationRef = doc(db, 'gamification', userId);
+    const gamificationSnap = await getDoc(gamificationRef);
+    const data = gamificationSnap.data();
+
+    const missions = data?.missions || [];
+    const updatedMissions = missions.map(mission => {
+        if (mission.type === 'daily') {
+            return { ...mission, current: 0, expiresAt: getEndOfDay() };
+        }
+        return mission;
+    });
+
+    await updateDoc(gamificationRef, { missions: updatedMissions });
+};
+
+// Helper functions
+function getEndOfDay() {
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+    return end;
+}
+
+function getEndOfWeek() {
+    const end = new Date();
+    end.setDate(end.getDate() + (7 - end.getDay()));
+    end.setHours(23, 59, 59, 999);
+    return end;
+}
+
+export { XP_REWARDS };

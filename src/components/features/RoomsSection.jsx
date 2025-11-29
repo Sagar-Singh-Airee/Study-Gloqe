@@ -1,5 +1,5 @@
-// src/components/features/RoomsSection.jsx - FIXED
-import { useState, useEffect } from 'react';
+// src/components/features/RoomsSection.jsx - WITH GAMIFICATION
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -8,7 +8,6 @@ import {
     onSnapshot, 
     addDoc, 
     serverTimestamp,
-    orderBy,
     where,
     updateDoc,
     doc,
@@ -18,6 +17,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { useAuth } from '@/contexts/AuthContext';
+import { awardXP, updateMission, XP_REWARDS } from '@/services/gamificationService';
 import {
     Video,
     Users,
@@ -25,11 +25,15 @@ import {
     Clock,
     Lock,
     Globe,
-    Loader2
+    Loader2,
+    Zap,
+    Sparkles,
+    Award
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const RoomsSection = () => {
-    const { currentUser } = useAuth();
+    const { user } = useAuth();
     const navigate = useNavigate();
     const [rooms, setRooms] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -41,9 +45,9 @@ const RoomsSection = () => {
         isPrivate: false
     });
 
-    // Real-time listener for active rooms (FIXED - removed orderBy to avoid index requirement)
+    // Real-time listener for active rooms
     useEffect(() => {
-        if (!currentUser) {
+        if (!user?.uid) {
             setLoading(false);
             return;
         }
@@ -51,12 +55,7 @@ const RoomsSection = () => {
         console.log('🔍 Setting up rooms listener...');
 
         const roomsRef = collection(db, 'rooms');
-        
-        // OPTION 1: Simple query without orderBy (no index needed)
-        const q = query(
-            roomsRef,
-            where('isActive', '==', true)
-        );
+        const q = query(roomsRef, where('isActive', '==', true));
 
         const unsubscribe = onSnapshot(
             q, 
@@ -81,10 +80,7 @@ const RoomsSection = () => {
             }, 
             (error) => {
                 console.error('❌ Error fetching rooms:', error);
-                console.error('Error code:', error.code);
-                console.error('Error message:', error.message);
                 
-                // If it's an index error, fall back to getting all rooms
                 if (error.code === 'failed-precondition') {
                     console.log('⚠️ Index missing, fetching all rooms...');
                     fetchAllRooms();
@@ -95,9 +91,9 @@ const RoomsSection = () => {
         );
 
         return () => unsubscribe();
-    }, [currentUser]);
+    }, [user?.uid]);
 
-    // Fallback: fetch all rooms without real-time updates
+    // Fallback: fetch all rooms
     const fetchAllRooms = async () => {
         try {
             const roomsRef = collection(db, 'rooms');
@@ -125,10 +121,10 @@ const RoomsSection = () => {
         }
     };
 
-    // Create new room
-    const createRoom = async (e) => {
+    // 🎮 Create room with gamification
+    const createRoom = useCallback(async (e) => {
         e.preventDefault();
-        if (!newRoom.name.trim() || !newRoom.topic.trim()) return;
+        if (!newRoom.name.trim() || !newRoom.topic.trim() || !user?.uid) return;
 
         try {
             const roomData = {
@@ -136,18 +132,32 @@ const RoomsSection = () => {
                 topic: newRoom.topic.trim(),
                 maxMembers: parseInt(newRoom.maxMembers),
                 isPrivate: newRoom.isPrivate,
-                hostId: currentUser.uid,
-                hostName: currentUser.displayName || 'Anonymous',
-                members: [currentUser.uid],
+                hostId: user.uid,
+                hostName: user.displayName || user.email || 'Anonymous',
+                members: [user.uid],
                 memberCount: 1,
                 isActive: true,
-                participants: [], // For WebRTC tracking
+                participants: [],
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp()
             };
 
             const docRef = await addDoc(collection(db, 'rooms'), roomData);
             console.log('✅ Room created:', docRef.id);
+
+            // 🎮 AWARD XP FOR CREATING ROOM
+            await awardXP(user.uid, 15, 'Created Study Room');
+            
+            toast.success('🎉 Room created! +15 XP', {
+                duration: 2500,
+                style: {
+                    background: 'linear-gradient(135deg, #000 0%, #1a1a1a 100%)',
+                    color: '#fff',
+                    fontWeight: 'bold',
+                    borderRadius: '16px',
+                    padding: '16px 24px',
+                },
+            });
             
             // Navigate to room
             navigate(`/study-room/${docRef.id}`);
@@ -157,38 +167,70 @@ const RoomsSection = () => {
             setShowCreateModal(false);
         } catch (error) {
             console.error('❌ Error creating room:', error);
-            alert('Failed to create room. Please try again.');
+            toast.error('Failed to create room. Please try again.');
         }
-    };
+    }, [newRoom, user, navigate]);
 
-    // Join existing room
-    const joinRoom = async (room) => {
+    // 🎮 Join room with gamification
+    const joinRoom = useCallback(async (room) => {
+        if (!user?.uid) return;
+        
         if (room.memberCount >= room.maxMembers) {
-            alert('Room is full!');
+            toast.error('Room is full!', {
+                style: {
+                    background: '#1a1a1a',
+                    color: '#fff',
+                    fontWeight: 'bold',
+                    borderRadius: '16px',
+                },
+            });
             return;
         }
 
         try {
             const roomRef = doc(db, 'rooms', room.id);
             await updateDoc(roomRef, {
-                members: arrayUnion(currentUser.uid),
+                members: arrayUnion(user.uid),
                 memberCount: increment(1),
                 updatedAt: serverTimestamp()
+            });
+
+            // 🎮 AWARD XP FOR JOINING ROOM
+            await awardXP(user.uid, XP_REWARDS.JOIN_ROOM, 'Joined Study Room');
+            await updateMission(user.uid, 'weekly_rooms');
+
+            toast.success(`🎯 +${XP_REWARDS.JOIN_ROOM} XP for joining!`, {
+                duration: 2500,
+                style: {
+                    background: 'linear-gradient(135deg, #000 0%, #1a1a1a 100%)',
+                    color: '#fff',
+                    fontWeight: 'bold',
+                    borderRadius: '16px',
+                    padding: '16px 24px',
+                },
             });
 
             console.log('✅ Joined room:', room.id);
             navigate(`/study-room/${room.id}`);
         } catch (error) {
             console.error('❌ Error joining room:', error);
-            alert('Failed to join room. Please try again.');
+            toast.error('Failed to join room. Please try again.');
         }
-    };
+    }, [user, navigate]);
+
+    // Memoize active rooms count
+    const activeRoomsCount = useMemo(() => rooms.length, [rooms.length]);
+
+    // Memoize total XP available
+    const totalXPAvailable = useMemo(() => {
+        return activeRoomsCount * XP_REWARDS.JOIN_ROOM;
+    }, [activeRoomsCount]);
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center py-20">
-                <Loader2 size={48} className="animate-spin text-gray-400" />
-                <p className="text-gray-500 mt-4">Loading rooms...</p>
+            <div className="flex flex-col items-center justify-center py-20">
+                <Loader2 size={48} className="animate-spin text-black mb-4" />
+                <p className="text-gray-500 font-semibold">Loading study rooms...</p>
             </div>
         );
     }
@@ -198,17 +240,109 @@ const RoomsSection = () => {
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
                 <div>
-                    <h1 className="text-4xl font-black text-black mb-2">Study Rooms</h1>
+                    <div className="flex items-center gap-2 mb-2">
+                        <h1 className="text-4xl font-black text-black">Study Rooms</h1>
+                        <Sparkles size={32} className="text-black" />
+                    </div>
                     <p className="text-gray-600">Collaborate with peers in real-time</p>
                 </div>
                 <button 
                     onClick={() => setShowCreateModal(true)}
-                    className="flex items-center gap-2 px-6 py-3 bg-black text-white rounded-xl font-bold hover:scale-105 transition-all"
+                    className="flex items-center gap-2 px-6 py-3 bg-black text-white rounded-xl font-bold hover:scale-105 transition-all shadow-lg"
                 >
                     <Plus size={20} />
                     Create Room
                 </button>
             </div>
+
+            {/* 🎮 XP Earning Banner */}
+            {activeRoomsCount > 0 && (
+                <motion.div
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-8 p-4 bg-gradient-to-r from-black via-gray-900 to-black rounded-2xl border border-white/10"
+                >
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
+                                <Zap size={20} className="text-white" fill="white" />
+                            </div>
+                            <div>
+                                <p className="text-white font-bold text-sm">
+                                    Join rooms to earn XP and connect with peers!
+                                </p>
+                                <p className="text-gray-400 text-xs">
+                                    +{XP_REWARDS.JOIN_ROOM} XP per room • +15 XP for creating rooms
+                                </p>
+                            </div>
+                        </div>
+                        <div className="px-4 py-2 bg-white/10 rounded-xl backdrop-blur-sm">
+                            <p className="text-white font-black text-lg flex items-center gap-1">
+                                <Award size={20} className="text-yellow-400" />
+                                {totalXPAvailable} XP
+                            </p>
+                            <p className="text-gray-400 text-xs">Available</p>
+                        </div>
+                    </div>
+                </motion.div>
+            )}
+
+            {/* Stats Banner */}
+            {activeRoomsCount > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                    <motion.div
+                        whileHover={{ scale: 1.02 }}
+                        className="bg-white border-2 border-black rounded-2xl p-5"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center">
+                                <Video size={24} className="text-white" />
+                            </div>
+                            <div>
+                                <div className="text-2xl font-black text-black">
+                                    {activeRoomsCount}
+                                </div>
+                                <div className="text-sm text-gray-500">Active Rooms</div>
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    <motion.div
+                        whileHover={{ scale: 1.02 }}
+                        className="bg-gray-50 border border-gray-200 rounded-2xl p-5"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center">
+                                <Users size={24} className="text-white" />
+                            </div>
+                            <div>
+                                <div className="text-2xl font-black text-black">
+                                    {rooms.reduce((sum, r) => sum + (r.memberCount || 0), 0)}
+                                </div>
+                                <div className="text-sm text-gray-500">Total Members</div>
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    <motion.div
+                        whileHover={{ scale: 1.02 }}
+                        className="bg-gradient-to-br from-green-50 to-blue-50 border border-green-200 rounded-2xl p-5"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-gradient-to-br from-green-600 to-blue-600 rounded-xl flex items-center justify-center">
+                                <Zap size={24} className="text-white" />
+                            </div>
+                            <div>
+                                <div className="text-2xl font-black text-black flex items-center gap-1">
+                                    +{XP_REWARDS.JOIN_ROOM}
+                                    <span className="text-sm font-normal text-gray-600">XP</span>
+                                </div>
+                                <div className="text-sm text-gray-600">Per Room Joined</div>
+                            </div>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
 
             {/* Create Room Modal */}
             {showCreateModal && (
@@ -218,7 +352,14 @@ const RoomsSection = () => {
                         animate={{ opacity: 1, scale: 1 }}
                         className="bg-white rounded-3xl p-8 max-w-md w-full"
                     >
-                        <h2 className="text-2xl font-black text-black mb-6">Create Study Room</h2>
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-2xl font-black text-black">Create Study Room</h2>
+                            <div className="px-3 py-1 bg-green-500/10 text-green-600 rounded-lg flex items-center gap-1 text-xs font-bold">
+                                <Zap size={12} />
+                                +15 XP
+                            </div>
+                        </div>
+                        
                         <form onSubmit={createRoom} className="space-y-4">
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -228,11 +369,12 @@ const RoomsSection = () => {
                                     type="text"
                                     value={newRoom.name}
                                     onChange={(e) => setNewRoom({...newRoom, name: e.target.value})}
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-black focus:outline-none"
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-black focus:outline-none transition-colors"
                                     placeholder="e.g., Physics Study Group"
                                     required
                                 />
                             </div>
+                            
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                                     Topic
@@ -241,11 +383,12 @@ const RoomsSection = () => {
                                     type="text"
                                     value={newRoom.topic}
                                     onChange={(e) => setNewRoom({...newRoom, topic: e.target.value})}
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-black focus:outline-none"
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-black focus:outline-none transition-colors"
                                     placeholder="e.g., Thermodynamics"
                                     required
                                 />
                             </div>
+                            
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                                     Max Members
@@ -253,7 +396,7 @@ const RoomsSection = () => {
                                 <select
                                     value={newRoom.maxMembers}
                                     onChange={(e) => setNewRoom({...newRoom, maxMembers: e.target.value})}
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-black focus:outline-none"
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-black focus:outline-none transition-colors"
                                 >
                                     <option value="6">6 members</option>
                                     <option value="10">10 members</option>
@@ -261,18 +404,21 @@ const RoomsSection = () => {
                                     <option value="20">20 members</option>
                                 </select>
                             </div>
-                            <div className="flex items-center gap-3">
+                            
+                            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
                                 <input
                                     type="checkbox"
                                     id="private"
                                     checked={newRoom.isPrivate}
                                     onChange={(e) => setNewRoom({...newRoom, isPrivate: e.target.checked})}
-                                    className="w-5 h-5"
+                                    className="w-5 h-5 accent-black"
                                 />
-                                <label htmlFor="private" className="text-sm font-semibold text-gray-700">
+                                <label htmlFor="private" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                    <Lock size={16} className="text-gray-500" />
                                     Private Room (invite only)
                                 </label>
                             </div>
+                            
                             <div className="flex gap-3 pt-4">
                                 <button
                                     type="button"
@@ -283,8 +429,9 @@ const RoomsSection = () => {
                                 </button>
                                 <button
                                     type="submit"
-                                    className="flex-1 py-3 bg-black text-white rounded-xl font-bold hover:scale-105 transition-all"
+                                    className="flex-1 py-3 bg-black text-white rounded-xl font-bold hover:scale-105 transition-all flex items-center justify-center gap-2"
                                 >
+                                    <Sparkles size={18} />
                                     Create Room
                                 </button>
                             </div>
@@ -301,75 +448,111 @@ const RoomsSection = () => {
                             key={room.id}
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: idx * 0.1 }}
-                            className="bg-white border-2 border-gray-200 rounded-2xl p-6 hover:border-black hover:shadow-lg transition-all group"
+                            transition={{ delay: idx * 0.05 }}
+                            whileHover={{ scale: 1.02 }}
+                            className="bg-white border-2 border-gray-200 rounded-2xl p-6 hover:border-black hover:shadow-xl transition-all group relative overflow-hidden"
                         >
-                            {/* Icon */}
-                            <div className="w-16 h-16 bg-black rounded-xl flex items-center justify-center mb-4">
-                                <Video size={32} className="text-white" />
-                            </div>
+                            {/* Shine effect */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                            
+                            {/* Content */}
+                            <div className="relative z-10">
+                                {/* Icon */}
+                                <div className="w-16 h-16 bg-black rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                    <Video size={32} className="text-white" />
+                                </div>
 
-                            {/* Room Info */}
-                            <div className="flex items-start justify-between mb-3">
-                                <div className="flex-1">
-                                    <h3 className="text-xl font-bold text-black mb-1">{room.name}</h3>
-                                    <p className="text-sm text-gray-500">{room.topic}</p>
-                                </div>
-                                {room.isPrivate ? (
-                                    <Lock size={18} className="text-gray-400" />
-                                ) : (
-                                    <Globe size={18} className="text-gray-400" />
-                                )}
-                            </div>
-
-                            {/* Stats */}
-                            <div className="space-y-2 mb-4 pb-4 border-b border-gray-200">
-                                <div className="flex items-center justify-between text-sm">
-                                    <span className="text-gray-500">Host</span>
-                                    <span className="font-semibold text-black">{room.hostName}</span>
-                                </div>
-                                <div className="flex items-center justify-between text-sm">
-                                    <span className="text-gray-500">Members</span>
-                                    <span className="font-semibold text-black">
-                                        {room.memberCount}/{room.maxMembers}
-                                    </span>
-                                </div>
-                                {room.startedAt && (
-                                    <div className="flex items-center gap-1 text-xs text-gray-400">
-                                        <Clock size={14} />
-                                        {room.startedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {/* Room Info */}
+                                <div className="flex items-start justify-between mb-3">
+                                    <div className="flex-1">
+                                        <h3 className="text-xl font-bold text-black mb-1">{room.name}</h3>
+                                        <p className="text-sm text-gray-500">{room.topic}</p>
                                     </div>
-                                )}
-                            </div>
+                                    <div className="flex items-center gap-2">
+                                        {room.isPrivate ? (
+                                            <Lock size={18} className="text-gray-400" />
+                                        ) : (
+                                            <Globe size={18} className="text-gray-400" />
+                                        )}
+                                        <div className="px-2 py-0.5 bg-green-500/10 text-green-600 rounded-lg flex items-center gap-1 text-xs font-bold">
+                                            <Zap size={10} />
+                                            +{XP_REWARDS.JOIN_ROOM}
+                                        </div>
+                                    </div>
+                                </div>
 
-                            {/* Join Button */}
-                            <button
-                                onClick={() => joinRoom(room)}
-                                disabled={room.memberCount >= room.maxMembers}
-                                className={`w-full py-3 rounded-xl font-bold transition-all ${
-                                    room.memberCount >= room.maxMembers
-                                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                        : 'bg-black text-white hover:scale-105'
-                                }`}
-                            >
-                                {room.memberCount >= room.maxMembers ? 'Room Full' : 'Join Room'}
-                            </button>
+                                {/* Stats */}
+                                <div className="space-y-2 mb-4 pb-4 border-b border-gray-200">
+                                    <div className="flex items-center justify-between text-sm">
+                                        <span className="text-gray-500">Host</span>
+                                        <span className="font-semibold text-black">{room.hostName}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-sm">
+                                        <span className="text-gray-500">Members</span>
+                                        <span className="font-semibold text-black flex items-center gap-1">
+                                            <Users size={14} />
+                                            {room.memberCount}/{room.maxMembers}
+                                        </span>
+                                    </div>
+                                    {room.startedAt && (
+                                        <div className="flex items-center gap-1 text-xs text-gray-400">
+                                            <Clock size={14} />
+                                            {room.startedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Join Button */}
+                                <button
+                                    onClick={() => joinRoom(room)}
+                                    disabled={room.memberCount >= room.maxMembers}
+                                    className={`w-full py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${
+                                        room.memberCount >= room.maxMembers
+                                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                            : 'bg-black text-white hover:scale-105 shadow-lg'
+                                    }`}
+                                >
+                                    {room.memberCount >= room.maxMembers ? (
+                                        <>
+                                            <Lock size={18} />
+                                            Room Full
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Video size={18} />
+                                            Join Room
+                                        </>
+                                    )}
+                                </button>
+                            </div>
                         </motion.div>
                     ))}
                 </div>
             ) : (
-                <div className="text-center py-20">
-                    <Video size={64} className="mx-auto text-gray-300 mb-4" />
+                /* Empty State */
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-center py-20"
+                >
+                    <div className="w-24 h-24 bg-black rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl">
+                        <Video size={48} className="text-white" />
+                    </div>
                     <h3 className="text-2xl font-bold text-black mb-2">No Active Rooms</h3>
-                    <p className="text-gray-600 mb-6">Create a room to start studying with others</p>
+                    <p className="text-gray-600 mb-2">Create a room to start studying with others</p>
+                    <p className="text-sm text-green-600 font-bold mb-6 flex items-center justify-center gap-1">
+                        <Zap size={16} />
+                        Earn +15 XP for creating the first room!
+                    </p>
                     <button 
                         onClick={() => setShowCreateModal(true)}
-                        className="inline-flex items-center gap-2 px-6 py-3 bg-black text-white rounded-xl font-bold hover:scale-105 transition-all"
+                        className="inline-flex items-center gap-2 px-8 py-4 bg-black text-white rounded-xl font-bold hover:scale-105 transition-all shadow-2xl"
                     >
                         <Plus size={20} />
                         Create Your First Room
+                        <Sparkles size={20} />
                     </button>
-                </div>
+                </motion.div>
             )}
         </>
     );

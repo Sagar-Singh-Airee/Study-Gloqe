@@ -1,9 +1,10 @@
 // src/components/features/QuizzesSection.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Brain, Play, ChevronRight, Sparkles, Clock, Target } from 'lucide-react';
+import { Brain, Play, ChevronRight, Sparkles, Clock, Target, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { awardXP, updateMission, XP_REWARDS } from '@/services/gamificationService';
 import {
   collection,
   query,
@@ -12,10 +13,11 @@ import {
   onSnapshot,
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
+import toast from 'react-hot-toast';
 
 const QuizzesSection = () => {
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { user } = useAuth();
 
   const [quizzes, setQuizzes] = useState([]);
   const [stats, setStats] = useState({
@@ -27,13 +29,12 @@ const QuizzesSection = () => {
 
   // Load quizzes in real time
   useEffect(() => {
-    if (!currentUser) {
+    if (!user?.uid) {
       setLoading(false);
       return;
     }
 
     const quizzesRef = collection(db, 'quizzes');
-    // You can later add where('createdBy', '==', currentUser.uid) if needed
     const q = query(quizzesRef, orderBy('createdAt', 'desc'));
 
     const unsubscribe = onSnapshot(
@@ -53,14 +54,14 @@ const QuizzesSection = () => {
     );
 
     return () => unsubscribe();
-  }, [currentUser]);
+  }, [user?.uid]);
 
-  // Load basic stats from sessions
+  // Load stats from sessions with gamification
   useEffect(() => {
-    if (!currentUser) return;
+    if (!user?.uid) return;
 
     const sessionsRef = collection(db, 'sessions');
-    const q = query(sessionsRef, where('userId', '==', currentUser.uid));
+    const q = query(sessionsRef, where('userId', '==', user.uid));
 
     const unsubscribe = onSnapshot(
       q,
@@ -103,9 +104,10 @@ const QuizzesSection = () => {
     );
 
     return () => unsubscribe();
-  }, [currentUser]);
+  }, [user?.uid]);
 
-  const getDifficultyColor = (difficulty) => {
+  // Memoize difficulty color function
+  const getDifficultyColor = useMemo(() => (difficulty) => {
     switch (difficulty) {
       case 'Easy':
         return 'bg-gray-100 text-gray-700';
@@ -115,6 +117,31 @@ const QuizzesSection = () => {
         return 'bg-black text-white';
       default:
         return 'bg-gray-100 text-gray-700';
+    }
+  }, []);
+
+  // Handle quiz start with gamification
+  const handleStartQuiz = async (quizId) => {
+    try {
+      // Award XP for starting quiz
+      await awardXP(user.uid, 5, 'Started Quiz');
+      await updateMission(user.uid, 'daily_quiz');
+      
+      toast.success('🎯 +5 XP for starting quiz!', {
+        duration: 2000,
+        style: {
+          background: 'linear-gradient(135deg, #000 0%, #1a1a1a 100%)',
+          color: '#fff',
+          fontWeight: 'bold',
+          borderRadius: '16px',
+          padding: '16px 24px',
+        },
+      });
+
+      navigate(`/quizzes/${quizId}`);
+    } catch (error) {
+      console.error('Error starting quiz:', error);
+      navigate(`/quizzes/${quizId}`);
     }
   };
 
@@ -144,23 +171,37 @@ const QuizzesSection = () => {
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Stats Cards with Gamification Hints */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="bg-white border-2 border-black rounded-2xl p-5">
-          <div className="flex items-center gap-3">
+        <motion.div
+          whileHover={{ scale: 1.02 }}
+          className="bg-white border-2 border-black rounded-2xl p-5 relative overflow-hidden group"
+        >
+          {/* Shine effect */}
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+          
+          <div className="flex items-center gap-3 relative z-10">
             <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center">
               <Brain size={24} className="text-white" />
             </div>
             <div>
-              <div className="text-2xl font-black text-black">
+              <div className="text-2xl font-black text-black flex items-center gap-2">
                 {stats.taken}
+                {stats.taken > 0 && (
+                  <span className="text-xs font-bold px-2 py-1 bg-black text-white rounded-lg">
+                    +{stats.taken * 20} XP
+                  </span>
+                )}
               </div>
               <div className="text-sm text-gray-500">Quizzes Taken</div>
             </div>
           </div>
-        </div>
+        </motion.div>
 
-        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-5">
+        <motion.div
+          whileHover={{ scale: 1.02 }}
+          className="bg-gray-50 border border-gray-200 rounded-2xl p-5"
+        >
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center">
               <Target size={24} className="text-white" />
@@ -172,9 +213,12 @@ const QuizzesSection = () => {
               <div className="text-sm text-gray-500">Avg Accuracy</div>
             </div>
           </div>
-        </div>
+        </motion.div>
 
-        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-5">
+        <motion.div
+          whileHover={{ scale: 1.02 }}
+          className="bg-gray-50 border border-gray-200 rounded-2xl p-5"
+        >
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center">
               <Clock size={24} className="text-white" />
@@ -186,8 +230,39 @@ const QuizzesSection = () => {
               <div className="text-sm text-gray-500">Time Spent</div>
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
+
+      {/* XP Boost Banner */}
+      {quizzes.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8 p-4 bg-gradient-to-r from-black via-gray-900 to-black rounded-2xl border border-white/10"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
+                <Zap size={20} className="text-white" fill="white" />
+              </div>
+              <div>
+                <p className="text-white font-bold text-sm">
+                  Earn XP by completing quizzes!
+                </p>
+                <p className="text-gray-400 text-xs">
+                  +20 XP per quiz • +10 XP per correct answer
+                </p>
+              </div>
+            </div>
+            <div className="px-4 py-2 bg-white/10 rounded-xl backdrop-blur-sm">
+              <p className="text-white font-black text-lg">
+                {stats.taken * 20} XP
+              </p>
+              <p className="text-gray-400 text-xs">Earned Total</p>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* AI Recommendations */}
       <div className="mb-8">
@@ -197,8 +272,16 @@ const QuizzesSection = () => {
         </div>
 
         {quizzes.length === 0 ? (
-          <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 text-sm text-gray-600">
-            No quizzes yet. Generate one from a document to get started.
+          <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 text-center">
+            <div className="w-16 h-16 bg-black rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Brain size={32} className="text-white" />
+            </div>
+            <p className="text-gray-600 text-sm font-medium mb-2">
+              No quizzes yet
+            </p>
+            <p className="text-gray-500 text-xs">
+              Generate one from a document to get started and earn XP!
+            </p>
           </div>
         ) : (
           <div className="grid md:grid-cols-2 gap-4">
@@ -208,14 +291,21 @@ const QuizzesSection = () => {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: idx * 0.1 }}
-                className="bg-gradient-to-br from-gray-700 to-gray-900 rounded-2xl p-6 text-white hover:scale-[1.02] transition-all group"
+                whileHover={{ scale: 1.03 }}
+                className="bg-gradient-to-br from-gray-700 to-gray-900 rounded-2xl p-6 text-white hover:shadow-2xl transition-all group cursor-pointer"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center backdrop-blur-sm">
                     <Brain size={24} />
                   </div>
-                  <div className="text-xs font-bold bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm">
-                    {quiz.estimatedTime || 15} min
+                  <div className="flex items-center gap-2">
+                    <div className="text-xs font-bold bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm">
+                      {quiz.estimatedTime || 15} min
+                    </div>
+                    <div className="text-xs font-bold bg-green-500/20 text-green-400 px-3 py-1 rounded-full backdrop-blur-sm flex items-center gap-1">
+                      <Zap size={12} />
+                      +20 XP
+                    </div>
                   </div>
                 </div>
 
@@ -228,7 +318,7 @@ const QuizzesSection = () => {
                 </p>
 
                 <button
-                  onClick={() => navigate(`/quizzes/${quiz.id}`)}
+                  onClick={() => handleStartQuiz(quiz.id)}
                   className="w-full py-2.5 bg-white/20 hover:bg-white/30 rounded-xl text-sm font-bold backdrop-blur-sm transition-all flex items-center justify-center gap-2 group-hover:gap-3"
                 >
                   Start Quiz
@@ -245,8 +335,10 @@ const QuizzesSection = () => {
         <h2 className="text-xl font-black text-black mb-4">All Quizzes</h2>
 
         {quizzes.length === 0 ? (
-          <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 text-sm text-gray-600">
-            No quizzes found. Upload a PDF and generate your first quiz.
+          <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 text-center">
+            <p className="text-gray-600 text-sm">
+              No quizzes found. Upload a PDF and generate your first quiz.
+            </p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -256,6 +348,7 @@ const QuizzesSection = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.05 }}
+                whileHover={{ scale: 1.01 }}
                 className="bg-white border border-gray-200 rounded-2xl p-5 hover:border-black hover:shadow-lg transition-all group"
               >
                 <div className="flex items-center justify-between">
@@ -272,6 +365,10 @@ const QuizzesSection = () => {
                         {quiz.aiGenerated && (
                           <Sparkles size={14} className="text-black" />
                         )}
+                        <span className="text-xs font-bold px-2 py-0.5 bg-green-500/10 text-green-600 rounded-lg flex items-center gap-1">
+                          <Zap size={10} />
+                          +20 XP
+                        </span>
                       </div>
                       <div className="flex items-center gap-3 text-xs text-gray-500">
                         <span>
@@ -292,7 +389,7 @@ const QuizzesSection = () => {
                   </div>
 
                   <button
-                    onClick={() => navigate(`/quizzes/${quiz.id}`)}
+                    onClick={() => handleStartQuiz(quiz.id)}
                     className="flex items-center gap-2 px-6 py-2.5 bg-black text-white rounded-xl text-sm font-bold hover:scale-105 transition-all"
                   >
                     <Play size={16} />
