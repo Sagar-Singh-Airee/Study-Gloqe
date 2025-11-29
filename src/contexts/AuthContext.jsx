@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+// src/contexts/AuthContext.jsx - FIXED (No Infinite Loops)
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import {
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
@@ -27,18 +28,12 @@ import {
     where,
     getDocs
 } from 'firebase/firestore';
-import { auth, db, COLLECTIONS } from '@config/firebase';
+import { auth, db, COLLECTIONS } from '@/config/firebase';
 
 const AuthContext = createContext({});
 
 // Enhanced error messages
 const getErrorMessage = (error) => {
-    console.error('Auth Error Details:', {
-        code: error.code,
-        message: error.message,
-        stack: error.stack
-    });
-
     const errorMessages = {
         'auth/email-already-in-use': 'This email is already registered. Please sign in instead.',
         'auth/invalid-email': 'Please enter a valid email address.',
@@ -72,7 +67,9 @@ export const AuthProvider = ({ children }) => {
     const [userData, setUserData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [authError, setAuthError] = useState(null);
-    const [unsubscribeUserData, setUnsubscribeUserData] = useState(null);
+    
+    // ✅ Use ref instead of state to avoid re-renders
+    const unsubscribeUserDataRef = useRef(null);
 
     // Clear error after 5 seconds
     useEffect(() => {
@@ -82,52 +79,43 @@ export const AuthProvider = ({ children }) => {
         }
     }, [authError]);
 
-    // Fetch user data from Firestore with REAL-TIME updates
-    const fetchUserData = useCallback(async (uid) => {
-        try {
-            console.log('📥 Setting up real-time listener for user:', uid);
-            const userDocRef = doc(db, COLLECTIONS.USERS, uid);
+    // ✅ FIXED: Fetch user data without circular dependencies
+    const fetchUserData = useCallback((uid) => {
+        if (!uid) return;
 
-            // Clean up previous listener if exists
-            if (unsubscribeUserData) {
-                unsubscribeUserData();
-            }
-
-            // Set up real-time listener for instant updates
-            const unsubscribe = onSnapshot(
-                userDocRef,
-                (docSnap) => {
-                    if (docSnap.exists()) {
-                        const data = docSnap.data();
-                        console.log('✅ User data updated in real-time:', data);
-                        setUserData(data);
-                    } else {
-                        console.error('❌ User document does not exist');
-                        setUserData(null);
-                    }
-                },
-                (error) => {
-                    console.error('❌ Error in real-time listener:', error);
-                    setAuthError(getErrorMessage(error));
-                }
-            );
-
-            setUnsubscribeUserData(() => unsubscribe);
-            return unsubscribe;
-        } catch (error) {
-            console.error('❌ Error setting up user data listener:', error);
-            setAuthError(getErrorMessage(error));
+        // Clean up previous listener
+        if (unsubscribeUserDataRef.current) {
+            unsubscribeUserDataRef.current();
         }
-    }, [unsubscribeUserData]);
+
+        const userDocRef = doc(db, COLLECTIONS.USERS, uid);
+
+        // Set up real-time listener
+        const unsubscribe = onSnapshot(
+            userDocRef,
+            (docSnap) => {
+                if (docSnap.exists()) {
+                    setUserData(docSnap.data());
+                } else {
+                    console.error('User document does not exist');
+                    setUserData(null);
+                }
+            },
+            (error) => {
+                console.error('Error in real-time listener:', error);
+                setAuthError(getErrorMessage(error));
+            }
+        );
+
+        unsubscribeUserDataRef.current = unsubscribe;
+    }, []); // ✅ No dependencies - stable function
 
     // Sign up with email and password
     const signup = async (email, password, additionalData = {}) => {
         try {
-            console.log('🔐 Starting signup process...');
             setAuthError(null);
             setLoading(true);
 
-            // Validate inputs
             if (!email || !password) {
                 throw new Error('Email and password are required');
             }
@@ -136,18 +124,13 @@ export const AuthProvider = ({ children }) => {
                 throw new Error('Password must be at least 6 characters long');
             }
 
-            console.log('📝 Creating user account...');
             const { user: newUser } = await createUserWithEmailAndPassword(auth, email, password);
-            console.log('✅ User account created:', newUser.uid);
 
-            // Update Firebase Auth profile
             await updateProfile(newUser, {
                 displayName: additionalData.name || '',
                 photoURL: additionalData.photoURL || null
             });
-            console.log('✅ Profile updated');
 
-            // Create user document in Firestore
             const userDocData = {
                 uid: newUser.uid,
                 email: newUser.email,
@@ -182,12 +165,8 @@ export const AuthProvider = ({ children }) => {
                 }
             };
 
-            console.log('📝 Creating Firestore user document...');
             await setDoc(doc(db, COLLECTIONS.USERS, newUser.uid), userDocData);
-            console.log('✅ User document created');
 
-            // Initialize gamification
-            console.log('🎮 Initializing gamification...');
             await setDoc(doc(db, COLLECTIONS.GAMIFICATION, newUser.uid), {
                 xp: 0,
                 level: 1,
@@ -198,16 +177,11 @@ export const AuthProvider = ({ children }) => {
                 history: [],
                 milestones: []
             });
-            console.log('✅ Gamification initialized');
 
-            // Send email verification
             await sendEmailVerification(newUser);
-            console.log('✅ Verification email sent');
 
-            console.log('🎉 Signup complete!');
             return newUser;
         } catch (error) {
-            console.error('❌ Signup error:', error);
             const errorMessage = getErrorMessage(error);
             setAuthError(errorMessage);
             throw new Error(errorMessage);
@@ -219,29 +193,21 @@ export const AuthProvider = ({ children }) => {
     // Login with email and password
     const login = async (email, password) => {
         try {
-            console.log('🔐 Starting login process...');
             setAuthError(null);
             setLoading(true);
 
-            // Validate inputs
             if (!email || !password) {
                 throw new Error('Email and password are required');
             }
 
-            console.log('🔑 Signing in...');
             const result = await signInWithEmailAndPassword(auth, email, password);
-            console.log('✅ Signed in successfully:', result.user.uid);
 
-            // Update last login time
-            console.log('📝 Updating last login time...');
             await updateDoc(doc(db, COLLECTIONS.USERS, result.user.uid), {
                 lastLoginAt: serverTimestamp()
             });
 
-            console.log('🎉 Login complete!');
             return result.user;
         } catch (error) {
-            console.error('❌ Login error:', error);
             const errorMessage = getErrorMessage(error);
             setAuthError(errorMessage);
             throw new Error(errorMessage);
@@ -253,25 +219,18 @@ export const AuthProvider = ({ children }) => {
     // Login with Google
     const loginWithGoogle = async () => {
         try {
-            console.log('🔐 Starting Google login...');
             setAuthError(null);
             setLoading(true);
 
             const provider = new GoogleAuthProvider();
-            provider.setCustomParameters({
-                prompt: 'select_account'
-            });
+            provider.setCustomParameters({ prompt: 'select_account' });
 
-            console.log('🔑 Opening Google popup...');
             const result = await signInWithPopup(auth, provider);
-            console.log('✅ Google sign-in successful:', result.user.uid);
 
-            // Check if user document exists
             const userDocRef = doc(db, COLLECTIONS.USERS, result.user.uid);
             const userDoc = await getDoc(userDocRef);
 
             if (!userDoc.exists()) {
-                console.log('📝 Creating new user document...');
                 const userDocData = {
                     uid: result.user.uid,
                     email: result.user.email,
@@ -308,7 +267,6 @@ export const AuthProvider = ({ children }) => {
 
                 await setDoc(userDocRef, userDocData);
 
-                // Initialize gamification
                 await setDoc(doc(db, COLLECTIONS.GAMIFICATION, result.user.uid), {
                     xp: 0,
                     level: 1,
@@ -319,18 +277,14 @@ export const AuthProvider = ({ children }) => {
                     history: [],
                     milestones: []
                 });
-                console.log('✅ User document created');
             } else {
-                console.log('📝 Updating last login time...');
                 await updateDoc(userDocRef, {
                     lastLoginAt: serverTimestamp()
                 });
             }
 
-            console.log('🎉 Google login complete!');
             return result.user;
         } catch (error) {
-            console.error('❌ Google auth error:', error);
             const errorMessage = getErrorMessage(error);
             setAuthError(errorMessage);
             throw new Error(errorMessage);
@@ -342,21 +296,17 @@ export const AuthProvider = ({ children }) => {
     // Logout
     const logout = async () => {
         try {
-            console.log('👋 Logging out...');
             setAuthError(null);
 
-            // Clean up real-time listener
-            if (unsubscribeUserData) {
-                unsubscribeUserData();
-                setUnsubscribeUserData(null);
+            if (unsubscribeUserDataRef.current) {
+                unsubscribeUserDataRef.current();
+                unsubscribeUserDataRef.current = null;
             }
 
             await signOut(auth);
             setUser(null);
             setUserData(null);
-            console.log('✅ Logged out successfully');
         } catch (error) {
-            console.error('❌ Logout error:', error);
             const errorMessage = getErrorMessage(error);
             setAuthError(errorMessage);
             throw new Error(errorMessage);
@@ -368,9 +318,7 @@ export const AuthProvider = ({ children }) => {
         try {
             setAuthError(null);
             await sendPasswordResetEmail(auth, email);
-            console.log('✅ Password reset email sent');
         } catch (error) {
-            console.error('❌ Password reset error:', error);
             const errorMessage = getErrorMessage(error);
             setAuthError(errorMessage);
             throw new Error(errorMessage);
@@ -383,9 +331,7 @@ export const AuthProvider = ({ children }) => {
             setAuthError(null);
             if (!user) throw new Error('No user logged in');
             await updatePassword(user, newPassword);
-            console.log('✅ Password changed successfully');
         } catch (error) {
-            console.error('❌ Change password error:', error);
             const errorMessage = getErrorMessage(error);
             setAuthError(errorMessage);
             throw new Error(errorMessage);
@@ -400,40 +346,29 @@ export const AuthProvider = ({ children }) => {
 
             await updateEmail(user, newEmail);
 
-            // Update Firestore
             await updateDoc(doc(db, COLLECTIONS.USERS, user.uid), {
                 email: newEmail,
                 updatedAt: serverTimestamp()
             });
 
-            // Send verification email
             await sendEmailVerification(user);
-            console.log('✅ Email changed successfully');
         } catch (error) {
-            console.error('❌ Change email error:', error);
             const errorMessage = getErrorMessage(error);
             setAuthError(errorMessage);
             throw new Error(errorMessage);
         }
     };
 
-    // Update user profile (ENHANCED with detailed debugging)
+    // Update user profile
     const updateUserProfile = async (updates) => {
         try {
             setAuthError(null);
 
             if (!user) {
-                console.error('❌ No user logged in');
                 throw new Error('No user logged in');
             }
 
-            console.log('=== PROFILE UPDATE START ===');
-            console.log('Current user UID:', user.uid);
-            console.log('Current user email:', user.email);
-            console.log('Updates to apply:', JSON.stringify(updates, null, 2));
-            console.log('Current userData:', JSON.stringify(userData, null, 2));
-
-            // Step 1: Update Firebase Auth profile first
+            // Update Firebase Auth profile
             const authUpdates = {};
             if (updates.name) authUpdates.displayName = updates.name;
             if (updates.photoURL || updates.profilePicture) {
@@ -441,32 +376,11 @@ export const AuthProvider = ({ children }) => {
             }
 
             if (Object.keys(authUpdates).length > 0) {
-                console.log('🔐 Updating Firebase Auth profile with:', authUpdates);
-                try {
-                    await updateProfile(user, authUpdates);
-                    console.log('✅ Firebase Auth profile updated successfully');
-                } catch (authError) {
-                    console.error('❌ Firebase Auth update failed:', authError);
-                    throw authError;
-                }
+                await updateProfile(user, authUpdates);
             }
 
-            // Step 2: Prepare Firestore update
+            // Prepare Firestore update
             const userDocRef = doc(db, COLLECTIONS.USERS, user.uid);
-            console.log('📝 Firestore path:', `${COLLECTIONS.USERS}/${user.uid}`);
-
-            // Check if document exists first
-            try {
-                const docSnap = await getDoc(userDocRef);
-                console.log('Document exists?', docSnap.exists());
-                if (docSnap.exists()) {
-                    console.log('Current Firestore data:', docSnap.data());
-                }
-            } catch (checkError) {
-                console.error('❌ Error checking document:', checkError);
-            }
-
-            // Build update object
             const updateData = {};
 
             if (updates.name !== undefined) updateData.name = updates.name;
@@ -478,7 +392,6 @@ export const AuthProvider = ({ children }) => {
             if (updates.photoURL !== undefined) updateData.photoURL = updates.photoURL;
             if (updates.profilePicture !== undefined) updateData.profilePicture = updates.profilePicture;
 
-            // Handle preferences merge
             if (updates.preferences !== undefined) {
                 updateData.preferences = {
                     ...(userData?.preferences || {}),
@@ -488,49 +401,22 @@ export const AuthProvider = ({ children }) => {
 
             updateData.updatedAt = serverTimestamp();
 
-            console.log('📝 Final update data:', JSON.stringify(updateData, null, 2));
-
-            // Step 3: Update Firestore
             try {
-                console.log('🚀 Attempting Firestore update...');
                 await updateDoc(userDocRef, updateData);
-                console.log('✅✅✅ Firestore update SUCCESS!');
-                console.log('=== PROFILE UPDATE COMPLETE ===');
                 return { success: true };
             } catch (firestoreError) {
-                console.error('❌ Firestore update FAILED');
-                console.error('Error code:', firestoreError.code);
-                console.error('Error message:', firestoreError.message);
-                console.error('Full error:', firestoreError);
-
-                // If document doesn't exist, try creating it
                 if (firestoreError.code === 'not-found') {
-                    console.log('📝 Document not found, attempting to create...');
-                    try {
-                        await setDoc(userDocRef, {
-                            uid: user.uid,
-                            email: user.email,
-                            ...updateData,
-                            createdAt: serverTimestamp()
-                        });
-                        console.log('✅ Document created successfully');
-                        return { success: true };
-                    } catch (createError) {
-                        console.error('❌ Document creation failed:', createError);
-                        throw createError;
-                    }
+                    await setDoc(userDocRef, {
+                        uid: user.uid,
+                        email: user.email,
+                        ...updateData,
+                        createdAt: serverTimestamp()
+                    });
+                    return { success: true };
                 }
-
                 throw firestoreError;
             }
         } catch (error) {
-            console.error('❌❌❌ PROFILE UPDATE ERROR');
-            console.error('Error type:', error.constructor.name);
-            console.error('Error code:', error.code);
-            console.error('Error message:', error.message);
-            console.error('Full error object:', error);
-            console.error('Error stack:', error.stack);
-
             const errorMessage = getErrorMessage(error);
             setAuthError(errorMessage);
             throw new Error(errorMessage);
@@ -543,9 +429,7 @@ export const AuthProvider = ({ children }) => {
             setAuthError(null);
             if (!user) throw new Error('No user logged in');
             await sendEmailVerification(user);
-            console.log('✅ Verification email sent');
         } catch (error) {
-            console.error('❌ Resend verification error:', error);
             const errorMessage = getErrorMessage(error);
             setAuthError(errorMessage);
             throw new Error(errorMessage);
@@ -560,9 +444,7 @@ export const AuthProvider = ({ children }) => {
 
             const credential = EmailAuthProvider.credential(user.email, password);
             await reauthenticateWithCredential(user, credential);
-            console.log('✅ Reauthenticated successfully');
         } catch (error) {
-            console.error('❌ Reauthentication error:', error);
             const errorMessage = getErrorMessage(error);
             setAuthError(errorMessage);
             throw new Error(errorMessage);
@@ -575,25 +457,20 @@ export const AuthProvider = ({ children }) => {
             setAuthError(null);
             if (!user) throw new Error('No user logged in');
 
-            // Soft delete in Firestore
             await updateDoc(doc(db, COLLECTIONS.USERS, user.uid), {
                 deleted: true,
                 deletedAt: serverTimestamp()
             });
 
-            // Clean up listener
-            if (unsubscribeUserData) {
-                unsubscribeUserData();
+            if (unsubscribeUserDataRef.current) {
+                unsubscribeUserDataRef.current();
             }
 
-            // Delete auth account
             await deleteUser(user);
 
             setUser(null);
             setUserData(null);
-            console.log('✅ Account deleted successfully');
         } catch (error) {
-            console.error('❌ Delete account error:', error);
             const errorMessage = getErrorMessage(error);
             setAuthError(errorMessage);
             throw new Error(errorMessage);
@@ -615,14 +492,13 @@ export const AuthProvider = ({ children }) => {
             updateData.updatedAt = serverTimestamp();
 
             await updateDoc(userDocRef, updateData);
-            console.log('✅ User stats updated');
         } catch (error) {
-            console.error('❌ Update stats error:', error);
+            console.error('Update stats error:', error);
             throw error;
         }
     };
 
-    // Add XP (Enhanced with level-up detection)
+    // Add XP
     const addXP = async (xpAmount, reason = 'activity') => {
         try {
             if (!user) throw new Error('No user logged in');
@@ -636,8 +512,6 @@ export const AuthProvider = ({ children }) => {
                 const currentLevel = currentData.level || 1;
                 const newXP = currentXP + xpAmount;
                 const newLevel = Math.floor(newXP / 100) + 1;
-
-                // Check for level up
                 const leveledUp = newLevel > currentLevel;
 
                 await updateDoc(gamificationRef, {
@@ -654,19 +528,16 @@ export const AuthProvider = ({ children }) => {
                     ]
                 });
 
-                // Update user document
                 await updateDoc(doc(db, COLLECTIONS.USERS, user.uid), {
                     xp: newXP,
                     level: newLevel,
                     updatedAt: serverTimestamp()
                 });
 
-                console.log(`✅ Added ${xpAmount} XP. ${leveledUp ? '🎉 Level up!' : ''}`);
-
                 return { newXP, newLevel, leveledUp };
             }
         } catch (error) {
-            console.error('❌ Add XP error:', error);
+            console.error('Add XP error:', error);
             throw error;
         }
     };
@@ -680,7 +551,7 @@ export const AuthProvider = ({ children }) => {
             }
             return null;
         } catch (error) {
-            console.error('❌ Get user by ID error:', error);
+            console.error('Get user by ID error:', error);
             throw error;
         }
     };
@@ -697,37 +568,32 @@ export const AuthProvider = ({ children }) => {
             const querySnapshot = await getDocs(q);
             return querySnapshot.docs.map(doc => doc.data());
         } catch (error) {
-            console.error('❌ Search users error:', error);
+            console.error('Search users error:', error);
             throw error;
         }
     };
 
     // Refresh user data manually
-    const refreshUserData = async () => {
-        try {
-            if (!user) return;
-            console.log('🔄 Manually refreshing user data...');
-            await fetchUserData(user.uid);
-        } catch (error) {
-            console.error('❌ Refresh user data error:', error);
-            throw error;
+    const refreshUserData = useCallback(() => {
+        if (user) {
+            fetchUserData(user.uid);
         }
-    };
+    }, [user, fetchUserData]);
 
-    // Listen to auth state changes
+    // ✅ FIXED: Listen to auth state changes ONCE
     useEffect(() => {
-        console.log('👂 Setting up auth state listener...');
-        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-            console.log('🔄 Auth state changed:', currentUser ? currentUser.uid : 'No user');
+        console.log('🔐 Setting up auth state listener (ONE TIME)');
+        
+        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+            console.log('📧 Auth state changed:', currentUser?.uid || 'logged out');
             setUser(currentUser);
 
             if (currentUser) {
-                await fetchUserData(currentUser.uid);
+                fetchUserData(currentUser.uid);
             } else {
-                // Clean up listener when user logs out
-                if (unsubscribeUserData) {
-                    unsubscribeUserData();
-                    setUnsubscribeUserData(null);
+                if (unsubscribeUserDataRef.current) {
+                    unsubscribeUserDataRef.current();
+                    unsubscribeUserDataRef.current = null;
                 }
                 setUserData(null);
             }
@@ -736,46 +602,34 @@ export const AuthProvider = ({ children }) => {
 
         return () => {
             unsubscribe();
-            // Clean up real-time listener on unmount
-            if (unsubscribeUserData) {
-                unsubscribeUserData();
+            if (unsubscribeUserDataRef.current) {
+                unsubscribeUserDataRef.current();
             }
         };
-    }, [fetchUserData]);
+    }, [fetchUserData]); // ✅ fetchUserData is stable (no dependencies)
 
     const value = {
-        // State
         user,
         userData,
         loading,
         authError,
-
-        // Auth methods
         signup,
         login,
         loginWithGoogle,
         logout,
-
-        // Password management
         resetPassword,
         changePassword,
-
-        // Profile management
         updateUserProfile,
         changeEmail,
         resendVerificationEmail,
         reauthenticate,
         deleteAccount,
-
-        // Data methods
-        fetchUserData,
+        fetchUserData: refreshUserData,
         refreshUserData,
         updateUserStats,
         addXP,
         getUserById,
         searchUsers,
-
-        // Utility
         clearError: () => setAuthError(null)
     };
 

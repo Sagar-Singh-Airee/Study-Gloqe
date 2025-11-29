@@ -24,6 +24,15 @@
 
 <body>
     <div id="root"></div>
+    
+    <!-- Polyfills for WebRTC libraries (simple-peer) -->
+    <script>
+        // Fix for "global is not defined" error in Vite
+        window.global = window;
+        window.process = window.process || { env: {} };
+        window.Buffer = window.Buffer || {};
+    </script>
+    
     <script type="module" src="/src/main.jsx"></script>
 </body>
 

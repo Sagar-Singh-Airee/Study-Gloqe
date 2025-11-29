@@ -1,11 +1,11 @@
-// src/pages/PDFUpload.jsx
+// src/pages/PDFUpload.jsx - WITH DAILY XP LIMITS
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import { Upload, FileText, X, Sparkles, CheckCircle2, AlertCircle, Zap, Shield, Cloud, BookOpen, TrendingUp, Award } from 'lucide-react';
-import { useAuth } from '@contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { uploadDocument } from '@/services/documentService';
-import { awardXP, updateMission, XP_REWARDS } from '@/services/gamificationService';
+import { awardDailyXP, updateMission, DAILY_ACTIONS, XP_REWARDS } from '@/services/gamificationService';
 import * as pdfjsLib from 'pdfjs-dist';
 import toast from 'react-hot-toast';
 
@@ -34,6 +34,7 @@ const PDFUpload = () => {
   const { user } = useAuth();
   const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [xpEarnedToday, setXpEarnedToday] = useState(false);
 
   const showToast = useCallback((message, type = 'default', icon = Sparkles) => {
     toast.custom(() => <CustomToast message={message} type={type} icon={icon} />, {
@@ -56,7 +57,7 @@ const PDFUpload = () => {
       return { text: fullText, numPages: pdf.numPages };
     } catch (error) {
       console.error('PDF text extraction error:', error);
-      return { text: 'Text extraction failed.', numPages: 0 };
+      throw new Error('Failed to extract text from PDF');
     }
   };
 
@@ -69,7 +70,7 @@ const PDFUpload = () => {
     }
     const newFiles = acceptedFiles.map(file => ({
       file,
-      id: Math.random().toString(36).substr(2, 9),
+      id: Math.random().toString(36).substring(2, 11),
       status: 'pending',
       progress: 0,
       docId: null,
@@ -103,6 +104,7 @@ const PDFUpload = () => {
     setUploading(true);
     let lastDocId = null;
     let uploadCount = 0;
+    let xpAwarded = false;
 
     for (const fileObj of files) {
       if (fileObj.status !== 'pending') continue;
@@ -124,24 +126,55 @@ const PDFUpload = () => {
         setFiles(prev => prev.map(f => f.id === fileObj.id ? { ...f, status: 'completed', docId } : f));
         showToast(`${fileObj.file.name} uploaded successfully`, 'success', CheckCircle2);
 
-        // 🎮 AWARD XP FOR UPLOADING
-        await awardXP(user.uid, XP_REWARDS.UPLOAD_PDF, 'Uploaded PDF');
-        await updateMission(user.uid, 'daily_upload');
-        
-        showToast(`🎉 +${XP_REWARDS.UPLOAD_PDF} XP for uploading!`, 'success', Zap);
+        // ✅ AWARD XP ONLY ONCE PER DAY (only on first upload)
+        if (!xpAwarded && !xpEarnedToday) {
+          try {
+            const result = await awardDailyXP(
+              user.uid, 
+              DAILY_ACTIONS.UPLOAD_DOCUMENT, 
+              'Uploaded PDF Document'
+            );
+            
+            if (result.success) {
+              xpAwarded = true;
+              setXpEarnedToday(true);
+              showToast(`🎉 +${result.xpGained} XP for uploading!`, 'success', Zap);
+              
+              // Update mission
+              await updateMission(user.uid, 'daily_upload');
+            } else if (result.alreadyEarned) {
+              setXpEarnedToday(true);
+            }
+          } catch (error) {
+            console.error('XP award error:', error);
+            // Continue with upload even if XP award fails
+          }
+        }
         
       } catch (error) {
         console.error('Upload error:', error);
-        setFiles(prev => prev.map(f => f.id === fileObj.id ? { ...f, status: 'error', error: error.message } : f));
-        showToast(`Failed to upload ${fileObj.file.name}`, 'error', AlertCircle);
+        setFiles(prev => prev.map(f => f.id === fileObj.id ? { 
+          ...f, 
+          status: 'error', 
+          error: error.message 
+        } : f));
+        showToast(`Failed to upload ${fileObj.file.name}: ${error.message}`, 'error', AlertCircle);
       }
     }
     
     setUploading(false);
     
-    if (lastDocId) {
-      showToast(`🚀 ${uploadCount} file(s) uploaded! +${uploadCount * XP_REWARDS.UPLOAD_PDF} XP total`, 'success', Award);
-      setTimeout(() => { navigate(`/study/${lastDocId}`); }, 1500);
+    if (uploadCount > 0) {
+      const xpMessage = xpAwarded 
+        ? `🚀 ${uploadCount} file(s) uploaded! +${XP_REWARDS.UPLOAD_DOCUMENT} XP earned!`
+        : xpEarnedToday
+        ? `🚀 ${uploadCount} file(s) uploaded! (Daily XP already earned)`
+        : `🚀 ${uploadCount} file(s) uploaded!`;
+      
+      showToast(xpMessage, 'success', Award);
+      if (lastDocId) {
+        setTimeout(() => { navigate(`/study/${lastDocId}`); }, 1500);
+      }
     }
   };
 
@@ -157,6 +190,8 @@ const PDFUpload = () => {
         return <FileText className="text-gray-500" size={16} />;
     }
   };
+
+  const pendingFilesCount = files.filter(f => f.status === 'pending').length;
 
   return (
     <div className="min-h-screen bg-black relative overflow-hidden">
@@ -187,11 +222,18 @@ const PDFUpload = () => {
             </p>
           </div>
 
-          {/* XP Earning Banner */}
-          <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-500/30 backdrop-blur-2xl">
-            <Zap size={16} className="text-green-400" fill="currentColor" />
-            <span className="text-sm text-white font-bold">
-              Earn +{XP_REWARDS.UPLOAD_PDF} XP per upload!
+          {/* ✅ XP Earning Banner - Updates based on daily status */}
+          <div className={`inline-flex items-center gap-2 px-6 py-3 rounded-full border backdrop-blur-2xl ${
+            xpEarnedToday 
+              ? 'bg-gradient-to-r from-gray-500/10 to-gray-600/10 border-gray-500/30' 
+              : 'bg-gradient-to-r from-green-500/10 to-blue-500/10 border-green-500/30'
+          }`}>
+            <Zap size={16} className={xpEarnedToday ? 'text-gray-400' : 'text-green-400'} fill="currentColor" />
+            <span className={`text-sm font-bold ${xpEarnedToday ? 'text-gray-400' : 'text-white'}`}>
+              {xpEarnedToday 
+                ? `✓ Daily XP earned (+${XP_REWARDS.UPLOAD_DOCUMENT} XP)` 
+                : `Earn +${XP_REWARDS.UPLOAD_DOCUMENT} XP today!`
+              }
             </span>
           </div>
         </div>
@@ -277,7 +319,8 @@ const PDFUpload = () => {
                   <div>
                     <h3 className="text-xl font-black text-white mb-0.5">Upload Queue</h3>
                     <p className="text-xs text-gray-500 font-medium">
-                      {files.length} file{files.length !== 1 ? 's' : ''} • +{files.length * XP_REWARDS.UPLOAD_PDF} XP
+                      {files.length} file{files.length !== 1 ? 's' : ''} 
+                      {!xpEarnedToday && ` • +${XP_REWARDS.UPLOAD_DOCUMENT} XP available`}
                     </p>
                   </div>
                   <button
@@ -323,7 +366,7 @@ const PDFUpload = () => {
                               ${fileObj.status === 'pending' ? 'bg-white/5 text-gray-400 border border-gray-600/40' : ''}
                             `}>
                               {fileObj.status === 'uploading' && '⚡ Processing'}
-                              {fileObj.status === 'completed' && '✓ +15 XP'}
+                              {fileObj.status === 'completed' && '✓ Done'}
                               {fileObj.status === 'error' && '✕ Failed'}
                               {fileObj.status === 'pending' && '◦ Pending'}
                             </span>
@@ -356,7 +399,7 @@ const PDFUpload = () => {
                 {/* Upload Button */}
                 <button
                   onClick={handleUpload}
-                  disabled={uploading || files.every(f => f.status !== 'pending')}
+                  disabled={uploading || pendingFilesCount === 0}
                   className="w-full px-6 py-4 rounded-2xl bg-gradient-to-r from-blue-500 via-blue-600 to-blue-500 hover:from-blue-600 hover:via-blue-700 hover:to-blue-600 text-white font-bold text-base shadow-2xl shadow-blue-500/40 backdrop-blur-xl border border-blue-400/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center gap-2.5"
                 >
                   {uploading ? (
@@ -367,7 +410,10 @@ const PDFUpload = () => {
                   ) : (
                     <>
                       <Sparkles size={18} />
-                      <span>Upload & Earn {files.filter(f => f.status === 'pending').length * XP_REWARDS.UPLOAD_PDF} XP</span>
+                      <span>
+                        Upload {pendingFilesCount} File{pendingFilesCount !== 1 ? 's' : ''}
+                        {!xpEarnedToday && ` (+${XP_REWARDS.UPLOAD_DOCUMENT} XP)`}
+                      </span>
                       <TrendingUp size={18} />
                     </>
                   )}
@@ -383,9 +429,18 @@ const PDFUpload = () => {
                 <p className="text-xs text-gray-500 leading-relaxed">
                   Upload PDFs to begin your<br />AI-powered learning experience
                 </p>
-                <div className="mt-4 px-4 py-2 rounded-full bg-green-500/10 border border-green-500/30">
-                  <p className="text-xs text-green-400 font-bold">
-                    Earn +{XP_REWARDS.UPLOAD_PDF} XP per PDF
+                <div className={`mt-4 px-4 py-2 rounded-full border ${
+                  xpEarnedToday 
+                    ? 'bg-gray-500/10 border-gray-500/30' 
+                    : 'bg-green-500/10 border-green-500/30'
+                }`}>
+                  <p className={`text-xs font-bold ${
+                    xpEarnedToday ? 'text-gray-400' : 'text-green-400'
+                  }`}>
+                    {xpEarnedToday 
+                      ? `✓ Daily XP earned (+${XP_REWARDS.UPLOAD_DOCUMENT} XP)`
+                      : `Earn +${XP_REWARDS.UPLOAD_DOCUMENT} XP today!`
+                    }
                   </p>
                 </div>
               </div>
