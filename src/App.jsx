@@ -1,7 +1,7 @@
-// src/App.jsx - WITH STUDY SESSION & STUDY ROOM ROUTES
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from '@contexts/AuthContext';
+import { ClassProvider } from '@contexts/ClassContext'; // <--- IMPORTED HERE
 
 // Auth & Landing
 import AuthPage from './pages/auth/AuthPage';
@@ -98,78 +98,81 @@ const PublicRoute = ({ children }) => {
 function App() {
     return (
         <AuthProvider>
-            <Router>
-                <Toaster
-                    position="top-right"
-                    toastOptions={{
-                        duration: 3000,
-                        style: {
-                            background: '#000',
-                            color: '#fff',
-                        },
-                        success: {
-                            iconTheme: {
-                                primary: '#fff',
-                                secondary: '#000',
+            {/* ClassProvider must be INSIDE AuthProvider so it can access the user */}
+            <ClassProvider>
+                <Router>
+                    <Toaster
+                        position="top-right"
+                        toastOptions={{
+                            duration: 3000,
+                            style: {
+                                background: '#000',
+                                color: '#fff',
                             },
-                        },
-                    }}
-                />
+                            success: {
+                                iconTheme: {
+                                    primary: '#fff',
+                                    secondary: '#000',
+                                },
+                            },
+                        }}
+                    />
 
-                <Routes>
-                    {/* PUBLIC ROUTES */}
-                    <Route path="/" element={<LandingPage />} />
-                    <Route path="/auth" element={<PublicRoute><AuthPage /></PublicRoute>} />
+                    <Routes>
+                        {/* PUBLIC ROUTES */}
+                        <Route path="/" element={<LandingPage />} />
+                        <Route path="/auth" element={<PublicRoute><AuthPage /></PublicRoute>} />
 
-                    {/* STUDENT ROUTES */}
-                    <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                        {/* STUDENT ROUTES */}
+                        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
 
-                    {/* Redirect /hub to dashboard */}
-                    <Route path="/hub" element={<Navigate to="/dashboard" replace />} />
+                        {/* Redirect /hub to dashboard */}
+                        <Route path="/hub" element={<Navigate to="/dashboard" replace />} />
 
-                    {/* Classes */}
-                    <Route path="/classes" element={<Navigate to="/dashboard?tab=classes" replace />} />
-                    <Route path="/classes/:classId" element={<ProtectedRoute><ClassDetails /></ProtectedRoute>} />
+                        {/* Classes */}
+                        <Route path="/classes" element={<Navigate to="/dashboard?tab=classes" replace />} />
+                        <Route path="/classes/:classId" element={<ProtectedRoute><ClassDetails /></ProtectedRoute>} />
 
-                    {/* Documents & PDFs */}
-                    <Route path="/upload" element={<ProtectedRoute><PDFUpload /></ProtectedRoute>} />
-                    <Route path="/documents" element={<Navigate to="/dashboard?tab=documents" replace />} />
-                    <Route path="/documents/:docId" element={<ProtectedRoute><PDFReader /></ProtectedRoute>} />
+                        {/* Documents & PDFs */}
+                        <Route path="/upload" element={<ProtectedRoute><PDFUpload /></ProtectedRoute>} />
+                        <Route path="/documents" element={<Navigate to="/dashboard?tab=documents" replace />} />
+                        <Route path="/documents/:docId" element={<ProtectedRoute><PDFReader /></ProtectedRoute>} />
 
-                    {/* STUDY SESSION (PDF → Text Study Mode) */}
-                    <Route path="/study/:docId" element={<ProtectedRoute><StudySession /></ProtectedRoute>} />
+                        {/* STUDY SESSION (PDF → Text Study Mode) */}
+                        <Route path="/study/:docId" element={<ProtectedRoute><StudySession /></ProtectedRoute>} />
 
-                    {/* STUDY ROOM (WebRTC Video/Audio Collaboration) */}
-                    <Route path="/study-room/:roomId" element={<ProtectedRoute><StudyRoom /></ProtectedRoute>} />
+                        {/* STUDY ROOM (WebRTC Video/Audio Collaboration) */}
+                        <Route path="/study-room/:roomId" element={<ProtectedRoute><StudyRoom /></ProtectedRoute>} />
 
-                    {/* Quizzes */}
-                    <Route path="/quizzes" element={<Navigate to="/dashboard?tab=quizzes" replace />} />
-                    <Route path="/quizzes/:quizId" element={<ProtectedRoute><QuizPage /></ProtectedRoute>} />
-                    <Route path="/results/:sessionId" element={<ProtectedRoute><QuizResults /></ProtectedRoute>} />
+                        {/* Quizzes */}
+                        <Route path="/quizzes" element={<Navigate to="/dashboard?tab=quizzes" replace />} />
+                        <Route path="/quizzes/:quizId" element={<ProtectedRoute><QuizPage /></ProtectedRoute>} />
+                        <Route path="/results/:sessionId" element={<ProtectedRoute><QuizResults /></ProtectedRoute>} />
 
-                    {/* Learning Tools */}
-                    <Route path="/flashcards" element={<Navigate to="/dashboard?tab=flashcards" replace />} />
-                    <Route path="/notes" element={<Navigate to="/dashboard?tab=notes" replace />} />
+                        {/* Learning Tools */}
+                        <Route path="/flashcards" element={<Navigate to="/dashboard?tab=flashcards" replace />} />
+                        <Route path="/notes" element={<Navigate to="/dashboard?tab=notes" replace />} />
 
-                    {/* Collaboration */}
-                    <Route path="/study-rooms" element={<Navigate to="/dashboard?tab=rooms" replace />} />
+                        {/* Collaboration */}
+                        <Route path="/study-rooms" element={<Navigate to="/dashboard?tab=rooms" replace />} />
 
-                    {/* Gamification */}
-                    <Route path="/leaderboard" element={<Navigate to="/dashboard?tab=leaderboard" replace />} />
+                        {/* Gamification */}
+                        <Route path="/leaderboard" element={<Navigate to="/dashboard?tab=leaderboard" replace />} />
 
-                    {/* User */}
-                    <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-                    <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-                    <Route path="/analytics" element={<ProtectedRoute><ComingSoon page="Analytics" /></ProtectedRoute>} />
+                        {/* User */}
+                        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+                        <Route path="/analytics" element={<ProtectedRoute><ComingSoon page="Analytics" /></ProtectedRoute>} />
 
-                    {/* TEACHER ROUTES */}
-                    <Route path="/teacher/dashboard" element={<ProtectedRoute teacherOnly><TeacherDashboard /></ProtectedRoute>} />
-                    <Route path="/teacher/classes" element={<ProtectedRoute teacherOnly><ClassManagement /></ProtectedRoute>} />
+                        {/* TEACHER ROUTES */}
+                        <Route path="/teacher/dashboard" element={<ProtectedRoute teacherOnly><TeacherDashboard /></ProtectedRoute>} />
+                        <Route path="/teacher/classes" element={<ProtectedRoute teacherOnly><ClassManagement /></ProtectedRoute>} />
 
-                    {/* CATCH ALL */}
-                    <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-            </Router>
+                        {/* CATCH ALL */}
+                        <Route path="*" element={<Navigate to="/" replace />} />
+                    </Routes>
+                </Router>
+            </ClassProvider>
         </AuthProvider>
     );
 }

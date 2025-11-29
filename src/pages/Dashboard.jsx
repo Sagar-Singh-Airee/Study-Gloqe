@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     BookOpen, Upload, Trophy, Clock, Users, Brain, Video, Home, Bell,
-    Layers, StickyNote, LayoutDashboard, Settings, LogOut, ChevronRight
+    Layers, StickyNote, LayoutDashboard, Settings, LogOut, ChevronRight, Medal
 } from 'lucide-react';
 import { useAuth } from '@contexts/AuthContext';
 import {
@@ -25,6 +25,7 @@ import NotesSection from '@/components/features/NotesSection';
 import RoomsSection from '@/components/features/RoomsSection';
 import LeaderboardSection from '@/components/features/LeaderboardSection';
 import SessionHistorySection from '@/components/features/SessionHistorySection';
+import AchievementsSection from '@/components/features/AchievementsSection'; // <--- Added Import
 
 const Dashboard = () => {
     const { user, userData, logout } = useAuth();
@@ -136,6 +137,7 @@ const Dashboard = () => {
         { icon: LayoutDashboard, label: 'Dashboard', tab: 'overview', path: '/dashboard' },
         { icon: Users, label: 'Classes', tab: 'classes', path: '/dashboard?tab=classes' },
         { icon: BookOpen, label: 'Documents', tab: 'documents', path: '/dashboard?tab=documents' },
+        { icon: Medal, label: 'Achievements', tab: 'achievements', path: '/dashboard?tab=achievements' }, // <--- Added Here
         { icon: Brain, label: 'Quizzes', tab: 'quizzes', path: '/dashboard?tab=quizzes' },
         { icon: Layers, label: 'Flashcards', tab: 'flashcards', path: '/dashboard?tab=flashcards' },
         { icon: StickyNote, label: 'Notes', tab: 'notes', path: '/dashboard?tab=notes' },
@@ -175,6 +177,7 @@ const Dashboard = () => {
                 );
             case 'classes': return <ClassesSection />;
             case 'documents': return <DocumentsSection />;
+            case 'achievements': return <AchievementsSection />; // <--- Added Here
             case 'quizzes': return <QuizzesSection />;
             case 'flashcards': return <FlashcardsSection />;
             case 'notes': return <NotesSection />;
@@ -260,13 +263,6 @@ const Dashboard = () => {
 
                 {/* Notification & Logout */}
                 <div className="p-4 border-t border-white/10 space-y-3">
-                    {/* Notification Bell */}
-                    <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all relative">
-                        <Bell size={20} />
-                        <span className="flex-1 text-sm font-medium">Notifications</span>
-                        <span className="w-2 h-2 bg-white rounded-full" />
-                    </button>
-
                     {/* Logout */}
                     <button
                         onClick={handleLogout}
@@ -295,51 +291,59 @@ const Dashboard = () => {
                             </p>
                         </div>
 
-                        {/* ENHANCED PROFILE CARD - TOP RIGHT */}
-                        <Link
-                            to="/settings"
-                            className="flex items-center gap-5 px-6 py-4 rounded-2xl bg-gradient-to-br from-white via-gray-50 to-gray-100 hover:shadow-xl border-2 border-gray-200 hover:border-gray-300 transition-all duration-300 group min-w-[320px]"
-                        >
-                            {/* Profile Picture */}
-                            <div className="relative">
-                                {userData?.profilePicture ? (
-                                    <img
-                                        src={userData.profilePicture}
-                                        alt={userData.name || 'User'}
-                                        className="w-16 h-16 rounded-full object-cover border-4 border-white shadow-lg group-hover:scale-105 transition-transform duration-300"
-                                    />
-                                ) : (
-                                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-black via-gray-800 to-gray-700 flex items-center justify-center text-white font-black text-2xl shadow-lg group-hover:scale-105 transition-transform duration-300 border-4 border-white">
-                                        {userData?.name?.charAt(0) || user?.email?.charAt(0).toUpperCase() || 'U'}
-                                    </div>
-                                )}
-                                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 border-2 border-white rounded-full" />
-                            </div>
+                        <div className="flex items-center gap-4">
+                            {/* Minimal Notification Icon */}
+                            <button className="w-12 h-12 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-all relative group">
+                                <Bell size={20} className="text-gray-600 group-hover:text-black" />
+                                <span className="absolute top-3 right-3 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
+                            </button>
 
-                            {/* User Info */}
-                            <div className="flex-1 text-left">
-                                <div className="text-base font-bold text-black group-hover:text-gray-800 transition-colors mb-0.5">
-                                    {userData?.name || user?.email?.split('@')[0] || 'User'}
+                            {/* ENHANCED PROFILE CARD */}
+                            <Link
+                                to="/settings"
+                                className="flex items-center gap-5 px-6 py-4 rounded-2xl bg-gradient-to-br from-white via-gray-50 to-gray-100 hover:shadow-xl border-2 border-gray-200 hover:border-gray-300 transition-all duration-300 group min-w-[320px]"
+                            >
+                                {/* Profile Picture */}
+                                <div className="relative">
+                                    {userData?.profilePicture ? (
+                                        <img
+                                            src={userData.profilePicture}
+                                            alt={userData.name || 'User'}
+                                            className="w-16 h-16 rounded-full object-cover border-4 border-white shadow-lg group-hover:scale-105 transition-transform duration-300"
+                                        />
+                                    ) : (
+                                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-black via-gray-800 to-gray-700 flex items-center justify-center text-white font-black text-2xl shadow-lg group-hover:scale-105 transition-transform duration-300 border-4 border-white">
+                                            {userData?.name?.charAt(0) || user?.email?.charAt(0).toUpperCase() || 'U'}
+                                        </div>
+                                    )}
+                                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 border-2 border-white rounded-full" />
                                 </div>
-                                <div className="text-xs text-gray-500 mb-1">
-                                    {userData?.email || user?.email || 'user@example.com'}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <div className="px-2 py-0.5 bg-black text-white text-xs font-bold rounded-md">
-                                        Level {data.stats.level}
-                                    </div>
-                                    <div className="text-xs text-gray-600 font-semibold">
-                                        {data.stats.xp} XP
-                                    </div>
-                                </div>
-                            </div>
 
-                            {/* Settings Icon */}
-                            <ChevronRight
-                                size={20}
-                                className="text-gray-400 group-hover:text-black group-hover:translate-x-1 transition-all duration-300"
-                            />
-                        </Link>
+                                {/* User Info */}
+                                <div className="flex-1 text-left">
+                                    <div className="text-base font-bold text-black group-hover:text-gray-800 transition-colors mb-0.5">
+                                        {userData?.name || user?.email?.split('@')[0] || 'User'}
+                                    </div>
+                                    <div className="text-xs text-gray-500 mb-1">
+                                        {userData?.email || user?.email || 'user@example.com'}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="px-2 py-0.5 bg-black text-white text-xs font-bold rounded-md">
+                                            Level {data.stats.level}
+                                        </div>
+                                        <div className="text-xs text-gray-600 font-semibold">
+                                            {data.stats.xp} XP
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Settings Icon */}
+                                <ChevronRight
+                                    size={20}
+                                    className="text-gray-400 group-hover:text-black group-hover:translate-x-1 transition-all duration-300"
+                                />
+                            </Link>
+                        </div>
                     </div>
 
                     {/* DYNAMIC CONTENT */}
