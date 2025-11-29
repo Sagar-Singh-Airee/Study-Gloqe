@@ -1,15 +1,12 @@
-// src/pages/PDFUpload.jsx - WITH DAILY XP LIMITS
+// src/pages/PDFUpload.jsx - CLEANED UP VERSION (No duplicate processing)
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, X, Sparkles, CheckCircle2, AlertCircle, Zap, Shield, Cloud, BookOpen, TrendingUp, Award } from 'lucide-react';
+import { Upload, FileText, X, Sparkles, CheckCircle2, AlertCircle, Zap, Shield, Cloud, TrendingUp, Award } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { uploadDocument } from '@/services/documentService';
 import { awardDailyXP, updateMission, DAILY_ACTIONS, XP_REWARDS } from '@/services/gamificationService';
-import * as pdfjsLib from 'pdfjs-dist';
 import toast from 'react-hot-toast';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
 
 // Premium Glassmorphic Toast
 const CustomToast = ({ message, type, icon: Icon }) => (
@@ -43,24 +40,6 @@ const PDFUpload = () => {
     });
   }, []);
 
-  const extractTextFromPDF = async (file) => {
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      let fullText = '';
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items.map(item => item.str).join(' ');
-        fullText += pageText + '\n\n';
-      }
-      return { text: fullText, numPages: pdf.numPages };
-    } catch (error) {
-      console.error('PDF text extraction error:', error);
-      throw new Error('Failed to extract text from PDF');
-    }
-  };
-
   const onDrop = useCallback((acceptedFiles, rejectedFiles) => {
     if (rejectedFiles.length > 0) {
       rejectedFiles.forEach(rejection => {
@@ -72,7 +51,6 @@ const PDFUpload = () => {
       file,
       id: Math.random().toString(36).substring(2, 11),
       status: 'pending',
-      progress: 0,
       docId: null,
       error: null
     }));
@@ -110,23 +88,30 @@ const PDFUpload = () => {
       if (fileObj.status !== 'pending') continue;
       
       try {
-        setFiles(prev => prev.map(f => f.id === fileObj.id ? { ...f, status: 'uploading' } : f));
-        showToast(`Extracting text from ${fileObj.file.name}...`, 'default', Zap);
+        // Update status to uploading
+        setFiles(prev => prev.map(f => 
+          f.id === fileObj.id ? { ...f, status: 'uploading' } : f
+        ));
         
-        const { text: extractedText, numPages } = await extractTextFromPDF(fileObj.file);
+        // ✅ uploadDocument handles EVERYTHING:
+        // - Text extraction
+        // - AI subject detection  
+        // - Firebase Storage upload
+        // - Firestore metadata save
+        // - User stats update
         const docId = await uploadDocument(fileObj.file, user.uid, {
-          title: fileObj.file.name.replace('.pdf', ''),
-          extractedText,
-          pages: numPages
+          title: fileObj.file.name.replace('.pdf', '')
         });
         
         lastDocId = docId;
         uploadCount++;
         
-        setFiles(prev => prev.map(f => f.id === fileObj.id ? { ...f, status: 'completed', docId } : f));
-        showToast(`${fileObj.file.name} uploaded successfully`, 'success', CheckCircle2);
+        // Mark as completed
+        setFiles(prev => prev.map(f => 
+          f.id === fileObj.id ? { ...f, status: 'completed', docId } : f
+        ));
 
-        // ✅ AWARD XP ONLY ONCE PER DAY (only on first upload)
+        // ✅ AWARD XP ONLY ONCE PER DAY
         if (!xpAwarded && !xpEarnedToday) {
           try {
             const result = await awardDailyXP(
@@ -139,26 +124,21 @@ const PDFUpload = () => {
               xpAwarded = true;
               setXpEarnedToday(true);
               showToast(`🎉 +${result.xpGained} XP for uploading!`, 'success', Zap);
-              
-              // Update mission
               await updateMission(user.uid, 'daily_upload');
             } else if (result.alreadyEarned) {
               setXpEarnedToday(true);
             }
           } catch (error) {
             console.error('XP award error:', error);
-            // Continue with upload even if XP award fails
           }
         }
         
       } catch (error) {
         console.error('Upload error:', error);
-        setFiles(prev => prev.map(f => f.id === fileObj.id ? { 
-          ...f, 
-          status: 'error', 
-          error: error.message 
-        } : f));
-        showToast(`Failed to upload ${fileObj.file.name}: ${error.message}`, 'error', AlertCircle);
+        setFiles(prev => prev.map(f => 
+          f.id === fileObj.id ? { ...f, status: 'error', error: error.message } : f
+        ));
+        showToast(`Failed: ${error.message}`, 'error', AlertCircle);
       }
     }
     
@@ -168,12 +148,16 @@ const PDFUpload = () => {
       const xpMessage = xpAwarded 
         ? `🚀 ${uploadCount} file(s) uploaded! +${XP_REWARDS.UPLOAD_DOCUMENT} XP earned!`
         : xpEarnedToday
-        ? `🚀 ${uploadCount} file(s) uploaded! (Daily XP already earned)`
+        ? `🚀 ${uploadCount} file(s) uploaded!`
         : `🚀 ${uploadCount} file(s) uploaded!`;
       
       showToast(xpMessage, 'success', Award);
+      
+      // Navigate to the last uploaded document
       if (lastDocId) {
-        setTimeout(() => { navigate(`/study/${lastDocId}`); }, 1500);
+        setTimeout(() => { 
+          navigate('/dashboard?tab=documents');
+        }, 1500);
       }
     }
   };
@@ -207,7 +191,7 @@ const PDFUpload = () => {
           {/* Trust Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-blue-500/30 backdrop-blur-2xl">
             <Shield size={14} className="text-blue-400" />
-            <span className="text-[10px] text-gray-300 font-bold tracking-[0.15em] uppercase">Enterprise Grade</span>
+            <span className="text-[10px] text-gray-300 font-bold tracking-[0.15em] uppercase">AI-Powered • Auto-Categorized</span>
           </div>
           
           {/* Main Heading */}
@@ -218,11 +202,11 @@ const PDFUpload = () => {
               <span className="bg-gradient-to-r from-blue-400 via-blue-300 to-gray-400 bg-clip-text text-transparent">Learning Journey</span>
             </h1>
             <p className="text-gray-400 text-sm md:text-base max-w-xl mx-auto leading-relaxed">
-              Upload PDFs and unlock AI-powered intelligence. Extract, analyze, and master content instantly.
+              Upload PDFs • AI detects subject • Auto-organizes • Instant study sessions
             </p>
           </div>
 
-          {/* ✅ XP Earning Banner - Updates based on daily status */}
+          {/* XP Earning Banner */}
           <div className={`inline-flex items-center gap-2 px-6 py-3 rounded-full border backdrop-blur-2xl ${
             xpEarnedToday 
               ? 'bg-gradient-to-r from-gray-500/10 to-gray-600/10 border-gray-500/30' 
@@ -243,7 +227,6 @@ const PDFUpload = () => {
           
           {/* LEFT: Upload Zone */}
           <div className="lg:col-span-7">
-            {/* Premium Glassmorphic Drop Zone */}
             <div
               {...getRootProps()}
               className={`
@@ -259,13 +242,11 @@ const PDFUpload = () => {
             >
               <input {...getInputProps()} />
               
-              {/* Icon Container */}
               <div className="w-24 h-24 mx-auto mb-8 rounded-2xl bg-gradient-to-br from-blue-500/90 via-blue-600/90 to-blue-700/90 backdrop-blur-xl flex items-center justify-center shadow-2xl shadow-blue-500/30 relative overflow-hidden border border-white/10">
                 <div className="absolute inset-0 bg-gradient-to-t from-transparent via-white/5 to-white/10"></div>
                 <Cloud size={48} className="text-white relative z-10" strokeWidth={1.5} />
               </div>
 
-              {/* Text Content */}
               <div className="text-center space-y-3">
                 <h2 className="text-2xl md:text-3xl font-black text-white">
                   {isDragActive ? 'Drop Your Files' : 'Upload Documents'}
@@ -283,10 +264,9 @@ const PDFUpload = () => {
                 </div>
               </div>
 
-              {/* Bottom Badge */}
               <div className="mt-8 flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-white/5 border border-blue-500/30 backdrop-blur-2xl mx-auto w-fit">
-                <Zap size={14} className="text-blue-400" />
-                <span className="text-xs text-gray-300 font-semibold">AI-Powered Processing</span>
+                <Sparkles size={14} className="text-blue-400" />
+                <span className="text-xs text-gray-300 font-semibold">AI Auto-Categorization</span>
               </div>
             </div>
 
@@ -296,7 +276,7 @@ const PDFUpload = () => {
                 { icon: Award, label: '99%', sublabel: 'Accurate' },
                 { icon: Zap, label: '<3s', sublabel: 'Fast' },
                 { icon: Shield, label: 'Secure', sublabel: 'Enterprise' },
-                { icon: BookOpen, label: 'AI', sublabel: 'Powered' },
+                { icon: Sparkles, label: 'AI', sublabel: 'Powered' },
               ].map((stat, i) => (
                 <div
                   key={i}
@@ -314,7 +294,6 @@ const PDFUpload = () => {
           <div className="lg:col-span-5 flex flex-col h-full">
             {files.length > 0 ? (
               <div className="flex flex-col h-full rounded-3xl bg-white/5 border border-gray-800/60 backdrop-blur-3xl p-6 shadow-xl">
-                {/* Header */}
                 <div className="flex items-center justify-between mb-5 pb-5 border-b border-white/10">
                   <div>
                     <h3 className="text-xl font-black text-white mb-0.5">Upload Queue</h3>
@@ -331,14 +310,12 @@ const PDFUpload = () => {
                   </button>
                 </div>
 
-                {/* File List */}
                 <div className="flex-1 space-y-2.5 overflow-y-auto pr-2 mb-5 custom-scrollbar">
                   {files.map((fileObj) => (
                     <div
                       key={fileObj.id}
                       className="group relative rounded-xl p-3.5 bg-white/5 border border-white/10 backdrop-blur-2xl hover:bg-white/8 hover:border-blue-500/40 transition-all"
                     >
-                      {/* Progress bar */}
                       {fileObj.status === 'uploading' && (
                         <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-800 rounded-b-xl overflow-hidden">
                           <div className="h-full bg-gradient-to-r from-blue-500 via-blue-400 to-blue-600 w-full animate-pulse"></div>
@@ -346,18 +323,17 @@ const PDFUpload = () => {
                       )}
 
                       <div className="flex items-center gap-3">
-                        {/* Icon */}
                         <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-white/5 border border-white/10 backdrop-blur-xl flex items-center justify-center">
                           {getStatusIcon(fileObj.status)}
                         </div>
 
-                        {/* File Info */}
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-white text-sm truncate mb-0.5">{fileObj.file.name}</p>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-[10px] text-gray-500 font-medium">
                               {(fileObj.file.size / (1024 * 1024)).toFixed(2)} MB
                             </span>
+                            
                             <span className={`
                               text-[10px] font-bold px-2 py-0.5 rounded-lg backdrop-blur-xl
                               ${fileObj.status === 'completed' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40' : ''}
@@ -365,7 +341,7 @@ const PDFUpload = () => {
                               ${fileObj.status === 'uploading' ? 'bg-blue-500/20 text-blue-300 border border-blue-400/40' : ''}
                               ${fileObj.status === 'pending' ? 'bg-white/5 text-gray-400 border border-gray-600/40' : ''}
                             `}>
-                              {fileObj.status === 'uploading' && '⚡ Processing'}
+                              {fileObj.status === 'uploading' && '⚡ AI Processing'}
                               {fileObj.status === 'completed' && '✓ Done'}
                               {fileObj.status === 'error' && '✕ Failed'}
                               {fileObj.status === 'pending' && '◦ Pending'}
@@ -373,7 +349,6 @@ const PDFUpload = () => {
                           </div>
                         </div>
 
-                        {/* Action Buttons */}
                         {fileObj.status === 'pending' && (
                           <button
                             onClick={() => removeFile(fileObj.id)}
@@ -396,7 +371,6 @@ const PDFUpload = () => {
                   ))}
                 </div>
 
-                {/* Upload Button */}
                 <button
                   onClick={handleUpload}
                   disabled={uploading || pendingFilesCount === 0}
@@ -405,7 +379,7 @@ const PDFUpload = () => {
                   {uploading ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                      <span>Processing...</span>
+                      <span>AI Processing...</span>
                     </>
                   ) : (
                     <>
@@ -420,14 +394,13 @@ const PDFUpload = () => {
                 </button>
               </div>
             ) : (
-              /* Empty State */
               <div className="flex-1 flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-gray-800/50 bg-white/5 backdrop-blur-3xl p-10 text-center">
                 <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl flex items-center justify-center mb-5 shadow-lg">
                   <Upload size={28} className="text-gray-500" />
                 </div>
                 <h3 className="text-lg font-bold text-gray-300 mb-1.5">No Files Selected</h3>
                 <p className="text-xs text-gray-500 leading-relaxed">
-                  Upload PDFs to begin your<br />AI-powered learning experience
+                  Upload PDFs • AI auto-categorizes<br />by subject instantly
                 </p>
                 <div className={`mt-4 px-4 py-2 rounded-full border ${
                   xpEarnedToday 

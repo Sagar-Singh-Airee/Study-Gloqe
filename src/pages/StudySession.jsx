@@ -1,16 +1,14 @@
-// src/pages/StudySession.jsx - FIXED & MINIMAL
+// src/pages/StudySession.jsx - COMPLETE & FIXED (No Naming Conflicts)
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-    Clock, BookOpen, Brain, Lightbulb, Share2, Bookmark,
-    ArrowLeft, Maximize2, Minimize2, StickyNote,
-    Copy, Download, Highlighter, ZoomIn, ZoomOut, Eye,
-    Moon, Sun, Type, Palette, BookMarked, Target, Award,
-    TrendingUp, Volume2, PlayCircle, PauseCircle, Settings, MessageCircle
+    Clock, ArrowLeft, Maximize2, Minimize2, StickyNote,
+    Copy, Download, ZoomIn, ZoomOut, Moon, Sun, BookOpen, Palette, 
+    Target, Award, TrendingUp, PlayCircle, PauseCircle, Settings
 } from 'lucide-react';
 import { useAuth } from '@contexts/AuthContext';
 import { db } from '@/config/firebase';
-import { doc, getDoc, updateDoc, increment, setDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, increment, collection, addDoc } from 'firebase/firestore';
 import StudyTimer from '@/components/study/StudyTimer';
 import AskGloqePill from '@/components/study/AskGloqePill';
 import TextViewer from '@/components/study/TextViewer';
@@ -23,7 +21,7 @@ const StudySession = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
 
-    const [document, setDocument] = useState(null);
+    const [pdfDocument, setPdfDocument] = useState(null);
     const [extractedText, setExtractedText] = useState('');
     const [loading, setLoading] = useState(true);
     const [selectedText, setSelectedText] = useState('');
@@ -33,6 +31,7 @@ const StudySession = () => {
     const [fullscreen, setFullscreen] = useState(false);
     const [fontSize, setFontSize] = useState(18);
     const [studyStartTime, setStudyStartTime] = useState(null);
+    const [sessionId, setSessionId] = useState(null);
     
     // Premium features
     const [readingMode, setReadingMode] = useState('light');
@@ -45,11 +44,55 @@ const StudySession = () => {
     const [autoScroll, setAutoScroll] = useState(false);
     const [scrollSpeed, setScrollSpeed] = useState(50);
     const [showStats, setShowStats] = useState(false);
+    const [detectedSubject, setDetectedSubject] = useState('');
 
     const textViewerRef = useRef(null);
     const scrollIntervalRef = useRef(null);
 
-    // ✅ FIXED: ESC key handler with proper dependencies
+    // ✅ AI-BASED SUBJECT DETECTION
+    const detectSubjectFromText = async (text) => {
+        try {
+            const sampleText = text.split(/\s+/).slice(0, 500).join(' ');
+            
+            const subjects = {
+                'Mathematics': ['equation', 'theorem', 'calculus', 'algebra', 'geometry', 'derivative', 'integral', 'matrix', 'function', 'proof'],
+                'Physics': ['force', 'energy', 'momentum', 'velocity', 'acceleration', 'quantum', 'newton', 'gravity', 'wave', 'particle'],
+                'Chemistry': ['molecule', 'atom', 'reaction', 'compound', 'element', 'acid', 'base', 'electron', 'bond', 'periodic'],
+                'Biology': ['cell', 'organism', 'evolution', 'gene', 'protein', 'DNA', 'species', 'tissue', 'enzyme', 'bacteria'],
+                'Computer Science': ['algorithm', 'programming', 'database', 'software', 'code', 'data structure', 'function', 'class', 'variable', 'loop'],
+                'History': ['century', 'war', 'empire', 'revolution', 'ancient', 'medieval', 'dynasty', 'civilization', 'treaty', 'battle'],
+                'Economics': ['market', 'supply', 'demand', 'economy', 'trade', 'inflation', 'GDP', 'capitalism', 'investment', 'revenue'],
+                'Literature': ['novel', 'poem', 'author', 'character', 'narrative', 'metaphor', 'plot', 'theme', 'protagonist', 'verse'],
+                'Psychology': ['behavior', 'cognitive', 'mental', 'therapy', 'consciousness', 'emotion', 'brain', 'perception', 'personality', 'disorder'],
+                'Engineering': ['design', 'circuit', 'mechanical', 'electrical', 'system', 'structure', 'load', 'stress', 'material', 'engineering']
+            };
+
+            let maxScore = 0;
+            let detectedSubject = 'General Studies';
+            const lowerText = sampleText.toLowerCase();
+
+            for (const [subject, keywords] of Object.entries(subjects)) {
+                let score = 0;
+                keywords.forEach(keyword => {
+                    const regex = new RegExp(`\\b${keyword}\\b`, 'gi');
+                    const matches = lowerText.match(regex);
+                    if (matches) score += matches.length;
+                });
+
+                if (score > maxScore) {
+                    maxScore = score;
+                    detectedSubject = subject;
+                }
+            }
+
+            return detectedSubject;
+        } catch (error) {
+            console.error('Error detecting subject:', error);
+            return 'General Studies';
+        }
+    };
+
+    // ✅ ESC key handler
     useEffect(() => {
         const handleEscape = (e) => {
             if (e.key === 'Escape') {
@@ -63,18 +106,36 @@ const StudySession = () => {
 
         window.addEventListener('keydown', handleEscape);
         return () => window.removeEventListener('keydown', handleEscape);
-    }, [focusMode, showPill]); // ✅ Added dependencies
+    }, [focusMode, showPill]);
 
+    // ✅ FIXED: Fullscreen change handler
     useEffect(() => {
-        loadDocument();
-        setStudyStartTime(Date.now());
+        const handleFullscreenChange = () => {
+            setFullscreen(!!document.fullscreenElement);
+        };
 
-        if (user?.uid && docId) {
-            trackStudySession();
-        }
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+        };
+    }, []);
+
+    // ✅ Main initialization
+    useEffect(() => {
+        const initializeSession = async () => {
+            await loadDocument();
+            setStudyStartTime(Date.now());
+
+            if (user?.uid && docId) {
+                await startStudySession();
+            }
+        };
+
+        initializeSession();
 
         return () => {
-            if (studyStartTime) {
+            if (studyStartTime && sessionId) {
                 saveStudyProgress();
             }
             if (scrollIntervalRef.current) {
@@ -83,29 +144,18 @@ const StudySession = () => {
         };
     }, [docId, user?.uid]);
 
-    useEffect(() => {
-        const handleScroll = () => {
-            if (textViewerRef.current) {
-                const { scrollTop, scrollHeight, clientHeight } = textViewerRef.current;
-                const progress = (scrollTop / (scrollHeight - clientHeight)) * 100;
-                setReadingProgress(Math.min(progress || 0, 100));
-            }
-        };
-
-        const viewer = textViewerRef.current;
-        if (viewer) {
-            viewer.addEventListener('scroll', handleScroll);
-            return () => viewer.removeEventListener('scroll', handleScroll);
-        }
-    }, [textViewerRef.current]);
-
+    // ✅ Auto-scroll functionality
     useEffect(() => {
         if (autoScroll && textViewerRef.current) {
+            const scrollAmount = (100 - scrollSpeed) / 10;
             scrollIntervalRef.current = setInterval(() => {
-                textViewerRef.current?.scrollBy({ top: 1, behavior: 'smooth' });
-            }, 100 - scrollSpeed);
+                if (textViewerRef.current) {
+                    textViewerRef.current.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+                }
+            }, 100);
         } else if (scrollIntervalRef.current) {
             clearInterval(scrollIntervalRef.current);
+            scrollIntervalRef.current = null;
         }
 
         return () => {
@@ -115,6 +165,7 @@ const StudySession = () => {
         };
     }, [autoScroll, scrollSpeed]);
 
+    // Calculate estimated read time
     useEffect(() => {
         if (extractedText) {
             const words = extractedText.split(/\s+/).length;
@@ -131,8 +182,14 @@ const StudySession = () => {
 
             if (docSnap.exists()) {
                 const docData = { id: docSnap.id, ...docSnap.data() };
-                setDocument(docData);
-                setExtractedText(docData.extractedText || 'No text available. Processing...');
+                setPdfDocument(docData);
+                const text = docData.extractedText || 'No text available. Processing...';
+                setExtractedText(text);
+                
+                if (text && text.length > 100) {
+                    const subject = await detectSubjectFromText(text);
+                    setDetectedSubject(subject);
+                }
             } else {
                 toast.error('Document not found');
                 navigate('/dashboard');
@@ -145,36 +202,55 @@ const StudySession = () => {
         }
     };
 
-    const trackStudySession = async () => {
+    // ✅ Start study session
+    const startStudySession = async () => {
         try {
-            const sessionRef = doc(db, 'studySessions', `${user.uid}_${docId}_${Date.now()}`);
-            await setDoc(sessionRef, {
+            const sessionData = {
                 userId: user.uid,
                 documentId: docId,
+                documentTitle: pdfDocument?.title || 'Untitled Document',
+                subject: detectedSubject || 'General Studies',
                 startTime: new Date(),
-                status: 'active'
-            });
+                status: 'active',
+                totalTime: 0,
+                progressPercentage: 0
+            };
+
+            const sessionRef = await addDoc(collection(db, 'studySessions'), sessionData);
+            setSessionId(sessionRef.id);
         } catch (error) {
-            console.error('Error tracking session:', error);
+            console.error('Error starting session:', error);
         }
     };
 
+    // ✅ Save study progress
     const saveStudyProgress = async () => {
-        if (!studyStartTime || !user?.uid) return;
+        if (!studyStartTime || !user?.uid || !sessionId) return;
 
         const studyDuration = Math.floor((Date.now() - studyStartTime) / 1000);
 
         try {
+            const sessionRef = doc(db, 'studySessions', sessionId);
+            await updateDoc(sessionRef, {
+                endTime: new Date(),
+                totalTime: studyDuration,
+                progressPercentage: Math.round(readingProgress),
+                status: 'completed',
+                subject: detectedSubject || 'General Studies'
+            });
+
             const docRef = doc(db, 'documents', docId);
             await updateDoc(docRef, {
                 totalStudyTime: increment(studyDuration),
                 lastStudiedAt: new Date(),
-                readingProgress: readingProgress
+                readingProgress: readingProgress,
+                subject: detectedSubject || 'General Studies'
             });
 
             const userRef = doc(db, 'users', user.uid);
             await updateDoc(userRef, {
-                totalStudyTime: increment(studyDuration)
+                totalStudyTime: increment(studyDuration),
+                lastActivityAt: new Date()
             });
         } catch (error) {
             console.error('Error saving progress:', error);
@@ -209,16 +285,37 @@ const StudySession = () => {
         setShowPill(true);
     };
 
-    const handleZoomIn = () => setFontSize(prev => Math.min(prev + 2, 32));
-    const handleZoomOut = () => setFontSize(prev => Math.max(prev - 2, 12));
+    const handleZoomIn = () => {
+        setFontSize(prev => {
+            const newSize = Math.min(prev + 2, 32);
+            toast.success(`Font size: ${newSize}px`, { duration: 1000 });
+            return newSize;
+        });
+    };
 
-    const toggleFullscreen = () => {
-        if (!fullscreen) {
-            document.documentElement.requestFullscreen();
-        } else {
-            document.exitFullscreen();
+    const handleZoomOut = () => {
+        setFontSize(prev => {
+            const newSize = Math.max(prev - 2, 12);
+            toast.success(`Font size: ${newSize}px`, { duration: 1000 });
+            return newSize;
+        });
+    };
+
+    const toggleFullscreen = async () => {
+        try {
+            if (!fullscreen) {
+                await document.documentElement.requestFullscreen();
+                setFullscreen(true);
+                toast.success('Fullscreen mode activated', { duration: 1000 });
+            } else {
+                await document.exitFullscreen();
+                setFullscreen(false);
+                toast.success('Fullscreen mode deactivated', { duration: 1000 });
+            }
+        } catch (error) {
+            console.error('Fullscreen error:', error);
+            toast.error('Fullscreen not supported');
         }
-        setFullscreen(!fullscreen);
     };
 
     const handleCopyText = () => {
@@ -236,9 +333,9 @@ const StudySession = () => {
     const handleDownloadText = () => {
         const blob = new Blob([extractedText], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
+        const a = window.document.createElement('a');
         a.href = url;
-        a.download = `${document?.title || 'document'}.txt`;
+        a.download = `${pdfDocument?.title || 'document'}.txt`;
         a.click();
         URL.revokeObjectURL(url);
         toast.success('📥 Downloaded!', {
@@ -251,6 +348,19 @@ const StudySession = () => {
         });
     };
 
+    // ✅ Handle scroll tracking inline
+    const handleScroll = (e) => {
+        const target = e.currentTarget;
+        const scrollTop = target.scrollTop;
+        const scrollHeight = target.scrollHeight;
+        const clientHeight = target.clientHeight;
+        
+        if (scrollHeight > clientHeight) {
+            const progress = (scrollTop / (scrollHeight - clientHeight)) * 100;
+            setReadingProgress(Math.min(Math.max(progress, 0), 100));
+        }
+    };
+
     const getReadingModeStyles = () => {
         switch (readingMode) {
             case 'dark':
@@ -259,7 +369,8 @@ const StudySession = () => {
                     text: 'text-gray-50', 
                     icon: 'text-gray-300',
                     secondary: 'text-gray-400',
-                    border: 'border-gray-800'
+                    border: 'border-gray-800',
+                    topBg: 'bg-gray-900/90'
                 };
             case 'sepia':
                 return { 
@@ -267,7 +378,8 @@ const StudySession = () => {
                     text: 'text-[#3d3229]', 
                     icon: 'text-[#5c4b37]',
                     secondary: 'text-[#6d5d4f]',
-                    border: 'border-[#e0d5bb]'
+                    border: 'border-[#e0d5bb]',
+                    topBg: 'bg-[#f4ecd8]/90'
                 };
             case 'focus':
                 return { 
@@ -275,7 +387,8 @@ const StudySession = () => {
                     text: 'text-gray-200', 
                     icon: 'text-gray-400',
                     secondary: 'text-gray-500',
-                    border: 'border-gray-900'
+                    border: 'border-gray-900',
+                    topBg: 'bg-black/90'
                 };
             default:
                 return { 
@@ -283,19 +396,9 @@ const StudySession = () => {
                     text: 'text-gray-900', 
                     icon: 'text-gray-700',
                     secondary: 'text-gray-600',
-                    border: 'border-gray-200'
+                    border: 'border-gray-200',
+                    topBg: 'bg-white/90'
                 };
-        }
-    };
-
-    const getFontFamilyClass = () => {
-        switch (fontFamily) {
-            case 'sans':
-                return 'font-sans';
-            case 'mono':
-                return 'font-mono';
-            default:
-                return 'font-serif';
         }
     };
 
@@ -320,8 +423,9 @@ const StudySession = () => {
         <div className={`min-h-screen flex flex-col transition-colors duration-300 ${modeStyles.bg}`}>
             {/* TOP BAR */}
             {!focusMode && (
-                <div className={`backdrop-blur-2xl ${readingMode === 'light' ? 'bg-white/90' : readingMode === 'dark' ? 'bg-gray-900/90' : readingMode === 'sepia' ? 'bg-[#f4ecd8]/90' : 'bg-black/90'} border-b ${modeStyles.border} px-6 py-3.5 sticky top-0 z-50 shadow-lg`}>
+                <div className={`backdrop-blur-2xl ${modeStyles.topBg} border-b ${modeStyles.border} px-6 py-3.5 sticky top-0 z-50 shadow-lg`}>
                     <div className="max-w-[1800px] mx-auto flex items-center justify-between gap-4">
+                        {/* Left Section */}
                         <div className="flex items-center gap-3 min-w-0 flex-1">
                             <button
                                 onClick={() => {
@@ -333,35 +437,27 @@ const StudySession = () => {
                                 <ArrowLeft size={20} className={modeStyles.icon} />
                             </button>
                             <div className="min-w-0">
-                                <h1 className={`text-base font-black truncate ${modeStyles.text}`}>{document?.title}</h1>
-                                <p className={`text-xs font-semibold ${modeStyles.secondary}`}>
-                                    📖 {estimatedReadTime} min read • {extractedText.split(/\s+/).length} words
+                                <h1 className={`text-base font-black truncate ${modeStyles.text}`}>{pdfDocument?.title}</h1>
+                                <p className={`text-xs font-semibold ${modeStyles.secondary} flex items-center gap-2 flex-wrap`}>
+                                    <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-md text-[10px] font-bold">
+                                        {detectedSubject}
+                                    </span>
+                                    📖 {estimatedReadTime} min • {extractedText.split(/\s+/).length.toLocaleString()} words
                                 </p>
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-4 flex-shrink-0">
-                            <div className="flex items-center gap-2">
-                                <Eye size={16} className={modeStyles.secondary} />
-                                <div className="w-32 h-2 bg-gray-300 dark:bg-gray-700 rounded-full overflow-hidden">
-                                    <div 
-                                        className="h-full bg-gradient-to-r from-blue-600 to-blue-500 transition-all duration-300"
-                                        style={{ width: `${readingProgress}%` }}
-                                    />
-                                </div>
-                                <span className={`text-sm font-black ${modeStyles.text} min-w-[36px]`}>
-                                    {Math.round(readingProgress)}%
-                                </span>
-                            </div>
-
+                        {/* Center - Timer */}
+                        <div className="flex-shrink-0">
                             <StudyTimer startTime={studyStartTime} />
                         </div>
 
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {/* Right Section - Controls */}
+                        <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
                             <button
                                 onClick={() => setAutoScroll(!autoScroll)}
                                 className={`p-2.5 rounded-xl transition-all ${autoScroll ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg' : `${readingMode === 'light' ? 'hover:bg-gray-100' : 'hover:bg-white/10'} ${modeStyles.icon}`}`}
-                                title="Auto Scroll"
+                                title={autoScroll ? "Stop Auto Scroll" : "Start Auto Scroll"}
                             >
                                 {autoScroll ? <PauseCircle size={18} /> : <PlayCircle size={18} />}
                             </button>
@@ -374,6 +470,9 @@ const StudySession = () => {
                                 >
                                     <ZoomOut size={18} className={modeStyles.icon} />
                                 </button>
+                                <span className={`text-xs font-bold ${modeStyles.secondary} min-w-[40px] text-center`}>
+                                    {fontSize}px
+                                </span>
                                 <button
                                     onClick={handleZoomIn}
                                     className={`p-2.5 ${readingMode === 'light' ? 'hover:bg-gray-100' : 'hover:bg-white/10'} rounded-lg transition-all`}
@@ -388,7 +487,7 @@ const StudySession = () => {
                             <button
                                 onClick={() => setShowStats(!showStats)}
                                 className={`p-2.5 rounded-xl transition-all ${showStats ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg' : `${readingMode === 'light' ? 'hover:bg-gray-100' : 'hover:bg-white/10'} ${modeStyles.icon}`}`}
-                                title="Stats"
+                                title="Statistics"
                             >
                                 <TrendingUp size={18} />
                             </button>
@@ -406,7 +505,7 @@ const StudySession = () => {
                             <button
                                 onClick={handleCopyText}
                                 className={`p-2.5 ${readingMode === 'light' ? 'hover:bg-gray-100' : 'hover:bg-white/10'} rounded-xl transition-all`}
-                                title="Copy"
+                                title="Copy Text"
                             >
                                 <Copy size={18} className={modeStyles.icon} />
                             </button>
@@ -438,7 +537,7 @@ const StudySession = () => {
                             <button
                                 onClick={toggleFullscreen}
                                 className={`p-2.5 ${readingMode === 'light' ? 'hover:bg-gray-100' : 'hover:bg-white/10'} rounded-xl transition-all`}
-                                title="Fullscreen"
+                                title={fullscreen ? "Exit Fullscreen" : "Fullscreen"}
                             >
                                 {fullscreen ? <Minimize2 size={18} className={modeStyles.icon} /> : <Maximize2 size={18} className={modeStyles.icon} />}
                             </button>
@@ -556,28 +655,20 @@ const StudySession = () => {
                             </h3>
                             <div className="space-y-3">
                                 <div className={`flex justify-between items-center p-3.5 rounded-xl ${readingMode === 'light' ? 'bg-gray-50' : readingMode === 'sepia' ? 'bg-[#e8dfc8]' : 'bg-white/5'}`}>
-                                    <span className={`text-xs font-bold ${modeStyles.secondary}`}>
-                                        Words Read
-                                    </span>
-                                    <span className={`text-base font-black ${modeStyles.text}`}>
-                                        {extractedText.split(/\s+/).length.toLocaleString()}
-                                    </span>
+                                    <span className={`text-xs font-bold ${modeStyles.secondary}`}>Subject</span>
+                                    <span className={`text-sm font-black ${modeStyles.text}`}>{detectedSubject}</span>
                                 </div>
                                 <div className={`flex justify-between items-center p-3.5 rounded-xl ${readingMode === 'light' ? 'bg-gray-50' : readingMode === 'sepia' ? 'bg-[#e8dfc8]' : 'bg-white/5'}`}>
-                                    <span className={`text-xs font-bold ${modeStyles.secondary}`}>
-                                        Time Spent
-                                    </span>
-                                    <span className={`text-base font-black ${modeStyles.text}`}>
-                                        {Math.floor((Date.now() - studyStartTime) / 60000)} min
-                                    </span>
+                                    <span className={`text-xs font-bold ${modeStyles.secondary}`}>Words</span>
+                                    <span className={`text-base font-black ${modeStyles.text}`}>{extractedText.split(/\s+/).length.toLocaleString()}</span>
                                 </div>
                                 <div className={`flex justify-between items-center p-3.5 rounded-xl ${readingMode === 'light' ? 'bg-gray-50' : readingMode === 'sepia' ? 'bg-[#e8dfc8]' : 'bg-white/5'}`}>
-                                    <span className={`text-xs font-bold ${modeStyles.secondary}`}>
-                                        Progress
-                                    </span>
-                                    <span className="text-base font-black text-blue-600">
-                                        {Math.round(readingProgress)}%
-                                    </span>
+                                    <span className={`text-xs font-bold ${modeStyles.secondary}`}>Time</span>
+                                    <span className={`text-base font-black ${modeStyles.text}`}>{Math.floor((Date.now() - studyStartTime) / 60000)} min</span>
+                                </div>
+                                <div className={`flex justify-between items-center p-3.5 rounded-xl ${readingMode === 'light' ? 'bg-gray-50' : readingMode === 'sepia' ? 'bg-[#e8dfc8]' : 'bg-white/5'}`}>
+                                    <span className={`text-xs font-bold ${modeStyles.secondary}`}>Progress</span>
+                                    <span className="text-base font-black text-blue-600">{Math.round(readingProgress)}%</span>
                                 </div>
                             </div>
                         </div>
@@ -585,39 +676,21 @@ const StudySession = () => {
                 </div>
             )}
 
-            {/* MAIN READING AREA */}
+            {/* MAIN READING AREA - WITH INLINE SCROLL HANDLER */}
             <div className="flex-1 flex overflow-hidden relative">
                 <div 
                     ref={textViewerRef}
-                    className={`flex-1 overflow-y-auto transition-all duration-300 ${
-                        showNotes && !focusMode ? 'lg:pr-80' : ''
-                    } px-8 md:px-16 py-12`}
-                    style={{ scrollBehavior: 'smooth' }}
+                    className={`flex-1 overflow-y-auto transition-all duration-300 ${showNotes && !focusMode ? 'lg:pr-80' : ''}`}
+                    onScroll={handleScroll}
                 >
-                    <div className={`mx-auto transition-all duration-300 ${
-                        focusMode ? 'max-w-3xl' : 'max-w-4xl'
-                    }`}>
-                        <div
-                            className={`${getFontFamilyClass()} leading-relaxed selection:bg-blue-500/30 ${modeStyles.text} font-medium`}
-                            style={{ 
-                                fontSize: `${fontSize}px`,
-                                lineHeight: lineHeight,
-                                textRendering: 'optimizeLegibility',
-                                fontSmooth: 'antialiased',
-                                WebkitFontSmoothing: 'antialiased',
-                                MozOsxFontSmoothing: 'grayscale'
-                            }}
-                            onMouseUp={handleTextSelection}
-                        >
-                            {extractedText.split('\n').map((paragraph, index) => (
-                                paragraph.trim() && (
-                                    <p key={index} className="mb-7">
-                                        {paragraph}
-                                    </p>
-                                )
-                            ))}
-                        </div>
-                    </div>
+                    <TextViewer
+                        text={extractedText}
+                        fontSize={fontSize}
+                        lineHeight={lineHeight}
+                        fontFamily={fontFamily}
+                        readingMode={readingMode}
+                        onTextSelect={handleTextSelection}
+                    />
                 </div>
 
                 {/* NOTES PANEL */}
@@ -631,7 +704,7 @@ const StudySession = () => {
                 )}
             </div>
 
-            {/* ✅ MINIMAL FLOATING LOGO - Bottom Left */}
+            {/* FLOATING ASK BUTTON */}
             {!showPill && !focusMode && (
                 <button
                     onClick={handleAskGloqe}
@@ -659,11 +732,7 @@ const StudySession = () => {
             {/* Focus Mode Exit Hint */}
             {focusMode && (
                 <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 backdrop-blur-2xl ${readingMode === 'light' ? 'bg-white/95 border-gray-300' : 'bg-black/80 border-white/20'} border-2 rounded-2xl text-sm ${modeStyles.text} shadow-2xl font-semibold`}>
-                    Press <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded-lg text-xs font-mono mx-1">ESC</kbd> or{' '}
-                    <button onClick={() => setFocusMode(false)} className="text-blue-600 font-black underline mx-1">
-                        click here
-                    </button>
-                    {' '}to exit Focus Mode
+                    Press <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded-lg text-xs font-mono mx-1">ESC</kbd> to exit Focus Mode
                 </div>
             )}
         </div>
