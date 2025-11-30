@@ -1,165 +1,143 @@
-// src/components/features/DocumentsSection.jsx - FIXED VERSION
-import { useState, useEffect, useMemo } from 'react';
+// src/components/features/DocumentsSection.jsx - BLACK/GRAY/SILVER/ROYAL BLUE THEME
+import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-    FileText, 
-    Upload, 
-    Search, 
-    Trash2, 
-    Eye, 
-    Clock, 
-    HardDrive, 
-    Filter,
-    BookOpen,
-    Atom,
-    FlaskConical,
-    Dna,
-    Code,
-    Landmark,
-    TrendingUp,
-    BookMarked,
-    Brain,
-    Hammer,
-    GraduationCap,
-    FolderOpen
+    FileText, Upload, Search, Trash2, Eye, Clock, HardDrive, Filter,
+    BookOpen, Atom, FlaskConical, Dna, Code, Landmark, TrendingUp, 
+    BookMarked, Brain, Hammer, GraduationCap, FolderOpen, X, AlertTriangle,
+    LayoutGrid, List, SortAsc, Download, MoreVertical
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { 
-    collection, 
-    query, 
-    where, 
-    orderBy, 
-    onSnapshot,
-    deleteDoc,
-    doc
-} from 'firebase/firestore';
-import { db } from '@/config/firebase';
 import { deleteDocument } from '@/services/documentService';
 import toast from 'react-hot-toast';
 
-const DocumentsSection = () => {
+
+const DocumentsSection = ({ documents = [] }) => {
     const navigate = useNavigate();
-    const { currentUser } = useAuth();
-    const [documents, setDocuments] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [sortBy, setSortBy] = useState('newest');
     const [selectedSubject, setSelectedSubject] = useState('all');
-    const [loading, setLoading] = useState(true);
+    const [loading] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
+    const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
+    const [viewMode, setViewMode] = useState('grid');
+    const [selectedDoc, setSelectedDoc] = useState(null);
 
-    // Subject configuration with icons and colors
+
+    // Subject configuration - BLACK/GRAY/SILVER/ROYAL BLUE ONLY
     const subjectConfig = {
         'Mathematics': { 
             icon: BookOpen, 
-            color: 'from-blue-500 to-blue-600',
-            bg: 'bg-blue-50',
-            text: 'text-blue-700',
-            border: 'border-blue-200'
+            gradient: 'from-gray-700 via-gray-800 to-black',
+            iconGradient: 'from-royal-blue-500 to-blue-600',
+            glow: 'shadow-royal-blue-500/40',
+            bg: 'bg-gradient-to-br from-gray-100 via-slate-50 to-white',
+            text: 'text-gray-900',
+            border: 'border-gray-300',
+            iconColor: 'text-royal-blue-600'
         },
         'Physics': { 
             icon: Atom, 
-            color: 'from-purple-500 to-purple-600',
-            bg: 'bg-purple-50',
-            text: 'text-purple-700',
-            border: 'border-purple-200'
+            gradient: 'from-slate-700 via-gray-800 to-gray-900',
+            iconGradient: 'from-blue-500 to-royal-blue-600',
+            glow: 'shadow-blue-500/40',
+            bg: 'bg-gradient-to-br from-slate-100 via-gray-50 to-white',
+            text: 'text-gray-900',
+            border: 'border-slate-300',
+            iconColor: 'text-blue-600'
         },
         'Chemistry': { 
             icon: FlaskConical, 
-            color: 'from-green-500 to-green-600',
-            bg: 'bg-green-50',
-            text: 'text-green-700',
-            border: 'border-green-200'
+            gradient: 'from-gray-600 via-slate-700 to-gray-800',
+            iconGradient: 'from-royal-blue-600 to-indigo-600',
+            glow: 'shadow-slate-500/40',
+            bg: 'bg-gradient-to-br from-gray-50 via-slate-100 to-white',
+            text: 'text-gray-900',
+            border: 'border-gray-300',
+            iconColor: 'text-royal-blue-700'
         },
         'Biology': { 
             icon: Dna, 
-            color: 'from-emerald-500 to-emerald-600',
-            bg: 'bg-emerald-50',
-            text: 'text-emerald-700',
-            border: 'border-emerald-200'
+            gradient: 'from-slate-600 via-gray-700 to-slate-800',
+            iconGradient: 'from-blue-600 to-royal-blue-700',
+            glow: 'shadow-gray-500/40',
+            bg: 'bg-gradient-to-br from-slate-50 via-gray-100 to-white',
+            text: 'text-gray-900',
+            border: 'border-slate-300',
+            iconColor: 'text-blue-700'
         },
         'Computer Science': { 
             icon: Code, 
-            color: 'from-indigo-500 to-indigo-600',
-            bg: 'bg-indigo-50',
-            text: 'text-indigo-700',
-            border: 'border-indigo-200'
+            gradient: 'from-gray-800 via-slate-800 to-black',
+            iconGradient: 'from-royal-blue-500 to-blue-700',
+            glow: 'shadow-royal-blue-500/50',
+            bg: 'bg-gradient-to-br from-gray-100 via-slate-50 to-white',
+            text: 'text-black',
+            border: 'border-gray-400',
+            iconColor: 'text-royal-blue-600'
         },
         'History': { 
             icon: Landmark, 
-            color: 'from-amber-500 to-amber-600',
-            bg: 'bg-amber-50',
-            text: 'text-amber-700',
-            border: 'border-amber-200'
+            gradient: 'from-slate-700 via-gray-700 to-slate-800',
+            iconGradient: 'from-gray-600 to-slate-700',
+            glow: 'shadow-slate-500/40',
+            bg: 'bg-gradient-to-br from-slate-100 via-gray-50 to-white',
+            text: 'text-gray-900',
+            border: 'border-slate-300',
+            iconColor: 'text-slate-700'
         },
         'Economics': { 
             icon: TrendingUp, 
-            color: 'from-cyan-500 to-cyan-600',
-            bg: 'bg-cyan-50',
-            text: 'text-cyan-700',
-            border: 'border-cyan-200'
+            gradient: 'from-gray-700 via-slate-800 to-gray-900',
+            iconGradient: 'from-royal-blue-600 to-blue-600',
+            glow: 'shadow-blue-500/40',
+            bg: 'bg-gradient-to-br from-gray-50 via-slate-100 to-white',
+            text: 'text-gray-900',
+            border: 'border-gray-300',
+            iconColor: 'text-royal-blue-600'
         },
         'Literature': { 
             icon: BookMarked, 
-            color: 'from-pink-500 to-pink-600',
-            bg: 'bg-pink-50',
-            text: 'text-pink-700',
-            border: 'border-pink-200'
+            gradient: 'from-slate-600 via-gray-700 to-slate-800',
+            iconGradient: 'from-gray-700 to-slate-800',
+            glow: 'shadow-gray-500/40',
+            bg: 'bg-gradient-to-br from-slate-50 via-gray-100 to-white',
+            text: 'text-gray-900',
+            border: 'border-slate-300',
+            iconColor: 'text-gray-700'
         },
         'Psychology': { 
             icon: Brain, 
-            color: 'from-violet-500 to-violet-600',
-            bg: 'bg-violet-50',
-            text: 'text-violet-700',
-            border: 'border-violet-200'
+            gradient: 'from-gray-700 via-slate-700 to-gray-800',
+            iconGradient: 'from-blue-600 to-royal-blue-700',
+            glow: 'shadow-blue-500/40',
+            bg: 'bg-gradient-to-br from-gray-100 via-slate-50 to-white',
+            text: 'text-gray-900',
+            border: 'border-gray-300',
+            iconColor: 'text-blue-700'
         },
         'Engineering': { 
             icon: Hammer, 
-            color: 'from-orange-500 to-orange-600',
-            bg: 'bg-orange-50',
-            text: 'text-orange-700',
-            border: 'border-orange-200'
+            gradient: 'from-slate-700 via-gray-800 to-black',
+            iconGradient: 'from-slate-600 to-gray-700',
+            glow: 'shadow-slate-500/40',
+            bg: 'bg-gradient-to-br from-slate-100 via-gray-50 to-white',
+            text: 'text-gray-900',
+            border: 'border-slate-300',
+            iconColor: 'text-slate-700'
         },
         'General Studies': { 
             icon: GraduationCap, 
-            color: 'from-gray-500 to-gray-600',
-            bg: 'bg-gray-50',
-            text: 'text-gray-700',
-            border: 'border-gray-200'
+            gradient: 'from-gray-600 via-slate-700 to-gray-800',
+            iconGradient: 'from-gray-500 to-slate-600',
+            glow: 'shadow-gray-500/40',
+            bg: 'bg-gradient-to-br from-gray-50 via-slate-100 to-white',
+            text: 'text-gray-900',
+            border: 'border-gray-300',
+            iconColor: 'text-gray-700'
         }
     };
 
-    // Real-time listener for documents
-    useEffect(() => {
-        if (!currentUser) {
-            setLoading(false);
-            return;
-        }
-
-        const docsRef = collection(db, 'documents');
-        const q = query(
-            docsRef, 
-            where('userId', '==', currentUser.uid), // ✅ Matches documentService.js
-            orderBy('createdAt', 'desc')
-        );
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const docs = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-                createdAt: doc.data().createdAt?.toDate() || new Date()
-            }));
-            console.log('📄 Fetched documents:', docs.length);
-            setDocuments(docs);
-            setLoading(false);
-        }, (error) => {
-            console.error("Error fetching documents:", error);
-            toast.error('Failed to load documents');
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
-    }, [currentUser]);
 
     // Get unique subjects with counts
     const subjectStats = useMemo(() => {
@@ -171,18 +149,34 @@ const DocumentsSection = () => {
         return stats;
     }, [documents]);
 
-    // Delete document
+
+    // Delete single document
     const handleDelete = async (docId, title) => {
-        if (window.confirm(`Are you sure you want to delete "${title}"?`)) {
+        if (window.confirm(`Delete "${title}"?`)) {
             try {
-                await deleteDocument(docId); // ✅ Uses service method (deletes from Storage too)
-                toast.success('Document deleted successfully');
+                await deleteDocument(docId);
+                toast.success('Document deleted');
             } catch (error) {
                 console.error("Error deleting document:", error);
                 toast.error('Failed to delete document');
             }
         }
     };
+
+
+    // Delete all documents
+    const handleDeleteAll = async () => {
+        try {
+            const deletePromises = documents.map(doc => deleteDocument(doc.id));
+            await Promise.all(deletePromises);
+            toast.success(`All ${documents.length} documents deleted`);
+            setShowDeleteAllModal(false);
+        } catch (error) {
+            console.error("Error deleting all documents:", error);
+            toast.error('Failed to delete all documents');
+        }
+    };
+
 
     // Filter and sort documents
     const filteredDocs = documents
@@ -200,9 +194,10 @@ const DocumentsSection = () => {
             return 0;
         });
 
+
     // Format file size
     const formatSize = (bytes) => {
-        if (!bytes) return 'Unknown';
+        if (!bytes) return 'N/A';
         if (bytes === 0) return '0 B';
         const k = 1024;
         const sizes = ['B', 'KB', 'MB', 'GB'];
@@ -210,80 +205,219 @@ const DocumentsSection = () => {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
     };
 
-    // Render document card
-    const renderDocumentCard = (doc, idx) => {
+
+    // Grid View Document Card
+    const renderGridCard = (doc, idx) => {
         const subject = doc.subject || 'General Studies';
         const config = subjectConfig[subject] || subjectConfig['General Studies'];
         const SubjectIcon = config.icon;
+
 
         return (
             <motion.div
                 key={doc.id}
                 layout
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ delay: idx * 0.03 }}
-                className="bg-white border-2 border-gray-100 rounded-2xl p-5 hover:border-gray-300 hover:shadow-xl transition-all group relative overflow-hidden"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ delay: idx * 0.02, duration: 0.3 }}
+                className="group relative backdrop-blur-2xl bg-gradient-to-br from-white/80 via-gray-50/70 to-slate-100/60 
+                           border-2 border-gray-300/70 rounded-2xl p-6 
+                           hover:bg-gradient-to-br hover:from-white/90 hover:via-slate-50/80 hover:to-gray-100/70
+                           hover:border-royal-blue-400 hover:shadow-2xl hover:shadow-royal-blue-500/20 
+                           transition-all duration-300 cursor-pointer"
+                onClick={() => navigate(`/study/${doc.id}`)}
             >
-                {/* Gradient accent bar */}
-                <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b ${config.color}`} />
+                {/* Accent bar - Gradient */}
+                <div className={`absolute top-0 left-0 w-full h-2 bg-gradient-to-r ${config.gradient} rounded-t-2xl`} />
                 
-                <div className="flex items-start gap-4">
-                    {/* Icon */}
-                    <div className={`w-14 h-14 bg-gradient-to-br ${config.color} rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg group-hover:scale-110 transition-transform`}>
-                        <FileText size={24} className="text-white" />
+                {/* Header */}
+                <div className="flex items-start justify-between mb-5 mt-1">
+                    {/* Icon with strong gradient background */}
+                    <div className={`w-14 h-14 bg-gradient-to-br ${config.gradient} rounded-xl 
+                                     flex items-center justify-center flex-shrink-0 shadow-xl ${config.glow} 
+                                     border border-gray-700/20`}>
+                        <FileText size={24} className="text-white drop-shadow-lg" strokeWidth={2.5} />
                     </div>
+                    
+                    {/* Quick actions */}
+                    <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/study/${doc.id}`);
+                            }}
+                            className="p-2 rounded-lg backdrop-blur-md bg-white/80 border-2 border-gray-300
+                                       text-royal-blue-600 hover:text-royal-blue-700 hover:bg-royal-blue-50 
+                                       hover:border-royal-blue-400 hover:shadow-lg hover:shadow-royal-blue-500/30
+                                       transition-all"
+                            title="Open document"
+                        >
+                            <Eye size={16} strokeWidth={2.5} />
+                        </button>
+                        <button 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete(doc.id, doc.title);
+                            }}
+                            className="p-2 rounded-lg backdrop-blur-md bg-white/80 border-2 border-gray-300
+                                       text-red-500 hover:text-red-700 hover:bg-red-50 
+                                       hover:border-red-400 hover:shadow-lg hover:shadow-red-500/30
+                                       transition-all"
+                            title="Delete document"
+                        >
+                            <Trash2 size={16} strokeWidth={2.5} />
+                        </button>
+                    </div>
+                </div>
+
+
+                {/* Content */}
+                <div className="space-y-4">
+                    <h3 className="text-lg font-black text-black line-clamp-2 group-hover:text-royal-blue-700 
+                                   transition-colors leading-tight drop-shadow-sm">
+                        {doc.title || 'Untitled Document'}
+                    </h3>
+                    
+                    {/* Subject badge with icon */}
+                    <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg ${config.bg} 
+                                     ${config.text} border-2 ${config.border} backdrop-blur-sm shadow-md`}>
+                        <SubjectIcon size={14} strokeWidth={2.5} className={config.iconColor} />
+                        <span className="text-xs font-black tracking-wide">{subject}</span>
+                    </div>
+
+
+                    {/* Metadata - Enhanced visibility */}
+                    <div className="space-y-2 text-xs font-bold">
+                        <div className="flex items-center gap-2 text-gray-700">
+                            <Clock size={14} className="text-gray-500" strokeWidth={2.5} />
+                            <span>{doc.createdAt?.toLocaleDateString?.('en-US', { 
+                                month: 'short', day: 'numeric', year: 'numeric'
+                            })}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-gray-700">
+                            <HardDrive size={14} className="text-gray-500" strokeWidth={2.5} />
+                            <span>{formatSize(doc.fileSize || doc.size)}</span>
+                        </div>
+                        {doc.pages && (
+                            <div className="text-gray-600">{doc.pages} pages</div>
+                        )}
+                    </div>
+                </div>
+
+
+                {/* Primary action button - Black to Royal Blue gradient */}
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/study/${doc.id}`);
+                    }}
+                    className="w-full mt-5 py-3 bg-gradient-to-r from-black via-gray-900 to-royal-blue-900 
+                               text-white rounded-xl text-sm font-black hover:shadow-2xl hover:shadow-royal-blue-500/40
+                               transition-all hover:scale-105 flex items-center justify-center gap-2 border border-gray-800"
+                >
+                    <Eye size={18} strokeWidth={2.5} />
+                    Open Document
+                </button>
+            </motion.div>
+        );
+    };
+
+
+    // List View Document Row
+    const renderListRow = (doc, idx) => {
+        const subject = doc.subject || 'General Studies';
+        const config = subjectConfig[subject] || subjectConfig['General Studies'];
+        const SubjectIcon = config.icon;
+
+
+        return (
+            <motion.div
+                key={doc.id}
+                layout
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ delay: idx * 0.02, duration: 0.3 }}
+                className="group relative backdrop-blur-2xl bg-gradient-to-r from-white/80 via-gray-50/70 to-slate-100/60 
+                           border-2 border-gray-300/70 rounded-2xl p-5 
+                           hover:bg-gradient-to-r hover:from-white/90 hover:via-slate-50/80 hover:to-gray-100/70
+                           hover:border-royal-blue-400 hover:shadow-2xl hover:shadow-royal-blue-500/20 
+                           transition-all duration-300 cursor-pointer"
+                onClick={() => navigate(`/study/${doc.id}`)}
+            >
+                <div className="flex items-center gap-5">
+                    {/* Accent bar */}
+                    <div className={`w-2 h-20 bg-gradient-to-b ${config.gradient} rounded-full flex-shrink-0 shadow-lg`} />
+                    
+                    {/* Icon */}
+                    <div className={`w-14 h-14 bg-gradient-to-br ${config.gradient} rounded-xl 
+                                     flex items-center justify-center flex-shrink-0 shadow-xl ${config.glow}
+                                     border border-gray-700/20`}>
+                        <FileText size={24} className="text-white drop-shadow-lg" strokeWidth={2.5} />
+                    </div>
+
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
-                        <div className="flex items-start gap-2 mb-2">
-                            <h3 className="text-base font-black text-black truncate flex-1 group-hover:text-gray-700 transition-colors">
+                        <div className="flex items-center gap-3 mb-2">
+                            <h3 className="text-lg font-black text-black truncate group-hover:text-royal-blue-700 
+                                           transition-colors drop-shadow-sm">
                                 {doc.title || 'Untitled Document'}
                             </h3>
-                        </div>
-                        
-                        {/* Subject Badge */}
-                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg ${config.bg} ${config.text} border ${config.border} mb-3`}>
-                            <SubjectIcon size={12} />
-                            <span className="text-xs font-bold">{subject}</span>
+                            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg ${config.bg} 
+                                             ${config.text} border-2 ${config.border} backdrop-blur-sm flex-shrink-0 shadow-md`}>
+                                <SubjectIcon size={14} strokeWidth={2.5} className={config.iconColor} />
+                                <span className="text-xs font-black tracking-wide">{subject}</span>
+                            </div>
                         </div>
 
+
                         {/* Metadata */}
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 font-medium">
-                            <span className="flex items-center gap-1">
-                                <Clock size={12} />
-                                {doc.createdAt.toLocaleDateString('en-US', { 
-                                    month: 'short', 
-                                    day: 'numeric',
-                                    year: 'numeric'
+                        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs font-bold">
+                            <span className="flex items-center gap-2 text-gray-700">
+                                <Clock size={14} className="text-gray-500" strokeWidth={2.5} />
+                                {doc.createdAt?.toLocaleDateString?.('en-US', { 
+                                    month: 'short', day: 'numeric', year: 'numeric'
                                 })}
                             </span>
-                            <span className="flex items-center gap-1">
-                                <HardDrive size={12} />
-                                {formatSize(doc.fileSize || doc.size)} {/* ✅ FIXED: Check both field names */}
+                            <span className="flex items-center gap-2 text-gray-700">
+                                <HardDrive size={14} className="text-gray-500" strokeWidth={2.5} />
+                                {formatSize(doc.fileSize || doc.size)}
                             </span>
                             {doc.pages && (
-                                <span>{doc.pages} pages</span>
+                                <span className="text-gray-600">{doc.pages} pages</span>
                             )}
                         </div>
                     </div>
 
+
                     {/* Actions */}
-                    <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
-                            onClick={() => navigate(`/study/${doc.id}`)} // ✅ FIXED: Navigate to study session
-                            className="px-4 py-2 bg-black text-white rounded-lg text-sm font-bold hover:bg-gray-800 transition-all hover:scale-105 flex items-center gap-2 shadow-md"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/study/${doc.id}`);
+                            }}
+                            className="px-5 py-2.5 bg-gradient-to-r from-black via-gray-900 to-royal-blue-900 
+                                       text-white rounded-xl text-sm font-black hover:shadow-2xl hover:shadow-royal-blue-500/40
+                                       transition-all hover:scale-105 flex items-center gap-2 border border-gray-800"
                         >
-                            <Eye size={16} />
+                            <Eye size={16} strokeWidth={2.5} />
                             Open
                         </button>
                         <button 
-                            onClick={() => handleDelete(doc.id, doc.title)}
-                            className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
-                            title="Delete"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete(doc.id, doc.title);
+                            }}
+                            className="p-2.5 rounded-xl backdrop-blur-md bg-white/80 border-2 border-gray-300
+                                       text-red-500 hover:text-red-700 hover:bg-red-50 
+                                       hover:border-red-400 hover:shadow-lg hover:shadow-red-500/30
+                                       transition-all hover:scale-110"
+                            title="Delete document"
                         >
-                            <Trash2 size={18} />
+                            <Trash2 size={18} strokeWidth={2.5} />
                         </button>
                     </div>
                 </div>
@@ -291,44 +425,133 @@ const DocumentsSection = () => {
         );
     };
 
+
     if (loading) {
         return (
             <div className="flex items-center justify-center py-20">
-                <div className="w-12 h-12 border-4 border-black border-t-transparent rounded-full animate-spin" />
+                <div className="w-16 h-16 border-4 border-royal-blue-600 border-t-transparent rounded-full animate-spin shadow-xl" />
             </div>
         );
     }
 
+
     return (
-        <>
+        <div className="relative">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                <div>
-                    <h1 className="text-4xl font-black text-black mb-2">My Documents</h1>
-                    <p className="text-gray-600 font-medium">
-                        {documents.length} document{documents.length !== 1 ? 's' : ''} • AI-organized by subject
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
+                <div className="flex-1">
+                    <h1 className="text-5xl font-black bg-gradient-to-r from-black via-gray-800 to-royal-blue-700 
+                                   bg-clip-text text-transparent mb-2 drop-shadow-lg">
+                        My Documents
+                    </h1>
+                    <p className="text-gray-700 font-bold text-base">
+                        {documents.length} document{documents.length !== 1 ? 's' : ''} • AI-organized
                     </p>
                 </div>
-                <button
-                    onClick={() => navigate('/upload')}
-                    className="flex items-center justify-center gap-2 px-6 py-3 bg-black text-white rounded-xl font-bold hover:scale-105 transition-all shadow-lg hover:shadow-xl"
-                >
-                    <Upload size={20} />
-                    Upload PDF
-                </button>
+                
+                <div className="flex flex-col sm:flex-row gap-3">
+                    {/* View Controls */}
+                    <div className="flex items-center gap-1.5 backdrop-blur-xl bg-white/70 border-2 border-gray-300 rounded-xl p-1.5 shadow-lg">
+                        <button
+                            onClick={() => setViewMode('grid')}
+                            className={`p-2.5 rounded-lg transition-all ${
+                                viewMode === 'grid' 
+                                    ? 'bg-gradient-to-br from-royal-blue-600 to-blue-700 text-white shadow-xl shadow-royal-blue-500/40' 
+                                    : 'text-gray-700 hover:text-royal-blue-600 hover:bg-gray-100'
+                            }`}
+                        >
+                            <LayoutGrid size={20} strokeWidth={2.5} />
+                        </button>
+                        <button
+                            onClick={() => setViewMode('list')}
+                            className={`p-2.5 rounded-lg transition-all ${
+                                viewMode === 'list' 
+                                    ? 'bg-gradient-to-br from-royal-blue-600 to-blue-700 text-white shadow-xl shadow-royal-blue-500/40' 
+                                    : 'text-gray-700 hover:text-royal-blue-600 hover:bg-gray-100'
+                            }`}
+                        >
+                            <List size={20} strokeWidth={2.5} />
+                        </button>
+                    </div>
+
+
+                    {documents.length > 0 && (
+                        <button
+                            onClick={() => setShowDeleteAllModal(true)}
+                            className="flex items-center gap-2 px-5 py-3 backdrop-blur-xl bg-white/70 
+                                       text-red-600 border-2 border-red-300 rounded-xl font-bold shadow-lg
+                                       hover:shadow-xl hover:shadow-red-500/30 hover:scale-105 hover:bg-red-50 
+                                       transition-all"
+                        >
+                            <Trash2 size={18} strokeWidth={2.5} />
+                            Delete All
+                        </button>
+                    )}
+                    <button
+                        onClick={() => navigate('/upload')}
+                        className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-black via-gray-900 to-royal-blue-900 
+                                   text-white rounded-xl font-black hover:shadow-2xl hover:shadow-royal-blue-500/40 
+                                   hover:scale-105 transition-all border border-gray-800"
+                    >
+                        <Upload size={20} strokeWidth={2.5} />
+                        Upload PDF
+                    </button>
+                </div>
             </div>
 
-            {/* Subject Filter Pills */}
-            <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+
+            {/* Search and Controls */}
+            <div className="flex flex-col lg:flex-row gap-4 mb-6">
+                <div className="flex-1 relative">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={22} strokeWidth={2.5} />
+                    <input
+                        type="text"
+                        placeholder="Search documents by title or subject..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-14 pr-5 py-4 backdrop-blur-xl bg-white/70 border-2 border-gray-300 
+                                   rounded-xl focus:outline-none focus:border-royal-blue-500 focus:shadow-xl 
+                                   focus:shadow-royal-blue-500/30 transition-all font-bold text-black 
+                                   placeholder:text-gray-500 shadow-lg"
+                    />
+                </div>
+
+
+                <div className="flex gap-3">
+                    <button
+                        onClick={() => setShowFilters(!showFilters)}
+                        className={`px-5 py-4 rounded-xl border-2 font-black flex items-center gap-2.5 transition-all shadow-lg ${
+                            showFilters 
+                                ? 'border-royal-blue-500 bg-royal-blue-50 text-royal-blue-700 shadow-xl shadow-royal-blue-500/30' 
+                                : 'border-gray-300 backdrop-blur-xl bg-white/70 text-gray-800 hover:border-gray-400'
+                        }`}
+                    >
+                        <Filter size={20} strokeWidth={2.5} />
+                        <span>Filters</span>
+                    </button>
+                    
+                    {/* Quick Stats */}
+                    <div className="hidden sm:flex items-center gap-4 px-5 py-4 backdrop-blur-xl bg-white/70 
+                                    border-2 border-gray-300 rounded-xl text-sm font-black text-gray-800 shadow-lg">
+                        <span>{filteredDocs.length} shown</span>
+                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full"></span>
+                        <span>{documents.length} total</span>
+                    </div>
+                </div>
+            </div>
+
+
+            {/* Subject filters */}
+            <div className="flex items-center gap-2.5 mb-6 overflow-x-auto pb-3 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-transparent">
                 <button
                     onClick={() => setSelectedSubject('all')}
-                    className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-all flex items-center gap-2 ${
+                    className={`px-5 py-2.5 rounded-xl font-black text-sm whitespace-nowrap transition-all flex items-center gap-2 shadow-lg ${
                         selectedSubject === 'all'
-                            ? 'bg-black text-white shadow-lg'
-                            : 'bg-white text-gray-600 border-2 border-gray-100 hover:border-gray-300'
+                            ? 'bg-gradient-to-r from-black to-royal-blue-900 text-white shadow-xl shadow-royal-blue-500/40 border border-gray-800'
+                            : 'backdrop-blur-md bg-white/70 text-gray-800 border-2 border-gray-300 hover:border-gray-400'
                     }`}
                 >
-                    <FolderOpen size={16} />
+                    <FolderOpen size={18} strokeWidth={2.5} />
                     All ({documents.length})
                 </button>
                 {Object.entries(subjectStats).map(([subject, count]) => {
@@ -339,48 +562,21 @@ const DocumentsSection = () => {
                         <button
                             key={subject}
                             onClick={() => setSelectedSubject(subject)}
-                            className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-all flex items-center gap-2 ${
+                            className={`px-5 py-2.5 rounded-xl font-black text-sm whitespace-nowrap transition-all flex items-center gap-2 shadow-lg ${
                                 selectedSubject === subject
-                                    ? `${config.bg} ${config.text} border-2 ${config.border} shadow-md`
-                                    : 'bg-white text-gray-600 border-2 border-gray-100 hover:border-gray-300'
+                                    ? `${config.bg} ${config.text} border-2 ${config.border} shadow-xl ${config.glow} backdrop-blur-sm`
+                                    : 'backdrop-blur-md bg-white/70 text-gray-800 border-2 border-gray-300 hover:border-gray-400'
                             }`}
                         >
-                            <SubjectIcon size={16} />
+                            <SubjectIcon size={18} strokeWidth={2.5} className={selectedSubject === subject ? config.iconColor : 'text-gray-600'} />
                             {subject} ({count})
                         </button>
                     );
                 })}
             </div>
 
-            {/* Toolbar */}
-            <div className="flex flex-col md:flex-row gap-4 mb-6">
-                {/* Search */}
-                <div className="flex-1 relative">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                    <input
-                        type="text"
-                        placeholder="Search by title or subject..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-12 pr-4 py-3 bg-white border-2 border-gray-100 rounded-xl focus:outline-none focus:border-black transition-all shadow-sm font-medium"
-                    />
-                </div>
 
-                {/* Filters Toggle */}
-                <button
-                    onClick={() => setShowFilters(!showFilters)}
-                    className={`px-4 py-3 rounded-xl border-2 font-bold flex items-center gap-2 transition-all ${
-                        showFilters 
-                            ? 'border-black bg-gray-50 text-black' 
-                            : 'border-gray-100 bg-white text-gray-600 hover:border-gray-300'
-                    }`}
-                >
-                    <Filter size={20} />
-                    <span className="hidden md:inline">Sort</span>
-                </button>
-            </div>
-
-            {/* Expanded Filters */}
+            {/* Filter panel */}
             <AnimatePresence>
                 {showFilters && (
                     <motion.div
@@ -389,13 +585,16 @@ const DocumentsSection = () => {
                         exit={{ height: 0, opacity: 0 }}
                         className="overflow-hidden mb-6"
                     >
-                        <div className="bg-gray-50 rounded-xl p-4 flex flex-wrap gap-4 items-center border-2 border-gray-100">
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm font-bold text-gray-600">Sort by:</span>
+                        <div className="backdrop-blur-xl bg-gradient-to-br from-white/90 via-gray-50/80 to-slate-100/70 rounded-xl p-6 
+                                        flex flex-wrap gap-6 items-center border-2 border-gray-300 shadow-xl">
+                            <div className="flex items-center gap-3">
+                                <span className="text-sm font-black text-black">Sort by:</span>
                                 <select
                                     value={sortBy}
                                     onChange={(e) => setSortBy(e.target.value)}
-                                    className="px-4 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm font-bold focus:outline-none focus:border-black transition-all"
+                                    className="px-5 py-3 backdrop-blur-md bg-white/90 border-2 border-gray-400 rounded-lg 
+                                               text-sm font-black text-black focus:outline-none focus:border-royal-blue-500 
+                                               focus:shadow-lg focus:shadow-royal-blue-500/30 transition-all cursor-pointer shadow-md"
                                 >
                                     <option value="newest">Newest First</option>
                                     <option value="oldest">Oldest First</option>
@@ -403,7 +602,8 @@ const DocumentsSection = () => {
                                     <option value="subject">Subject</option>
                                 </select>
                             </div>
-                            <div className="text-sm font-bold text-gray-600 ml-auto flex items-center gap-2">
+                            <div className="text-sm font-black text-gray-700 ml-auto flex items-center gap-2">
+                                <SortAsc size={18} strokeWidth={2.5} />
                                 Showing {filteredDocs.length} of {documents.length}
                             </div>
                         </div>
@@ -411,45 +611,118 @@ const DocumentsSection = () => {
                 )}
             </AnimatePresence>
 
-            {/* Documents List */}
+
+            {/* Documents grid/list */}
             <AnimatePresence mode="popLayout">
                 {filteredDocs.length > 0 ? (
-                    <div className="space-y-3">
-                        {filteredDocs.map((doc, idx) => renderDocumentCard(doc, idx))}
-                    </div>
+                    <motion.div
+                        layout
+                        className={viewMode === 'grid' 
+                            ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5"
+                            : "space-y-4"
+                        }
+                    >
+                        {filteredDocs.map((doc, idx) => 
+                            viewMode === 'grid' ? renderGridCard(doc, idx) : renderListRow(doc, idx)
+                        )}
+                    </motion.div>
                 ) : (
                     <motion.div 
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-16 text-center"
+                        className="backdrop-blur-xl bg-gradient-to-br from-white/80 via-gray-50/70 to-slate-100/60 
+                                   border-2 border-dashed border-gray-400 rounded-2xl p-20 text-center shadow-xl"
                     >
-                        <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
-                            <FileText size={32} className="text-gray-300" />
+                        <div className="w-24 h-24 bg-gradient-to-br from-gray-200 via-slate-200 to-gray-300 rounded-full 
+                                        flex items-center justify-center mx-auto mb-8 shadow-xl border-2 border-gray-400">
+                            <FileText size={40} className="text-gray-600" strokeWidth={2.5} />
                         </div>
-                        <h3 className="text-xl font-bold text-black mb-2">
+                        <h3 className="text-2xl font-black text-black mb-4">
                             {searchTerm || selectedSubject !== 'all' ? 'No documents found' : 'No documents yet'}
                         </h3>
-                        <p className="text-gray-600 mb-6 max-w-md mx-auto font-medium">
+                        <p className="text-gray-700 mb-10 max-w-md mx-auto font-bold text-base">
                             {searchTerm 
-                                ? `No results found for "${searchTerm}". Try a different keyword.` 
+                                ? `No results for "${searchTerm}". Try different keywords.` 
                                 : selectedSubject !== 'all'
-                                ? `No documents found in ${selectedSubject}. Upload some to get started!`
-                                : 'Upload your lecture notes, textbooks, or research papers. AI will automatically categorize them by subject.'}
+                                ? `No documents in ${selectedSubject}. Upload to get started!`
+                                : 'Upload lecture notes, textbooks, or papers. AI categorizes automatically.'}
                         </p>
                         {!searchTerm && selectedSubject === 'all' && (
                             <button
                                 onClick={() => navigate('/upload')}
-                                className="inline-flex items-center gap-2 px-6 py-3 bg-black text-white rounded-xl font-bold hover:scale-105 transition-all shadow-lg"
+                                className="inline-flex items-center gap-2.5 px-8 py-4 bg-gradient-to-r from-black via-gray-900 to-royal-blue-900 
+                                           text-white rounded-xl font-black hover:shadow-2xl hover:shadow-royal-blue-500/40 
+                                           hover:scale-105 transition-all border border-gray-800"
                             >
-                                <Upload size={18} />
+                                <Upload size={20} strokeWidth={2.5} />
                                 Upload First PDF
                             </button>
                         )}
                     </motion.div>
                 )}
             </AnimatePresence>
-        </>
+
+
+            {/* Delete All Modal */}
+            <AnimatePresence>
+                {showDeleteAllModal && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/70 backdrop-blur-lg flex items-center justify-center z-50 p-4"
+                        onClick={() => setShowDeleteAllModal(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, y: 20 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.9, y: 20 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="backdrop-blur-2xl bg-white/95 rounded-2xl p-8 max-w-md w-full border-2 
+                                       border-red-300 shadow-2xl shadow-red-500/30"
+                        >
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-14 h-14 bg-gradient-to-br from-red-500 to-red-700 rounded-xl 
+                                                flex items-center justify-center shadow-xl shadow-red-500/40 border border-red-800">
+                                    <AlertTriangle size={28} className="text-white" strokeWidth={2.5} />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-black text-black">Delete All Documents?</h3>
+                                    <p className="text-gray-700 font-bold text-sm mt-1">This action cannot be undone</p>
+                                </div>
+                            </div>
+                            
+                            <p className="text-gray-800 font-bold text-base mb-8 bg-red-50 border-l-4 border-red-600 p-4 rounded-lg">
+                                You are about to permanently delete <span className="font-black text-red-700">{documents.length}</span> document{documents.length !== 1 ? 's' : ''}. 
+                                All data will be lost.
+                            </p>
+
+
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => setShowDeleteAllModal(false)}
+                                    className="flex-1 px-5 py-3.5 backdrop-blur-md bg-gray-100 text-gray-800 border-2 
+                                               border-gray-400 rounded-xl font-black hover:bg-gray-200 transition-all shadow-md"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleDeleteAll}
+                                    className="flex-1 px-5 py-3.5 bg-gradient-to-r from-red-600 to-red-700 text-white 
+                                               rounded-xl font-black hover:shadow-2xl hover:shadow-red-500/40 
+                                               hover:scale-105 transition-all flex items-center justify-center gap-2 border border-red-800"
+                                >
+                                    <Trash2 size={18} strokeWidth={2.5} />
+                                    Delete All
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
     );
 };
+
 
 export default DocumentsSection;

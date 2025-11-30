@@ -1,5 +1,6 @@
+// src/components/features/OverviewSection.jsx - FIXED
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     BookOpen, Upload, Trophy, Target, TrendingUp, Flame,
@@ -18,6 +19,26 @@ const OverviewSection = ({
     handleJoinRoom,
     navigate
 }) => {
+    // ✅ Helper function to safely convert dates
+    const formatDate = (timestamp) => {
+        if (!timestamp) return 'Just now';
+        try {
+            // Handle Firestore Timestamp
+            if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+                return timestamp.toDate().toLocaleDateString();
+            }
+            // Handle Date object
+            if (timestamp instanceof Date) {
+                return timestamp.toLocaleDateString();
+            }
+            // Handle string or number
+            return new Date(timestamp).toLocaleDateString();
+        } catch (error) {
+            console.error('Date formatting error:', error);
+            return 'Just now';
+        }
+    };
+
     return (
         <div className="space-y-6">
             {/* STATS GRID */}
@@ -174,7 +195,7 @@ const OverviewSection = ({
                                             animate={{ opacity: 1, y: 0 }}
                                             exit={{ opacity: 0, x: -100 }}
                                             className="bg-white border border-gray-200 rounded-2xl p-5 hover:border-black hover:shadow-lg transition-all cursor-pointer group"
-                                            onClick={() => navigate(`/pdf-reader/${doc.id}`)}
+                                            onClick={() => navigate(`/study/${doc.id}`)}
                                         >
                                             <div className="flex items-center gap-4">
                                                 <div className="w-14 h-14 bg-gradient-to-br from-gray-900 to-black rounded-xl flex items-center justify-center flex-shrink-0">
@@ -190,7 +211,7 @@ const OverviewSection = ({
                                                     <div className="flex items-center gap-4 text-xs text-gray-500">
                                                         <span>{doc.pages || 0} pages</span>
                                                         <span>•</span>
-                                                        <span>{doc.createdAt ? new Date(doc.createdAt.toDate()).toLocaleDateString() : 'Just now'}</span>
+                                                        <span>{formatDate(doc.createdAt)}</span>
                                                     </div>
                                                 </div>
                                                 <button className="px-4 py-2 bg-black text-white rounded-lg text-sm font-bold opacity-0 group-hover:opacity-100 transition-all hover:scale-105">

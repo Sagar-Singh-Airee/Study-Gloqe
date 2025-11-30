@@ -1,4 +1,4 @@
-// src/pages/StudySession.jsx - UPDATED WITH YOUR REQUESTED CHANGES ✨
+// src/pages/StudySession.jsx - WITH AUTO-SAVE FEATURE
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -152,6 +152,29 @@ const StudySession = () => {
         };
     }, [docId, user?.uid]);
 
+    // 🆕 AUTO-SAVE FEATURE: Saves progress every 60 seconds
+    useEffect(() => {
+        let autoSaveInterval = null;
+        
+        if (sessionId && studyStartTime && user?.uid) {
+            // Auto-save every 60 seconds (1 minute)
+            autoSaveInterval = setInterval(() => {
+                saveStudyProgress();
+                console.log('✅ Auto-saved study progress');
+            }, 60000); // 60000ms = 1 minute
+        }
+
+        return () => {
+            if (autoSaveInterval) {
+                clearInterval(autoSaveInterval);
+            }
+            // Final save when component unmounts
+            if (sessionId && studyStartTime && user?.uid) {
+                saveStudyProgress();
+            }
+        };
+    }, [sessionId, studyStartTime, user?.uid, readingProgress, detectedSubject]);
+
     useEffect(() => {
         if (autoScroll && textViewerRef.current) {
             const scrollAmount = (100 - scrollSpeed) / 10;
@@ -234,15 +257,17 @@ const StudySession = () => {
         const studyDuration = Math.floor((Date.now() - studyStartTime) / 1000);
 
         try {
+            // Update study session
             const sessionRef = doc(db, 'studySessions', sessionId);
             await updateDoc(sessionRef, {
                 endTime: new Date(),
                 totalTime: studyDuration,
                 progressPercentage: Math.round(readingProgress),
-                status: 'completed',
+                status: 'active', // Keep as active during auto-save
                 subject: detectedSubject || 'General Studies'
             });
 
+            // Update document
             const docRef = doc(db, 'documents', docId);
             await updateDoc(docRef, {
                 totalStudyTime: increment(studyDuration),
@@ -251,6 +276,7 @@ const StudySession = () => {
                 subject: detectedSubject || 'General Studies'
             });
 
+            // Update user stats
             const userRef = doc(db, 'users', user.uid);
             await updateDoc(userRef, {
                 totalStudyTime: increment(studyDuration),
@@ -434,10 +460,9 @@ const StudySession = () => {
 
     return (
         <div className={`min-h-screen flex flex-col transition-colors duration-300 ${modeStyles.bg}`}>
-            {/* TOP BAR - Keeping all existing code exactly the same */}
+            {/* TOP BAR */}
             {!focusMode && (
                 <div className={`backdrop-blur-2xl ${modeStyles.topBg} border-b ${modeStyles.border} px-6 py-3.5 sticky top-0 z-50 shadow-lg`}>
-                    {/* All your existing top bar code remains exactly the same */}
                     <div className="max-w-[1800px] mx-auto flex items-center justify-between gap-4">
                         <div className="flex items-center gap-3 min-w-0 flex-1">
                             <button
@@ -555,7 +580,7 @@ const StudySession = () => {
                         </div>
                     </div>
 
-                    {/* Settings and Stats panels - keeping exactly as they are */}
+                    {/* Settings Panel */}
                     {showSettings && (
                         <div className={`absolute top-full right-6 mt-2 w-80 backdrop-blur-2xl ${readingMode === 'light' ? 'bg-white/98 border-gray-200' : readingMode === 'sepia' ? 'bg-[#f4ecd8]/98 border-[#e0d5bb]' : 'bg-gray-900/98 border-white/10'} border-2 rounded-2xl p-6 shadow-2xl z-50`}>
                             <h3 className={`text-sm font-black mb-5 flex items-center gap-2 ${modeStyles.text}`}>
@@ -657,6 +682,7 @@ const StudySession = () => {
                         </div>
                     )}
 
+                    {/* Stats Panel */}
                     {showStats && (
                         <div className={`absolute top-full right-6 mt-2 w-72 backdrop-blur-2xl ${readingMode === 'light' ? 'bg-white/98 border-gray-200' : readingMode === 'sepia' ? 'bg-[#f4ecd8]/98 border-[#e0d5bb]' : 'bg-gray-900/98 border-white/10'} border-2 rounded-2xl p-6 shadow-2xl z-50`}>
                             <h3 className={`text-sm font-black mb-5 flex items-center gap-2 ${modeStyles.text}`}>
@@ -713,7 +739,7 @@ const StudySession = () => {
                 )}
             </div>
 
-            {/* ✅ CHANGE 1: PLAIN PNG LOGO (NO CARD, BIGGER SIZE) */}
+            {/* ASK GLOQE BUTTON */}
             {!showPill && !focusMode && !showAssistantMenu && !showVoiceAssistant && (
                 <motion.button
                     initial={{ scale: 0, opacity: 0 }}
@@ -724,7 +750,6 @@ const StudySession = () => {
                     className="fixed bottom-8 left-8 z-40"
                     title="Ask Gloqe AI"
                 >
-                    {/* Just the PNG image, bigger size */}
                     <img 
                         src={logoImage} 
                         alt="Ask Gloqe" 
@@ -733,7 +758,7 @@ const StudySession = () => {
                 </motion.button>
             )}
 
-            {/* ✅ CHANGE 2: LOGO WITHOUT BOX (PLAIN IMAGE, BIGGER SIZE) */}
+            {/* ASSISTANT MENU */}
             <AnimatePresence>
                 {showAssistantMenu && (
                     <motion.div 
@@ -759,7 +784,7 @@ const StudySession = () => {
                                         <div className="absolute bottom-0 right-0 w-40 h-40 bg-gray-300 rounded-full blur-xl"></div>
                                     </div>
 
-                                    {/* Header - ✅ PLAIN LOGO (NO BOX, BIGGER) */}
+                                    {/* Header */}
                                     <div className="relative px-8 pt-8 pb-6 text-center border-b border-white/20">
                                         <motion.div
                                             initial={{ scale: 0, rotate: -180 }}
@@ -767,7 +792,6 @@ const StudySession = () => {
                                             transition={{ type: "spring", stiffness: 300, damping: 20 }}
                                             className="inline-block mb-4"
                                         >
-                                            {/* ✅ Just the plain PNG logo, bigger size, no box, no effects */}
                                             <img 
                                                 src={logoImage} 
                                                 alt="Gloqe AI" 
@@ -783,7 +807,7 @@ const StudySession = () => {
                                         </p>
                                     </div>
 
-                                    {/* Assistant Options - keeping exactly the same */}
+                                    {/* Assistant Options */}
                                     <div className="p-6 space-y-4">
                                         <motion.button
                                             whileHover={{ scale: 1.02, y: -2 }}

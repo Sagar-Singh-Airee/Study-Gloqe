@@ -1,4 +1,4 @@
-// src/hooks/useDashboardData.js - COMPLETE ENHANCED VERSION
+// src/hooks/useDashboardData.js - FIXED VERSION
 import { useState, useEffect } from 'react';
 import { db } from '@/config/firebase';
 import { 
@@ -35,7 +35,9 @@ export const useDashboardData = () => {
         recentDocuments: [],
         aiRecommendations: [],
         activeRooms: [],
-        classes: [], // ← NEW: User's enrolled classes
+        classes: [],
+        documents: [],
+        studySessions: [],
         gamification: null
     });
 
@@ -46,60 +48,44 @@ export const useDashboardData = () => {
 
         const setupListeners = async () => {
             try {
-                // ===== 1. REAL-TIME GAMIFICATION LISTENER =====
-                const gamificationRef = doc(db, 'gamification', user.uid);
-                const unsubGamification = onSnapshot(gamificationRef, (doc) => {
+                // ===== 1. REAL-TIME USER DATA LISTENER =====
+                const userRef = doc(db, 'users', user.uid);
+                const unsubUser = onSnapshot(userRef, (doc) => {
                     if (doc.exists()) {
-                        const gamificationData = doc.data();
+                        const userData = doc.data();
+                        const xp = userData.xp || 0;
+                        const level = Math.floor(xp / 100) + 1;
                         
-                        // Calculate streak in real-time
-                        const today = new Date().toDateString();
-                        const yesterday = new Date(Date.now() - 86400000).toDateString();
-                        const streak = gamificationData.pointsHistory?.filter(entry => {
-                            const entryDate = new Date(entry.timestamp?.toDate()).toDateString();
-                            return entryDate === today || entryDate === yesterday;
-                        }).length || 0;
-
                         setData(prev => ({
                             ...prev,
-                            gamification: gamificationData,
                             stats: {
                                 ...prev.stats,
-                                level: gamificationData.level || 1,
-                                xp: gamificationData.xp || 0,
-                                badges: gamificationData.badges?.length || 0,
-                                currentStreak: streak
+                                level: level,
+                                xp: xp,
+                                currentStreak: userData.streak || 0
                             }
                         }));
-                    } else {
-                        // Initialize gamification if doesn't exist
-                        setDoc(gamificationRef, {
-                            xp: 0,
-                            level: 1,
-                            badges: [],
-                            pointsHistory: [],
-                            createdAt: serverTimestamp()
-                        });
                     }
                 });
-                unsubscribers.push(unsubGamification);
+                unsubscribers.push(unsubUser);
 
                 // ===== 2. REAL-TIME DOCUMENTS LISTENER =====
                 const documentsQuery = query(
                     collection(db, 'documents'),
                     where('uploaderId', '==', user.uid),
-                    orderBy('createdAt', 'desc'),
-                    limit(5)
+                    orderBy('createdAt', 'desc')
                 );
                 const unsubDocuments = onSnapshot(documentsQuery, (snapshot) => {
                     const docs = snapshot.docs.map(doc => ({
                         id: doc.id,
                         ...doc.data()
+                        // ✅ REMOVED: Don't convert here, keep Firestore Timestamp
                     }));
                     
                     setData(prev => ({
                         ...prev,
-                        recentDocuments: docs,
+                        recentDocuments: docs.slice(0, 5),
+                        documents: docs,
                         stats: {
                             ...prev.stats,
                             totalDocuments: docs.length
@@ -108,29 +94,32 @@ export const useDashboardData = () => {
                 });
                 unsubscribers.push(unsubDocuments);
 
-                // ===== 3. REAL-TIME SESSIONS LISTENER (for stats) =====
+                // ===== 3. REAL-TIME STUDY SESSIONS LISTENER =====
                 const sessionsQuery = query(
-                    collection(db, 'sessions'),
+                    collection(db, 'studySessions'),
                     where('userId', '==', user.uid),
-                    orderBy('startTs', 'desc')
+                    orderBy('startTime', 'desc'),
+                    limit(20)
                 );
                 const unsubSessions = onSnapshot(sessionsQuery, (snapshot) => {
-                    const sessions = snapshot.docs.map(doc => doc.data());
+                    const sessions = snapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                        // ✅ REMOVED: Don't convert here
+                    }));
                     
-                    const completed = sessions.filter(s => s.endTs).length;
-                    const totalScore = sessions.reduce((sum, s) => sum + (s.score || 0), 0);
-                    const avgAccuracy = sessions.length > 0 
-                        ? Math.round(totalScore / sessions.length) 
-                        : 0;
-
+                    const completed = sessions.filter(s => s.status === 'completed').length;
+                    
                     setData(prev => ({
                         ...prev,
+                        studySessions: sessions,
                         stats: {
                             ...prev.stats,
-                            quizzesCompleted: completed,
-                            averageAccuracy: avgAccuracy
+                            quizzesCompleted: completed
                         }
                     }));
+                    
+                    console.log(`✅ Loaded ${sessions.length} study sessions`);
                 });
                 unsubscribers.push(unsubSessions);
 
@@ -159,7 +148,6 @@ export const useDashboardData = () => {
                             aiRecommendations: doc.data().nextDue || []
                         }));
                     } else {
-                        // Initialize ALO if doesn't exist
                         setDoc(aloRef, {
                             skillVector: {},
                             masteryMap: {},
@@ -189,7 +177,7 @@ export const useDashboardData = () => {
                 });
                 unsubscribers.push(unsubRooms);
 
-                // ===== 7. REAL-TIME USER'S CLASSES LISTENER (NEW!) =====
+                // ===== 7. REAL-TIME USER'S CLASSES LISTENER =====
                 const classesQuery = query(
                     collection(db, 'classes'),
                     where('studentIds', 'array-contains', user.uid),
@@ -206,7 +194,7 @@ export const useDashboardData = () => {
                         classes: userClasses
                     }));
                     
-                    console.log(`✅ Loaded ${userClasses.length} classes for user`);
+                    console.log(`✅ Loaded ${userClasses.length} classes`);
                 });
                 unsubscribers.push(unsubClasses);
 
@@ -219,7 +207,6 @@ export const useDashboardData = () => {
 
         setupListeners();
 
-        // Cleanup all listeners
         return () => {
             console.log('🧹 Cleaning up dashboard listeners');
             unsubscribers.forEach(unsub => unsub());
@@ -231,18 +218,15 @@ export const useDashboardData = () => {
 
 // ===== ACTION HANDLERS =====
 
-// Award XP when user completes an action
 export const awardXP = async (userId, points, reason) => {
     try {
-        const gamificationRef = doc(db, 'gamification', userId);
+        const userRef = doc(db, 'users', userId);
         
-        await updateDoc(gamificationRef, {
+        await updateDoc(userRef, {
             xp: increment(points),
-            pointsHistory: arrayUnion({
-                timestamp: serverTimestamp(),
-                points,
-                reason
-            })
+            lastXPTime: serverTimestamp(),
+            lastXPAmount: points,
+            lastXPReason: reason
         });
 
         console.log(`✅ Awarded ${points} XP for ${reason}`);
@@ -252,34 +236,32 @@ export const awardXP = async (userId, points, reason) => {
     }
 };
 
-// Mark quiz as completed
 export const completeQuiz = async (userId, quizId, score, answers) => {
     try {
         const batch = writeBatch(db);
 
-        // Create session record
-        const sessionRef = doc(collection(db, 'sessions'));
+        const sessionRef = doc(collection(db, 'studySessions'));
         batch.set(sessionRef, {
             userId,
-            quizId,
-            startTs: serverTimestamp(),
-            endTs: serverTimestamp(),
-            answers,
+            documentId: quizId,
+            documentTitle: 'Quiz',
+            subject: 'Quiz',
+            startTime: serverTimestamp(),
+            endTime: serverTimestamp(),
+            status: 'completed',
+            totalTime: 0,
+            progressPercentage: score,
             score,
-            events: []
+            answers
         });
 
-        // Award XP
-        const gamificationRef = doc(db, 'gamification', userId);
-        const xpEarned = Math.max(Math.round(score / 10), 5); // Min 5 XP
-        batch.update(gamificationRef, {
+        const userRef = doc(db, 'users', userId);
+        const xpEarned = Math.max(Math.round(score / 10), 5);
+        batch.update(userRef, {
             xp: increment(xpEarned),
-            pointsHistory: arrayUnion({
-                timestamp: serverTimestamp(),
-                points: xpEarned,
-                reason: 'quiz-completed',
-                score
-            })
+            lastXPTime: serverTimestamp(),
+            lastXPAmount: xpEarned,
+            lastXPReason: 'quiz-completed'
         });
 
         await batch.commit();
@@ -292,7 +274,6 @@ export const completeQuiz = async (userId, quizId, score, answers) => {
     }
 };
 
-// Join study room
 export const joinStudyRoom = async (userId, roomId) => {
     try {
         const roomRef = doc(db, 'rooms', roomId);
@@ -310,18 +291,15 @@ export const joinStudyRoom = async (userId, roomId) => {
     }
 };
 
-// Daily login bonus
 export const claimDailyBonus = async (userId) => {
     try {
-        const gamificationRef = doc(db, 'gamification', userId);
+        const userRef = doc(db, 'users', userId);
         
-        await updateDoc(gamificationRef, {
+        await updateDoc(userRef, {
             xp: increment(5),
-            pointsHistory: arrayUnion({
-                timestamp: serverTimestamp(),
-                points: 5,
-                reason: 'daily-login'
-            })
+            lastXPTime: serverTimestamp(),
+            lastXPAmount: 5,
+            lastXPReason: 'daily-login'
         });
 
         console.log('✅ Daily bonus claimed: +5 XP');

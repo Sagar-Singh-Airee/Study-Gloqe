@@ -41,7 +41,6 @@ const Dashboard = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const { data, loading } = useDashboardData();
     
-    // ALL STATE DECLARATIONS FIRST
     const [showXPAnimation, setShowXPAnimation] = useState(false);
     const [notificationCount] = useState(3);
     const [levelModalOpen, setLevelModalOpen] = useState(false);
@@ -51,7 +50,6 @@ const Dashboard = () => {
     const initialTab = searchParams.get('tab') || 'overview';
     const [activeTab, setActiveTab] = useState(initialTab);
 
-    // ALL EFFECTS
     useEffect(() => {
         const tab = searchParams.get('tab');
         if (tab && tab !== activeTab) {
@@ -137,7 +135,6 @@ const Dashboard = () => {
         return () => clearTimeout(timer);
     }, [data?.stats?.xp]);
 
-    // ALL CALLBACKS
     const handleTabChange = useCallback((tabId) => {
         if (tabId !== activeTab) {
             setActiveTab(tabId);
@@ -195,7 +192,6 @@ const Dashboard = () => {
         }
     }, [user?.uid, navigate]);
 
-    // ALL MEMOS
     const quickActions = useMemo(() => [
         { icon: Upload, label: 'Upload PDF', desc: 'Generate instant quizzes', action: handleUploadClick },
         { icon: Brain, label: 'Take Quiz', desc: 'Test your knowledge', path: '/dashboard?tab=quizzes' },
@@ -238,14 +234,14 @@ const Dashboard = () => {
                     />
                 );
             case 'classes': return <ClassesSection />;
-            case 'documents': return <DocumentsSection />;
+            case 'documents': return <DocumentsSection documents={data?.documents || []} />; // ✅ CHANGED
             case 'achievements': return <AchievementsSection />;
             case 'quizzes': return <QuizzesSection />;
             case 'flashcards': return <FlashcardsSection />;
             case 'notes': return <NotesSection />;
             case 'rooms': return <RoomsSection />;
             case 'leaderboard': return <LeaderboardSection />;
-            case 'history': return <SessionHistorySection />;
+            case 'history': return <SessionHistorySection sessions={data?.studySessions || []} />; // ✅ CHANGED
             default:
                 return (
                     <OverviewSection
@@ -260,14 +256,15 @@ const Dashboard = () => {
         }
     }, [activeTab, data, quickActions, handleTabChange, handleUploadClick, handleTakeQuiz, handleJoinRoom, navigate]);
 
-    const currentLevel = useMemo(() => 
-        realtimeUserData?.level ?? data?.stats?.level ?? 1,
-        [realtimeUserData?.level, data?.stats?.level]
-    );
-
+    // ✅ CHANGED: Calculate level from XP
     const currentXP = useMemo(() => 
         realtimeUserData?.xp ?? data?.stats?.xp ?? 0,
         [realtimeUserData?.xp, data?.stats?.xp]
+    );
+
+    const currentLevel = useMemo(() => 
+        Math.floor(currentXP / 100) + 1,
+        [currentXP]
     );
 
     const xpForNextLevel = useMemo(() => 
@@ -280,7 +277,6 @@ const Dashboard = () => {
         [currentXP]
     );
 
-    // ✅ NOW CHECK LOADING - AFTER ALL HOOKS
     if (loading) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-gray-100 flex items-center justify-center">
@@ -292,10 +288,9 @@ const Dashboard = () => {
         );
     }
 
-    // RENDER
     return (
         <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-gray-100 flex overflow-hidden">
-            {/* XP Floating Animation */}
+            {/* Rest of your JSX remains exactly the same */}
             <AnimatePresence>
                 {showXPAnimation && (
                     <motion.div
@@ -313,9 +308,8 @@ const Dashboard = () => {
                 )}
             </AnimatePresence>
 
-            {/* SIDEBAR */}
+            {/* SIDEBAR - Keep all existing code */}
             <div className="w-72 bg-gradient-to-b from-black via-gray-900 to-black fixed h-screen flex flex-col shadow-2xl border-r border-white/5 z-40">
-                {/* Logo */}
                 <div className="p-6 border-b border-white/10">
                     <Link to="/dashboard" className="flex items-center gap-3 group">
                         <img src={logoImage} alt="StudyGloqe" className="h-11 w-11 drop-shadow-lg transition-transform duration-300 group-hover:scale-110" />
@@ -331,7 +325,6 @@ const Dashboard = () => {
                     </Link>
                 </div>
 
-                {/* XP Progress Card */}
                 <button
                     onClick={() => setLevelModalOpen(true)}
                     className="mx-4 mt-4 p-4 bg-gradient-to-br from-white/5 to-white/10 hover:from-white/10 hover:to-white/15 rounded-2xl border border-white/10 hover:border-white/20 backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-white/10 group cursor-pointer"
@@ -361,7 +354,6 @@ const Dashboard = () => {
                     </div>
                 </button>
 
-                {/* Navigation */}
                 <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto custom-scrollbar">
                     {sidebarItems.map((item) => (
                         <Link
@@ -391,7 +383,6 @@ const Dashboard = () => {
                         </Link>
                     ))}
 
-                    {/* Upload PDF Button */}
                     <button
                         onClick={handleUploadClick}
                         className="w-full mt-6 flex items-center justify-center gap-2 px-4 py-4 rounded-xl bg-gradient-to-r from-white to-gray-200 text-black font-bold hover:shadow-2xl hover:from-gray-100 hover:to-white transition-all duration-200 group"
@@ -401,7 +392,6 @@ const Dashboard = () => {
                     </button>
                 </nav>
 
-                {/* Bottom Actions */}
                 <div className="p-4 border-t border-white/10">
                     <button
                         onClick={handleLogout}
@@ -413,10 +403,9 @@ const Dashboard = () => {
                 </div>
             </div>
 
-            {/* MAIN CONTENT */}
+            {/* MAIN CONTENT - Keep all existing header code */}
             <div className="flex-1 ml-72">
                 <div className="p-8 space-y-8 max-w-[1600px] mx-auto">
-                    {/* TOP HEADER */}
                     <div className="flex items-start justify-between gap-6">
                         <div className="flex-1">
                             <div className="text-sm text-gray-500 mb-2 flex items-center gap-2 font-medium">
@@ -438,7 +427,6 @@ const Dashboard = () => {
                         </div>
 
                         <div className="flex items-center gap-3">
-                            {/* Notification Bell */}
                             <button className="w-12 h-12 rounded-xl bg-white hover:bg-gray-50 border-2 border-gray-200 hover:border-gray-300 flex items-center justify-center transition-all duration-200 relative group shadow-sm hover:shadow-md">
                                 <Bell size={20} className="text-gray-600 group-hover:text-black transition-colors" />
                                 {notificationCount > 0 && (
@@ -448,7 +436,6 @@ const Dashboard = () => {
                                 )}
                             </button>
 
-                            {/* Profile Card */}
                             <Link
                                 to="/settings"
                                 className="flex items-center gap-4 px-5 py-4 rounded-2xl bg-white hover:bg-gray-50 border-2 border-gray-200 hover:border-gray-300 transition-all duration-200 group min-w-[340px] shadow-sm hover:shadow-xl hover:scale-[1.01]"
@@ -494,7 +481,6 @@ const Dashboard = () => {
                         </div>
                     </div>
 
-                    {/* DYNAMIC CONTENT */}
                     <AnimatePresence mode="wait" initial={false}>
                         <motion.div
                             key={activeTab}
@@ -509,7 +495,6 @@ const Dashboard = () => {
                 </div>
             </div>
 
-            {/* GAMIFICATION MODALS & TOASTS */}
             <LevelModal 
                 isOpen={levelModalOpen} 
                 onClose={() => setLevelModalOpen(false)} 
