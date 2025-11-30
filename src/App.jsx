@@ -124,16 +124,20 @@ function App() {
                         <Route path="/documents" element={<Navigate to="/dashboard?tab=documents" replace />} />
                         <Route path="/documents/:docId" element={<ProtectedRoute><PDFReader /></ProtectedRoute>} />
 
-                        {/* STUDY SESSION - ✅ This route is correct */}
+                        {/* STUDY SESSION */}
                         <Route path="/study/:docId" element={<ProtectedRoute><StudySession /></ProtectedRoute>} />
 
                         {/* STUDY ROOM (WebRTC) */}
                         <Route path="/study-room/:roomId" element={<ProtectedRoute><StudyRoom /></ProtectedRoute>} />
 
-                        {/* Quizzes */}
+                        {/* QUIZZES - FIXED ROUTES ✅ */}
                         <Route path="/quizzes" element={<Navigate to="/dashboard?tab=quizzes" replace />} />
+                        
+                        {/* Main quiz route - both /quiz/:id and /quizzes/:id work */}
+                        <Route path="/quiz/:quizId" element={<ProtectedRoute><QuizPage /></ProtectedRoute>} />
                         <Route path="/quizzes/:quizId" element={<ProtectedRoute><QuizPage /></ProtectedRoute>} />
-                        <Route path="/quiz" element={<Navigate to="/dashboard?tab=quizzes" replace />} />
+                        
+                        {/* Results */}
                         <Route path="/results/:sessionId" element={<ProtectedRoute><QuizResults /></ProtectedRoute>} />
 
                         {/* Learning Tools */}
@@ -155,7 +159,7 @@ function App() {
                         <Route path="/teacher/dashboard" element={<ProtectedRoute teacherOnly><TeacherDashboard /></ProtectedRoute>} />
                         <Route path="/teacher/classes" element={<ProtectedRoute teacherOnly><ClassManagement /></ProtectedRoute>} />
 
-                        {/* CATCH ALL */}
+                        {/* CATCH ALL - Must be last */}
                         <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                 </Router>
