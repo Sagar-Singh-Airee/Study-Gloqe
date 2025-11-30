@@ -12,6 +12,7 @@
         "functions:deploy": "firebase deploy --only functions"
     },
     "dependencies": {
+        "@google-cloud/text-to-speech": "^6.4.0",
         "@google/generative-ai": "^0.24.1",
         "@splinetool/react-spline": "^2.2.6",
         "@splinetool/runtime": "^1.12.3",

@@ -1,4 +1,4 @@
-// src/pages/PDFUpload.jsx - CLEANED UP VERSION (No duplicate processing)
+// src/pages/PDFUpload.jsx - FIXED VERSION (Navigates to study session)
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
@@ -153,10 +153,10 @@ const PDFUpload = () => {
       
       showToast(xpMessage, 'success', Award);
       
-      // Navigate to the last uploaded document
+      // ✅ FIXED: Navigate directly to study session
       if (lastDocId) {
         setTimeout(() => { 
-          navigate('/dashboard?tab=documents');
+          navigate(`/study/${lastDocId}`);
         }, 1500);
       }
     }

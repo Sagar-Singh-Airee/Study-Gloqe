@@ -1,10 +1,11 @@
-// src/pages/StudySession.jsx - COMPLETE & FIXED (No Naming Conflicts)
+// src/pages/StudySession.jsx - WITH VOICE ASSISTANT & MODAL MENU
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Clock, ArrowLeft, Maximize2, Minimize2, StickyNote,
     Copy, Download, ZoomIn, ZoomOut, Moon, Sun, BookOpen, Palette, 
-    Target, Award, TrendingUp, PlayCircle, PauseCircle, Settings
+    Target, Award, TrendingUp, PlayCircle, PauseCircle, Settings,
+    MessageSquare, Mic
 } from 'lucide-react';
 import { useAuth } from '@contexts/AuthContext';
 import { db } from '@/config/firebase';
@@ -13,8 +14,9 @@ import StudyTimer from '@/components/study/StudyTimer';
 import AskGloqePill from '@/components/study/AskGloqePill';
 import TextViewer from '@/components/study/TextViewer';
 import NotesPanel from '@/components/study/NotesPanel';
+import VoiceAssistant from '@/components/study/VoiceAssistant';
 import toast from 'react-hot-toast';
-import logoImage from '@/assets/logo/logo.svg';
+import logoImage from '@/assets/logo/logox.png';
 
 const StudySession = () => {
     const { docId } = useParams();
@@ -45,6 +47,10 @@ const StudySession = () => {
     const [scrollSpeed, setScrollSpeed] = useState(50);
     const [showStats, setShowStats] = useState(false);
     const [detectedSubject, setDetectedSubject] = useState('');
+    
+    // ✅ NEW: Assistant menu states
+    const [showAssistantMenu, setShowAssistantMenu] = useState(false);
+    const [showVoiceAssistant, setShowVoiceAssistant] = useState(false);
 
     const textViewerRef = useRef(null);
     const scrollIntervalRef = useRef(null);
@@ -96,7 +102,11 @@ const StudySession = () => {
     useEffect(() => {
         const handleEscape = (e) => {
             if (e.key === 'Escape') {
-                if (focusMode) {
+                if (showVoiceAssistant) {
+                    setShowVoiceAssistant(false);
+                } else if (showAssistantMenu) {
+                    setShowAssistantMenu(false);
+                } else if (focusMode) {
                     setFocusMode(false);
                 } else if (showPill) {
                     setShowPill(false);
@@ -106,9 +116,9 @@ const StudySession = () => {
 
         window.addEventListener('keydown', handleEscape);
         return () => window.removeEventListener('keydown', handleEscape);
-    }, [focusMode, showPill]);
+    }, [focusMode, showPill, showAssistantMenu, showVoiceAssistant]);
 
-    // ✅ FIXED: Fullscreen change handler
+    // ✅ Fullscreen change handler
     useEffect(() => {
         const handleFullscreenChange = () => {
             setFullscreen(!!document.fullscreenElement);
@@ -276,13 +286,26 @@ const StudySession = () => {
         }
     };
 
+    // ✅ NEW: Show assistant menu
     const handleAskGloqe = () => {
+        setShowAssistantMenu(true);
+    };
+
+    // ✅ NEW: Handle chatbot selection
+    const handleChatbot = () => {
+        setShowAssistantMenu(false);
         setSelectedText('');
         setPillPosition({
             x: window.innerWidth / 2,
             y: 100
         });
         setShowPill(true);
+    };
+
+    // ✅ NEW: Handle voice assistant selection
+    const handleVoiceAssistant = () => {
+        setShowAssistantMenu(false);
+        setShowVoiceAssistant(true);
     };
 
     const handleZoomIn = () => {
@@ -676,7 +699,7 @@ const StudySession = () => {
                 </div>
             )}
 
-            {/* MAIN READING AREA - WITH INLINE SCROLL HANDLER */}
+            {/* MAIN READING AREA */}
             <div className="flex-1 flex overflow-hidden relative">
                 <div 
                     ref={textViewerRef}
@@ -704,27 +727,100 @@ const StudySession = () => {
                 )}
             </div>
 
-            {/* FLOATING ASK BUTTON */}
-            {!showPill && !focusMode && (
+            {/* ✅ FLOATING ASK BUTTON - SIMPLE LOGO */}
+            {!showPill && !focusMode && !showAssistantMenu && !showVoiceAssistant && (
                 <button
                     onClick={handleAskGloqe}
-                    className="fixed bottom-8 left-8 w-16 h-16 bg-gradient-to-br from-blue-600 via-gray-600 to-gray-800 hover:from-blue-500 hover:via-gray-500 hover:to-gray-700 rounded-2xl shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 transform hover:scale-110 z-40 p-3 group"
+                    className="fixed bottom-8 left-8 w-16 h-16 hover:scale-110 transition-all duration-300 transform z-40 group"
                     title="Ask Gloqe AI"
                 >
                     <img 
                         src={logoImage} 
                         alt="Ask Gloqe" 
-                        className="w-full h-full group-hover:rotate-12 transition-transform duration-300" 
+                        className="w-full h-full group-hover:rotate-12 transition-transform duration-300 drop-shadow-2xl" 
                     />
                 </button>
             )}
 
-            {/* ASK AI PILL */}
+            {/* ✅ ASSISTANT MENU MODAL */}
+            {showAssistantMenu && (
+                <div 
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center"
+                    onClick={() => setShowAssistantMenu(false)}
+                >
+                    <div 
+                        className="bg-gradient-to-br from-gray-900 via-gray-800 to-black border-2 border-blue-500/30 rounded-3xl p-8 max-w-md w-full mx-4 shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="text-center mb-8">
+                            <img 
+                                src={logoImage} 
+                                alt="Gloqe AI" 
+                                className="w-20 h-20 mx-auto mb-4 drop-shadow-2xl"
+                            />
+                            <h2 className="text-2xl font-black text-white mb-2">Choose Your Assistant</h2>
+                            <p className="text-sm text-gray-400">How would you like to interact?</p>
+                        </div>
+
+                        <div className="space-y-4">
+                            {/* Chatbot Option */}
+                            <button
+                                onClick={handleChatbot}
+                                className="w-full p-6 bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 rounded-2xl transition-all transform hover:scale-105 shadow-xl group"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center">
+                                        <MessageSquare size={28} className="text-white" />
+                                    </div>
+                                    <div className="text-left flex-1">
+                                        <h3 className="text-lg font-black text-white mb-1">Chatbot</h3>
+                                        <p className="text-sm text-blue-100">Type and chat with AI</p>
+                                    </div>
+                                </div>
+                            </button>
+
+                            {/* Voice Assistant Option */}
+                            <button
+                                onClick={handleVoiceAssistant}
+                                className="w-full p-6 bg-gradient-to-br from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 rounded-2xl transition-all transform hover:scale-105 shadow-xl group"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center">
+                                        <Mic size={28} className="text-white" />
+                                    </div>
+                                    <div className="text-left flex-1">
+                                        <h3 className="text-lg font-black text-white mb-1">Voice Assistant</h3>
+                                        <p className="text-sm text-purple-100">Speak naturally with AI</p>
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+
+                        <button
+                            onClick={() => setShowAssistantMenu(false)}
+                            className="w-full mt-6 px-4 py-3 bg-gray-700 hover:bg-gray-600 rounded-xl text-white font-bold transition-all"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* ✅ ASK AI PILL (Chatbot) */}
             {showPill && (
                 <AskGloqePill
                     selectedText={selectedText}
                     position={pillPosition}
                     onClose={() => setShowPill(false)}
+                    documentId={docId}
+                />
+            )}
+
+            {/* ✅ VOICE ASSISTANT */}
+            {showVoiceAssistant && (
+                <VoiceAssistant
+                    onClose={() => setShowVoiceAssistant(false)}
+                    documentContext={extractedText}
                     documentId={docId}
                 />
             )}
