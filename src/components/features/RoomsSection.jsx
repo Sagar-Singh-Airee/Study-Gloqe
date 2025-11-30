@@ -1,6 +1,6 @@
-// src/components/features/RoomsSection.jsx - WITH GAMIFICATION
+// src/components/features/RoomsSection.jsx - UPGRADED WITH DELETE & BETTER UI
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { 
     collection, 
@@ -10,6 +10,7 @@ import {
     serverTimestamp,
     where,
     updateDoc,
+    deleteDoc,
     doc,
     arrayUnion,
     increment,
@@ -28,7 +29,9 @@ import {
     Loader2,
     Zap,
     Sparkles,
-    Award
+    Award,
+    Trash2,
+    AlertTriangle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -38,6 +41,7 @@ const RoomsSection = () => {
     const [rooms, setRooms] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [deleteConfirm, setDeleteConfirm] = useState(null);
     const [newRoom, setNewRoom] = useState({
         name: '',
         topic: '',
@@ -68,7 +72,7 @@ const RoomsSection = () => {
                     startedAt: doc.data().createdAt?.toDate()
                 }));
                 
-                // Sort client-side (no index needed)
+                // Sort by creation time (newest first)
                 roomsData.sort((a, b) => {
                     if (!a.createdAt) return 1;
                     if (!b.createdAt) return -1;
@@ -121,7 +125,7 @@ const RoomsSection = () => {
         }
     };
 
-    // 🎮 Create room with gamification
+    // Create room with gamification
     const createRoom = useCallback(async (e) => {
         e.preventDefault();
         if (!newRoom.name.trim() || !newRoom.topic.trim() || !user?.uid) return;
@@ -145,7 +149,7 @@ const RoomsSection = () => {
             const docRef = await addDoc(collection(db, 'rooms'), roomData);
             console.log('✅ Room created:', docRef.id);
 
-            // 🎮 AWARD XP FOR CREATING ROOM
+            // Award XP
             await awardXP(user.uid, 15, 'Created Study Room');
             
             toast.success('🎉 Room created! +15 XP', {
@@ -159,10 +163,8 @@ const RoomsSection = () => {
                 },
             });
             
-            // Navigate to room
             navigate(`/study-room/${docRef.id}`);
             
-            // Reset form
             setNewRoom({ name: '', topic: '', maxMembers: 10, isPrivate: false });
             setShowCreateModal(false);
         } catch (error) {
@@ -171,7 +173,31 @@ const RoomsSection = () => {
         }
     }, [newRoom, user, navigate]);
 
-    // 🎮 Join room with gamification
+    // Delete room
+    const deleteRoom = useCallback(async (roomId) => {
+        if (!user?.uid) return;
+
+        try {
+            await deleteDoc(doc(db, 'rooms', roomId));
+            
+            toast.success('🗑️ Room deleted successfully', {
+                style: {
+                    background: '#1a1a1a',
+                    color: '#fff',
+                    fontWeight: 'bold',
+                    borderRadius: '16px',
+                },
+            });
+            
+            setDeleteConfirm(null);
+            console.log('✅ Room deleted:', roomId);
+        } catch (error) {
+            console.error('❌ Error deleting room:', error);
+            toast.error('Failed to delete room.');
+        }
+    }, [user]);
+
+    // Join room with gamification
     const joinRoom = useCallback(async (room) => {
         if (!user?.uid) return;
         
@@ -195,7 +221,6 @@ const RoomsSection = () => {
                 updatedAt: serverTimestamp()
             });
 
-            // 🎮 AWARD XP FOR JOINING ROOM
             await awardXP(user.uid, XP_REWARDS.JOIN_ROOM, 'Joined Study Room');
             await updateMission(user.uid, 'weekly_rooms');
 
@@ -218,13 +243,8 @@ const RoomsSection = () => {
         }
     }, [user, navigate]);
 
-    // Memoize active rooms count
     const activeRoomsCount = useMemo(() => rooms.length, [rooms.length]);
-
-    // Memoize total XP available
-    const totalXPAvailable = useMemo(() => {
-        return activeRoomsCount * XP_REWARDS.JOIN_ROOM;
-    }, [activeRoomsCount]);
+    const totalXPAvailable = useMemo(() => activeRoomsCount * XP_REWARDS.JOIN_ROOM, [activeRoomsCount]);
 
     if (loading) {
         return (
@@ -255,7 +275,7 @@ const RoomsSection = () => {
                 </button>
             </div>
 
-            {/* 🎮 XP Earning Banner */}
+            {/* XP Earning Banner */}
             {activeRoomsCount > 0 && (
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
@@ -344,101 +364,142 @@ const RoomsSection = () => {
                 </div>
             )}
 
-            {/* Create Room Modal */}
-            {showCreateModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="bg-white rounded-3xl p-8 max-w-md w-full"
-                    >
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-2xl font-black text-black">Create Study Room</h2>
-                            <div className="px-3 py-1 bg-green-500/10 text-green-600 rounded-lg flex items-center gap-1 text-xs font-bold">
-                                <Zap size={12} />
-                                +15 XP
-                            </div>
-                        </div>
-                        
-                        <form onSubmit={createRoom} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    Room Name
-                                </label>
-                                <input
-                                    type="text"
-                                    value={newRoom.name}
-                                    onChange={(e) => setNewRoom({...newRoom, name: e.target.value})}
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-black focus:outline-none transition-colors"
-                                    placeholder="e.g., Physics Study Group"
-                                    required
-                                />
+            {/* Create Room Modal - FIXED TEXT VISIBILITY */}
+            <AnimatePresence>
+                {showCreateModal && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl"
+                        >
+                            <div className="flex items-center justify-between mb-6">
+                                <h2 className="text-2xl font-black text-black">Create Study Room</h2>
+                                <div className="px-3 py-1 bg-green-500/10 text-green-600 rounded-lg flex items-center gap-1 text-xs font-bold">
+                                    <Zap size={12} />
+                                    +15 XP
+                                </div>
                             </div>
                             
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    Topic
-                                </label>
-                                <input
-                                    type="text"
-                                    value={newRoom.topic}
-                                    onChange={(e) => setNewRoom({...newRoom, topic: e.target.value})}
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-black focus:outline-none transition-colors"
-                                    placeholder="e.g., Thermodynamics"
-                                    required
-                                />
+                            <form onSubmit={createRoom} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-semibold text-black mb-2">
+                                        Room Name
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={newRoom.name}
+                                        onChange={(e) => setNewRoom({...newRoom, name: e.target.value})}
+                                        className="w-full px-4 py-3 bg-gray-50 text-black border-2 border-gray-200 rounded-xl focus:border-black focus:outline-none focus:bg-white transition-all font-medium placeholder:text-gray-400"
+                                        placeholder="e.g., Physics Study Group"
+                                        required
+                                    />
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-sm font-semibold text-black mb-2">
+                                        Topic
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={newRoom.topic}
+                                        onChange={(e) => setNewRoom({...newRoom, topic: e.target.value})}
+                                        className="w-full px-4 py-3 bg-gray-50 text-black border-2 border-gray-200 rounded-xl focus:border-black focus:outline-none focus:bg-white transition-all font-medium placeholder:text-gray-400"
+                                        placeholder="e.g., Thermodynamics"
+                                        required
+                                    />
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-sm font-semibold text-black mb-2">
+                                        Max Members
+                                    </label>
+                                    <select
+                                        value={newRoom.maxMembers}
+                                        onChange={(e) => setNewRoom({...newRoom, maxMembers: e.target.value})}
+                                        className="w-full px-4 py-3 bg-gray-50 text-black border-2 border-gray-200 rounded-xl focus:border-black focus:outline-none focus:bg-white transition-all font-medium"
+                                    >
+                                        <option value="6">6 members</option>
+                                        <option value="10">10 members</option>
+                                        <option value="15">15 members</option>
+                                        <option value="20">20 members</option>
+                                    </select>
+                                </div>
+                                
+                                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                                    <input
+                                        type="checkbox"
+                                        id="private"
+                                        checked={newRoom.isPrivate}
+                                        onChange={(e) => setNewRoom({...newRoom, isPrivate: e.target.checked})}
+                                        className="w-5 h-5 accent-black"
+                                    />
+                                    <label htmlFor="private" className="text-sm font-semibold text-black flex items-center gap-2">
+                                        <Lock size={16} className="text-gray-500" />
+                                        Private Room (invite only)
+                                    </label>
+                                </div>
+                                
+                                <div className="flex gap-3 pt-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowCreateModal(false)}
+                                        className="flex-1 py-3 border-2 border-gray-200 text-black rounded-xl font-bold hover:bg-gray-50 transition-all"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="flex-1 py-3 bg-black text-white rounded-xl font-bold hover:scale-105 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Sparkles size={18} />
+                                        Create Room
+                                    </button>
+                                </div>
+                            </form>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Delete Confirmation Modal */}
+            <AnimatePresence>
+                {deleteConfirm && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl"
+                        >
+                            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <AlertTriangle size={32} className="text-red-600" />
                             </div>
-                            
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    Max Members
-                                </label>
-                                <select
-                                    value={newRoom.maxMembers}
-                                    onChange={(e) => setNewRoom({...newRoom, maxMembers: e.target.value})}
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-black focus:outline-none transition-colors"
-                                >
-                                    <option value="6">6 members</option>
-                                    <option value="10">10 members</option>
-                                    <option value="15">15 members</option>
-                                    <option value="20">20 members</option>
-                                </select>
-                            </div>
-                            
-                            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                                <input
-                                    type="checkbox"
-                                    id="private"
-                                    checked={newRoom.isPrivate}
-                                    onChange={(e) => setNewRoom({...newRoom, isPrivate: e.target.checked})}
-                                    className="w-5 h-5 accent-black"
-                                />
-                                <label htmlFor="private" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                    <Lock size={16} className="text-gray-500" />
-                                    Private Room (invite only)
-                                </label>
-                            </div>
-                            
-                            <div className="flex gap-3 pt-4">
+                            <h3 className="text-xl font-black text-black text-center mb-2">
+                                Delete Room?
+                            </h3>
+                            <p className="text-gray-600 text-center mb-6 text-sm">
+                                This action cannot be undone. All participants will be removed.
+                            </p>
+                            <div className="flex gap-3">
                                 <button
-                                    type="button"
-                                    onClick={() => setShowCreateModal(false)}
+                                    onClick={() => setDeleteConfirm(null)}
                                     className="flex-1 py-3 border-2 border-gray-200 text-black rounded-xl font-bold hover:bg-gray-50 transition-all"
                                 >
                                     Cancel
                                 </button>
                                 <button
-                                    type="submit"
-                                    className="flex-1 py-3 bg-black text-white rounded-xl font-bold hover:scale-105 transition-all flex items-center justify-center gap-2"
+                                    onClick={() => deleteRoom(deleteConfirm)}
+                                    className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all"
                                 >
-                                    <Sparkles size={18} />
-                                    Create Room
+                                    Delete
                                 </button>
                             </div>
-                        </form>
-                    </motion.div>
-                </div>
-            )}
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
 
             {/* Rooms Grid */}
             {rooms.length > 0 ? (
@@ -448,6 +509,7 @@ const RoomsSection = () => {
                             key={room.id}
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
                             transition={{ delay: idx * 0.05 }}
                             whileHover={{ scale: 1.02 }}
                             className="bg-white border-2 border-gray-200 rounded-2xl p-6 hover:border-black hover:shadow-xl transition-all group relative overflow-hidden"
@@ -457,9 +519,23 @@ const RoomsSection = () => {
                             
                             {/* Content */}
                             <div className="relative z-10">
-                                {/* Icon */}
-                                <div className="w-16 h-16 bg-black rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                                    <Video size={32} className="text-white" />
+                                {/* Icon & Delete Button */}
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="w-16 h-16 bg-black rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                                        <Video size={32} className="text-white" />
+                                    </div>
+                                    {room.hostId === user?.uid && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setDeleteConfirm(room.id);
+                                            }}
+                                            className="p-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg transition-all"
+                                            title="Delete room"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    )}
                                 </div>
 
                                 {/* Room Info */}

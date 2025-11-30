@@ -1,4 +1,4 @@
-// src/services/gamificationService.js - ULTIMATE ENHANCED VERSION 🚀
+// src/services/gamificationService.js - FIXED VERSION 🚀
 import { 
     doc, 
     updateDoc, 
@@ -14,6 +14,7 @@ import {
     arrayUnion
 } from 'firebase/firestore';
 import { db } from '@config/firebase';
+
 
 // XP Rewards Configuration - ENHANCED
 const XP_REWARDS = {
@@ -39,6 +40,7 @@ const XP_REWARDS = {
     KNOWLEDGE_MASTER: 100,
 };
 
+
 // Daily action types (can only earn XP once per day)
 const DAILY_ACTIONS = {
     UPLOAD_DOCUMENT: 'upload_document',
@@ -50,10 +52,12 @@ const DAILY_ACTIONS = {
     DAILY_LOGIN: 'daily_login',
 };
 
+
 // Helper: Get today's date string
 const getTodayString = () => {
     return new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 };
+
 
 // Helper: Get start of day timestamp
 const getStartOfDay = () => {
@@ -61,6 +65,7 @@ const getStartOfDay = () => {
     start.setHours(0, 0, 0, 0);
     return start;
 };
+
 
 // ✅ FIXED: Get user's today's XP and actions
 export const getUserTodaysXP = async (userId) => {
@@ -105,6 +110,7 @@ export const getUserTodaysXP = async (userId) => {
     }
 };
 
+
 // Helper: Check if action was done today
 export const canAwardDailyXP = async (userId, actionType) => {
     try {
@@ -123,6 +129,7 @@ export const canAwardDailyXP = async (userId, actionType) => {
         return false;
     }
 };
+
 
 // Helper: Mark action as done today with XP
 const markActionDone = async (userId, actionType, xpAmount) => {
@@ -155,6 +162,7 @@ const markActionDone = async (userId, actionType, xpAmount) => {
         console.error('Error marking action:', error);
     }
 };
+
 
 // Award XP for daily actions (once per day only)
 export const awardDailyXP = async (userId, actionType, reason) => {
@@ -215,7 +223,8 @@ export const awardDailyXP = async (userId, actionType, reason) => {
     }
 };
 
-// Award XP (for actions that can be done multiple times)
+
+// ✅ FIXED: Award XP (for actions that can be done multiple times)
 export const awardXP = async (userId, xpAmount, reason) => {
     try {
         const userRef = doc(db, 'users', userId);
@@ -244,7 +253,10 @@ export const awardXP = async (userId, xpAmount, reason) => {
         const levelUp = newLevel > currentLevel;
         const levelsGained = newLevel - currentLevel;
         
-        // Update user with enhanced stats
+        // Create timestamp as Date object for arrayUnion
+        const now = new Date();
+        
+        // ✅ FIXED: Update user with enhanced stats
         await updateDoc(userRef, {
             xp: newXP,
             level: newLevel,
@@ -254,11 +266,13 @@ export const awardXP = async (userId, xpAmount, reason) => {
             lastXPReason: reason,
             lastXPAmount: xpAmount,
             lastXPTime: serverTimestamp(),
+            // ✅ FIXED: Use Date object instead of serverTimestamp in arrayUnion
             achievements: arrayUnion({
                 type: 'xp_earned',
                 amount: xpAmount,
                 reason: reason,
-                timestamp: serverTimestamp()
+                timestamp: now.toISOString(), // Use ISO string
+                date: now
             })
         });
         
@@ -291,6 +305,7 @@ export const awardXP = async (userId, xpAmount, reason) => {
         throw error;
     }
 };
+
 
 // Get user's comprehensive gamification profile
 export const getUserGamificationProfile = async (userId) => {
@@ -355,7 +370,8 @@ export const getUserGamificationProfile = async (userId) => {
     }
 };
 
-// Initialize user gamification data - ENHANCED
+
+// ✅ FIXED: Initialize user gamification data
 export const initializeGamification = async (userId) => {
     try {
         const gamificationRef = doc(db, 'gamification', userId);
@@ -379,7 +395,7 @@ export const initializeGamification = async (userId) => {
                 xpReward: 50,
                 icon: '🏆',
                 category: 'learning',
-                expiresAt: getEndOfDay()
+                expiresAt: getEndOfDay().toISOString() // ✅ FIXED: Convert to string
             },
             {
                 id: 'daily_study',
@@ -391,7 +407,7 @@ export const initializeGamification = async (userId) => {
                 xpReward: 40,
                 icon: '⏰',
                 category: 'productivity',
-                expiresAt: getEndOfDay()
+                expiresAt: getEndOfDay().toISOString() // ✅ FIXED
             },
             {
                 id: 'daily_upload',
@@ -403,7 +419,7 @@ export const initializeGamification = async (userId) => {
                 xpReward: 30,
                 icon: '📄',
                 category: 'content',
-                expiresAt: getEndOfDay()
+                expiresAt: getEndOfDay().toISOString() // ✅ FIXED
             },
             {
                 id: 'daily_ai_chat',
@@ -415,7 +431,7 @@ export const initializeGamification = async (userId) => {
                 xpReward: 25,
                 icon: '🤖',
                 category: 'assistance',
-                expiresAt: getEndOfDay()
+                expiresAt: getEndOfDay().toISOString() // ✅ FIXED
             }
         ];
         
@@ -431,7 +447,7 @@ export const initializeGamification = async (userId) => {
                 xpReward: 200,
                 icon: '🎯',
                 category: 'mastery',
-                expiresAt: getEndOfWeek()
+                expiresAt: getEndOfWeek().toISOString() // ✅ FIXED
             },
             {
                 id: 'weekly_rooms',
@@ -443,7 +459,7 @@ export const initializeGamification = async (userId) => {
                 xpReward: 150,
                 icon: '👥',
                 category: 'collaboration',
-                expiresAt: getEndOfWeek()
+                expiresAt: getEndOfWeek().toISOString() // ✅ FIXED
             },
             {
                 id: 'weekly_streak',
@@ -455,7 +471,7 @@ export const initializeGamification = async (userId) => {
                 xpReward: 300,
                 icon: '🔥',
                 category: 'consistency',
-                expiresAt: getEndOfWeek()
+                expiresAt: getEndOfWeek().toISOString() // ✅ FIXED
             }
         ];
         
@@ -533,6 +549,7 @@ export const initializeGamification = async (userId) => {
     }
 };
 
+
 // Enhanced mission progress tracking
 export const updateMission = async (userId, missionId, incrementBy = 1) => {
     try {
@@ -579,6 +596,7 @@ export const updateMission = async (userId, missionId, incrementBy = 1) => {
         console.error('Error updating mission:', error);
     }
 };
+
 
 // Enhanced streak tracking with bonus rewards
 export const updateStreak = async (userId) => {
@@ -642,7 +660,8 @@ export const updateStreak = async (userId) => {
     }
 };
 
-// Check and unlock achievements
+
+// ✅ FIXED: Check and unlock achievements
 const checkMissionAchievements = async (userId, missionId) => {
     try {
         const gamificationRef = doc(db, 'gamification', userId);
@@ -661,7 +680,7 @@ const checkMissionAchievements = async (userId, missionId) => {
         if (missionMasterAchievement && !missionMasterAchievement.unlocked) {
             if (completedMissions >= missionMasterAchievement.target) {
                 missionMasterAchievement.unlocked = true;
-                missionMasterAchievement.unlockedAt = serverTimestamp();
+                missionMasterAchievement.unlockedAt = new Date().toISOString(); // ✅ FIXED
                 
                 await awardXP(userId, missionMasterAchievement.xpReward, `Achievement: ${missionMasterAchievement.title}`);
                 
@@ -676,6 +695,7 @@ const checkMissionAchievements = async (userId, missionId) => {
         console.error('Error checking achievements:', error);
     }
 };
+
 
 // Get user's leaderboard position
 export const getLeaderboardPosition = async (userId) => {
@@ -714,6 +734,7 @@ export const getLeaderboardPosition = async (userId) => {
     }
 };
 
+
 // Reset daily missions (call via Cloud Function at midnight)
 export const resetDailyMissions = async (userId) => {
     try {
@@ -730,7 +751,7 @@ export const resetDailyMissions = async (userId) => {
                 return { 
                     ...mission, 
                     current: 0, 
-                    expiresAt: getEndOfDay(),
+                    expiresAt: getEndOfDay().toISOString(), // ✅ FIXED
                     lastReset: serverTimestamp()
                 };
             }
@@ -746,6 +767,7 @@ export const resetDailyMissions = async (userId) => {
     }
 };
 
+
 // Helper functions
 function getEndOfDay() {
     const end = new Date();
@@ -753,12 +775,14 @@ function getEndOfDay() {
     return end;
 }
 
+
 function getEndOfWeek() {
     const end = new Date();
     end.setDate(end.getDate() + (7 - end.getDay()));
     end.setHours(23, 59, 59, 999);
     return end;
 }
+
 
 function calculateDailyAverage(createdAt, totalXP) {
     if (!createdAt) return 0;
@@ -769,6 +793,7 @@ function calculateDailyAverage(createdAt, totalXP) {
     return Math.round(totalXP / daysSinceJoin);
 }
 
+
 function calculateRank(totalXP) {
     if (totalXP >= 5000) return 'Grand Master';
     if (totalXP >= 2000) return 'Master';
@@ -777,6 +802,7 @@ function calculateRank(totalXP) {
     if (totalXP >= 100) return 'Intermediate';
     return 'Beginner';
 }
+
 
 function calculatePercentile(totalXP) {
     // Simplified percentile calculation
@@ -787,5 +813,6 @@ function calculatePercentile(totalXP) {
     if (totalXP >= 100) return 25;
     return 10;
 }
+
 
 export { XP_REWARDS, DAILY_ACTIONS };
