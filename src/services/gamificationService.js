@@ -1,4 +1,4 @@
-// src/services/gamificationService.js - OPTIMIZED WITH DAILY XP LIMITS
+// src/services/gamificationService.js - ULTIMATE ENHANCED VERSION 🚀
 import { 
     doc, 
     updateDoc, 
@@ -10,26 +10,33 @@ import {
     query,
     where,
     getDocs,
-    writeBatch
+    writeBatch,
+    arrayUnion
 } from 'firebase/firestore';
 import { db } from '@config/firebase';
 
-// XP Rewards Configuration
+// XP Rewards Configuration - ENHANCED
 const XP_REWARDS = {
     // One-time per day actions
-    UPLOAD_DOCUMENT: 10,
-    STUDY_SESSION: 5,
-    USE_AI_CHAT: 3,
-    ADD_NOTES: 2,
-    JOIN_ROOM: 5,
-    CREATE_FLASHCARD: 5,
-    DAILY_LOGIN: 5,
-    STREAK_BONUS: 10,
+    UPLOAD_DOCUMENT: 15,
+    STUDY_SESSION: 8,
+    USE_AI_CHAT: 5,
+    ADD_NOTES: 3,
+    JOIN_ROOM: 8,
+    CREATE_FLASHCARD: 6,
+    DAILY_LOGIN: 10,
+    STREAK_BONUS: 15,
     
     // Multiple times actions
-    COMPLETE_QUIZ: 20,
-    CORRECT_ANSWER: 5,
-    COMPLETE_MISSION: 50,
+    COMPLETE_QUIZ: 25,
+    CORRECT_ANSWER: 8,
+    COMPLETE_MISSION: 75,
+    
+    // New enhanced rewards
+    PERFECT_QUIZ: 50,
+    FAST_LEARNER: 20,
+    CONSISTENT_LEARNER: 30,
+    KNOWLEDGE_MASTER: 100,
 };
 
 // Daily action types (can only earn XP once per day)
@@ -46,6 +53,56 @@ const DAILY_ACTIONS = {
 // Helper: Get today's date string
 const getTodayString = () => {
     return new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+};
+
+// Helper: Get start of day timestamp
+const getStartOfDay = () => {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    return start;
+};
+
+// ✅ FIXED: Get user's today's XP and actions
+export const getUserTodaysXP = async (userId) => {
+    try {
+        const today = getTodayString();
+        const dailyActionRef = doc(db, 'gamification', userId, 'dailyActions', today);
+        const dailyActionSnap = await getDoc(dailyActionRef);
+        
+        if (!dailyActionSnap.exists()) {
+            return { 
+                total: 0, 
+                usedAIChat: false,
+                actions: {},
+                dailyProgress: 0
+            };
+        }
+        
+        const actions = dailyActionSnap.data().actions || {};
+        let totalXP = 0;
+        
+        // Calculate total XP from today's actions
+        Object.values(actions).forEach(action => {
+            if (action.xp) {
+                totalXP += action.xp;
+            }
+        });
+        
+        return {
+            total: totalXP,
+            usedAIChat: !!actions[DAILY_ACTIONS.USE_AI_CHAT],
+            actions: actions,
+            dailyProgress: Math.min((totalXP / 100) * 100, 100) // Progress towards daily cap
+        };
+    } catch (error) {
+        console.error('Error getting today\'s XP:', error);
+        return { 
+            total: 0, 
+            usedAIChat: false,
+            actions: {},
+            dailyProgress: 0
+        };
+    }
 };
 
 // Helper: Check if action was done today
@@ -67,8 +124,8 @@ export const canAwardDailyXP = async (userId, actionType) => {
     }
 };
 
-// Helper: Mark action as done today
-const markActionDone = async (userId, actionType) => {
+// Helper: Mark action as done today with XP
+const markActionDone = async (userId, actionType, xpAmount) => {
     try {
         const today = getTodayString();
         const dailyActionRef = doc(db, 'gamification', userId, 'dailyActions', today);
@@ -77,9 +134,23 @@ const markActionDone = async (userId, actionType) => {
             date: today,
             [`actions.${actionType}`]: {
                 completed: true,
+                timestamp: serverTimestamp(),
+                xp: xpAmount,
+                type: actionType
+            },
+            lastUpdated: serverTimestamp()
+        }, { merge: true });
+        
+        // Update user's daily stats
+        const userStatsRef = doc(db, 'users', userId);
+        await updateDoc(userStatsRef, {
+            lastActivity: serverTimestamp(),
+            [`dailyStats.${today}.${actionType}`]: {
+                completed: true,
+                xp: xpAmount,
                 timestamp: serverTimestamp()
             }
-        }, { merge: true });
+        });
     } catch (error) {
         console.error('Error marking action:', error);
     }
@@ -95,31 +166,52 @@ export const awardDailyXP = async (userId, actionType, reason) => {
             return { 
                 success: false, 
                 message: 'Already earned XP for this action today!',
-                alreadyEarned: true 
+                alreadyEarned: true,
+                xpGained: 0
             };
         }
         
         // Get XP amount for this action
-        const xpAmount = XP_REWARDS[actionType.toUpperCase()] || 0;
+        const xpAmount = XP_REWARDS[actionType] || 0;
         
         if (xpAmount === 0) {
-            return { success: false, message: 'Invalid action type' };
+            return { 
+                success: false, 
+                message: 'Invalid action type',
+                xpGained: 0
+            };
+        }
+        
+        // Check daily XP cap (100 XP per day)
+        const todayXP = await getUserTodaysXP(userId);
+        if (todayXP.total + xpAmount > 100) {
+            return { 
+                success: false, 
+                message: 'Daily XP limit reached! Come back tomorrow.',
+                dailyLimitReached: true,
+                xpGained: 0
+            };
         }
         
         // Award XP
         const result = await awardXP(userId, xpAmount, reason);
         
         // Mark action as done today
-        await markActionDone(userId, actionType);
+        await markActionDone(userId, actionType, xpAmount);
         
         return { 
             success: true, 
             ...result,
-            message: `+${xpAmount} XP earned!` 
+            message: `+${xpAmount} XP earned!`,
+            dailyProgress: Math.min(((todayXP.total + xpAmount) / 100) * 100, 100)
         };
     } catch (error) {
         console.error('Error awarding daily XP:', error);
-        return { success: false, message: 'Failed to award XP' };
+        return { 
+            success: false, 
+            message: 'Failed to award XP',
+            xpGained: 0
+        };
     }
 };
 
@@ -139,36 +231,60 @@ export const awardXP = async (userId, xpAmount, reason) => {
         const currentLevel = userData.level || 1;
         const newXP = currentXP + xpAmount;
         
-        // Calculate level (100 XP per level)
-        const newLevel = Math.floor(newXP / 100) + 1;
-        const levelUp = newLevel > currentLevel;
+        // Enhanced level calculation (progressive: 100, 250, 500, 1000, ...)
+        const levelThresholds = [0, 100, 250, 500, 1000, 2000, 4000, 8000, 16000];
+        let newLevel = 1;
+        for (let i = levelThresholds.length - 1; i >= 0; i--) {
+            if (newXP >= levelThresholds[i]) {
+                newLevel = i + 1;
+                break;
+            }
+        }
         
-        // Update user
+        const levelUp = newLevel > currentLevel;
+        const levelsGained = newLevel - currentLevel;
+        
+        // Update user with enhanced stats
         await updateDoc(userRef, {
             xp: newXP,
             level: newLevel,
             levelUp: levelUp,
+            levelsGained: levelsGained,
+            totalXPEarned: increment(xpAmount),
             lastXPReason: reason,
             lastXPAmount: xpAmount,
-            lastXPTime: serverTimestamp()
+            lastXPTime: serverTimestamp(),
+            achievements: arrayUnion({
+                type: 'xp_earned',
+                amount: xpAmount,
+                reason: reason,
+                timestamp: serverTimestamp()
+            })
         });
         
         // Reset levelUp after animation
         if (levelUp) {
             setTimeout(async () => {
                 try {
-                    await updateDoc(userRef, { levelUp: false });
+                    await updateDoc(userRef, { 
+                        levelUp: false,
+                        levelsGained: 0 
+                    });
                 } catch (error) {
                     console.error('Error resetting levelUp:', error);
                 }
-            }, 3000);
+            }, 5000); // Longer celebration for multiple levels
         }
         
         return { 
             newXP, 
             newLevel, 
             levelUp,
-            xpGained: xpAmount 
+            levelsGained,
+            xpGained: xpAmount,
+            nextLevelXP: levelThresholds[newLevel] || levelThresholds[levelThresholds.length - 1],
+            progressToNextLevel: levelThresholds[newLevel] ? 
+                ((newXP - levelThresholds[newLevel - 1]) / (levelThresholds[newLevel] - levelThresholds[newLevel - 1])) * 100 : 0
         };
     } catch (error) {
         console.error('Error awarding XP:', error);
@@ -176,7 +292,70 @@ export const awardXP = async (userId, xpAmount, reason) => {
     }
 };
 
-// Initialize user gamification data
+// Get user's comprehensive gamification profile
+export const getUserGamificationProfile = async (userId) => {
+    try {
+        const [userSnap, gamificationSnap, todayXP] = await Promise.all([
+            getDoc(doc(db, 'users', userId)),
+            getDoc(doc(db, 'gamification', userId)),
+            getUserTodaysXP(userId)
+        ]);
+        
+        if (!userSnap.exists()) {
+            await initializeGamification(userId);
+            return getUserGamificationProfile(userId); // Retry after initialization
+        }
+        
+        const userData = userSnap.data();
+        const gamificationData = gamificationSnap.exists() ? gamificationSnap.data() : {};
+        
+        // Calculate level progress
+        const levelThresholds = [0, 100, 250, 500, 1000, 2000, 4000, 8000, 16000];
+        const currentLevel = userData.level || 1;
+        const currentXP = userData.xp || 0;
+        const nextLevelXP = levelThresholds[currentLevel] || levelThresholds[levelThresholds.length - 1];
+        const previousLevelXP = levelThresholds[currentLevel - 1] || 0;
+        const progressToNextLevel = nextLevelXP ? 
+            ((currentXP - previousLevelXP) / (nextLevelXP - previousLevelXP)) * 100 : 100;
+        
+        return {
+            user: {
+                xp: currentXP,
+                level: currentLevel,
+                streak: userData.streak || 0,
+                totalQuizzes: userData.totalQuizzes || 0,
+                totalStudyTime: userData.totalStudyTime || 0,
+                levelUp: userData.levelUp || false,
+                levelsGained: userData.levelsGained || 0,
+                lastXPReason: userData.lastXPReason,
+                lastXPAmount: userData.lastXPAmount
+            },
+            gamification: {
+                missions: gamificationData.missions || [],
+                achievements: gamificationData.achievements || [],
+                lastLoginDate: gamificationData.lastLoginDate
+            },
+            today: todayXP,
+            progress: {
+                toNextLevel: progressToNextLevel,
+                nextLevelXP: nextLevelXP,
+                currentLevelXP: previousLevelXP,
+                remainingXP: nextLevelXP - currentXP
+            },
+            stats: {
+                totalXPEarned: userData.totalXPEarned || 0,
+                dailyAverage: calculateDailyAverage(userData.createdAt, currentXP),
+                rank: calculateRank(currentXP),
+                percentile: calculatePercentile(currentXP)
+            }
+        };
+    } catch (error) {
+        console.error('Error getting gamification profile:', error);
+        return null;
+    }
+};
+
+// Initialize user gamification data - ENHANCED
 export const initializeGamification = async (userId) => {
     try {
         const gamificationRef = doc(db, 'gamification', userId);
@@ -188,7 +367,7 @@ export const initializeGamification = async (userId) => {
             return; // Already initialized
         }
         
-        // Daily missions
+        // Enhanced daily missions
         const dailyMissions = [
             {
                 id: 'daily_quiz',
@@ -198,6 +377,8 @@ export const initializeGamification = async (userId) => {
                 target: 3,
                 current: 0,
                 xpReward: 50,
+                icon: '🏆',
+                category: 'learning',
                 expiresAt: getEndOfDay()
             },
             {
@@ -208,6 +389,8 @@ export const initializeGamification = async (userId) => {
                 target: 30,
                 current: 0,
                 xpReward: 40,
+                icon: '⏰',
+                category: 'productivity',
                 expiresAt: getEndOfDay()
             },
             {
@@ -218,11 +401,25 @@ export const initializeGamification = async (userId) => {
                 target: 1,
                 current: 0,
                 xpReward: 30,
+                icon: '📄',
+                category: 'content',
+                expiresAt: getEndOfDay()
+            },
+            {
+                id: 'daily_ai_chat',
+                type: 'daily',
+                title: 'Use AI Assistant',
+                description: 'Ask Gloqe for help',
+                target: 1,
+                current: 0,
+                xpReward: 25,
+                icon: '🤖',
+                category: 'assistance',
                 expiresAt: getEndOfDay()
             }
         ];
         
-        // Weekly missions
+        // Enhanced weekly missions
         const weeklyMissions = [
             {
                 id: 'weekly_quizzes',
@@ -232,6 +429,8 @@ export const initializeGamification = async (userId) => {
                 target: 15,
                 current: 0,
                 xpReward: 200,
+                icon: '🎯',
+                category: 'mastery',
                 expiresAt: getEndOfWeek()
             },
             {
@@ -242,7 +441,58 @@ export const initializeGamification = async (userId) => {
                 target: 5,
                 current: 0,
                 xpReward: 150,
+                icon: '👥',
+                category: 'collaboration',
                 expiresAt: getEndOfWeek()
+            },
+            {
+                id: 'weekly_streak',
+                type: 'weekly',
+                title: 'Maintain 5-day Streak',
+                description: 'Stay consistent',
+                target: 5,
+                current: 0,
+                xpReward: 300,
+                icon: '🔥',
+                category: 'consistency',
+                expiresAt: getEndOfWeek()
+            }
+        ];
+        
+        // Initial achievements
+        const initialAchievements = [
+            {
+                id: 'first_quiz',
+                title: 'First Quiz',
+                description: 'Complete your first quiz',
+                icon: '🎓',
+                xpReward: 50,
+                unlocked: false,
+                progress: 0,
+                target: 1,
+                category: 'learning'
+            },
+            {
+                id: 'study_enthusiast',
+                title: 'Study Enthusiast',
+                description: 'Study for 100 minutes',
+                icon: '📚',
+                xpReward: 100,
+                unlocked: false,
+                progress: 0,
+                target: 100,
+                category: 'dedication'
+            },
+            {
+                id: 'ai_explorer',
+                title: 'AI Explorer',
+                description: 'Use AI chat 5 times',
+                icon: '🤖',
+                xpReward: 75,
+                unlocked: false,
+                progress: 0,
+                target: 5,
+                category: 'assistance'
             }
         ];
         
@@ -251,9 +501,12 @@ export const initializeGamification = async (userId) => {
         
         batch.set(gamificationRef, {
             missions: [...dailyMissions, ...weeklyMissions],
-            achievements: [],
+            achievements: initialAchievements,
             lastLoginDate: getTodayString(),
-            createdAt: serverTimestamp()
+            totalMissionsCompleted: 0,
+            totalAchievementsUnlocked: 0,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
         }, { merge: true });
         
         batch.set(userRef, {
@@ -262,8 +515,13 @@ export const initializeGamification = async (userId) => {
             streak: 0,
             totalQuizzes: 0,
             totalStudyTime: 0,
+            totalXPEarned: 0,
             levelUp: false,
-            createdAt: serverTimestamp()
+            levelsGained: 0,
+            dailyStats: {},
+            weeklyStats: {},
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
         }, { merge: true });
         
         await batch.commit();
@@ -275,7 +533,7 @@ export const initializeGamification = async (userId) => {
     }
 };
 
-// Update mission progress
+// Enhanced mission progress tracking
 export const updateMission = async (userId, missionId, incrementBy = 1) => {
     try {
         const gamificationRef = doc(db, 'gamification', userId);
@@ -296,20 +554,33 @@ export const updateMission = async (userId, missionId, incrementBy = 1) => {
             const newCurrent = Math.min(mission.current + incrementBy, mission.target);
             
             missions[missionIndex].current = newCurrent;
+            missions[missionIndex].lastUpdated = serverTimestamp();
             
             // Check if mission just completed
             if (newCurrent === mission.target && previousCurrent !== mission.target) {
-                await awardXP(userId, mission.xpReward, `Completed: ${mission.title}`);
+                await awardXP(userId, mission.xpReward, `Mission: ${mission.title}`);
+                
+                // Update mission completion stats
+                await updateDoc(gamificationRef, {
+                    totalMissionsCompleted: increment(1),
+                    lastMissionCompleted: serverTimestamp()
+                });
+                
+                // Check for mission-related achievements
+                await checkMissionAchievements(userId, missionId);
             }
             
-            await updateDoc(gamificationRef, { missions });
+            await updateDoc(gamificationRef, { 
+                missions,
+                updatedAt: serverTimestamp()
+            });
         }
     } catch (error) {
         console.error('Error updating mission:', error);
     }
 };
 
-// Update daily streak
+// Enhanced streak tracking with bonus rewards
 export const updateStreak = async (userId) => {
     try {
         const userRef = doc(db, 'users', userId);
@@ -337,23 +608,109 @@ export const updateStreak = async (userId) => {
             
             const newStreak = isConsecutive ? (userData?.streak || 0) + 1 : 1;
             
+            // Calculate streak bonus (increases every 7 days)
+            const streakBonus = XP_REWARDS.STREAK_BONUS * Math.floor(newStreak / 7 + 1);
+            
             // Use batch for efficiency
             const batch = writeBatch(db);
-            batch.update(userRef, { streak: newStreak });
-            batch.update(gamificationRef, { lastLoginDate: today });
+            batch.update(userRef, { 
+                streak: newStreak,
+                lastStreakUpdate: serverTimestamp()
+            });
+            batch.update(gamificationRef, { 
+                lastLoginDate: today,
+                currentStreak: newStreak
+            });
             await batch.commit();
             
-            // Award streak bonus
+            // Award streak bonus and daily login
             if (newStreak > 0) {
                 await awardXP(
                     userId, 
-                    XP_REWARDS.STREAK_BONUS * newStreak, 
+                    streakBonus, 
                     `${newStreak}-day streak! 🔥`
                 );
             }
+            
+            // Award daily login XP
+            await awardDailyXP(userId, DAILY_ACTIONS.DAILY_LOGIN, 'Daily login');
+            
+            console.log(`✅ Streak updated: ${newStreak} days, Bonus: ${streakBonus} XP`);
         }
     } catch (error) {
         console.error('Error updating streak:', error);
+    }
+};
+
+// Check and unlock achievements
+const checkMissionAchievements = async (userId, missionId) => {
+    try {
+        const gamificationRef = doc(db, 'gamification', userId);
+        const gamificationSnap = await getDoc(gamificationRef);
+        
+        if (!gamificationSnap.exists()) return;
+        
+        const data = gamificationSnap.data();
+        const achievements = data.achievements || [];
+        const missions = data.missions || [];
+        
+        // Example: Check for mission master achievement
+        const completedMissions = missions.filter(m => m.current >= m.target).length;
+        const missionMasterAchievement = achievements.find(a => a.id === 'mission_master');
+        
+        if (missionMasterAchievement && !missionMasterAchievement.unlocked) {
+            if (completedMissions >= missionMasterAchievement.target) {
+                missionMasterAchievement.unlocked = true;
+                missionMasterAchievement.unlockedAt = serverTimestamp();
+                
+                await awardXP(userId, missionMasterAchievement.xpReward, `Achievement: ${missionMasterAchievement.title}`);
+                
+                await updateDoc(gamificationRef, {
+                    achievements: achievements,
+                    totalAchievementsUnlocked: increment(1),
+                    lastAchievementUnlocked: serverTimestamp()
+                });
+            }
+        }
+    } catch (error) {
+        console.error('Error checking achievements:', error);
+    }
+};
+
+// Get user's leaderboard position
+export const getLeaderboardPosition = async (userId) => {
+    try {
+        const usersRef = collection(db, 'users');
+        const usersSnap = await getDocs(usersRef);
+        
+        const users = [];
+        usersSnap.forEach(doc => {
+            const data = doc.data();
+            if (data.xp) {
+                users.push({
+                    id: doc.id,
+                    xp: data.xp,
+                    level: data.level,
+                    streak: data.streak
+                });
+            }
+        });
+        
+        // Sort by XP
+        users.sort((a, b) => b.xp - a.xp);
+        
+        const userIndex = users.findIndex(user => user.id === userId);
+        const totalUsers = users.length;
+        
+        return {
+            rank: userIndex + 1,
+            totalUsers: totalUsers,
+            percentile: totalUsers > 0 ? Math.round(((totalUsers - userIndex) / totalUsers) * 100) : 0,
+            topUsers: users.slice(0, 10) // Top 10 users
+        };
+    } catch (error) {
+        console.error('Error getting leaderboard:', error);
+        return null;
     }
 };
 
@@ -373,33 +730,19 @@ export const resetDailyMissions = async (userId) => {
                 return { 
                     ...mission, 
                     current: 0, 
-                    expiresAt: getEndOfDay() 
+                    expiresAt: getEndOfDay(),
+                    lastReset: serverTimestamp()
                 };
             }
             return mission;
         });
         
-        await updateDoc(gamificationRef, { missions: updatedMissions });
+        await updateDoc(gamificationRef, { 
+            missions: updatedMissions,
+            dailyResetAt: serverTimestamp()
+        });
     } catch (error) {
         console.error('Error resetting daily missions:', error);
-    }
-};
-
-// Get user's gamification stats
-export const getGamificationStats = async (userId) => {
-    try {
-        const [userSnap, gamificationSnap] = await Promise.all([
-            getDoc(doc(db, 'users', userId)),
-            getDoc(doc(db, 'gamification', userId))
-        ]);
-        
-        return {
-            user: userSnap.exists() ? userSnap.data() : null,
-            gamification: gamificationSnap.exists() ? gamificationSnap.data() : null
-        };
-    } catch (error) {
-        console.error('Error getting gamification stats:', error);
-        return null;
     }
 };
 
@@ -415,6 +758,34 @@ function getEndOfWeek() {
     end.setDate(end.getDate() + (7 - end.getDay()));
     end.setHours(23, 59, 59, 999);
     return end;
+}
+
+function calculateDailyAverage(createdAt, totalXP) {
+    if (!createdAt) return 0;
+    
+    const createdDate = createdAt.toDate ? createdAt.toDate() : new Date(createdAt);
+    const daysSinceJoin = Math.max(1, Math.floor((Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24)));
+    
+    return Math.round(totalXP / daysSinceJoin);
+}
+
+function calculateRank(totalXP) {
+    if (totalXP >= 5000) return 'Grand Master';
+    if (totalXP >= 2000) return 'Master';
+    if (totalXP >= 1000) return 'Expert';
+    if (totalXP >= 500) return 'Advanced';
+    if (totalXP >= 100) return 'Intermediate';
+    return 'Beginner';
+}
+
+function calculatePercentile(totalXP) {
+    // Simplified percentile calculation
+    if (totalXP >= 5000) return 95;
+    if (totalXP >= 2000) return 85;
+    if (totalXP >= 1000) return 70;
+    if (totalXP >= 500) return 50;
+    if (totalXP >= 100) return 25;
+    return 10;
 }
 
 export { XP_REWARDS, DAILY_ACTIONS };
