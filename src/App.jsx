@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from '@contexts/AuthContext';
-import { ClassProvider } from '@contexts/ClassContext'; // <--- IMPORTED HERE
+import { ClassProvider } from '@contexts/ClassContext';
 
 // Auth & Landing
 import AuthPage from './pages/auth/AuthPage';
@@ -28,38 +28,28 @@ import ClassManagement from './pages/teacher/ClassManagement';
 const ProtectedRoute = ({ children, teacherOnly = false }) => {
     const { user, userData, loading } = useAuth();
 
-    console.log('🛡️ ProtectedRoute:', {
-        hasUser: !!user,
-        role: userData?.role,
-        teacherOnly,
-        loading
-    });
-
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-black text-white">
+            <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
                 <div className="flex flex-col items-center gap-4">
-                    <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin" />
-                    <p className="text-sm">Loading...</p>
+                    <div className="w-16 h-16 border-4 border-gray-300 border-t-gray-700 rounded-full animate-spin" />
+                    <p className="text-sm text-gray-600 font-semibold">Loading...</p>
                 </div>
             </div>
         );
     }
 
     if (!user) {
-        console.log('❌ No user, redirecting to /auth');
         return <Navigate to="/auth" replace />;
     }
 
     if (teacherOnly && userData?.role !== 'teacher') {
-        console.log('❌ Teacher-only route, but user is student');
         return <Navigate to="/dashboard" replace />;
     }
 
     if (!teacherOnly && userData?.role === 'teacher') {
         const currentPath = window.location.pathname;
         if (currentPath === '/dashboard' || currentPath.startsWith('/classes')) {
-            console.log('🔀 Redirecting teacher to teacher dashboard');
             return <Navigate to="/teacher/dashboard" replace />;
         }
     }
@@ -70,14 +60,12 @@ const ProtectedRoute = ({ children, teacherOnly = false }) => {
 const PublicRoute = ({ children }) => {
     const { user, userData, loading } = useAuth();
 
-    console.log('🌐 PublicRoute:', { hasUser: !!user, role: userData?.role, loading });
-
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-black text-white">
+            <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
                 <div className="flex flex-col items-center gap-4">
-                    <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin" />
-                    <p className="text-sm">Loading...</p>
+                    <div className="w-16 h-16 border-4 border-gray-300 border-t-gray-700 rounded-full animate-spin" />
+                    <p className="text-sm text-gray-600 font-semibold">Loading...</p>
                 </div>
             </div>
         );
@@ -85,10 +73,8 @@ const PublicRoute = ({ children }) => {
 
     if (user) {
         if (userData?.role === 'teacher') {
-            console.log('🔀 Teacher logged in, redirecting to teacher dashboard');
             return <Navigate to="/teacher/dashboard" replace />;
         }
-        console.log('🔀 Student logged in, redirecting to dashboard');
         return <Navigate to="/dashboard" replace />;
     }
 
@@ -98,7 +84,6 @@ const PublicRoute = ({ children }) => {
 function App() {
     return (
         <AuthProvider>
-            {/* ClassProvider must be INSIDE AuthProvider so it can access the user */}
             <ClassProvider>
                 <Router>
                     <Toaster
@@ -106,13 +91,16 @@ function App() {
                         toastOptions={{
                             duration: 3000,
                             style: {
-                                background: '#000',
-                                color: '#fff',
+                                background: 'rgba(255, 255, 255, 0.95)',
+                                color: '#1f2937',
+                                border: '1px solid #e5e7eb',
+                                backdropFilter: 'blur(10px)',
+                                fontWeight: '600'
                             },
                             success: {
                                 iconTheme: {
-                                    primary: '#fff',
-                                    secondary: '#000',
+                                    primary: '#374151',
+                                    secondary: '#fff',
                                 },
                             },
                         }}
@@ -125,8 +113,6 @@ function App() {
 
                         {/* STUDENT ROUTES */}
                         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-
-                        {/* Redirect /hub to dashboard */}
                         <Route path="/hub" element={<Navigate to="/dashboard" replace />} />
 
                         {/* Classes */}
@@ -138,15 +124,16 @@ function App() {
                         <Route path="/documents" element={<Navigate to="/dashboard?tab=documents" replace />} />
                         <Route path="/documents/:docId" element={<ProtectedRoute><PDFReader /></ProtectedRoute>} />
 
-                        {/* STUDY SESSION (PDF → Text Study Mode) */}
+                        {/* STUDY SESSION - ✅ This route is correct */}
                         <Route path="/study/:docId" element={<ProtectedRoute><StudySession /></ProtectedRoute>} />
 
-                        {/* STUDY ROOM (WebRTC Video/Audio Collaboration) */}
+                        {/* STUDY ROOM (WebRTC) */}
                         <Route path="/study-room/:roomId" element={<ProtectedRoute><StudyRoom /></ProtectedRoute>} />
 
                         {/* Quizzes */}
                         <Route path="/quizzes" element={<Navigate to="/dashboard?tab=quizzes" replace />} />
                         <Route path="/quizzes/:quizId" element={<ProtectedRoute><QuizPage /></ProtectedRoute>} />
+                        <Route path="/quiz" element={<Navigate to="/dashboard?tab=quizzes" replace />} />
                         <Route path="/results/:sessionId" element={<ProtectedRoute><QuizResults /></ProtectedRoute>} />
 
                         {/* Learning Tools */}
@@ -178,16 +165,16 @@ function App() {
 }
 
 const ComingSoon = ({ page }) => (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex items-center justify-center p-4">
         <div className="text-center max-w-md">
             <div className="text-6xl mb-6">🚀</div>
-            <h1 className="text-4xl font-black text-black mb-4">{page}</h1>
-            <p className="text-gray-600 mb-8">
+            <h1 className="text-4xl font-black text-gray-900 mb-4">{page}</h1>
+            <p className="text-gray-600 mb-8 font-medium">
                 This feature is under development and will be available soon!
             </p>
             <a
                 href="/dashboard"
-                className="inline-block px-6 py-3 bg-black text-white rounded-xl font-bold hover:scale-105 transition-all"
+                className="inline-block px-6 py-3 bg-gradient-to-r from-gray-800 to-gray-700 text-white rounded-xl font-bold hover:scale-105 transition-all shadow-xl"
             >
                 ← Back to Dashboard
             </a>

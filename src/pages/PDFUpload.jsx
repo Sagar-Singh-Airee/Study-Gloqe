@@ -1,28 +1,32 @@
-// src/pages/PDFUpload.jsx - FIXED VERSION (Navigates to study session)
-import { useState, useCallback } from 'react';
+// src/pages/PDFUpload.jsx - UPDATED WITH DEBUG LOGGING
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, X, Sparkles, CheckCircle2, AlertCircle, Zap, Shield, Cloud, TrendingUp, Award } from 'lucide-react';
+import { Upload, FileText, X, CheckCircle2, AlertCircle, Zap, Shield, Cloud, Award, BookOpen, Play, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { uploadDocument } from '@/services/documentService';
 import { awardDailyXP, updateMission, DAILY_ACTIONS, XP_REWARDS } from '@/services/gamificationService';
 import toast from 'react-hot-toast';
 
-// Premium Glassmorphic Toast
+// Premium Toast Component
 const CustomToast = ({ message, type, icon: Icon }) => (
-  <div className={`
-    flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl backdrop-blur-2xl border
-    ${type === 'success' 
-      ? 'bg-white/5 border-blue-400/40' 
+  <div className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl backdrop-blur-2xl border ${
+    type === 'success' 
+      ? 'bg-white/90 border-gray-300' 
       : type === 'error'
-      ? 'bg-white/5 border-red-400/40'
-      : 'bg-white/5 border-blue-300/40'
-    }
-  `}>
-    <div className={`p-2 rounded-xl backdrop-blur-xl ${type === 'success' ? 'bg-blue-500/20' : type === 'error' ? 'bg-red-500/20' : 'bg-blue-400/20'}`}>
-      <Icon size={18} className={`${type === 'success' ? 'text-blue-400' : type === 'error' ? 'text-red-400' : 'text-blue-300'}`} />
+      ? 'bg-red-50/90 border-red-300'
+      : 'bg-white/90 border-gray-300'
+  }`}>
+    <div className={`p-2 rounded-xl ${
+      type === 'success' ? 'bg-gray-100' : type === 'error' ? 'bg-red-100' : 'bg-gray-100'
+    }`}>
+      <Icon size={18} className={`${
+        type === 'success' ? 'text-gray-700' : type === 'error' ? 'text-red-600' : 'text-gray-600'
+      }`} />
     </div>
-    <p className="text-white text-sm font-medium tracking-wide">{message}</p>
+    <p className={`text-sm font-semibold ${
+      type === 'success' ? 'text-gray-900' : type === 'error' ? 'text-red-900' : 'text-gray-800'
+    }`}>{message}</p>
   </div>
 );
 
@@ -40,6 +44,25 @@ const PDFUpload = () => {
     });
   }, []);
 
+  // Check daily XP status
+  useEffect(() => {
+    const checkDailyXP = async () => {
+      if (!user?.uid) return;
+      try {
+        const { doc, getDoc } = await import('firebase/firestore');
+        const { db } = await import('@/config/firebase');
+        const today = new Date().toISOString().split('T')[0];
+        const userRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userRef);
+        const lastUploadDate = userDoc.data()?.lastUploadXPDate;
+        setXpEarnedToday(lastUploadDate === today);
+      } catch (error) {
+        console.error('Error checking daily XP:', error);
+      }
+    };
+    checkDailyXP();
+  }, [user?.uid]);
+
   const onDrop = useCallback((acceptedFiles, rejectedFiles) => {
     if (rejectedFiles.length > 0) {
       rejectedFiles.forEach(rejection => {
@@ -52,7 +75,8 @@ const PDFUpload = () => {
       id: Math.random().toString(36).substring(2, 11),
       status: 'pending',
       docId: null,
-      error: null
+      error: null,
+      subject: null
     }));
     setFiles(prev => [...prev, ...newFiles]);
   }, [showToast]);
@@ -80,7 +104,6 @@ const PDFUpload = () => {
     }
 
     setUploading(true);
-    let lastDocId = null;
     let uploadCount = 0;
     let xpAwarded = false;
 
@@ -88,44 +111,54 @@ const PDFUpload = () => {
       if (fileObj.status !== 'pending') continue;
       
       try {
-        // Update status to uploading
         setFiles(prev => prev.map(f => 
           f.id === fileObj.id ? { ...f, status: 'uploading' } : f
         ));
         
-        // ✅ uploadDocument handles EVERYTHING:
-        // - Text extraction
-        // - AI subject detection  
-        // - Firebase Storage upload
-        // - Firestore metadata save
-        // - User stats update
-        const docId = await uploadDocument(fileObj.file, user.uid, {
+        console.log('📤 Uploading file:', fileObj.file.name);
+        
+        const result = await uploadDocument(fileObj.file, user.uid, {
           title: fileObj.file.name.replace('.pdf', '')
         });
         
-        lastDocId = docId;
+        // ✅ DEBUG LOGGING
+        console.log('📄 Upload result:', result);
+        console.log('📄 Document ID:', result?.docId);
+        console.log('📄 Subject:', result?.subject);
+
+        // ✅ Validate result
+        if (!result || !result.docId) {
+          throw new Error('Upload failed: No document ID returned');
+        }
+        
         uploadCount++;
         
-        // Mark as completed
         setFiles(prev => prev.map(f => 
-          f.id === fileObj.id ? { ...f, status: 'completed', docId } : f
+          f.id === fileObj.id ? { 
+            ...f, 
+            status: 'completed', 
+            docId: result.docId, // ✅ Use result.docId
+            subject: result.subject || 'General Studies'
+          } : f
         ));
 
-        // ✅ AWARD XP ONLY ONCE PER DAY
+        console.log('✅ File uploaded successfully:', result.docId);
+
+        // Award XP
         if (!xpAwarded && !xpEarnedToday) {
           try {
-            const result = await awardDailyXP(
+            const xpResult = await awardDailyXP(
               user.uid, 
               DAILY_ACTIONS.UPLOAD_DOCUMENT, 
               'Uploaded PDF Document'
             );
             
-            if (result.success) {
+            if (xpResult.success) {
               xpAwarded = true;
               setXpEarnedToday(true);
-              showToast(`🎉 +${result.xpGained} XP for uploading!`, 'success', Zap);
+              showToast(`+${xpResult.xpGained} XP earned!`, 'success', Zap);
               await updateMission(user.uid, 'daily_upload');
-            } else if (result.alreadyEarned) {
+            } else if (xpResult.alreadyEarned) {
               setXpEarnedToday(true);
             }
           } catch (error) {
@@ -134,7 +167,7 @@ const PDFUpload = () => {
         }
         
       } catch (error) {
-        console.error('Upload error:', error);
+        console.error('❌ Upload error:', error);
         setFiles(prev => prev.map(f => 
           f.id === fileObj.id ? { ...f, status: 'error', error: error.message } : f
         ));
@@ -145,81 +178,63 @@ const PDFUpload = () => {
     setUploading(false);
     
     if (uploadCount > 0) {
-      const xpMessage = xpAwarded 
-        ? `🚀 ${uploadCount} file(s) uploaded! +${XP_REWARDS.UPLOAD_DOCUMENT} XP earned!`
-        : xpEarnedToday
-        ? `🚀 ${uploadCount} file(s) uploaded!`
-        : `🚀 ${uploadCount} file(s) uploaded!`;
-      
-      showToast(xpMessage, 'success', Award);
-      
-      // ✅ FIXED: Navigate directly to study session
-      if (lastDocId) {
-        setTimeout(() => { 
-          navigate(`/study/${lastDocId}`);
-        }, 1500);
-      }
+      showToast(`${uploadCount} file(s) uploaded successfully!`, 'success', CheckCircle2);
     }
   };
 
   const getStatusIcon = (status) => {
     switch (status) {
       case 'completed':
-        return <CheckCircle2 className="text-blue-400" size={16} />;
+        return <CheckCircle2 className="text-gray-700" size={16} />;
       case 'error':
-        return <AlertCircle className="text-red-400" size={16} />;
+        return <AlertCircle className="text-red-600" size={16} />;
       case 'uploading':
-        return <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>;
+        return <div className="w-4 h-4 border-2 border-gray-700 border-t-transparent rounded-full animate-spin"></div>;
       default:
         return <FileText className="text-gray-500" size={16} />;
     }
   };
 
   const pendingFilesCount = files.filter(f => f.status === 'pending').length;
+  const completedFilesCount = files.filter(f => f.status === 'completed').length;
+  const completedFiles = files.filter(f => f.status === 'completed');
 
   return (
-    <div className="min-h-screen bg-black relative overflow-hidden">
-      {/* Subtle Background Gradients */}
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl"></div>
-      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-gray-800/10 rounded-full blur-3xl"></div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 relative overflow-hidden">
+      {/* Subtle glassmorphic background */}
+      <div className="absolute top-20 left-20 w-96 h-96 bg-gradient-to-br from-gray-200/30 to-transparent rounded-full blur-3xl" />
+      <div className="absolute bottom-20 right-20 w-96 h-96 bg-gradient-to-br from-gray-300/20 to-transparent rounded-full blur-3xl" />
       
       {/* Main Container */}
       <div className="relative z-10 max-w-7xl mx-auto px-6 py-10 md:py-12">
         
-        {/* Premium Header Section */}
+        {/* Premium Header */}
         <div className="text-center mb-12 space-y-4">
           {/* Trust Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-blue-500/30 backdrop-blur-2xl">
-            <Shield size={14} className="text-blue-400" />
-            <span className="text-[10px] text-gray-300 font-bold tracking-[0.15em] uppercase">AI-Powered • Auto-Categorized</span>
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/80 backdrop-blur-2xl border border-gray-200 shadow-lg">
+            <Shield size={14} className="text-gray-700" />
+            <span className="text-[10px] text-gray-700 font-bold tracking-[0.15em] uppercase">AI-Powered • Secure</span>
           </div>
           
           {/* Main Heading */}
           <div className="space-y-2">
-            <h1 className="text-4xl md:text-5xl font-black tracking-tight">
-              <span className="text-white">Transform Your</span>
-              <br />
-              <span className="bg-gradient-to-r from-blue-400 via-blue-300 to-gray-400 bg-clip-text text-transparent">Learning Journey</span>
+            <h1 className="text-4xl md:text-5xl font-black tracking-tight text-gray-900">
+              Upload & Organize
             </h1>
-            <p className="text-gray-400 text-sm md:text-base max-w-xl mx-auto leading-relaxed">
-              Upload PDFs • AI detects subject • Auto-organizes • Instant study sessions
+            <p className="text-gray-600 text-sm md:text-base max-w-xl mx-auto leading-relaxed font-medium">
+              AI automatically categorizes your documents by subject
             </p>
           </div>
 
-          {/* XP Earning Banner */}
-          <div className={`inline-flex items-center gap-2 px-6 py-3 rounded-full border backdrop-blur-2xl ${
-            xpEarnedToday 
-              ? 'bg-gradient-to-r from-gray-500/10 to-gray-600/10 border-gray-500/30' 
-              : 'bg-gradient-to-r from-green-500/10 to-blue-500/10 border-green-500/30'
-          }`}>
-            <Zap size={16} className={xpEarnedToday ? 'text-gray-400' : 'text-green-400'} fill="currentColor" />
-            <span className={`text-sm font-bold ${xpEarnedToday ? 'text-gray-400' : 'text-white'}`}>
-              {xpEarnedToday 
-                ? `✓ Daily XP earned (+${XP_REWARDS.UPLOAD_DOCUMENT} XP)` 
-                : `Earn +${XP_REWARDS.UPLOAD_DOCUMENT} XP today!`
-              }
-            </span>
-          </div>
+          {/* XP Banner */}
+          {!xpEarnedToday && (
+            <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-gray-100 to-white backdrop-blur-2xl border border-gray-300 shadow-lg">
+              <Zap size={16} className="text-gray-700" fill="currentColor" />
+              <span className="text-sm font-bold text-gray-900">
+                Earn +{XP_REWARDS.UPLOAD_DOCUMENT} XP for your first upload today
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Main Content Grid */}
@@ -229,44 +244,40 @@ const PDFUpload = () => {
           <div className="lg:col-span-7">
             <div
               {...getRootProps()}
-              className={`
-                relative cursor-pointer group
-                rounded-3xl p-10 md:p-12
-                border-2 border-dashed transition-all duration-500
-                backdrop-blur-3xl
+              className={`relative cursor-pointer group rounded-3xl p-10 md:p-12
+                border-2 border-dashed transition-all duration-500 backdrop-blur-2xl
                 ${isDragActive
-                  ? 'border-blue-400 bg-white/10 shadow-2xl shadow-blue-500/20'
-                  : 'border-gray-700/60 bg-white/5 hover:bg-white/8 hover:border-blue-500/40 hover:shadow-xl hover:shadow-blue-500/10'
-                }
-              `}
+                  ? 'border-gray-400 bg-white/90 shadow-2xl'
+                  : 'border-gray-300 bg-white/70 hover:bg-white/90 hover:border-gray-400 hover:shadow-xl'
+                }`}
             >
               <input {...getInputProps()} />
               
-              <div className="w-24 h-24 mx-auto mb-8 rounded-2xl bg-gradient-to-br from-blue-500/90 via-blue-600/90 to-blue-700/90 backdrop-blur-xl flex items-center justify-center shadow-2xl shadow-blue-500/30 relative overflow-hidden border border-white/10">
+              <div className="w-24 h-24 mx-auto mb-8 rounded-2xl bg-gradient-to-br from-gray-700 via-gray-600 to-gray-800 flex items-center justify-center shadow-2xl relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-t from-transparent via-white/5 to-white/10"></div>
                 <Cloud size={48} className="text-white relative z-10" strokeWidth={1.5} />
               </div>
 
               <div className="text-center space-y-3">
-                <h2 className="text-2xl md:text-3xl font-black text-white">
+                <h2 className="text-2xl md:text-3xl font-black text-gray-900">
                   {isDragActive ? 'Drop Your Files' : 'Upload Documents'}
                 </h2>
-                <p className="text-gray-400 text-sm md:text-base">
+                <p className="text-gray-600 text-sm md:text-base font-medium">
                   Drag & drop PDFs here, or{' '}
-                  <span className="text-blue-400 font-semibold cursor-pointer hover:text-blue-300 transition-colors">
+                  <span className="text-gray-900 font-bold cursor-pointer hover:text-gray-700 transition-colors">
                     browse files
                   </span>
                 </p>
-                <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
+                <div className="flex items-center justify-center gap-2 text-xs text-gray-500 font-medium">
                   <span>PDF up to 50MB</span>
-                  <span className="text-gray-700">•</span>
+                  <span className="text-gray-400">•</span>
                   <span>Multiple files</span>
                 </div>
               </div>
 
-              <div className="mt-8 flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-white/5 border border-blue-500/30 backdrop-blur-2xl mx-auto w-fit">
-                <Sparkles size={14} className="text-blue-400" />
-                <span className="text-xs text-gray-300 font-semibold">AI Auto-Categorization</span>
+              <div className="mt-8 flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-gray-100 to-white border border-gray-300 backdrop-blur-2xl mx-auto w-fit shadow-md">
+                <Sparkles size={14} className="text-gray-700" />
+                <span className="text-xs text-gray-800 font-bold">AI Auto-Categorization</span>
               </div>
             </div>
 
@@ -280,11 +291,11 @@ const PDFUpload = () => {
               ].map((stat, i) => (
                 <div
                   key={i}
-                  className="p-4 rounded-2xl bg-white/5 border border-gray-800/60 backdrop-blur-2xl hover:bg-white/8 hover:border-blue-500/30 transition-all text-center"
+                  className="p-4 rounded-2xl bg-white/70 backdrop-blur-2xl border border-gray-200 hover:bg-white/90 hover:border-gray-300 hover:shadow-lg transition-all text-center"
                 >
-                  <stat.icon size={20} className="text-blue-400 mx-auto mb-2" />
-                  <p className="text-sm font-bold text-white mb-0.5">{stat.label}</p>
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">{stat.sublabel}</p>
+                  <stat.icon size={20} className="text-gray-700 mx-auto mb-2" />
+                  <p className="text-sm font-bold text-gray-900 mb-0.5">{stat.label}</p>
+                  <p className="text-[10px] text-gray-600 uppercase tracking-wider font-semibold">{stat.sublabel}</p>
                 </div>
               ))}
             </div>
@@ -293,18 +304,17 @@ const PDFUpload = () => {
           {/* RIGHT: File Queue */}
           <div className="lg:col-span-5 flex flex-col h-full">
             {files.length > 0 ? (
-              <div className="flex flex-col h-full rounded-3xl bg-white/5 border border-gray-800/60 backdrop-blur-3xl p-6 shadow-xl">
-                <div className="flex items-center justify-between mb-5 pb-5 border-b border-white/10">
+              <div className="flex flex-col h-full rounded-3xl bg-white/80 backdrop-blur-2xl border border-gray-200 p-6 shadow-xl">
+                <div className="flex items-center justify-between mb-5 pb-5 border-b border-gray-200">
                   <div>
-                    <h3 className="text-xl font-black text-white mb-0.5">Upload Queue</h3>
-                    <p className="text-xs text-gray-500 font-medium">
-                      {files.length} file{files.length !== 1 ? 's' : ''} 
-                      {!xpEarnedToday && ` • +${XP_REWARDS.UPLOAD_DOCUMENT} XP available`}
+                    <h3 className="text-xl font-black text-gray-900 mb-0.5">Upload Queue</h3>
+                    <p className="text-xs text-gray-600 font-semibold">
+                      {files.length} file{files.length !== 1 ? 's' : ''}
                     </p>
                   </div>
                   <button
                     onClick={() => setFiles([])}
-                    className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-gray-700/60 text-gray-400 hover:text-white backdrop-blur-xl transition-all text-xs font-semibold"
+                    className="px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 hover:text-gray-900 transition-all text-xs font-bold"
                   >
                     Clear
                   </button>
@@ -314,34 +324,42 @@ const PDFUpload = () => {
                   {files.map((fileObj) => (
                     <div
                       key={fileObj.id}
-                      className="group relative rounded-xl p-3.5 bg-white/5 border border-white/10 backdrop-blur-2xl hover:bg-white/8 hover:border-blue-500/40 transition-all"
+                      className="group relative rounded-xl p-3.5 bg-gradient-to-br from-white/90 to-gray-50/90 border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all"
                     >
                       {fileObj.status === 'uploading' && (
-                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-800 rounded-b-xl overflow-hidden">
-                          <div className="h-full bg-gradient-to-r from-blue-500 via-blue-400 to-blue-600 w-full animate-pulse"></div>
+                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-200 rounded-b-xl overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-gray-600 via-gray-700 to-gray-600 w-full animate-pulse"></div>
                         </div>
                       )}
 
                       <div className="flex items-center gap-3">
-                        <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-white/5 border border-white/10 backdrop-blur-xl flex items-center justify-center">
+                        <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-gray-100 border border-gray-300 flex items-center justify-center">
                           {getStatusIcon(fileObj.status)}
                         </div>
 
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-white text-sm truncate mb-0.5">{fileObj.file.name}</p>
+                          <p className="font-bold text-gray-900 text-sm truncate mb-0.5">{fileObj.file.name}</p>
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-[10px] text-gray-500 font-medium">
+                            <span className="text-[10px] text-gray-600 font-semibold">
                               {(fileObj.file.size / (1024 * 1024)).toFixed(2)} MB
                             </span>
                             
-                            <span className={`
-                              text-[10px] font-bold px-2 py-0.5 rounded-lg backdrop-blur-xl
-                              ${fileObj.status === 'completed' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40' : ''}
-                              ${fileObj.status === 'error' ? 'bg-red-500/20 text-red-400 border border-red-500/40' : ''}
-                              ${fileObj.status === 'uploading' ? 'bg-blue-500/20 text-blue-300 border border-blue-400/40' : ''}
-                              ${fileObj.status === 'pending' ? 'bg-white/5 text-gray-400 border border-gray-600/40' : ''}
-                            `}>
-                              {fileObj.status === 'uploading' && '⚡ AI Processing'}
+                            {fileObj.subject && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-gray-200 text-gray-800 border border-gray-300">
+                                📚 {fileObj.subject}
+                              </span>
+                            )}
+                            
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg ${
+                              fileObj.status === 'completed' ? 'bg-gray-200 text-gray-900 border border-gray-300' : ''
+                            }${
+                              fileObj.status === 'error' ? 'bg-red-100 text-red-700 border border-red-300' : ''
+                            }${
+                              fileObj.status === 'uploading' ? 'bg-gray-100 text-gray-700 border border-gray-300' : ''
+                            }${
+                              fileObj.status === 'pending' ? 'bg-gray-50 text-gray-500 border border-gray-200' : ''
+                            }`}>
+                              {fileObj.status === 'uploading' && '⚡ Processing'}
                               {fileObj.status === 'completed' && '✓ Done'}
                               {fileObj.status === 'error' && '✕ Failed'}
                               {fileObj.status === 'pending' && '◦ Pending'}
@@ -352,7 +370,7 @@ const PDFUpload = () => {
                         {fileObj.status === 'pending' && (
                           <button
                             onClick={() => removeFile(fileObj.id)}
-                            className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400/70 hover:text-red-400 transition-all opacity-0 group-hover:opacity-100"
+                            className="p-1.5 rounded-lg hover:bg-red-100 text-red-600 hover:text-red-700 transition-all opacity-0 group-hover:opacity-100"
                           >
                             <X size={16} />
                           </button>
@@ -360,9 +378,13 @@ const PDFUpload = () => {
 
                         {fileObj.status === 'completed' && fileObj.docId && (
                           <button
-                            onClick={() => navigate(`/study/${fileObj.docId}`)}
-                            className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white text-xs font-bold shadow-lg shadow-blue-500/30 backdrop-blur-xl transition-all"
+                            onClick={() => {
+                              console.log('🔄 Navigating to study session:', fileObj.docId);
+                              navigate(`/study/${fileObj.docId}`);
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-gray-800 to-gray-700 hover:from-gray-900 hover:to-gray-800 text-white text-xs font-bold shadow-lg transition-all flex items-center gap-1"
                           >
+                            <Play size={12} />
                             Study
                           </button>
                         )}
@@ -371,51 +393,68 @@ const PDFUpload = () => {
                   ))}
                 </div>
 
-                <button
-                  onClick={handleUpload}
-                  disabled={uploading || pendingFilesCount === 0}
-                  className="w-full px-6 py-4 rounded-2xl bg-gradient-to-r from-blue-500 via-blue-600 to-blue-500 hover:from-blue-600 hover:via-blue-700 hover:to-blue-600 text-white font-bold text-base shadow-2xl shadow-blue-500/40 backdrop-blur-xl border border-blue-400/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center gap-2.5"
-                >
-                  {uploading ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                      <span>AI Processing...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles size={18} />
-                      <span>
-                        Upload {pendingFilesCount} File{pendingFilesCount !== 1 ? 's' : ''}
-                        {!xpEarnedToday && ` (+${XP_REWARDS.UPLOAD_DOCUMENT} XP)`}
-                      </span>
-                      <TrendingUp size={18} />
-                    </>
+                {/* Action Buttons */}
+                <div className="space-y-3">
+                  <button
+                    onClick={handleUpload}
+                    disabled={uploading || pendingFilesCount === 0}
+                    className="w-full px-6 py-4 rounded-2xl bg-gradient-to-r from-gray-800 via-gray-700 to-gray-800 hover:from-gray-900 hover:via-gray-800 hover:to-gray-900 text-white font-bold text-base shadow-2xl transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2.5"
+                  >
+                    {uploading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        <span>Processing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload size={18} />
+                        <span>Upload {pendingFilesCount} File{pendingFilesCount !== 1 ? 's' : ''}</span>
+                      </>
+                    )}
+                  </button>
+
+                  {/* Quick Actions after upload */}
+                  {completedFilesCount > 0 && !uploading && (
+                    <div className="space-y-2">
+                      <button
+                        onClick={() => {
+                          console.log('🎯 Start Study Session clicked, navigating to:', completedFiles[0].docId);
+                          navigate(`/study/${completedFiles[0].docId}`);
+                        }}
+                        className="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-gray-800 to-gray-700 hover:from-gray-900 hover:to-gray-800 text-white font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-lg"
+                      >
+                        <Play size={16} />
+                        <span>Start Study Session</span>
+                      </button>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => navigate('/documents')}
+                          className="px-4 py-3 rounded-xl bg-white/80 hover:bg-white border border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-900 font-bold text-sm transition-all flex items-center justify-center gap-2"
+                        >
+                          <BookOpen size={16} />
+                          <span>Library</span>
+                        </button>
+                        <button
+                          onClick={() => navigate('/quiz')}
+                          className="px-4 py-3 rounded-xl bg-white/80 hover:bg-white border border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-900 font-bold text-sm transition-all flex items-center justify-center gap-2"
+                        >
+                          <Sparkles size={16} />
+                          <span>Quiz</span>
+                        </button>
+                      </div>
+                    </div>
                   )}
-                </button>
+                </div>
               </div>
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-gray-800/50 bg-white/5 backdrop-blur-3xl p-10 text-center">
-                <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl flex items-center justify-center mb-5 shadow-lg">
+              <div className="flex-1 flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-gray-300 bg-white/70 backdrop-blur-2xl p-10 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-gray-100 border border-gray-300 flex items-center justify-center mb-5 shadow-lg">
                   <Upload size={28} className="text-gray-500" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-300 mb-1.5">No Files Selected</h3>
-                <p className="text-xs text-gray-500 leading-relaxed">
-                  Upload PDFs • AI auto-categorizes<br />by subject instantly
+                <h3 className="text-lg font-bold text-gray-900 mb-1.5">No Files Selected</h3>
+                <p className="text-xs text-gray-600 leading-relaxed font-medium">
+                  Upload PDFs • AI categorizes automatically
                 </p>
-                <div className={`mt-4 px-4 py-2 rounded-full border ${
-                  xpEarnedToday 
-                    ? 'bg-gray-500/10 border-gray-500/30' 
-                    : 'bg-green-500/10 border-green-500/30'
-                }`}>
-                  <p className={`text-xs font-bold ${
-                    xpEarnedToday ? 'text-gray-400' : 'text-green-400'
-                  }`}>
-                    {xpEarnedToday 
-                      ? `✓ Daily XP earned (+${XP_REWARDS.UPLOAD_DOCUMENT} XP)`
-                      : `Earn +${XP_REWARDS.UPLOAD_DOCUMENT} XP today!`
-                    }
-                  </p>
-                </div>
               </div>
             )}
           </div>
@@ -427,15 +466,15 @@ const PDFUpload = () => {
           width: 5px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
-          background: rgba(255, 255, 255, 0.05);
+          background: rgba(229, 231, 235, 0.5);
           border-radius: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(59, 130, 246, 0.3);
+          background: rgba(107, 114, 128, 0.5);
           border-radius: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(59, 130, 246, 0.5);
+          background: rgba(107, 114, 128, 0.7);
         }
       `}</style>
     </div>

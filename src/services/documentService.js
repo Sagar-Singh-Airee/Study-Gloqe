@@ -1,4 +1,4 @@
-// src/services/documentService.js - COMPLETE FIXED VERSION
+// src/services/documentService.js - FIXED VERSION
 import {
     collection,
     addDoc,
@@ -12,7 +12,8 @@ import {
     updateDoc,
     deleteDoc,
     serverTimestamp,
-    increment
+    increment,
+    setDoc
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '@/config/firebase';
@@ -168,7 +169,7 @@ const extractKeywords = (text) => {
 };
 
 /**
- * ✅ MAIN UPLOAD FUNCTION - WITH AI SUBJECT DETECTION
+ * ✅ MAIN UPLOAD FUNCTION - RETURNS {docId, subject, downloadURL}
  */
 export const uploadDocument = async (file, userId, metadata = {}) => {
     const toastId = toast.loading('Uploading document...');
@@ -229,23 +230,21 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
         // ===== STEP 3: EXTRACT KEYWORDS =====
         const keywords = fullText ? extractKeywords(fullText) : [];
 
-        // ===== STEP 4: UPLOAD TO STORAGE (THIS HANDLES STORAGE METADATA) =====
+        // ===== STEP 4: UPLOAD TO STORAGE =====
         toast.loading('Uploading file to cloud...', { id: toastId });
         
         const timestamp = Date.now();
         const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-        const docId = `${userId}_${timestamp}`;
-        const storagePath = `documents/${userId}/${docId}_${sanitizedFileName}`;
+        const storagePath = `documents/${userId}/${timestamp}_${sanitizedFileName}`;
         
         console.log('📁 Storage path:', storagePath);
 
         const storageRef = ref(storage, storagePath);
         
-        // 🔥 FIREBASE STORAGE UPLOAD WITH METADATA
         const uploadResult = await uploadBytes(storageRef, file, {
             contentType: 'application/pdf',
             customMetadata: {
-                userId: userId, // ✅ FIXED: Changed from uploaderId
+                userId: userId,
                 originalName: file.name,
                 uploadDate: new Date().toISOString(),
                 subject: subject
@@ -260,18 +259,16 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
         // ===== STEP 5: CREATE FIRESTORE DOCUMENT =====
         toast.loading('Saving document metadata...', { id: toastId });
         
-        // 🔥 FIRESTORE DOCUMENT DATA
         const docData = {
-            docId,
             title: metadata.title || file.name.replace('.pdf', ''),
             fileName: file.name,
-            userId: userId, // ✅ FIXED: Changed from uploaderId to match DocumentsSection query
+            userId: userId,
             fileSize: file.size,
             downloadURL,
             storagePath,
             status: 'completed',
             pages: numPages,
-            subject: subject, // ✅ AI-DETECTED SUBJECT
+            subject: subject,
             subjectDetectionMethod: detectionMethod,
             subjectConfidence: confidenceScore,
             keywords,
@@ -288,7 +285,6 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
         };
 
         console.log('💾 Saving to Firestore with subject:', subject);
-        console.log('📊 Document data:', docData);
         
         const docRef = await addDoc(collection(db, 'documents'), docData);
         console.log('✅ Document saved with Firestore ID:', docRef.id);
@@ -310,21 +306,19 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
             await Promise.allSettled(pagePromises);
         }
 
-        // ===== STEP 7: UPDATE USER STATS (THIS HANDLES USER STATS) =====
+        // ===== STEP 7: UPDATE USER STATS =====
         console.log('📊 Updating user stats...');
         try {
             const userRef = doc(db, 'users', userId);
             const userDoc = await getDoc(userRef);
             
             if (userDoc.exists()) {
-                // User document exists, update it
                 await updateDoc(userRef, {
                     totalDocuments: increment(1),
                     lastUploadAt: serverTimestamp()
                 });
                 console.log('✅ User stats updated');
             } else {
-                // User document doesn't exist, create it
                 await setDoc(userRef, {
                     totalDocuments: 1,
                     lastUploadAt: serverTimestamp(),
@@ -335,16 +329,21 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
             }
         } catch (error) {
             console.warn('⚠️ User stats update failed (non-critical):', error);
-            // Don't throw - upload was successful even if stats update failed
         }
 
         toast.success(`✅ Uploaded & categorized as ${subject}!`, { 
             id: toastId, 
             duration: 4000 
         });
+        
         console.log('🎉 Upload complete! Firestore ID:', docRef.id);
         
-        return docRef.id;
+        // ✅ CRITICAL FIX: Return object with docId, subject, and downloadURL
+        return {
+            docId: docRef.id,
+            subject: subject,
+            downloadURL: downloadURL
+        };
 
     } catch (error) {
         console.error('❌ UPLOAD ERROR:', error);
@@ -394,7 +393,7 @@ export const getUserDocuments = async (userId, limitCount = 50) => {
     try {
         const q = query(
             collection(db, 'documents'),
-            where('userId', '==', userId), // ✅ FIXED: Matches the field name in upload
+            where('userId', '==', userId),
             orderBy('createdAt', 'desc'),
             limit(limitCount)
         );
