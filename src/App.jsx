@@ -15,6 +15,7 @@ import PDFReader from './pages/PDFReader';
 import StudySession from './pages/StudySession';
 import QuizPage from './pages/QuizPage';
 import QuizResults from './pages/QuizResults';
+import Flashcard from './pages/Flashcard'; // ✅ FIXED: Correct import name
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 
@@ -133,15 +134,20 @@ function App() {
                         {/* QUIZZES - FIXED ROUTES ✅ */}
                         <Route path="/quizzes" element={<Navigate to="/dashboard?tab=quizzes" replace />} />
                         
-                        {/* Main quiz route - both /quiz/:id and /quizzes/:id work */}
+                        {/* Main quiz routes - both /quiz/:id and /quizzes/:id work */}
                         <Route path="/quiz/:quizId" element={<ProtectedRoute><QuizPage /></ProtectedRoute>} />
                         <Route path="/quizzes/:quizId" element={<ProtectedRoute><QuizPage /></ProtectedRoute>} />
                         
-                        {/* Results */}
+                        {/* Quiz Results */}
                         <Route path="/results/:sessionId" element={<ProtectedRoute><QuizResults /></ProtectedRoute>} />
 
-                        {/* Learning Tools */}
+                        {/* FLASHCARDS - FIXED ROUTES ✅ */}
                         <Route path="/flashcards" element={<Navigate to="/dashboard?tab=flashcards" replace />} />
+                        
+                        {/* Individual flashcard deck study page */}
+                        <Route path="/flashcards/:deckId" element={<ProtectedRoute><Flashcard /></ProtectedRoute>} />
+
+                        {/* Learning Tools */}
                         <Route path="/notes" element={<Navigate to="/dashboard?tab=notes" replace />} />
 
                         {/* Collaboration */}
