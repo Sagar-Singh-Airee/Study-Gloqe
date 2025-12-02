@@ -1,8 +1,17 @@
-// src/pages/StudyRoom.jsx - FIXED: No API Key Required
-import { useState, useEffect, useRef } from 'react';
+// src/pages/StudyRoom.jsx - FIXED VERSION WITH BUG RESOLUTION & ENHANCED UI
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import DailyIframe from '@daily-co/daily-js';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+    useHMSStore,
+    useHMSActions,
+    selectIsConnectedToRoom,
+    selectPeers,
+    selectLocalPeer,
+    selectIsPeerAudioEnabled,
+    selectIsPeerVideoEnabled,
+    HMSRoomProvider,
+} from '@100mslive/react-sdk';
 import { 
     collection, 
     doc, 
@@ -26,10 +35,118 @@ import {
     BookOpen,
     PhoneOff,
     Users,
+    Mic,
+    MicOff,
+    Video,
+    VideoOff,
+    Maximize2,
+    Minimize2,
+    Settings,
+    Volume2,
+    VolumeX,
+    Menu,
+    X,
+    Shield,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const StudyRoom = () => {
+// Get API URL from environment
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+// VIDEO TILE COMPONENT - Fixed camera cleanup
+const VideoTile = ({ peer, isLocal, isFullscreen }) => {
+    const videoRef = useRef(null);
+    const hmsActions = useHMSActions();
+    
+    useEffect(() => {
+        let cleanupVideo = null;
+        
+        if (videoRef.current && peer.videoTrack) {
+            hmsActions.attachVideo(peer.videoTrack, videoRef.current);
+            
+            // Store cleanup function
+            cleanupVideo = () => {
+                try {
+                    if (videoRef.current && peer.videoTrack) {
+                        hmsActions.detachVideo(peer.videoTrack, videoRef.current);
+                    }
+                } catch (error) {
+                    console.log('Video cleanup:', error);
+                }
+            };
+        }
+        
+        return () => {
+            if (cleanupVideo) cleanupVideo();
+            
+            // Ensure video stream is stopped
+            if (videoRef.current) {
+                const videoEl = videoRef.current;
+                if (videoEl.srcObject) {
+                    videoEl.srcObject.getTracks().forEach(track => track.stop());
+                    videoEl.srcObject = null;
+                }
+            }
+        };
+    }, [peer.videoTrack, hmsActions, peer.id]);
+
+    return (
+        <div className={`relative bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-2xl overflow-hidden 
+            shadow-2xl border-2 border-gray-700/50 transition-all duration-300 group
+            ${isFullscreen ? 'h-full w-full' : 'min-h-[240px]'}`}>
+            
+            <video 
+                ref={videoRef} 
+                autoPlay 
+                muted={isLocal}
+                playsInline
+                className="w-full h-full object-cover min-h-[240px]"
+                onContextMenu={(e) => e.preventDefault()}
+            />
+            
+            {!peer.videoEnabled && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-900/90 to-gray-800/90 backdrop-blur-sm">
+                    <div className="w-24 h-24 bg-gradient-to-br from-silver/20 to-gray-600/30 rounded-full flex items-center justify-center 
+                        border-2 border-gray-500/30 backdrop-blur-xl">
+                        <span className="text-4xl font-bold text-white">
+                            {peer.name?.charAt(0)?.toUpperCase() || '?'}
+                        </span>
+                    </div>
+                </div>
+            )}
+            
+            <div className="absolute bottom-3 left-3 px-4 py-2 bg-gradient-to-r from-black/80 to-gray-900/80 
+                backdrop-blur-xl rounded-xl border border-gray-600/50 shadow-lg">
+                <p className="text-white font-bold text-sm flex items-center gap-2">
+                    {peer.name} 
+                    {isLocal && (
+                        <span className="px-2 py-0.5 bg-gradient-to-r from-gray-700 to-gray-800 text-xs rounded-lg">
+                            You
+                        </span>
+                    )}
+                    {peer.role === 'host' && (
+                        <Shield size={12} className="text-blue-400" />
+                    )}
+                </p>
+            </div>
+            
+            {peer.audioEnabled === false && (
+                <div className="absolute top-3 right-3 p-2 bg-black/70 backdrop-blur-md rounded-full">
+                    <VolumeX size={16} className="text-white" />
+                </div>
+            )}
+            
+            {/* Glassmorphism overlay effect */}
+            <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute top-0 left-0 right-0 h-1/3 bg-gradient-to-b from-white/5 to-transparent"></div>
+                <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-black/30 to-transparent"></div>
+            </div>
+        </div>
+    );
+};
+
+// MAIN ROOM COMPONENT
+const StudyRoomContent = () => {
     const { roomId } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -39,25 +156,48 @@ const StudyRoom = () => {
     const [participants, setParticipants] = useState([]);
     const [messageText, setMessageText] = useState('');
     const [messages, setMessages] = useState([]);
-    const [callObject, setCallObject] = useState(null);
-    const [isJoiningCall, setIsJoiningCall] = useState(true);
-    const [participantCount, setParticipantCount] = useState(0);
+    const [isJoiningCall, setIsJoiningCall] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const [showChat, setShowChat] = useState(true);
+    const [showParticipants, setShowParticipants] = useState(false);
+    const [activeSpeaker, setActiveSpeaker] = useState(null);
+    const [lastLeftTime, setLastLeftTime] = useState(null);
     
-    const videoContainerRef = useRef(null);
     const chatEndRef = useRef(null);
+    const videoContainerRef = useRef(null);
     const hasJoinedRef = useRef(false);
-    const isLeavingRef = useRef(false);
+    const localTracksRef = useRef([]);
+    
+    // HMS hooks
+    const hmsActions = useHMSActions();
+    const isConnected = useHMSStore(selectIsConnectedToRoom);
+    const peers = useHMSStore(selectPeers);
+    const localPeer = useHMSStore(selectLocalPeer);
+    const isLocalAudioEnabled = useHMSStore(selectIsPeerAudioEnabled(localPeer?.id));
+    const isLocalVideoEnabled = useHMSStore(selectIsPeerVideoEnabled(localPeer?.id));
 
-    // ✅ FIXED: Generate Daily.co room URL without API (temporary rooms)
-    const getDailyRoomUrl = () => {
-        // Use Daily's temporary public rooms - no API key needed
-        // Format: https://yourdomain.daily.co/roomname
-        // For testing, use a random subdomain or your Daily domain
-        const dailyDomain = 'studygloqe'; // Change this to your Daily subdomain
-        return `https://${dailyDomain}.daily.co/${roomId}`;
-    };
+    // Track active speaker
+    useEffect(() => {
+        const activePeer = peers.find(p => p.isSpeaking);
+        if (activePeer && activePeer.id !== activeSpeaker) {
+            setActiveSpeaker(activePeer.id);
+        }
+    }, [peers]);
 
-    // Fetch room data
+    // Fix: Clean up all tracks when component unmounts
+    useEffect(() => {
+        return () => {
+            console.log('Component unmounting, cleaning up tracks...');
+            localTracksRef.current.forEach(track => {
+                if (track && typeof track.stop === 'function') {
+                    track.stop();
+                }
+            });
+            localTracksRef.current = [];
+        };
+    }, []);
+
+    // Fetch room data from Firebase
     useEffect(() => {
         const fetchRoom = async () => {
             try {
@@ -76,105 +216,130 @@ const StudyRoom = () => {
             } catch (error) {
                 console.error('Error fetching room:', error);
                 toast.error('Failed to load room');
-                navigate('/dashboard?tab=rooms');
             }
         };
 
         if (roomId) fetchRoom();
     }, [roomId, navigate]);
 
-    // Initialize Daily.co video call
-    useEffect(() => {
-        if (!roomData || !user) return;
+    // Join 100ms room with backend - CREATE ROOM FIRST then GET TOKEN
+    const joinVideoCall = useCallback(async () => {
+        if (!roomData || !user || isConnected || isJoiningCall) return;
 
-        const initializeCall = async () => {
-            try {
-                setIsJoiningCall(true);
+        try {
+            setIsJoiningCall(true);
+            console.log('🔄 Joining 100ms room...');
 
-                // Get Daily room URL
-                const dailyRoomUrl = getDailyRoomUrl();
-                console.log('📹 Daily room URL:', dailyRoomUrl);
+            // Check if we're re-joining too quickly
+            if (lastLeftTime && Date.now() - lastLeftTime < 2000) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
 
-                // Create call object
-                const call = DailyIframe.createCallObject();
-                setCallObject(call);
+            // Step 1: Create room in 100ms
+            const roomResponse = await fetch(`${API_URL}/token/create-room`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: roomData.name || 'Study Room',
+                    description: roomData.description || 'Study session'
+                })
+            });
 
-                // Event listeners
-                call.on('joined-meeting', () => {
-                    console.log('✅ Joined Daily call');
-                    setIsJoiningCall(false);
-                    toast.success('Connected to video call');
-                });
+            if (!roomResponse.ok) {
+                const errorText = await roomResponse.text();
+                throw new Error(`Backend error: ${errorText}`);
+            }
 
-                call.on('participant-joined', (event) => {
-                    console.log('👤 Participant joined:', event.participant);
-                    updateParticipantCount(call);
-                });
+            const roomResult = await roomResponse.json();
+            
+            if (!roomResult.success) {
+                throw new Error(roomResult.error || 'Failed to create room');
+            }
 
-                call.on('participant-left', (event) => {
-                    console.log('👋 Participant left:', event.participant);
-                    updateParticipantCount(call);
-                });
+            console.log('✅ Room created with ID:', roomResult.roomId);
 
-                call.on('error', (error) => {
-                    console.error('❌ Daily error:', error);
-                    toast.error('Video call error');
-                    setIsJoiningCall(false);
-                });
-
-                call.on('left-meeting', () => {
-                    console.log('🚪 Left meeting');
-                });
-
-                // Join the call
-                await call.join({
-                    url: dailyRoomUrl,
+            // Step 2: Generate token with the room ID
+            const tokenResponse = await fetch(`${API_URL}/token/generate-token`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    roomId: roomResult.roomId,
+                    userId: user.uid,
                     userName: user.displayName || 'Anonymous',
-                });
+                    role: 'host'
+                })
+            });
 
-                // Mount iframe
-                if (videoContainerRef.current) {
-                    const iframe = call.iframe();
-                    iframe.style.width = '100%';
-                    iframe.style.height = '100%';
-                    iframe.style.border = '0';
-                    iframe.style.borderRadius = '1rem';
-                    videoContainerRef.current.appendChild(iframe);
-                }
-
-            } catch (error) {
-                console.error('Error initializing call:', error);
-                toast.error(`Failed to join video call: ${error.message}`);
-                setIsJoiningCall(false);
+            if (!tokenResponse.ok) {
+                const errorText = await tokenResponse.text();
+                throw new Error(`Backend error: ${errorText}`);
             }
-        };
 
-        initializeCall();
+            const tokenResult = await tokenResponse.json();
 
-        return () => {
-            if (callObject && !isLeavingRef.current) {
-                console.log('🧹 Cleaning up Daily call');
-                callObject.leave().then(() => {
-                    callObject.destroy();
-                }).catch(err => {
-                    console.error('Error during cleanup:', err);
-                    callObject.destroy();
-                });
+            if (!tokenResult.success) {
+                throw new Error(tokenResult.error || 'Failed to generate token');
             }
-        };
-    }, [roomData, user]);
 
-    // Update participant count
-    const updateParticipantCount = (call) => {
-        const participants = call.participants();
-        setParticipantCount(Object.keys(participants).length);
-    };
+            console.log('✅ Token generated');
+
+            // Step 3: Store local tracks for cleanup
+            const config = {
+                userName: user.displayName || 'Anonymous',
+                authToken: tokenResult.token,
+                settings: {
+                    isAudioMuted: false,
+                    isVideoMuted: false,
+                },
+                captureNetworkQualityInPreview: true,
+            };
+
+            // Join with proper error handling
+            await hmsActions.join(config);
+
+            console.log('✅ Joined 100ms room successfully');
+            toast.success('Connected to video call!');
+
+            // Store local tracks for cleanup
+            if (localPeer) {
+                const tracks = hmsActions.getLocalTracks();
+                localTracksRef.current = tracks || [];
+            }
+
+        } catch (error) {
+            console.error('❌ Error joining 100ms room:', error);
+            
+            // Better error handling
+            if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
+                toast.error('Cannot connect to server. Please check your network connection.');
+            } else if (error.message.includes('permission') || error.message.includes('camera')) {
+                toast.error('Camera/microphone access is required. Please allow permissions.');
+            } else {
+                toast.error(error.message || 'Failed to join video call');
+            }
+            
+            // Reset joining state
+            setIsJoiningCall(false);
+            hasJoinedRef.current = false;
+        }
+    }, [roomData, user, isConnected, isJoiningCall, hmsActions, localPeer, lastLeftTime]);
+
+    // Trigger join when room data is loaded
+    useEffect(() => {
+        if (roomData && user && !isConnected && !isJoiningCall && !hasJoinedRef.current) {
+            joinVideoCall();
+            hasJoinedRef.current = true;
+        }
+    }, [roomData, user, isConnected, isJoiningCall, joinVideoCall]);
 
     // Join Firestore room
     useEffect(() => {
-        const joinRoom = async () => {
-            if (!roomData || !user || hasJoinedRef.current) return;
-            hasJoinedRef.current = true;
+        const joinFirestoreRoom = async () => {
+            if (!roomData || !user || !isConnected) return;
 
             try {
                 const roomRef = doc(db, 'rooms', roomId);
@@ -183,8 +348,10 @@ const StudyRoom = () => {
                         userId: user.uid,
                         displayName: user.displayName || 'Anonymous',
                         photoURL: user.photoURL || null,
-                        joinedAt: new Date().toISOString()
-                    })
+                        joinedAt: new Date().toISOString(),
+                        isOnline: true
+                    }),
+                    lastActive: serverTimestamp()
                 });
 
                 await addDoc(collection(db, 'rooms', roomId, 'messages'), {
@@ -192,15 +359,15 @@ const StudyRoom = () => {
                     text: `${user.displayName || 'Someone'} joined the room`,
                     timestamp: serverTimestamp()
                 });
-
-                console.log('✅ Joined Firestore room');
             } catch (error) {
                 console.error('Error joining Firestore room:', error);
             }
         };
 
-        joinRoom();
-    }, [roomData, user, roomId]);
+        if (isConnected) {
+            joinFirestoreRoom();
+        }
+    }, [isConnected, roomData, user, roomId]);
 
     // Listen to chat messages
     useEffect(() => {
@@ -215,12 +382,10 @@ const StudyRoom = () => {
         return () => unsubscribe();
     }, [roomId]);
 
-    // Auto-scroll chat
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    // Send message
     const handleSendMessage = async (e) => {
         e.preventDefault();
         if (!messageText.trim() || !user) return;
@@ -241,19 +406,55 @@ const StudyRoom = () => {
         }
     };
 
-    // Leave room
-    const handleLeave = async () => {
-        if (isLeavingRef.current) return;
-        isLeavingRef.current = true;
-
+    const toggleAudio = async () => {
         try {
-            // Leave Daily call
-            if (callObject) {
-                await callObject.leave();
-                callObject.destroy();
+            await hmsActions.setLocalAudioEnabled(!isLocalAudioEnabled);
+            toast.success(isLocalAudioEnabled ? 'Muted' : 'Unmuted');
+        } catch (error) {
+            console.error('Error toggling audio:', error);
+            toast.error('Failed to toggle audio');
+        }
+    };
+
+    const toggleVideo = async () => {
+        try {
+            await hmsActions.setLocalVideoEnabled(!isLocalVideoEnabled);
+            toast.success(isLocalVideoEnabled ? 'Camera off' : 'Camera on');
+        } catch (error) {
+            console.error('Error toggling video:', error);
+            toast.error('Failed to toggle camera');
+        }
+    };
+
+    // FIXED: Properly handle leaving with full cleanup
+    const handleLeave = async () => {
+        try {
+            // Step 1: Disable local tracks first
+            if (hmsActions.setLocalAudioEnabled) {
+                await hmsActions.setLocalAudioEnabled(false);
+            }
+            if (hmsActions.setLocalVideoEnabled) {
+                await hmsActions.setLocalVideoEnabled(false);
             }
 
-            // Update Firestore
+            // Step 2: Stop all local tracks manually
+            try {
+                const tracks = hmsActions.getLocalTracks?.() || [];
+                tracks.forEach(track => {
+                    if (track && typeof track.stop === 'function') {
+                        track.stop();
+                    }
+                });
+            } catch (trackError) {
+                console.log('Track cleanup:', trackError);
+            }
+
+            // Step 3: Leave the HMS room
+            if (isConnected) {
+                await hmsActions.leave();
+            }
+
+            // Step 4: Update Firestore
             if (user && roomData) {
                 const roomRef = doc(db, 'rooms', roomId);
                 const participantToRemove = participants.find(p => p.userId === user.uid);
@@ -271,157 +472,369 @@ const StudyRoom = () => {
                 });
             }
 
+            // Step 5: Clean up video elements
+            const videoElements = document.querySelectorAll('video');
+            videoElements.forEach(video => {
+                if (video.srcObject) {
+                    video.srcObject.getTracks().forEach(track => track.stop());
+                    video.srcObject = null;
+                }
+            });
+
+            // Step 6: Set leave time to prevent immediate rejoin
+            setLastLeftTime(Date.now());
+            hasJoinedRef.current = false;
+
             toast.success('Left study room');
             navigate('/dashboard?tab=rooms', { replace: true });
+
         } catch (error) {
             console.error('Error leaving room:', error);
+            toast.error('Error leaving room');
             navigate('/dashboard?tab=rooms', { replace: true });
         }
     };
 
+    // Toggle fullscreen for main video
+    const toggleFullscreen = () => {
+        if (!document.fullscreenElement) {
+            videoContainerRef.current?.requestFullscreen();
+            setIsFullscreen(true);
+        } else {
+            document.exitFullscreen();
+            setIsFullscreen(false);
+        }
+    };
+
+    // Handle fullscreen change
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            setIsFullscreen(!!document.fullscreenElement);
+        };
+
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    }, []);
+
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-950 via-black to-gray-950 flex items-center justify-center">
-                <div className="text-center">
-                    <Loader2 size={56} className="animate-spin text-blue-500 mx-auto mb-4" />
-                    <p className="text-white font-bold text-lg">Loading study room...</p>
+            <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center">
+                <div className="text-center backdrop-blur-xl bg-gray-900/50 p-12 rounded-3xl border border-gray-700/50 shadow-2xl">
+                    <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                    >
+                        <Loader2 size={80} className="text-silver mx-auto mb-8" />
+                    </motion.div>
+                    <p className="text-2xl font-bold text-white mb-2">Loading Study Room</p>
+                    <p className="text-gray-400 font-medium">Preparing your video session...</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-950 via-black to-gray-950 p-4">
+        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4 md:p-6">
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-gradient-to-r from-blue-900/20 to-purple-900/20 backdrop-blur-xl border border-white/10 rounded-2xl p-6 mb-6 shadow-2xl"
+                    className="bg-gradient-to-r from-gray-800/80 to-gray-900/80 backdrop-blur-xl 
+                        border border-gray-700/50 rounded-3xl p-6 mb-6 shadow-2xl"
                 >
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-3xl font-black text-white mb-2">{roomData?.name}</h1>
-                            <div className="flex items-center gap-4 text-gray-400">
-                                <span className="flex items-center gap-2">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex-1">
+                            <h1 className="text-3xl font-black bg-gradient-to-r from-white via-silver to-gray-400 
+                                bg-clip-text text-transparent mb-2">
+                                {roomData?.name}
+                            </h1>
+                            <div className="flex flex-wrap items-center gap-4 text-gray-300">
+                                <span className="flex items-center gap-2 text-sm font-medium px-3 py-1.5 
+                                    bg-gray-800/50 rounded-xl border border-gray-700">
                                     <BookOpen size={16} />
                                     {roomData?.topic || 'General Study'}
                                 </span>
-                                <span className="flex items-center gap-2">
+                                <span className="flex items-center gap-2 text-sm font-medium px-3 py-1.5 
+                                    bg-gray-800/50 rounded-xl border border-gray-700">
                                     <Clock size={16} />
                                     <span className="relative flex h-2 w-2">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                                        <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${
+                                            isConnected ? 'bg-green-500' : isJoiningCall ? 'bg-yellow-500' : 'bg-red-500'
+                                        } opacity-75`}></span>
+                                        <span className={`relative inline-flex rounded-full h-2 w-2 ${
+                                            isConnected ? 'bg-green-600' : isJoiningCall ? 'bg-yellow-600' : 'bg-red-600'
+                                        }`}></span>
                                     </span>
-                                    Live
+                                    {isConnected ? 'Live' : isJoiningCall ? 'Connecting...' : 'Disconnected'}
                                 </span>
                             </div>
                         </div>
+                        
                         <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-xl rounded-xl border border-white/10">
-                                <Users size={18} className="text-white" />
-                                <span className="text-white font-bold">{participantCount}</span>
+                            <div className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-gray-800 to-gray-900 
+                                rounded-2xl border border-gray-700 shadow-lg">
+                                <Users size={18} className="text-silver" />
+                                <span className="text-white font-bold">{peers.length} Online</span>
                             </div>
-                            <button
-                                onClick={handleLeave}
-                                className="px-6 py-3 bg-gradient-to-br from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 border border-red-500/50 text-white rounded-xl transition-all flex items-center gap-2 font-bold shadow-lg hover:shadow-red-500/50"
-                            >
-                                <PhoneOff size={18} />
-                                Leave Room
-                            </button>
+                            
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setShowChat(!showChat)}
+                                    className="p-3 bg-gray-800/50 hover:bg-gray-700/50 backdrop-blur-xl border border-gray-700 
+                                        rounded-2xl transition-all hover:scale-105"
+                                >
+                                    <MessageCircle size={20} className="text-white" />
+                                </button>
+                                
+                                <button
+                                    onClick={toggleFullscreen}
+                                    className="p-3 bg-gray-800/50 hover:bg-gray-700/50 backdrop-blur-xl border border-gray-700 
+                                        rounded-2xl transition-all hover:scale-105"
+                                >
+                                    {isFullscreen ? 
+                                        <Minimize2 size={20} className="text-white" /> : 
+                                        <Maximize2 size={20} className="text-white" />
+                                    }
+                                </button>
+                                
+                                <button
+                                    onClick={handleLeave}
+                                    className="px-6 py-3 bg-gradient-to-r from-red-600 via-red-700 to-red-800 
+                                        hover:from-red-700 hover:via-red-800 hover:to-red-900 text-white rounded-2xl 
+                                        transition-all flex items-center gap-2 font-bold shadow-lg hover:scale-105"
+                                >
+                                    <PhoneOff size={18} />
+                                    Leave
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </motion.div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Video Area */}
-                    <div className="lg:col-span-2">
-                        <div className="relative">
-                            {isJoiningCall && (
-                                <div className="absolute inset-0 bg-gray-900 rounded-2xl flex items-center justify-center z-10">
-                                    <div className="text-center">
-                                        <Loader2 size={48} className="animate-spin text-blue-500 mx-auto mb-4" />
-                                        <p className="text-white font-semibold">Connecting to video call...</p>
-                                        <p className="text-gray-400 text-sm mt-2">Please allow camera/microphone access</p>
+                <div className="flex gap-6">
+                    {/* Main Video Area */}
+                    <div className={`transition-all duration-300 ${showChat ? 'flex-1' : 'w-full'}`}>
+                        <div 
+                            ref={videoContainerRef}
+                            className="relative bg-gradient-to-br from-gray-900 to-black rounded-3xl overflow-hidden 
+                                shadow-2xl border-2 border-gray-700/50 mb-4"
+                        >
+                            {/* Video Grid */}
+                            <div className={`p-4 ${peers.length > 1 ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : ''}`}>
+                                {localPeer && (
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.95 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        className={`relative ${peers.length === 1 ? 'h-[calc(100vh-300px)]' : ''} 
+                                            ${activeSpeaker === localPeer.id ? 'ring-2 ring-blue-500' : ''}`}
+                                    >
+                                        <VideoTile peer={localPeer} isLocal={true} isFullscreen={peers.length === 1} />
+                                        
+                                        {/* Local Controls */}
+                                        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 
+                                            flex items-center gap-3 z-10">
+                                            <motion.button
+                                                whileHover={{ scale: 1.1 }}
+                                                whileTap={{ scale: 0.95 }}
+                                                onClick={toggleAudio}
+                                                className={`p-4 rounded-2xl transition-all shadow-xl backdrop-blur-xl 
+                                                    ${isLocalAudioEnabled 
+                                                        ? 'bg-gradient-to-r from-gray-700/80 to-gray-800/80 hover:from-gray-600/80 hover:to-gray-700/80 border border-gray-600' 
+                                                        : 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800'
+                                                    }`}
+                                            >
+                                                {isLocalAudioEnabled ? 
+                                                    <Mic size={22} className="text-white" /> : 
+                                                    <MicOff size={22} className="text-white" />
+                                                }
+                                            </motion.button>
+
+                                            <motion.button
+                                                whileHover={{ scale: 1.1 }}
+                                                whileTap={{ scale: 0.95 }}
+                                                onClick={toggleVideo}
+                                                className={`p-4 rounded-2xl transition-all shadow-xl backdrop-blur-xl 
+                                                    ${isLocalVideoEnabled 
+                                                        ? 'bg-gradient-to-r from-gray-700/80 to-gray-800/80 hover:from-gray-600/80 hover:to-gray-700/80 border border-gray-600' 
+                                                        : 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800'
+                                                    }`}
+                                            >
+                                                {isLocalVideoEnabled ? 
+                                                    <Video size={22} className="text-white" /> : 
+                                                    <VideoOff size={22} className="text-white" />
+                                                }
+                                            </motion.button>
+                                            
+                                            <motion.button
+                                                whileHover={{ scale: 1.1 }}
+                                                whileTap={{ scale: 0.95 }}
+                                                className="p-4 rounded-2xl bg-gradient-to-r from-gray-700/80 to-gray-800/80 
+                                                    hover:from-gray-600/80 hover:to-gray-700/80 border border-gray-600 
+                                                    backdrop-blur-xl shadow-xl"
+                                            >
+                                                <Settings size={22} className="text-white" />
+                                            </motion.button>
+                                        </div>
+                                    </motion.div>
+                                )}
+
+                                {peers.filter(p => !p.isLocal).map((peer) => (
+                                    <motion.div
+                                        key={peer.id}
+                                        initial={{ opacity: 0, scale: 0.95 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        className={`relative ${activeSpeaker === peer.id ? 'ring-2 ring-blue-500' : ''}`}
+                                    >
+                                        <VideoTile peer={peer} isLocal={false} />
+                                    </motion.div>
+                                ))}
+                            </div>
+
+                            {/* Empty State */}
+                            {peers.length === 1 && (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                    <div className="text-center p-8 bg-gradient-to-br from-gray-800/50 to-gray-900/50 
+                                        backdrop-blur-xl rounded-3xl border border-gray-700/50">
+                                        <Users size={80} className="text-gray-600 mx-auto mb-4" />
+                                        <h3 className="text-2xl font-bold text-white mb-2">Waiting for others to join</h3>
+                                        <p className="text-gray-400">Share the room link with your study partners</p>
                                     </div>
                                 </div>
                             )}
-                            <div 
-                                ref={videoContainerRef} 
-                                className="bg-gray-900 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/10"
-                                style={{ minHeight: '600px' }}
-                            />
                         </div>
                     </div>
 
                     {/* Chat Sidebar */}
-                    <motion.div
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className="bg-gradient-to-b from-gray-900/50 to-black/50 backdrop-blur-xl border border-white/10 rounded-2xl flex flex-col h-[calc(100vh-200px)] shadow-2xl"
-                    >
-                        <div className="p-4 border-b border-white/10">
-                            <h3 className="text-white font-black text-lg flex items-center gap-2">
-                                <MessageCircle size={20} />
-                                Chat
-                            </h3>
-                        </div>
+                    <AnimatePresence>
+                        {showChat && (
+                            <motion.div
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: 20 }}
+                                className="w-96 flex-shrink-0 bg-gradient-to-b from-gray-800/80 to-gray-900/80 
+                                    backdrop-blur-xl border border-gray-700/50 rounded-3xl flex flex-col 
+                                    h-[calc(100vh-200px)] shadow-2xl"
+                            >
+                                <div className="p-6 border-b border-gray-700/50">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-white font-black text-xl flex items-center gap-2">
+                                            <MessageCircle size={22} />
+                                            Study Chat
+                                        </h3>
+                                        <button
+                                            onClick={() => setShowChat(false)}
+                                            className="p-2 hover:bg-gray-700/50 rounded-xl transition-all"
+                                        >
+                                            <X size={18} className="text-gray-400" />
+                                        </button>
+                                    </div>
+                                </div>
 
-                        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                            {messages.map((msg, idx) => (
-                                <div key={msg.id || idx}>
-                                    {msg.type === 'system' ? (
-                                        <p className="text-center text-gray-500 text-xs italic py-2">{msg.text}</p>
-                                    ) : (
-                                        <div className={`${msg.senderId === user?.uid ? 'ml-auto' : 'mr-auto'} max-w-[85%]`}>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                {msg.senderPhoto ? (
-                                                    <img src={msg.senderPhoto} alt="" className="w-5 h-5 rounded-full" />
+                                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                                    <AnimatePresence>
+                                        {messages.map((msg, idx) => (
+                                            <motion.div
+                                                key={msg.id || idx}
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, y: -10 }}
+                                            >
+                                                {msg.type === 'system' ? (
+                                                    <div className="text-center">
+                                                        <p className="inline-block px-3 py-1 bg-gray-800/50 text-gray-400 
+                                                            text-xs font-medium rounded-full border border-gray-700">
+                                                            {msg.text}
+                                                        </p>
+                                                    </div>
                                                 ) : (
-                                                    <div className="w-5 h-5 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-                                                        <span className="text-white text-[10px] font-bold">
-                                                            {msg.senderName?.[0]?.toUpperCase() || '?'}
-                                                        </span>
+                                                    <div className={`flex ${msg.senderId === user?.uid ? 'justify-end' : 'justify-start'}`}>
+                                                        <div className={`max-w-[80%] ${msg.senderId === user?.uid ? 'order-2' : 'order-1'}`}>
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                {msg.senderPhoto ? (
+                                                                    <img 
+                                                                        src={msg.senderPhoto} 
+                                                                        alt="" 
+                                                                        className="w-7 h-7 rounded-full border-2 border-gray-600" 
+                                                                    />
+                                                                ) : (
+                                                                    <div className="w-7 h-7 bg-gradient-to-br from-silver to-gray-600 
+                                                                        rounded-full flex items-center justify-center">
+                                                                        <span className="text-white text-xs font-bold">
+                                                                            {msg.senderName?.[0]?.toUpperCase() || '?'}
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                                <p className="text-xs text-gray-400 font-semibold">
+                                                                    {msg.senderId === user?.uid ? 'You' : msg.senderName}
+                                                                </p>
+                                                            </div>
+                                                            <div className={`px-4 py-3 rounded-2xl shadow-lg backdrop-blur-sm ${
+                                                                msg.senderId === user?.uid 
+                                                                    ? 'bg-gradient-to-r from-blue-600/90 to-blue-700/90 text-white' 
+                                                                    : 'bg-gray-800/70 text-gray-100 border border-gray-700/50'
+                                                            }`}>
+                                                                <p className="text-sm font-medium">{msg.text}</p>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 )}
-                                                <p className="text-[10px] text-gray-400 font-semibold">{msg.senderName}</p>
-                                            </div>
-                                            <div className={`px-3 py-2 rounded-xl ${
-                                                msg.senderId === user?.uid 
-                                                    ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white' 
-                                                    : 'bg-gray-800 text-white'
-                                            }`}>
-                                                <p className="text-xs font-medium">{msg.text}</p>
-                                            </div>
-                                        </div>
-                                    )}
+                                            </motion.div>
+                                        ))}
+                                    </AnimatePresence>
+                                    <div ref={chatEndRef} />
                                 </div>
-                            ))}
-                            <div ref={chatEndRef} />
-                        </div>
 
-                        <form onSubmit={handleSendMessage} className="p-4 border-t border-white/10">
-                            <div className="flex gap-2">
-                                <input
-                                    type="text"
-                                    value={messageText}
-                                    onChange={(e) => setMessageText(e.target.value)}
-                                    placeholder="Type a message..."
-                                    className="flex-1 px-4 py-3 bg-gray-800/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 border border-white/10 text-sm"
-                                />
-                                <button
-                                    type="submit"
-                                    disabled={!messageText.trim()}
-                                    className="px-4 py-3 bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-                                >
-                                    <Send size={16} />
-                                </button>
-                            </div>
-                        </form>
-                    </motion.div>
+                                <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-700/50">
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={messageText}
+                                            onChange={(e) => setMessageText(e.target.value)}
+                                            placeholder="Type your message..."
+                                            className="flex-1 px-4 py-3 bg-gray-900/50 text-white placeholder-gray-500 
+                                                rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 
+                                                border border-gray-700 text-sm font-medium backdrop-blur-sm"
+                                        />
+                                        <motion.button
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            type="submit"
+                                            disabled={!messageText.trim()}
+                                            className="px-5 py-3 bg-gradient-to-r from-blue-600 to-blue-700 
+                                                hover:from-blue-700 hover:to-blue-800 text-white rounded-2xl 
+                                                transition-all disabled:opacity-30 shadow-xl disabled:cursor-not-allowed"
+                                        >
+                                            <Send size={18} />
+                                        </motion.button>
+                                    </div>
+                                </form>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
             </div>
+
+            {/* Mobile Chat Toggle */}
+            <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setShowChat(!showChat)}
+                className="fixed bottom-6 right-6 md:hidden p-4 bg-gradient-to-r from-blue-600 to-blue-700 
+                    text-white rounded-full shadow-2xl z-50"
+            >
+                <MessageCircle size={24} />
+            </motion.button>
         </div>
+    );
+};
+
+// WRAPPER WITH HMS PROVIDER
+const StudyRoom = () => {
+    return (
+        <HMSRoomProvider>
+            <StudyRoomContent />
+        </HMSRoomProvider>
     );
 };
 
