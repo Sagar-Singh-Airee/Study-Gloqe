@@ -1,11 +1,9 @@
-// src/components/teacher/ClassCard.jsx
+// src/components/teacher/ClassCard.jsx - UPDATED WITH CLASSROOM NAVIGATION
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
-    Users, BookOpen, TrendingUp, MoreVertical, Edit,
-    Trash2, Archive, Calendar, Clock, Activity,
-    AlertCircle, CheckCircle2, Eye, ChevronRight,
-    Award, Target, Zap
+    Users, BookOpen, MoreVertical, Edit, Trash2, Archive, 
+    Clock, Activity, AlertCircle, Award, Target, Code, Building2
 } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
@@ -13,6 +11,7 @@ import toast from 'react-hot-toast';
 const ClassCard = ({ classData, index = 0, onEdit, onDelete, onArchive }) => {
     const navigate = useNavigate();
     const [showMenu, setShowMenu] = useState(false);
+    const [showCode, setShowCode] = useState(false);
 
     const {
         id,
@@ -20,15 +19,13 @@ const ClassCard = ({ classData, index = 0, onEdit, onDelete, onArchive }) => {
         subject,
         section = 'A',
         studentCount = 0,
-        students = [],
         avgEngagement = 0,
-        recentActivity = 'No recent activity',
-        lastUpdate,
-        color = 'from-gray-900 to-black',
-        activeQuizzes = 0,
-        pendingAssignments = 0,
         avgScore = 0,
-        coverImage,
+        updatedAt,
+        classCode,
+        schoolName,
+        grade,
+        room,
         description
     } = classData;
 
@@ -43,19 +40,13 @@ const ClassCard = ({ classData, index = 0, onEdit, onDelete, onArchive }) => {
     };
 
     const getEngagementColor = (engagement) => {
-        if (engagement >= 80) return 'text-green-500';
-        if (engagement >= 60) return 'text-yellow-500';
-        return 'text-red-500';
-    };
-
-    const getEngagementBg = (engagement) => {
-        if (engagement >= 80) return 'bg-green-500/10';
-        if (engagement >= 60) return 'bg-yellow-500/10';
-        return 'bg-red-500/10';
+        if (engagement >= 80) return 'text-green-400';
+        if (engagement >= 60) return 'text-yellow-400';
+        return 'text-red-400';
     };
 
     const handleCardClick = () => {
-        navigate(`/teacher/classes/${id}`);
+        navigate(`/classroom/${id}`);
     };
 
     const handleMenuAction = (action, e) => {
@@ -81,6 +72,12 @@ const ClassCard = ({ classData, index = 0, onEdit, onDelete, onArchive }) => {
         }
     };
 
+    const copyClassCode = (e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(classCode);
+        toast.success('Class code copied!');
+    };
+
     return (
         <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -94,11 +91,12 @@ const ClassCard = ({ classData, index = 0, onEdit, onDelete, onArchive }) => {
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl" />
             
             {/* Alert Badge for Low Engagement */}
-            {avgEngagement < 50 && (
+            {avgEngagement < 50 && studentCount > 0 && (
                 <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="absolute top-4 right-4 w-8 h-8 bg-red-500 rounded-full flex items-center justify-center z-10"
+                    className="absolute top-4 left-4 w-8 h-8 bg-red-500 rounded-full flex items-center justify-center z-10"
+                    title="Low engagement"
                 >
                     <AlertCircle size={16} className="text-white" />
                 </motion.div>
@@ -151,78 +149,98 @@ const ClassCard = ({ classData, index = 0, onEdit, onDelete, onArchive }) => {
             {/* Content */}
             <div className="relative">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                        <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center backdrop-blur-xl">
-                            <BookOpen size={24} />
-                        </div>
-                        <span className="text-xs px-3 py-1 bg-white/20 rounded-full font-bold backdrop-blur-xl">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="w-14 h-14 bg-white/10 rounded-xl flex items-center justify-center backdrop-blur-xl group-hover:scale-110 transition-transform">
+                        <BookOpen size={28} />
+                    </div>
+                    <div className="flex-1">
+                        <span className="text-xs px-2.5 py-1 bg-white/20 rounded-full font-bold backdrop-blur-xl">
                             Section {section}
                         </span>
                     </div>
-                    <ChevronRight size={20} className="opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
 
-                {/* Class Name & Subject */}
+                {/* Class Name & Info */}
                 <div className="mb-4">
-                    <h3 className="font-bold text-xl mb-1 line-clamp-1">{name}</h3>
-                    <p className="text-sm text-gray-400">{subject}</p>
-                    {description && (
-                        <p className="text-xs text-gray-500 mt-1 line-clamp-2">{description}</p>
-                    )}
+                    <h3 className="font-bold text-xl mb-1 line-clamp-1 group-hover:text-gray-200 transition-colors">
+                        {name}
+                    </h3>
+                    <p className="text-sm text-gray-300 mb-1">{subject}</p>
+                    
+                    {/* School & Grade */}
+                    <div className="flex items-center gap-3 text-xs text-gray-400 mt-2">
+                        {schoolName && (
+                            <span className="flex items-center gap-1">
+                                <Building2 size={12} />
+                                {schoolName}
+                            </span>
+                        )}
+                        {grade && (
+                            <>
+                                <span>•</span>
+                                <span>Grade {grade}</span>
+                            </>
+                        )}
+                        {room && (
+                            <>
+                                <span>•</span>
+                                <span>Room {room}</span>
+                            </>
+                        )}
+                    </div>
+                </div>
+
+                {/* Class Code Display */}
+                <div className="mb-4 p-3 bg-white/5 rounded-lg backdrop-blur-xl border border-white/10">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Code size={14} className="text-gray-400" />
+                            <span className="text-xs text-gray-400">Class Code</span>
+                        </div>
+                        <button
+                            onClick={copyClassCode}
+                            className="text-lg font-black tracking-wider hover:text-gray-200 transition-colors"
+                        >
+                            {classCode}
+                        </button>
+                    </div>
                 </div>
 
                 {/* Stats Grid */}
-                <div className="grid grid-cols-3 gap-3 mb-4">
-                    <div className="bg-white/5 rounded-lg p-3 backdrop-blur-xl">
-                        <div className="flex items-center gap-1.5 mb-1">
+                <div className="grid grid-cols-3 gap-2 mb-4">
+                    <div className="bg-white/5 rounded-lg p-3 backdrop-blur-xl text-center">
+                        <div className="flex items-center justify-center gap-1 mb-1">
                             <Users size={12} className="text-blue-400" />
-                            <span className="text-xs text-gray-400">Students</span>
                         </div>
                         <div className="text-lg font-black">{studentCount}</div>
+                        <div className="text-xs text-gray-400">Students</div>
                     </div>
 
-                    <div className="bg-white/5 rounded-lg p-3 backdrop-blur-xl">
-                        <div className="flex items-center gap-1.5 mb-1">
+                    <div className="bg-white/5 rounded-lg p-3 backdrop-blur-xl text-center">
+                        <div className="flex items-center justify-center gap-1 mb-1">
                             <Target size={12} className="text-purple-400" />
-                            <span className="text-xs text-gray-400">Avg Score</span>
                         </div>
                         <div className="text-lg font-black">{avgScore}%</div>
+                        <div className="text-xs text-gray-400">Avg Score</div>
                     </div>
 
-                    <div className="bg-white/5 rounded-lg p-3 backdrop-blur-xl">
-                        <div className="flex items-center gap-1.5 mb-1">
+                    <div className="bg-white/5 rounded-lg p-3 backdrop-blur-xl text-center">
+                        <div className="flex items-center justify-center gap-1 mb-1">
                             <Activity size={12} className={getEngagementColor(avgEngagement)} />
-                            <span className="text-xs text-gray-400">Activity</span>
                         </div>
                         <div className="text-lg font-black">{avgEngagement}%</div>
+                        <div className="text-xs text-gray-400">Active</div>
                     </div>
                 </div>
 
-                {/* Quick Actions */}
-                <div className="flex items-center gap-2 mb-4">
-                    {activeQuizzes > 0 && (
-                        <span className="text-xs px-2.5 py-1 bg-green-500/20 text-green-400 rounded-full font-bold flex items-center gap-1">
-                            <CheckCircle2 size={12} />
-                            {activeQuizzes} Active Quiz{activeQuizzes > 1 ? 'es' : ''}
-                        </span>
-                    )}
-                    {pendingAssignments > 0 && (
-                        <span className="text-xs px-2.5 py-1 bg-orange-500/20 text-orange-400 rounded-full font-bold flex items-center gap-1">
-                            <Clock size={12} />
-                            {pendingAssignments} Pending
-                        </span>
-                    )}
-                </div>
-
-                {/* Footer - Last Update */}
-                <div className="flex items-center justify-between pt-4 border-t border-white/10">
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                {/* Footer */}
+                <div className="flex items-center justify-between pt-3 border-t border-white/10">
+                    <div className="flex items-center gap-2 text-xs text-gray-400">
                         <Clock size={12} />
-                        <span>Updated {getTimeAgo(lastUpdate)}</span>
+                        <span>{getTimeAgo(updatedAt)}</span>
                     </div>
                     
-                    {avgEngagement >= 80 && (
+                    {avgEngagement >= 80 && studentCount > 0 && (
                         <div className="flex items-center gap-1 text-xs text-green-400 font-bold">
                             <Award size={12} />
                             <span>High Engagement</span>
@@ -231,16 +249,16 @@ const ClassCard = ({ classData, index = 0, onEdit, onDelete, onArchive }) => {
                 </div>
             </div>
 
-            {/* Hover Effect - View Details */}
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center">
-                <motion.div
+            {/* Hover Overlay */}
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center rounded-2xl">
+                <motion.button
                     initial={{ scale: 0.8, opacity: 0 }}
-                    whileHover={{ scale: 1, opacity: 1 }}
-                    className="bg-white text-black px-6 py-3 rounded-xl font-bold flex items-center gap-2"
+                    whileHover={{ scale: 1.05 }}
+                    className="bg-white text-black px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-xl"
                 >
-                    <Eye size={18} />
-                    <span>View Details</span>
-                </motion.div>
+                    <BookOpen size={18} />
+                    <span>Enter Classroom</span>
+                </motion.button>
             </div>
         </motion.div>
     );

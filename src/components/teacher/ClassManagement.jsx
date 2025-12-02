@@ -1,23 +1,24 @@
-// src/components/teacher/ClassManagement.jsx
+// src/components/teacher/ClassManagement.jsx - UPDATED WITH CLASS CODE
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Plus, Search, Filter, Grid, List, X, Save,
     BookOpen, Users, Calendar, Tag, FileText,
     AlertCircle, Loader, CheckCircle2, Trash2,
-    Edit, Archive, MoreVertical
+    Edit, Archive, MoreVertical, Building2
 } from 'lucide-react';
 import { useAuth } from '@contexts/AuthContext';
-import { db } from '@/config/firebase';
-import {
-    collection, query, where, onSnapshot, addDoc,
-    updateDoc, deleteDoc, doc, serverTimestamp
-} from 'firebase/firestore';
+import { 
+    getUserClasses, 
+    createClass, 
+    updateClass, 
+    deleteClass 
+} from '@/services/classService';
 import toast from 'react-hot-toast';
 import ClassCard from './ClassCard';
 
 const ClassManagement = () => {
-    const { user } = useAuth();
+    const { user, userData } = useAuth();
     const [classes, setClasses] = useState([]);
     const [filteredClasses, setFilteredClasses] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -33,47 +34,32 @@ const ClassManagement = () => {
         subject: '',
         section: 'A',
         description: '',
-        maxStudents: 50,
-        schedule: '',
-        room: ''
+        schoolName: '',
+        grade: '',
+        room: '',
+        schedule: ''
     });
     const [formLoading, setFormLoading] = useState(false);
 
-    // Load classes in real-time
-    useEffect(() => {
-        if (!user?.uid) return;
-
-        const classesQuery = query(
-            collection(db, 'classes'),
-            where('teacherId', '==', user.uid)
-        );
-
-        const unsubscribe = onSnapshot(classesQuery, async (snapshot) => {
-            const classesData = [];
-
-            for (const docSnap of snapshot.docs) {
-                const classData = { id: docSnap.id, ...docSnap.data() };
-                
-                // Calculate stats
-                const studentCount = classData.students?.length || 0;
-                const avgEngagement = classData.avgEngagement || Math.floor(Math.random() * 40) + 60;
-                const avgScore = classData.avgScore || Math.floor(Math.random() * 30) + 70;
-                
-                classesData.push({
-                    ...classData,
-                    studentCount,
-                    avgEngagement,
-                    avgScore,
-                    lastUpdate: classData.updatedAt?.toDate() || new Date()
-                });
-            }
-
+    // Load classes
+    const loadClasses = async () => {
+        try {
+            setLoading(true);
+            const classesData = await getUserClasses(user.uid, 'teacher');
             setClasses(classesData);
             setFilteredClasses(classesData);
+        } catch (error) {
+            console.error('Error loading classes:', error);
+            toast.error('Failed to load classes');
+        } finally {
             setLoading(false);
-        });
+        }
+    };
 
-        return () => unsubscribe();
+    useEffect(() => {
+        if (user?.uid) {
+            loadClasses();
+        }
     }, [user?.uid]);
 
     // Filter classes
@@ -85,7 +71,8 @@ const ClassManagement = () => {
             filtered = filtered.filter(cls =>
                 cls.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 cls.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                cls.section.toLowerCase().includes(searchQuery.toLowerCase())
+                cls.section.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                cls.schoolName?.toLowerCase().includes(searchQuery.toLowerCase())
             );
         }
 
@@ -115,31 +102,21 @@ const ClassManagement = () => {
         setFormLoading(true);
 
         try {
-            const classData = {
-                ...formData,
-                teacherId: user.uid,
-                teacherName: user.displayName || user.email,
-                students: [],
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-                avgEngagement: 0,
-                avgScore: 0,
-                activeQuizzes: 0,
-                pendingAssignments: 0
-            };
-
             if (editingClass) {
                 // Update existing class
-                await updateDoc(doc(db, 'classes', editingClass.id), {
-                    ...formData,
-                    updatedAt: serverTimestamp()
-                });
+                await updateClass(editingClass.id, formData);
                 toast.success('✅ Class updated successfully!');
             } else {
-                // Create new class
-                await addDoc(collection(db, 'classes'), classData);
-                toast.success('✅ Class created successfully!');
+                // Create new class with auto-generated code
+                const result = await createClass(user.uid, {
+                    ...formData,
+                    teacherName: userData?.name || user.displayName || user.email
+                });
+                toast.success(`✅ Class created! Code: ${result.classCode}`);
             }
+
+            // Reload classes
+            await loadClasses();
 
             // Reset form
             setFormData({
@@ -147,15 +124,16 @@ const ClassManagement = () => {
                 subject: '',
                 section: 'A',
                 description: '',
-                maxStudents: 50,
-                schedule: '',
-                room: ''
+                schoolName: '',
+                grade: '',
+                room: '',
+                schedule: ''
             });
             setShowCreateModal(false);
             setEditingClass(null);
         } catch (error) {
-            console.error('Error creating class:', error);
-            toast.error('Failed to create class');
+            console.error('Error creating/updating class:', error);
+            toast.error(error.message || 'Failed to save class');
         } finally {
             setFormLoading(false);
         }
@@ -170,9 +148,10 @@ const ClassManagement = () => {
                 subject: classToEdit.subject,
                 section: classToEdit.section || 'A',
                 description: classToEdit.description || '',
-                maxStudents: classToEdit.maxStudents || 50,
-                schedule: classToEdit.schedule || '',
-                room: classToEdit.room || ''
+                schoolName: classToEdit.schoolName || '',
+                grade: classToEdit.grade || '',
+                room: classToEdit.room || '',
+                schedule: classToEdit.schedule || ''
             });
             setShowCreateModal(true);
         }
@@ -180,21 +159,20 @@ const ClassManagement = () => {
 
     const handleDeleteClass = async (classId) => {
         try {
-            await deleteDoc(doc(db, 'classes', classId));
+            await deleteClass(classId, user.uid);
             toast.success('Class deleted successfully');
+            await loadClasses();
         } catch (error) {
             console.error('Error deleting class:', error);
-            toast.error('Failed to delete class');
+            toast.error(error.message || 'Failed to delete class');
         }
     };
 
     const handleArchiveClass = async (classId) => {
         try {
-            await updateDoc(doc(db, 'classes', classId), {
-                archived: true,
-                updatedAt: serverTimestamp()
-            });
+            await updateClass(classId, { active: false });
             toast.success('Class archived');
+            await loadClasses();
         } catch (error) {
             console.error('Error archiving class:', error);
             toast.error('Failed to archive class');
@@ -226,9 +204,10 @@ const ClassManagement = () => {
                             subject: '',
                             section: 'A',
                             description: '',
-                            maxStudents: 50,
-                            schedule: '',
-                            room: ''
+                            schoolName: '',
+                            grade: '',
+                            room: '',
+                            schedule: ''
                         });
                         setShowCreateModal(true);
                     }}
@@ -349,7 +328,7 @@ const ClassManagement = () => {
                                         {editingClass ? 'Edit Class' : 'Create New Class'}
                                     </h3>
                                     <p className="text-sm text-gray-600 mt-1">
-                                        Fill in the details below
+                                        {editingClass ? 'Update class details' : 'Class code will be generated automatically'}
                                     </p>
                                 </div>
                                 <button
@@ -361,11 +340,11 @@ const ClassManagement = () => {
                             </div>
 
                             {/* Modal Form */}
-                            <form onSubmit={handleCreateClass} className="p-6 space-y-6">
+                            <form onSubmit={handleCreateClass} className="p-6 space-y-5">
                                 {/* Class Name */}
                                 <div>
                                     <label className="block text-sm font-bold text-black mb-2">
-                                        Class Name *
+                                        Class Name <span className="text-red-500">*</span>
                                     </label>
                                     <input
                                         type="text"
@@ -373,7 +352,7 @@ const ClassManagement = () => {
                                         value={formData.name}
                                         onChange={handleInputChange}
                                         placeholder="e.g., Advanced Physics"
-                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-black focus:ring-2 focus:ring-black/5 transition-all"
+                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-black transition-all"
                                         required
                                     />
                                 </div>
@@ -382,7 +361,7 @@ const ClassManagement = () => {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-bold text-black mb-2">
-                                            Subject *
+                                            Subject <span className="text-red-500">*</span>
                                         </label>
                                         <input
                                             type="text"
@@ -390,7 +369,7 @@ const ClassManagement = () => {
                                             value={formData.subject}
                                             onChange={handleInputChange}
                                             placeholder="e.g., Physics"
-                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-black focus:ring-2 focus:ring-black/5 transition-all"
+                                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-black transition-all"
                                             required
                                         />
                                     </div>
@@ -404,9 +383,69 @@ const ClassManagement = () => {
                                             value={formData.section}
                                             onChange={handleInputChange}
                                             placeholder="A"
-                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-black focus:ring-2 focus:ring-black/5 transition-all"
+                                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-black transition-all"
                                         />
                                     </div>
+                                </div>
+
+                                {/* School Name */}
+                                <div>
+                                    <label className="block text-sm font-bold text-black mb-2">
+                                        School/Institution Name
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="schoolName"
+                                        value={formData.schoolName}
+                                        onChange={handleInputChange}
+                                        placeholder="e.g., ABC High School"
+                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-black transition-all"
+                                    />
+                                </div>
+
+                                {/* Grade & Room */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-bold text-black mb-2">
+                                            Grade/Level
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="grade"
+                                            value={formData.grade}
+                                            onChange={handleInputChange}
+                                            placeholder="e.g., 10"
+                                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-black transition-all"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-black mb-2">
+                                            Room/Location
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="room"
+                                            value={formData.room}
+                                            onChange={handleInputChange}
+                                            placeholder="Room 101"
+                                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-black transition-all"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Schedule */}
+                                <div>
+                                    <label className="block text-sm font-bold text-black mb-2">
+                                        Schedule
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="schedule"
+                                        value={formData.schedule}
+                                        onChange={handleInputChange}
+                                        placeholder="Mon, Wed, Fri 10:00 AM"
+                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-black transition-all"
+                                    />
                                 </div>
 
                                 {/* Description */}
@@ -420,53 +459,7 @@ const ClassManagement = () => {
                                         onChange={handleInputChange}
                                         placeholder="Brief description of the class..."
                                         rows={3}
-                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-black focus:ring-2 focus:ring-black/5 transition-all resize-none"
-                                    />
-                                </div>
-
-                                {/* Schedule & Room */}
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-bold text-black mb-2">
-                                            Schedule
-                                        </label>
-                                        <input
-                                            type="text"
-                                            name="schedule"
-                                            value={formData.schedule}
-                                            onChange={handleInputChange}
-                                            placeholder="Mon, Wed, Fri 10:00 AM"
-                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-black focus:ring-2 focus:ring-black/5 transition-all"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-bold text-black mb-2">
-                                            Room/Location
-                                        </label>
-                                        <input
-                                            type="text"
-                                            name="room"
-                                            value={formData.room}
-                                            onChange={handleInputChange}
-                                            placeholder="Room 101"
-                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-black focus:ring-2 focus:ring-black/5 transition-all"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Max Students */}
-                                <div>
-                                    <label className="block text-sm font-bold text-black mb-2">
-                                        Max Students
-                                    </label>
-                                    <input
-                                        type="number"
-                                        name="maxStudents"
-                                        value={formData.maxStudents}
-                                        onChange={handleInputChange}
-                                        min="1"
-                                        max="500"
-                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-black focus:ring-2 focus:ring-black/5 transition-all"
+                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-black transition-all resize-none"
                                     />
                                 </div>
 
@@ -475,7 +468,7 @@ const ClassManagement = () => {
                                     <button
                                         type="button"
                                         onClick={() => setShowCreateModal(false)}
-                                        className="flex-1 px-6 py-3 border border-gray-200 rounded-xl font-bold hover:bg-gray-50 transition-all"
+                                        className="flex-1 px-6 py-3 border-2 border-gray-200 rounded-xl font-bold hover:bg-gray-50 transition-all text-gray-600"
                                     >
                                         Cancel
                                     </button>

@@ -1,66 +1,67 @@
-// src/components/teacher/TeacherSidebar.jsx
-import { Link, useLocation } from 'react-router-dom';
+// src/components/teacher/TeacherSidebar.jsx - FIXED VERSION
 import { motion } from 'framer-motion';
 import {
     Home, BookOpen, Users, ClipboardList, FileText, BarChart3,
     Trophy, Settings, Video, Calendar, Bell, MessageSquare,
-    FolderOpen, Target, Zap, GraduationCap
+    FolderOpen, Target, Zap
 } from 'lucide-react';
 import logoImage from '@/assets/logo/logo.svg';
 
-const TeacherSidebar = ({ stats = {} }) => {
-    const location = useLocation();
+const TeacherSidebar = ({ stats = {}, activeTab, setActiveTab }) => {
 
     const navItems = [
         {
             section: 'Main',
             items: [
-                { icon: Home, label: 'Dashboard', path: '/teacher/dashboard' },
-                { icon: BookOpen, label: 'My Classes', path: '/teacher/classes', badge: stats.totalClasses },
-                { icon: Users, label: 'Students', path: '/teacher/students', badge: stats.totalStudents },
+                { icon: Home, label: 'Dashboard', tab: 'overview' },
+                { icon: BookOpen, label: 'My Classes', tab: 'classes', badge: stats.totalClasses },
+                { icon: Users, label: 'Students', tab: 'students', badge: stats.totalStudents },
             ]
         },
         {
             section: 'Teaching',
             items: [
-                { icon: ClipboardList, label: 'Assignments', path: '/teacher/assignments', badge: stats.pendingReviews },
-                { icon: FileText, label: 'Quizzes', path: '/teacher/quizzes', badge: stats.activeQuizzes },
-                { icon: FolderOpen, label: 'Materials', path: '/teacher/materials' },
-                { icon: Video, label: 'Live Sessions', path: '/teacher/live-sessions' },
+                { icon: ClipboardList, label: 'Assignments', tab: 'assignments', badge: stats.pendingReviews },
+                { icon: FileText, label: 'Quizzes', tab: 'quizzes', badge: stats.activeQuizzes },
+                { icon: FolderOpen, label: 'Materials', tab: 'materials' },
+                { icon: Video, label: 'Live Sessions', tab: 'live-sessions' },
             ]
         },
         {
             section: 'Analytics',
             items: [
-                { icon: BarChart3, label: 'Analytics', path: '/teacher/analytics' },
-                { icon: Trophy, label: 'Leaderboard', path: '/teacher/leaderboard' },
-                { icon: Target, label: 'Performance', path: '/teacher/performance' },
+                { icon: BarChart3, label: 'Analytics', tab: 'analytics' },
+                { icon: Trophy, label: 'Leaderboard', tab: 'leaderboard' },
+                { icon: Target, label: 'Performance', tab: 'performance' },
             ]
         },
         {
             section: 'Communication',
             items: [
-                { icon: MessageSquare, label: 'Messages', path: '/teacher/messages', badge: 0 },
-                { icon: Bell, label: 'Announcements', path: '/teacher/announcements' },
-                { icon: Calendar, label: 'Schedule', path: '/teacher/schedule' },
+                { icon: MessageSquare, label: 'Messages', tab: 'messages', badge: 0 },
+                { icon: Bell, label: 'Announcements', tab: 'announcements' },
+                { icon: Calendar, label: 'Schedule', tab: 'schedule' },
             ]
         },
         {
             section: 'Settings',
             items: [
-                { icon: Settings, label: 'Settings', path: '/teacher/settings' },
+                { icon: Settings, label: 'Settings', tab: 'settings' },
             ]
         }
     ];
 
-    const isActive = (path) => location.pathname === path;
+    const isActive = (tab) => activeTab === tab;
 
     return (
         <div className="w-64 bg-gradient-to-b from-black via-gray-950 to-black fixed h-screen flex flex-col shadow-2xl border-r border-white/5 overflow-hidden z-50">
             
             {/* Logo */}
             <div className="p-5 border-b border-white/10">
-                <Link to="/teacher/dashboard" className="flex items-center gap-2 group">
+                <button 
+                    onClick={() => setActiveTab('overview')}
+                    className="flex items-center gap-2 group w-full"
+                >
                     <div className="relative">
                         <div className="absolute inset-0 bg-white blur-xl opacity-20 group-hover:opacity-40 transition-opacity" />
                         <img src={logoImage} alt="Logo" className="h-8 w-8 relative z-10" />
@@ -69,7 +70,7 @@ const TeacherSidebar = ({ stats = {} }) => {
                         <div className="text-lg font-black text-white tracking-tight">StudyGloqe</div>
                         <div className="text-xs text-gray-500 font-medium">Teacher Portal</div>
                     </div>
-                </Link>
+                </button>
             </div>
 
             {/* Navigation */}
@@ -86,12 +87,12 @@ const TeacherSidebar = ({ stats = {} }) => {
                         {/* Section Items */}
                         <div className="space-y-1">
                             {section.items.map((item, idx) => {
-                                const active = isActive(item.path);
+                                const active = isActive(item.tab);
                                 return (
-                                    <Link
+                                    <button
                                         key={idx}
-                                        to={item.path}
-                                        className={`group relative flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                        onClick={() => setActiveTab(item.tab)}
+                                        className={`group relative flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 w-full ${
                                             active
                                                 ? 'bg-white/10 text-white shadow-lg shadow-white/5'
                                                 : 'text-gray-400 hover:bg-white/5 hover:text-white'
@@ -129,7 +130,7 @@ const TeacherSidebar = ({ stats = {} }) => {
                                         {item.label === 'Assignments' && item.badge > 0 && (
                                             <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
                                         )}
-                                    </Link>
+                                    </button>
                                 );
                             })}
                         </div>
@@ -157,7 +158,7 @@ const TeacherSidebar = ({ stats = {} }) => {
                     </div>
                 </div>
 
-                {/* Upgrade Prompt (Optional) */}
+                {/* Upgrade Prompt */}
                 <div className="bg-gradient-to-br from-purple-600 to-purple-700 rounded-lg p-4 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full blur-2xl" />
                     <div className="relative">

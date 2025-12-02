@@ -1,4 +1,4 @@
-// src/App.jsx - FULLY OPTIMIZED VERSION
+// src/App.jsx - FULLY OPTIMIZED VERSION WITH CLASSROOM
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from '@contexts/AuthContext';
@@ -26,6 +26,9 @@ import StudyRoom from './pages/StudyRoom';
 // Teacher Pages
 import TeacherDashboard from './pages/teacher/TeacherDashboard';
 
+// Classroom Hub (Shared - Teacher & Student)
+import ClassroomPage from './pages/ClassroomPage';
+
 // ==========================================
 // PROTECTED ROUTE COMPONENT
 // ==========================================
@@ -52,9 +55,13 @@ const ProtectedRoute = ({ children, teacherOnly = false }) => {
         return <Navigate to="/dashboard" replace />;
     }
 
-    // Redirect teachers to their dashboard
+    // Redirect teachers to their dashboard (except for shared routes like /classroom)
     if (!teacherOnly && userData?.role === 'teacher') {
-        return <Navigate to="/teacher/dashboard" replace />;
+        const currentPath = window.location.pathname;
+        // Allow teachers to access shared classroom route
+        if (!currentPath.startsWith('/classroom') && !currentPath.startsWith('/teacher')) {
+            return <Navigate to="/teacher/dashboard" replace />;
+        }
     }
 
     return children;
@@ -144,6 +151,16 @@ function App() {
                         <Route path="/auth" element={<PublicRoute><AuthPage /></PublicRoute>} />
 
                         {/* ========================================
+                            SHARED ROUTES (Teacher & Student)
+                        ======================================== */}
+                        
+                        {/* Classroom Hub - Accessible by both teachers and students */}
+                        <Route 
+                            path="/classroom/:classId" 
+                            element={<ProtectedRoute><ClassroomPage /></ProtectedRoute>} 
+                        />
+
+                        {/* ========================================
                             STUDENT ROUTES
                         ======================================== */}
                         
@@ -153,7 +170,7 @@ function App() {
                             element={<ProtectedRoute><Dashboard /></ProtectedRoute>} 
                         />
 
-                        {/* Classes */}
+                        {/* Classes - Old route (kept for backward compatibility) */}
                         <Route 
                             path="/classes/:classId" 
                             element={<ProtectedRoute><ClassDetails /></ProtectedRoute>} 

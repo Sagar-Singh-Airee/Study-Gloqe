@@ -1,12 +1,12 @@
-// src/Pages/teacher/TeacherDashboard.jsx - UPDATED TO USE NEW COMPONENTS
+// src/Pages/teacher/TeacherDashboard.jsx - ENHANCED VERSION WITH ALL TABS
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Plus, BookOpen, Users, FileText, Award, TrendingUp,
     Clock, CheckCircle2, AlertCircle, Activity, Target,
-    Video, ClipboardList, Brain, Calendar, Eye, ChevronRight,
-    Loader, Bell, MessageSquare, Download
+    Video, ClipboardList, Brain, Calendar, ChevronRight,
+    Bell, MessageSquare, BarChart3, Trophy, FolderOpen, Settings
 } from 'lucide-react';
 import { useAuth } from '@contexts/AuthContext';
 import { db } from '@/config/firebase';
@@ -16,13 +16,11 @@ import {
 } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 
-// Import new components
+// Import components
 import TeacherNavbar from '@/components/teacher/TeacherNavbar';
 import TeacherSidebar from '@/components/teacher/TeacherSidebar';
 import QuickStats from '@/components/teacher/QuickStats';
-import ClassCard from '@/components/teacher/ClassCard';
 import ClassManagement from '@/components/teacher/ClassManagement';
-import StudentList from '@/components/teacher/StudentList';
 import AssignmentCreator from '@/components/teacher/AssignmentCreator';
 import GradeBook from '@/components/teacher/GradeBook';
 
@@ -30,7 +28,7 @@ const TeacherDashboard = () => {
     const { user, userData } = useAuth();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('overview'); // overview, classes, students, assignments, gradebook
+    const [activeTab, setActiveTab] = useState('overview');
     const [searchQuery, setSearchQuery] = useState('');
     const [notifications, setNotifications] = useState([]);
     const [showAssignmentCreator, setShowAssignmentCreator] = useState(false);
@@ -55,8 +53,6 @@ const TeacherDashboard = () => {
     // Data state
     const [myClasses, setMyClasses] = useState([]);
     const [recentSubmissions, setRecentSubmissions] = useState([]);
-    const [upcomingAssignments, setUpcomingAssignments] = useState([]);
-    const [recentActivity, setRecentActivity] = useState([]);
 
     useEffect(() => {
         if (!user?.uid) {
@@ -126,8 +122,6 @@ const TeacherDashboard = () => {
                 const dueDate = a.dueDate?.toDate?.() || a.dueDate;
                 return dueDate && new Date(dueDate) > new Date();
             });
-
-            setUpcomingAssignments(upcoming.slice(0, 5));
 
             setStats(prev => ({
                 ...prev,
@@ -258,18 +252,6 @@ const TeacherDashboard = () => {
         return `${Math.floor(seconds / 86400)}d ago`;
     };
 
-    const handleEditClass = (classId) => {
-        toast.info('Edit class feature coming soon!');
-    };
-
-    const handleDeleteClass = (classId) => {
-        toast.info('Delete class feature coming soon!');
-    };
-
-    const handleArchiveClass = (classId) => {
-        toast.info('Archive class feature coming soon!');
-    };
-
     if (loading) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex items-center justify-center">
@@ -281,10 +263,28 @@ const TeacherDashboard = () => {
         );
     }
 
+    // Coming Soon Component
+    const ComingSoonTab = ({ icon: Icon, title, description }) => (
+        <div className="text-center py-20 bg-white border border-gray-200 rounded-2xl">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Icon size={32} className="text-gray-400" />
+            </div>
+            <h3 className="text-xl font-bold text-black mb-2">{title}</h3>
+            <p className="text-gray-600 mb-6">{description}</p>
+            <span className="inline-block px-6 py-2 bg-gray-100 text-gray-600 rounded-xl font-bold text-sm">
+                Coming Soon
+            </span>
+        </div>
+    );
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex">
             {/* Sidebar */}
-            <TeacherSidebar stats={stats} />
+            <TeacherSidebar 
+                stats={stats} 
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+            />
 
             {/* Main Content */}
             <div className="flex-1 ml-64">
@@ -298,48 +298,21 @@ const TeacherDashboard = () => {
                 {/* Content Area */}
                 <div className="p-8 space-y-6">
 
-                    {/* Tab Navigation */}
-                    <div className="bg-white border border-gray-200 rounded-2xl p-2 inline-flex gap-2">
-                        <button
-                            onClick={() => setActiveTab('overview')}
-                            className={`px-6 py-2.5 rounded-xl font-bold transition-all ${
-                                activeTab === 'overview'
-                                    ? 'bg-black text-white'
-                                    : 'text-gray-600 hover:bg-gray-100'
-                            }`}
-                        >
-                            Overview
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('classes')}
-                            className={`px-6 py-2.5 rounded-xl font-bold transition-all ${
-                                activeTab === 'classes'
-                                    ? 'bg-black text-white'
-                                    : 'text-gray-600 hover:bg-gray-100'
-                            }`}
-                        >
-                            Classes
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('assignments')}
-                            className={`px-6 py-2.5 rounded-xl font-bold transition-all ${
-                                activeTab === 'assignments'
-                                    ? 'bg-black text-white'
-                                    : 'text-gray-600 hover:bg-gray-100'
-                            }`}
-                        >
-                            Assignments
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('gradebook')}
-                            className={`px-6 py-2.5 rounded-xl font-bold transition-all ${
-                                activeTab === 'gradebook'
-                                    ? 'bg-black text-white'
-                                    : 'text-gray-600 hover:bg-gray-100'
-                            }`}
-                        >
-                            Grade Book
-                        </button>
+                    {/* Welcome Header */}
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h1 className="text-3xl font-black text-black">
+                                Welcome back, {userData?.name || 'Teacher'}! 👋
+                            </h1>
+                            <p className="text-gray-600 mt-1">
+                                {new Date().toLocaleDateString('en-US', { 
+                                    weekday: 'long', 
+                                    year: 'numeric', 
+                                    month: 'long', 
+                                    day: 'numeric' 
+                                })}
+                            </p>
+                        </div>
                     </div>
 
                     {/* Tab Content */}
@@ -380,7 +353,7 @@ const TeacherDashboard = () => {
                                     </button>
 
                                     <button
-                                        onClick={() => navigate('/teacher/quizzes/create')}
+                                        onClick={() => setActiveTab('quizzes')}
                                         className="group bg-white border border-gray-200 rounded-xl p-5 hover:border-black hover:shadow-xl transition-all duration-300 text-left"
                                     >
                                         <div className="w-14 h-14 bg-gradient-to-br from-gray-700 to-gray-800 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-3 transition-transform">
@@ -391,7 +364,7 @@ const TeacherDashboard = () => {
                                     </button>
 
                                     <button
-                                        onClick={() => navigate('/teacher/live-session')}
+                                        onClick={() => setActiveTab('live-sessions')}
                                         className="group bg-white border border-gray-200 rounded-xl p-5 hover:border-black hover:shadow-xl transition-all duration-300 text-left"
                                     >
                                         <div className="w-14 h-14 bg-gradient-to-br from-gray-900 to-black rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-3 transition-transform">
@@ -432,7 +405,7 @@ const TeacherDashboard = () => {
                                                         initial={{ opacity: 0, x: -20 }}
                                                         animate={{ opacity: 1, x: 0 }}
                                                         transition={{ delay: idx * 0.1 }}
-                                                        onClick={() => navigate(`/teacher/classes/${cls.id}`)}
+                                                        onClick={() => setActiveTab('classes')}
                                                         className="group p-4 bg-gradient-to-br from-gray-900 to-black rounded-xl text-white hover:scale-[1.02] transition-all cursor-pointer"
                                                     >
                                                         <div className="flex items-center justify-between mb-2">
@@ -449,6 +422,12 @@ const TeacherDashboard = () => {
                                         ) : (
                                             <div className="text-center py-8">
                                                 <p className="text-gray-500">No classes yet</p>
+                                                <button 
+                                                    onClick={() => setActiveTab('classes')}
+                                                    className="mt-4 text-sm text-black font-bold hover:underline"
+                                                >
+                                                    Create your first class →
+                                                </button>
                                             </div>
                                         )}
                                     </div>
@@ -518,6 +497,21 @@ const TeacherDashboard = () => {
                             </motion.div>
                         )}
 
+                        {activeTab === 'students' && (
+                            <motion.div
+                                key="students"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                            >
+                                <ComingSoonTab 
+                                    icon={Users}
+                                    title="Students Management"
+                                    description="View and manage all your students across classes"
+                                />
+                            </motion.div>
+                        )}
+
                         {activeTab === 'assignments' && (
                             <motion.div
                                 key="assignments"
@@ -539,6 +533,156 @@ const TeacherDashboard = () => {
                                         Create Assignment
                                     </button>
                                 </div>
+                            </motion.div>
+                        )}
+
+                        {activeTab === 'quizzes' && (
+                            <motion.div
+                                key="quizzes"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                            >
+                                <ComingSoonTab 
+                                    icon={FileText}
+                                    title="Quizzes"
+                                    description="Create and manage AI-powered quizzes"
+                                />
+                            </motion.div>
+                        )}
+
+                        {activeTab === 'materials' && (
+                            <motion.div
+                                key="materials"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                            >
+                                <ComingSoonTab 
+                                    icon={FolderOpen}
+                                    title="Materials"
+                                    description="Upload and organize teaching materials"
+                                />
+                            </motion.div>
+                        )}
+
+                        {activeTab === 'live-sessions' && (
+                            <motion.div
+                                key="live-sessions"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                            >
+                                <ComingSoonTab 
+                                    icon={Video}
+                                    title="Live Sessions"
+                                    description="Host live classes and interact with students in real-time"
+                                />
+                            </motion.div>
+                        )}
+
+                        {activeTab === 'analytics' && (
+                            <motion.div
+                                key="analytics"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                            >
+                                <ComingSoonTab 
+                                    icon={BarChart3}
+                                    title="Analytics"
+                                    description="View detailed insights and performance metrics"
+                                />
+                            </motion.div>
+                        )}
+
+                        {activeTab === 'leaderboard' && (
+                            <motion.div
+                                key="leaderboard"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                            >
+                                <ComingSoonTab 
+                                    icon={Trophy}
+                                    title="Leaderboard"
+                                    description="Track top performers across your classes"
+                                />
+                            </motion.div>
+                        )}
+
+                        {activeTab === 'performance' && (
+                            <motion.div
+                                key="performance"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                            >
+                                <ComingSoonTab 
+                                    icon={Target}
+                                    title="Performance"
+                                    description="Monitor student performance and progress"
+                                />
+                            </motion.div>
+                        )}
+
+                        {activeTab === 'messages' && (
+                            <motion.div
+                                key="messages"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                            >
+                                <ComingSoonTab 
+                                    icon={MessageSquare}
+                                    title="Messages"
+                                    description="Communicate with students and parents"
+                                />
+                            </motion.div>
+                        )}
+
+                        {activeTab === 'announcements' && (
+                            <motion.div
+                                key="announcements"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                            >
+                                <ComingSoonTab 
+                                    icon={Bell}
+                                    title="Announcements"
+                                    description="Send announcements to classes and students"
+                                />
+                            </motion.div>
+                        )}
+
+                        {activeTab === 'schedule' && (
+                            <motion.div
+                                key="schedule"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                            >
+                                <ComingSoonTab 
+                                    icon={Calendar}
+                                    title="Schedule"
+                                    description="Manage your class schedule and timetable"
+                                />
+                            </motion.div>
+                        )}
+
+                        {activeTab === 'settings' && (
+                            <motion.div
+                                key="settings"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                            >
+                                <ComingSoonTab 
+                                    icon={Settings}
+                                    title="Settings"
+                                    description="Configure your account and preferences"
+                                />
                             </motion.div>
                         )}
 
