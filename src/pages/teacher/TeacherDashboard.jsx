@@ -1,4 +1,5 @@
-// src/Pages/teacher/TeacherDashboard.jsx - ENHANCED VERSION WITH ALL TABS
+// src/pages/teacher/TeacherDashboard.jsx - UPDATED WITH CORRECT NAVIGATION
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -90,8 +91,6 @@ const TeacherDashboard = () => {
                     classes.push({
                         ...classData,
                         studentCount: studentsCount,
-                        avgEngagement: classData.avgEngagement || Math.floor(Math.random() * 40) + 60,
-                        avgScore: classData.avgScore || Math.floor(Math.random() * 30) + 70,
                         lastUpdate: classData.updatedAt?.toDate() || new Date()
                     });
                 }
@@ -133,25 +132,19 @@ const TeacherDashboard = () => {
             // 3. Load Quizzes
             const quizzesQuery = query(
                 collection(db, 'quizzes'),
-                where('createdBy', '==', user.uid)
+                where('userId', '==', user.uid)
             );
 
             const quizzesSnap = await getDocs(quizzesQuery);
-            const activeQuizzes = quizzesSnap.docs.filter(doc => {
-                const quiz = doc.data();
-                const dueDate = quiz.dueDate?.toDate?.() || quiz.dueDate;
-                return dueDate && new Date(dueDate) > new Date();
-            });
-
             setStats(prev => ({
                 ...prev,
-                activeQuizzes: activeQuizzes.length
+                activeQuizzes: quizzesSnap.size
             }));
 
             // 4. Load Recent Sessions/Submissions
             const sessionsQuery = query(
-                collection(db, 'sessions'),
-                orderBy('endTs', 'desc'),
+                collection(db, 'quizSessions'),
+                orderBy('completedAt', 'desc'),
                 limit(20)
             );
 
@@ -168,7 +161,7 @@ const TeacherDashboard = () => {
             for (const sessionDoc of sessionsSnap.docs) {
                 const session = sessionDoc.data();
 
-                if (session.endTs?.toDate?.() >= today || session.endTs >= today) {
+                if (session.completedAt?.toDate?.() >= today) {
                     submissionsToday++;
                 }
 
@@ -176,7 +169,7 @@ const TeacherDashboard = () => {
                     const userDoc = await getDoc(doc(db, 'users', session.userId || 'unknown'));
                     const studentData = userDoc.exists() ? userDoc.data() : null;
 
-                    if (session.endTs) {
+                    if (session.completedAt) {
                         const sessionScore = session.score || 0;
                         totalScore += sessionScore;
 
@@ -195,8 +188,8 @@ const TeacherDashboard = () => {
                             studentAvatar: studentData?.photoURL,
                             quiz: session.quizTitle || 'Untitled Quiz',
                             score: sessionScore,
-                            time: getTimeAgo(session.endTs?.toDate?.() || session.endTs),
-                            timestamp: session.endTs?.toDate?.() || session.endTs
+                            time: getTimeAgo(session.completedAt?.toDate?.()),
+                            timestamp: session.completedAt?.toDate?.()
                         });
                     }
                 } catch (error) {
@@ -405,7 +398,7 @@ const TeacherDashboard = () => {
                                                         initial={{ opacity: 0, x: -20 }}
                                                         animate={{ opacity: 1, x: 0 }}
                                                         transition={{ delay: idx * 0.1 }}
-                                                        onClick={() => setActiveTab('classes')}
+                                                        onClick={() => navigate(`/teacher/class/${cls.id}`)} // ✅ UPDATED
                                                         className="group p-4 bg-gradient-to-br from-gray-900 to-black rounded-xl text-white hover:scale-[1.02] transition-all cursor-pointer"
                                                     >
                                                         <div className="flex items-center justify-between mb-2">

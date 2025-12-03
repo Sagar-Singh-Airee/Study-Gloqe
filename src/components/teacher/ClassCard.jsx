@@ -1,4 +1,5 @@
-// src/components/teacher/ClassCard.jsx - UPDATED WITH CLASSROOM NAVIGATION
+// src/components/teacher/ClassCard.jsx - FIXED NAVIGATION
+
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -45,8 +46,9 @@ const ClassCard = ({ classData, index = 0, onEdit, onDelete, onArchive }) => {
         return 'text-red-400';
     };
 
+    // ✅ FIXED: Navigate to teacher classroom route
     const handleCardClick = () => {
-        navigate(`/classroom/${id}`);
+        navigate(`/teacher/class/${id}`);
     };
 
     const handleMenuAction = (action, e) => {
@@ -119,7 +121,7 @@ const ClassCard = ({ classData, index = 0, onEdit, onDelete, onArchive }) => {
                     <motion.div
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="absolute right-0 mt-2 w-40 bg-white text-black rounded-xl shadow-2xl overflow-hidden"
+                        className="absolute right-0 mt-2 w-40 bg-white text-black rounded-xl shadow-2xl overflow-hidden z-50"
                     >
                         <button
                             onClick={(e) => handleMenuAction('edit', e)}

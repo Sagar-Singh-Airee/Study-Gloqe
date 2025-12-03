@@ -1,5 +1,7 @@
-// src/components/teacher/ClassManagement.jsx - UPDATED WITH CLASS CODE
+// src/components/teacher/ClassManagement.jsx - FIXED NAVIGATION
+
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom'; // ✅ ADD THIS
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Plus, Search, Filter, Grid, List, X, Save,
@@ -19,16 +21,16 @@ import ClassCard from './ClassCard';
 
 const ClassManagement = () => {
     const { user, userData } = useAuth();
+    const navigate = useNavigate(); // ✅ ADD THIS
     const [classes, setClasses] = useState([]);
     const [filteredClasses, setFilteredClasses] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+    const [viewMode, setViewMode] = useState('grid');
     const [searchQuery, setSearchQuery] = useState('');
     const [filterSubject, setFilterSubject] = useState('all');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingClass, setEditingClass] = useState(null);
 
-    // Form state
     const [formData, setFormData] = useState({
         name: '',
         subject: '',
@@ -41,7 +43,6 @@ const ClassManagement = () => {
     });
     const [formLoading, setFormLoading] = useState(false);
 
-    // Load classes
     const loadClasses = async () => {
         try {
             setLoading(true);
@@ -62,11 +63,9 @@ const ClassManagement = () => {
         }
     }, [user?.uid]);
 
-    // Filter classes
     useEffect(() => {
         let filtered = [...classes];
 
-        // Search filter
         if (searchQuery.trim()) {
             filtered = filtered.filter(cls =>
                 cls.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -76,7 +75,6 @@ const ClassManagement = () => {
             );
         }
 
-        // Subject filter
         if (filterSubject !== 'all') {
             filtered = filtered.filter(cls => cls.subject === filterSubject);
         }
@@ -84,7 +82,6 @@ const ClassManagement = () => {
         setFilteredClasses(filtered);
     }, [searchQuery, filterSubject, classes]);
 
-    // Get unique subjects
     const subjects = ['all', ...new Set(classes.map(cls => cls.subject))];
 
     const handleInputChange = (e) => {
@@ -103,11 +100,9 @@ const ClassManagement = () => {
 
         try {
             if (editingClass) {
-                // Update existing class
                 await updateClass(editingClass.id, formData);
                 toast.success('✅ Class updated successfully!');
             } else {
-                // Create new class with auto-generated code
                 const result = await createClass(user.uid, {
                     ...formData,
                     teacherName: userData?.name || user.displayName || user.email
@@ -115,10 +110,8 @@ const ClassManagement = () => {
                 toast.success(`✅ Class created! Code: ${result.classCode}`);
             }
 
-            // Reload classes
             await loadClasses();
 
-            // Reset form
             setFormData({
                 name: '',
                 subject: '',
@@ -179,6 +172,11 @@ const ClassManagement = () => {
         }
     };
 
+    // ✅ ADD THIS HANDLER
+    const handleViewClass = (classId) => {
+        navigate(`/teacher/class/${classId}`);
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center py-20">
@@ -220,7 +218,6 @@ const ClassManagement = () => {
 
             {/* Filters & Search */}
             <div className="flex flex-col sm:flex-row gap-4">
-                {/* Search */}
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                     <input
@@ -232,7 +229,6 @@ const ClassManagement = () => {
                     />
                 </div>
 
-                {/* Subject Filter */}
                 <select
                     value={filterSubject}
                     onChange={(e) => setFilterSubject(e.target.value)}
@@ -245,7 +241,6 @@ const ClassManagement = () => {
                     ))}
                 </select>
 
-                {/* View Mode Toggle */}
                 <div className="flex items-center gap-2 bg-gray-100 rounded-xl p-1">
                     <button
                         onClick={() => setViewMode('grid')}
@@ -274,6 +269,7 @@ const ClassManagement = () => {
                             key={classData.id}
                             classData={classData}
                             index={idx}
+                            onView={handleViewClass} // ✅ ADD THIS
                             onEdit={handleEditClass}
                             onDelete={handleDeleteClass}
                             onArchive={handleArchiveClass}
@@ -304,7 +300,7 @@ const ClassManagement = () => {
                 </div>
             )}
 
-            {/* Create/Edit Class Modal */}
+            {/* Modal remains the same... */}
             <AnimatePresence>
                 {showCreateModal && (
                     <motion.div
@@ -321,7 +317,6 @@ const ClassManagement = () => {
                             onClick={(e) => e.stopPropagation()}
                             className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
                         >
-                            {/* Modal Header */}
                             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
                                 <div>
                                     <h3 className="text-2xl font-black text-black">
@@ -339,9 +334,7 @@ const ClassManagement = () => {
                                 </button>
                             </div>
 
-                            {/* Modal Form */}
                             <form onSubmit={handleCreateClass} className="p-6 space-y-5">
-                                {/* Class Name */}
                                 <div>
                                     <label className="block text-sm font-bold text-black mb-2">
                                         Class Name <span className="text-red-500">*</span>
@@ -357,7 +350,6 @@ const ClassManagement = () => {
                                     />
                                 </div>
 
-                                {/* Subject & Section */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-bold text-black mb-2">
@@ -388,7 +380,6 @@ const ClassManagement = () => {
                                     </div>
                                 </div>
 
-                                {/* School Name */}
                                 <div>
                                     <label className="block text-sm font-bold text-black mb-2">
                                         School/Institution Name
@@ -403,7 +394,6 @@ const ClassManagement = () => {
                                     />
                                 </div>
 
-                                {/* Grade & Room */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-bold text-black mb-2">
@@ -433,7 +423,6 @@ const ClassManagement = () => {
                                     </div>
                                 </div>
 
-                                {/* Schedule */}
                                 <div>
                                     <label className="block text-sm font-bold text-black mb-2">
                                         Schedule
@@ -448,7 +437,6 @@ const ClassManagement = () => {
                                     />
                                 </div>
 
-                                {/* Description */}
                                 <div>
                                     <label className="block text-sm font-bold text-black mb-2">
                                         Description
@@ -463,7 +451,6 @@ const ClassManagement = () => {
                                     />
                                 </div>
 
-                                {/* Action Buttons */}
                                 <div className="flex gap-3 pt-4">
                                     <button
                                         type="button"
