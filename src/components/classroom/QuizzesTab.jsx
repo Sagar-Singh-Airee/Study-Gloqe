@@ -1,60 +1,22 @@
 // src/components/classroom/QuizzesTab.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { 
-    Plus, Brain, Clock, CheckCircle2, Play, Award, 
-    Calendar, Users, Target, TrendingUp, Edit, Trash2, Eye 
+import {
+    Plus, Brain, Clock, CheckCircle2, Play, Award,
+    Calendar, Users, Target, TrendingUp, Edit, Trash2, Eye, Loader2
 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { getUserQuizzes } from '@/services/quizService';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/config/firebase';
 import toast from 'react-hot-toast';
 
 const QuizzesTab = ({ classId, isTeacher }) => {
+    const { user } = useAuth();
+    const [quizzes, setQuizzes] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
-
-    // Mock quizzes data
-    const quizzes = [
-        {
-            id: 1,
-            title: 'Mid-Term Assessment',
-            description: 'Comprehensive test covering chapters 1-6',
-            questions: 25,
-            duration: 45,
-            points: 100,
-            dueDate: new Date('2025-12-08'),
-            attempts: 18,
-            totalStudents: 25,
-            avgScore: 82,
-            status: 'active',
-            type: 'timed'
-        },
-        {
-            id: 2,
-            title: 'Quick Check: Unit 7',
-            description: 'Short quiz on recent topics',
-            questions: 10,
-            duration: 15,
-            points: 50,
-            dueDate: new Date('2025-12-04'),
-            attempts: 22,
-            totalStudents: 25,
-            avgScore: 88,
-            status: 'active',
-            type: 'practice'
-        },
-        {
-            id: 3,
-            title: 'Weekly Review Quiz',
-            description: 'Review of last week\'s material',
-            questions: 15,
-            duration: 20,
-            points: 75,
-            dueDate: new Date('2025-11-30'),
-            attempts: 25,
-            totalStudents: 25,
-            avgScore: 91,
-            status: 'completed',
-            type: 'graded'
-        },
-    ];
+    const [quizAttempts, setQuizAttempts] = useState({});
 
     const getStatusColor = (status) => {
         switch (status) {

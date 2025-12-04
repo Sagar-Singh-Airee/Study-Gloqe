@@ -1,4 +1,4 @@
-// src/pages/StudyRoom.jsx - FIXED VERSION WITH BUG RESOLUTION & ENHANCED UI
+// src/pages/StudyRoom.jsx - WITH CLASS CODE & IMPROVED UI
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -47,6 +47,10 @@ import {
     Menu,
     X,
     Shield,
+    Copy,
+    Check,
+    Share2,
+    Info,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -64,7 +68,6 @@ const VideoTile = ({ peer, isLocal, isFullscreen }) => {
         if (videoRef.current && peer.videoTrack) {
             hmsActions.attachVideo(peer.videoTrack, videoRef.current);
             
-            // Store cleanup function
             cleanupVideo = () => {
                 try {
                     if (videoRef.current && peer.videoTrack) {
@@ -79,7 +82,6 @@ const VideoTile = ({ peer, isLocal, isFullscreen }) => {
         return () => {
             if (cleanupVideo) cleanupVideo();
             
-            // Ensure video stream is stopped
             if (videoRef.current) {
                 const videoEl = videoRef.current;
                 if (videoEl.srcObject) {
@@ -100,7 +102,7 @@ const VideoTile = ({ peer, isLocal, isFullscreen }) => {
                 autoPlay 
                 muted={isLocal}
                 playsInline
-                className="w-full h-full object-cover min-h-[240px]"
+                className={`w-full h-full object-cover min-h-[240px] ${isLocal ? 'scale-x-[-1]' : ''}`}
                 onContextMenu={(e) => e.preventDefault()}
             />
             
@@ -131,7 +133,7 @@ const VideoTile = ({ peer, isLocal, isFullscreen }) => {
             </div>
             
             {peer.audioEnabled === false && (
-                <div className="absolute top-3 right-3 p-2 bg-black/70 backdrop-blur-md rounded-full">
+                <div className="absolute top-3 right-3 p-2 bg-red-500/90 backdrop-blur-md rounded-lg shadow-lg">
                     <VolumeX size={16} className="text-white" />
                 </div>
             )}
@@ -159,7 +161,9 @@ const StudyRoomContent = () => {
     const [isJoiningCall, setIsJoiningCall] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [showChat, setShowChat] = useState(true);
-    const [showParticipants, setShowParticipants] = useState(false);
+    const [showClassCode, setShowClassCode] = useState(false);
+    const [copied, setCopied] = useState(false);
+    const [copiedLink, setCopiedLink] = useState(false);
     const [activeSpeaker, setActiveSpeaker] = useState(null);
     const [lastLeftTime, setLastLeftTime] = useState(null);
     
@@ -175,6 +179,34 @@ const StudyRoomContent = () => {
     const localPeer = useHMSStore(selectLocalPeer);
     const isLocalAudioEnabled = useHMSStore(selectIsPeerAudioEnabled(localPeer?.id));
     const isLocalVideoEnabled = useHMSStore(selectIsPeerVideoEnabled(localPeer?.id));
+
+    // Generate class code and share link
+    const classCode = roomId?.substring(0, 8).toUpperCase() || 'STUDY123';
+    const shareLink = `${window.location.origin}/study-room/${roomId}`;
+
+    // Copy class code
+    const copyClassCode = async () => {
+        try {
+            await navigator.clipboard.writeText(classCode);
+            setCopied(true);
+            toast.success('Class code copied!');
+            setTimeout(() => setCopied(false), 2000);
+        } catch (error) {
+            toast.error('Failed to copy code');
+        }
+    };
+
+    // Copy share link
+    const copyShareLink = async () => {
+        try {
+            await navigator.clipboard.writeText(shareLink);
+            setCopiedLink(true);
+            toast.success('Share link copied!');
+            setTimeout(() => setCopiedLink(false), 2000);
+        } catch (error) {
+            toast.error('Failed to copy link');
+        }
+    };
 
     // Track active speaker
     useEffect(() => {
@@ -222,7 +254,7 @@ const StudyRoomContent = () => {
         if (roomId) fetchRoom();
     }, [roomId, navigate]);
 
-    // Join 100ms room with backend - CREATE ROOM FIRST then GET TOKEN
+    // Join 100ms room with backend
     const joinVideoCall = useCallback(async () => {
         if (!roomData || !user || isConnected || isJoiningCall) return;
 
@@ -230,12 +262,10 @@ const StudyRoomContent = () => {
             setIsJoiningCall(true);
             console.log('🔄 Joining 100ms room...');
 
-            // Check if we're re-joining too quickly
             if (lastLeftTime && Date.now() - lastLeftTime < 2000) {
                 await new Promise(resolve => setTimeout(resolve, 2000));
             }
 
-            // Step 1: Create room in 100ms
             const roomResponse = await fetch(`${API_URL}/token/create-room`, {
                 method: 'POST',
                 headers: {
@@ -260,7 +290,6 @@ const StudyRoomContent = () => {
 
             console.log('✅ Room created with ID:', roomResult.roomId);
 
-            // Step 2: Generate token with the room ID
             const tokenResponse = await fetch(`${API_URL}/token/generate-token`, {
                 method: 'POST',
                 headers: {
@@ -287,7 +316,6 @@ const StudyRoomContent = () => {
 
             console.log('✅ Token generated');
 
-            // Step 3: Store local tracks for cleanup
             const config = {
                 userName: user.displayName || 'Anonymous',
                 authToken: tokenResult.token,
@@ -298,13 +326,11 @@ const StudyRoomContent = () => {
                 captureNetworkQualityInPreview: true,
             };
 
-            // Join with proper error handling
             await hmsActions.join(config);
 
             console.log('✅ Joined 100ms room successfully');
             toast.success('Connected to video call!');
 
-            // Store local tracks for cleanup
             if (localPeer) {
                 const tracks = hmsActions.getLocalTracks();
                 localTracksRef.current = tracks || [];
@@ -313,7 +339,6 @@ const StudyRoomContent = () => {
         } catch (error) {
             console.error('❌ Error joining 100ms room:', error);
             
-            // Better error handling
             if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
                 toast.error('Cannot connect to server. Please check your network connection.');
             } else if (error.message.includes('permission') || error.message.includes('camera')) {
@@ -322,7 +347,6 @@ const StudyRoomContent = () => {
                 toast.error(error.message || 'Failed to join video call');
             }
             
-            // Reset joining state
             setIsJoiningCall(false);
             hasJoinedRef.current = false;
         }
@@ -426,10 +450,8 @@ const StudyRoomContent = () => {
         }
     };
 
-    // FIXED: Properly handle leaving with full cleanup
     const handleLeave = async () => {
         try {
-            // Step 1: Disable local tracks first
             if (hmsActions.setLocalAudioEnabled) {
                 await hmsActions.setLocalAudioEnabled(false);
             }
@@ -437,7 +459,6 @@ const StudyRoomContent = () => {
                 await hmsActions.setLocalVideoEnabled(false);
             }
 
-            // Step 2: Stop all local tracks manually
             try {
                 const tracks = hmsActions.getLocalTracks?.() || [];
                 tracks.forEach(track => {
@@ -449,12 +470,10 @@ const StudyRoomContent = () => {
                 console.log('Track cleanup:', trackError);
             }
 
-            // Step 3: Leave the HMS room
             if (isConnected) {
                 await hmsActions.leave();
             }
 
-            // Step 4: Update Firestore
             if (user && roomData) {
                 const roomRef = doc(db, 'rooms', roomId);
                 const participantToRemove = participants.find(p => p.userId === user.uid);
@@ -472,7 +491,6 @@ const StudyRoomContent = () => {
                 });
             }
 
-            // Step 5: Clean up video elements
             const videoElements = document.querySelectorAll('video');
             videoElements.forEach(video => {
                 if (video.srcObject) {
@@ -481,7 +499,6 @@ const StudyRoomContent = () => {
                 }
             });
 
-            // Step 6: Set leave time to prevent immediate rejoin
             setLastLeftTime(Date.now());
             hasJoinedRef.current = false;
 
@@ -495,7 +512,6 @@ const StudyRoomContent = () => {
         }
     };
 
-    // Toggle fullscreen for main video
     const toggleFullscreen = () => {
         if (!document.fullscreenElement) {
             videoContainerRef.current?.requestFullscreen();
@@ -506,7 +522,6 @@ const StudyRoomContent = () => {
         }
     };
 
-    // Handle fullscreen change
     useEffect(() => {
         const handleFullscreenChange = () => {
             setIsFullscreen(!!document.fullscreenElement);
@@ -568,6 +583,18 @@ const StudyRoomContent = () => {
                                     </span>
                                     {isConnected ? 'Live' : isJoiningCall ? 'Connecting...' : 'Disconnected'}
                                 </span>
+
+                                {/* CLASS CODE BUTTON */}
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => setShowClassCode(true)}
+                                    className="flex items-center gap-2 px-4 py-1.5 bg-gradient-to-r from-blue-600 to-blue-700 
+                                        text-white rounded-xl font-semibold text-sm hover:shadow-lg transition-all border border-blue-500"
+                                >
+                                    <Info size={16} />
+                                    Class Code
+                                </motion.button>
                             </div>
                         </div>
                         
@@ -611,6 +638,98 @@ const StudyRoomContent = () => {
                         </div>
                     </div>
                 </motion.div>
+
+                {/* CLASS CODE MODAL */}
+                <AnimatePresence>
+                    {showClassCode && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                            onClick={() => setShowClassCode(false)}
+                        >
+                            <motion.div
+                                initial={{ scale: 0.9, y: 20 }}
+                                animate={{ scale: 1, y: 0 }}
+                                exit={{ scale: 0.9, y: 20 }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="bg-gradient-to-br from-gray-800 to-gray-900 backdrop-blur-xl rounded-3xl p-8 
+                                    shadow-2xl border-2 border-gray-700/50 max-w-md w-full"
+                            >
+                                <div className="flex items-center justify-between mb-6">
+                                    <h3 className="text-2xl font-bold text-white flex items-center gap-2">
+                                        <Info className="text-blue-400" />
+                                        Share Study Room
+                                    </h3>
+                                    <button 
+                                        onClick={() => setShowClassCode(false)} 
+                                        className="p-2 hover:bg-gray-700/50 rounded-xl transition-colors"
+                                    >
+                                        <X size={20} className="text-gray-400" />
+                                    </button>
+                                </div>
+
+                                <div className="space-y-6">
+                                    {/* Class Code */}
+                                    <div>
+                                        <label className="text-sm font-semibold text-gray-400 mb-3 block">Class Code</label>
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex-1 bg-gradient-to-r from-gray-700 to-gray-800 p-5 rounded-2xl 
+                                                border-2 border-gray-600 shadow-inner">
+                                                <p className="text-4xl font-mono font-bold text-white text-center tracking-widest">
+                                                    {classCode}
+                                                </p>
+                                            </div>
+                                            <motion.button
+                                                whileHover={{ scale: 1.05 }}
+                                                whileTap={{ scale: 0.95 }}
+                                                onClick={copyClassCode}
+                                                className="p-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-2xl 
+                                                    hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg"
+                                            >
+                                                {copied ? <Check size={24} /> : <Copy size={24} />}
+                                            </motion.button>
+                                        </div>
+                                        <p className="text-xs text-gray-500 mt-2 text-center">Share this code with your study partners</p>
+                                    </div>
+
+                                    {/* Divider */}
+                                    <div className="relative">
+                                        <div className="absolute inset-0 flex items-center">
+                                            <div className="w-full border-t border-gray-700"></div>
+                                        </div>
+                                        <div className="relative flex justify-center text-sm">
+                                            <span className="px-4 bg-gray-800 text-gray-400 font-medium">or</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Share Link */}
+                                    <div>
+                                        <label className="text-sm font-semibold text-gray-400 mb-3 block">Share Link</label>
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="text"
+                                                value={shareLink}
+                                                readOnly
+                                                className="flex-1 px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-2xl 
+                                                    text-sm text-gray-300 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                                            />
+                                            <motion.button
+                                                whileHover={{ scale: 1.05 }}
+                                                whileTap={{ scale: 0.95 }}
+                                                onClick={copyShareLink}
+                                                className="p-3 bg-gray-700 hover:bg-gray-600 text-white rounded-2xl transition-all border border-gray-600"
+                                            >
+                                                {copiedLink ? <Check size={20} /> : <Share2 size={20} />}
+                                            </motion.button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
                 <div className="flex gap-6">
                     {/* Main Video Area */}
@@ -690,18 +809,6 @@ const StudyRoomContent = () => {
                                     </motion.div>
                                 ))}
                             </div>
-
-                            {/* Empty State */}
-                            {peers.length === 1 && (
-                                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                    <div className="text-center p-8 bg-gradient-to-br from-gray-800/50 to-gray-900/50 
-                                        backdrop-blur-xl rounded-3xl border border-gray-700/50">
-                                        <Users size={80} className="text-gray-600 mx-auto mb-4" />
-                                        <h3 className="text-2xl font-bold text-white mb-2">Waiting for others to join</h3>
-                                        <p className="text-gray-400">Share the room link with your study partners</p>
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     </div>
 

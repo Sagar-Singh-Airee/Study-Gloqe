@@ -1,69 +1,56 @@
 // src/components/classroom/AnnouncementsTab.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { 
-    Plus, Bell, Pin, Trash2, Edit, MessageSquare, 
-    Calendar, AlertCircle, CheckCircle2, Info 
+import {
+    Plus, Bell, Pin, Trash2, Edit, MessageSquare,
+    Calendar, AlertCircle, CheckCircle2, Info, Loader2, X
 } from 'lucide-react';
+import {
+    createAnnouncement,
+    getAnnouncements,
+    deleteAnnouncement,
+    togglePinAnnouncement,
+    listenToAnnouncements,
+    markAnnouncementAsRead
+} from '@/services/announcementService';
+import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
 
 const AnnouncementsTab = ({ classId, isTeacher }) => {
+    const { user } = useAuth();
     const [showCreateModal, setShowCreateModal] = useState(false);
-    const [newAnnouncement, setNewAnnouncement] = useState({ title: '', message: '', type: 'info' });
+    const [newAnnouncement, setNewAnnouncement] = useState({
+        title: '',
+        content: '', // Changed from 'message' to 'content'
+        type: 'info'
+    });
+    const [announcements, setAnnouncements] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
 
-    // Mock announcements data
-    const announcements = [
-        {
-            id: 1,
-            title: 'Final Exam Schedule Released',
-            message: 'The final exam will be held on December 15th at 9:00 AM. Please review chapters 1-10 and bring your student ID.',
-            type: 'important',
-            author: 'Teacher Name',
-            createdAt: new Date('2025-12-01'),
-            isPinned: true,
-            comments: 3
-        },
-        {
-            id: 2,
-            title: 'Class Cancelled - December 5th',
-            message: 'Due to a faculty meeting, class on December 5th is cancelled. Material will be covered in the next session.',
-            type: 'alert',
-            author: 'Teacher Name',
-            createdAt: new Date('2025-11-30'),
-            isPinned: false,
-            comments: 8
-        },
-        {
-            id: 3,
-            title: 'New Study Materials Available',
-            message: 'I\'ve uploaded the practice problems and answer key for Chapter 7. Check the Materials tab.',
-            type: 'info',
-            author: 'Teacher Name',
-            createdAt: new Date('2025-11-28'),
-            isPinned: false,
-            comments: 5
-        },
-        {
-            id: 4,
-            title: 'Great Job on Last Week\'s Quiz!',
-            message: 'Amazing performance everyone! Class average was 88%. Keep up the excellent work! 🎉',
-            type: 'success',
-            author: 'Teacher Name',
-            createdAt: new Date('2025-11-27'),
-            isPinned: false,
-            comments: 12
-        },
-        {
-            id: 5,
-            title: 'Office Hours This Week',
-            message: 'I\'ll be available for office hours on Wednesday 3-5 PM and Friday 2-4 PM. Feel free to drop by with questions!',
-            type: 'info',
-            author: 'Teacher Name',
-            createdAt: new Date('2025-11-25'),
-            isPinned: false,
-            comments: 2
-        },
-    ];
+    // Load announcements with real-time updates
+    useEffect(() => {
+        if (!classId) return;
+
+        setLoading(true);
+
+        // Subscribe to real-time updates
+        const unsubscribe = listenToAnnouncements(classId, (announcementsData) => {
+            setAnnouncements(announcementsData);
+            setLoading(false);
+
+            // Mark new announcements as read for students
+            if (!isTeacher && user) {
+                announcementsData.forEach(announcement => {
+                    if (!announcement.readBy?.includes(user.uid)) {
+                        markAnnouncementAsRead(announcement.id, user.uid).catch(console.error);
+                    }
+                });
+            }
+        });
+
+        return () => unsubscribe();
+    }, [classId, isTeacher, user]);
 
     const getTypeConfig = (type) => {
         switch (type) {
@@ -115,15 +102,65 @@ const AnnouncementsTab = ({ classId, isTeacher }) => {
         return date.toLocaleDateString();
     };
 
-    const handleCreateAnnouncement = () => {
-        if (!newAnnouncement.title || !newAnnouncement.message) {
+    const handleCreateAnnouncement = async () => {
+        if (!newAnnouncement.title || !newAnnouncement.content) {
             toast.error('Please fill in all fields');
             return;
         }
-        toast.success('Announcement posted!');
-        setShowCreateModal(false);
-        setNewAnnouncement({ title: '', message: '', type: 'info' });
+
+        setSubmitting(true);
+        try {
+            await createAnnouncement({
+                classId,
+                teacherId: user.uid,
+                title: newAnnouncement.title,
+                content: newAnnouncement.content,
+                priority: newAnnouncement.type,
+                pinned: false
+            });
+
+            toast.success('Announcement posted successfully!');
+            setShowCreateModal(false);
+            setNewAnnouncement({ title: '', content: '', type: 'info' });
+        } catch (error) {
+            console.error('Error creating announcement:', error);
+            toast.error('Failed to post announcement. Please try again.');
+        } finally {
+            setSubmitting(false);
+        }
     };
+
+    const handleDeleteAnnouncement = async (announcementId) => {
+        if (!window.confirm('Are you sure you want to delete this announcement?')) {
+            return;
+        }
+
+        try {
+            await deleteAnnouncement(announcementId, classId);
+            toast.success('Announcement deleted successfully');
+        } catch (error) {
+            console.error('Error deleting announcement:', error);
+            toast.error('Failed to delete announcement');
+        }
+    };
+
+    const handleTogglePin = async (announcementId, currentPinned) => {
+        try {
+            await togglePinAnnouncement(announcementId, currentPinned);
+            toast.success(currentPinned ? 'Announcement unpinned' : 'Announcement pinned');
+        } catch (error) {
+            console.error('Error toggling pin:', error);
+            toast.error('Failed to update pin status');
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center py-20">
+                <Loader2 size={48} className="text-gray-400 animate-spin" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -147,7 +184,7 @@ const AnnouncementsTab = ({ classId, isTeacher }) => {
             {/* Announcements List */}
             <div className="space-y-4">
                 {announcements.map((announcement, idx) => {
-                    const config = getTypeConfig(announcement.type);
+                    const config = getTypeConfig(announcement.priority || announcement.type);
                     const Icon = config.icon;
 
                     return (
@@ -156,12 +193,11 @@ const AnnouncementsTab = ({ classId, isTeacher }) => {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: idx * 0.05 }}
-                            className={`${config.bg} border ${config.border} rounded-2xl p-6 relative ${
-                                announcement.isPinned ? 'ring-2 ring-offset-2 ring-black' : ''
-                            }`}
+                            className={`${config.bg} border ${config.border} rounded-2xl p-6 relative ${announcement.pinned ? 'ring-2 ring-offset-2 ring-black' : ''
+                                }`}
                         >
                             {/* Pinned Badge */}
-                            {announcement.isPinned && (
+                            {announcement.pinned && (
                                 <div className="absolute -top-3 left-6 px-3 py-1 bg-black text-white rounded-full text-xs font-bold flex items-center gap-1">
                                     <Pin size={12} />
                                     Pinned
@@ -181,43 +217,50 @@ const AnnouncementsTab = ({ classId, isTeacher }) => {
                                         <div>
                                             <h3 className="text-lg font-bold text-black mb-1">{announcement.title}</h3>
                                             <div className="flex items-center gap-3 text-sm text-gray-600">
-                                                <span className="font-medium">{announcement.author}</span>
+                                                <span className="font-medium">{announcement.teacherName}</span>
                                                 <span>•</span>
                                                 <span className="flex items-center gap-1">
                                                     <Calendar size={14} />
                                                     {getTimeAgo(announcement.createdAt)}
                                                 </span>
+                                                {announcement.readCount > 0 && (
+                                                    <>
+                                                        <span>•</span>
+                                                        <span className="text-xs">{announcement.readCount} read</span>
+                                                    </>
+                                                )}
                                             </div>
                                         </div>
 
                                         {/* Type Badge */}
                                         <span className={`px-3 py-1 ${config.badgeBg} ${config.badgeText} rounded-full text-xs font-bold capitalize`}>
-                                            {announcement.type}
+                                            {announcement.priority || announcement.type}
                                         </span>
                                     </div>
 
                                     {/* Message */}
-                                    <p className="text-gray-700 leading-relaxed mb-4">{announcement.message}</p>
+                                    <p className="text-gray-700 leading-relaxed mb-4">{announcement.content}</p>
 
                                     {/* Footer */}
                                     <div className="flex items-center justify-between pt-4 border-t border-gray-300">
-                                        <button className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-black transition-all">
-                                            <MessageSquare size={16} />
-                                            {announcement.comments} Comments
-                                        </button>
+                                        <div className="text-sm text-gray-500">
+                                            {announcement.readBy && `${announcement.readBy.length} students read`}
+                                        </div>
 
                                         {isTeacher && (
                                             <div className="flex items-center gap-2">
                                                 <button
-                                                    onClick={() => toast.success('Announcement pinned')}
+                                                    onClick={() => handleTogglePin(announcement.id, announcement.pinned)}
                                                     className="p-2 hover:bg-white/50 rounded-lg transition-all"
+                                                    title={announcement.pinned ? "Unpin" : "Pin"}
                                                 >
-                                                    <Pin size={16} className="text-gray-600" />
+                                                    <Pin size={16} className={announcement.pinned ? "text-black" : "text-gray-600"} />
                                                 </button>
-                                                <button className="p-2 hover:bg-white/50 rounded-lg transition-all">
-                                                    <Edit size={16} className="text-gray-600" />
-                                                </button>
-                                                <button className="p-2 hover:bg-red-100 rounded-lg transition-all">
+                                                <button
+                                                    onClick={() => handleDeleteAnnouncement(announcement.id)}
+                                                    className="p-2 hover:bg-red-100 rounded-lg transition-all"
+                                                    title="Delete"
+                                                >
                                                     <Trash2 size={16} className="text-red-600" />
                                                 </button>
                                             </div>
@@ -236,8 +279,8 @@ const AnnouncementsTab = ({ classId, isTeacher }) => {
                     <Bell size={64} className="mx-auto text-gray-300 mb-4" />
                     <h3 className="text-xl font-bold text-black mb-2">No Announcements Yet</h3>
                     <p className="text-gray-600 mb-6">
-                        {isTeacher 
-                            ? 'Post your first announcement to notify students' 
+                        {isTeacher
+                            ? 'Post your first announcement to notify students'
                             : 'Your teacher hasn\'t posted any announcements yet'}
                     </p>
                     {isTeacher && (
@@ -260,7 +303,16 @@ const AnnouncementsTab = ({ classId, isTeacher }) => {
                         animate={{ opacity: 1, scale: 1 }}
                         className="bg-white rounded-2xl p-8 max-w-2xl w-full shadow-2xl max-h-[90vh] overflow-y-auto"
                     >
-                        <h2 className="text-2xl font-black text-black mb-6">Create Announcement</h2>
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-2xl font-black text-black">Create Announcement</h2>
+                            <button
+                                onClick={() => setShowCreateModal(false)}
+                                className="p-2 hover:bg-gray-100 rounded-lg transition-all"
+                                disabled={submitting}
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
 
                         {/* Type Selection */}
                         <div className="mb-6">
@@ -270,11 +322,11 @@ const AnnouncementsTab = ({ classId, isTeacher }) => {
                                     <button
                                         key={type}
                                         onClick={() => setNewAnnouncement({ ...newAnnouncement, type })}
-                                        className={`px-4 py-3 rounded-xl font-bold capitalize transition-all ${
-                                            newAnnouncement.type === type
+                                        disabled={submitting}
+                                        className={`px-4 py-3 rounded-xl font-bold capitalize transition-all ${newAnnouncement.type === type
                                                 ? 'bg-black text-white'
                                                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                        }`}
+                                            } disabled:opacity-50 disabled:cursor-not-allowed`}
                                     >
                                         {type}
                                     </button>
@@ -290,7 +342,8 @@ const AnnouncementsTab = ({ classId, isTeacher }) => {
                                 placeholder="e.g., Important: Class Cancelled Tomorrow"
                                 value={newAnnouncement.title}
                                 onChange={(e) => setNewAnnouncement({ ...newAnnouncement, title: e.target.value })}
-                                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-black transition-all"
+                                disabled={submitting}
+                                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-black transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             />
                         </div>
 
@@ -299,10 +352,11 @@ const AnnouncementsTab = ({ classId, isTeacher }) => {
                             <label className="block text-sm font-bold text-black mb-2">Message</label>
                             <textarea
                                 placeholder="Write your announcement message..."
-                                value={newAnnouncement.message}
-                                onChange={(e) => setNewAnnouncement({ ...newAnnouncement, message: e.target.value })}
+                                value={newAnnouncement.content}
+                                onChange={(e) => setNewAnnouncement({ ...newAnnouncement, content: e.target.value })}
+                                disabled={submitting}
                                 rows={6}
-                                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-black transition-all resize-none"
+                                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-black transition-all resize-none disabled:opacity-50 disabled:cursor-not-allowed"
                             />
                         </div>
 
@@ -310,15 +364,24 @@ const AnnouncementsTab = ({ classId, isTeacher }) => {
                         <div className="flex gap-3">
                             <button
                                 onClick={() => setShowCreateModal(false)}
-                                className="flex-1 py-3 border-2 border-gray-200 rounded-xl font-bold hover:bg-gray-50 transition-all text-gray-600"
+                                disabled={submitting}
+                                className="flex-1 py-3 border-2 border-gray-200 rounded-xl font-bold hover:bg-gray-50 transition-all text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleCreateAnnouncement}
-                                className="flex-1 py-3 bg-black text-white rounded-xl font-bold hover:scale-105 transition-all"
+                                disabled={!newAnnouncement.title || !newAnnouncement.content || submitting}
+                                className="flex-1 py-3 bg-black text-white rounded-xl font-bold hover:scale-105 transition-all disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
-                                Post Announcement
+                                {submitting ? (
+                                    <>
+                                        <Loader2 size={18} className="animate-spin" />
+                                        Posting...
+                                    </>
+                                ) : (
+                                    'Post Announcement'
+                                )}
                             </button>
                         </div>
                     </motion.div>

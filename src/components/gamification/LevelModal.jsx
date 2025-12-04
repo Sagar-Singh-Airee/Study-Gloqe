@@ -1,7 +1,7 @@
 // EPIC LEVEL MODAL - Opens when clicking level badge
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
+import {
     X, Trophy, Target, Zap, Star, TrendingUp, Award,
     CheckCircle2, Lock, Gift, Crown, Flame, Calendar
 } from 'lucide-react';
@@ -24,7 +24,7 @@ const LevelModal = ({ isOpen, onClose }) => {
             (doc) => {
                 const data = doc.data();
                 setUserData(data);
-                
+
                 // Check if level just increased
                 if (data?.levelUp) {
                     setConfetti(true);
@@ -53,10 +53,14 @@ const LevelModal = ({ isOpen, onClose }) => {
 
     if (!isOpen) return null;
 
+    // Use consistent level thresholds from gamificationService
+    const levelThresholds = [0, 100, 250, 500, 1000, 2000, 4000, 8000, 16000];
+
     const xp = userData?.xp || 0;
     const level = userData?.level || 1;
-    const xpForNextLevel = level * 100;
-    const xpProgress = (xp / xpForNextLevel) * 100;
+    const xpForNextLevel = levelThresholds[level] || levelThresholds[levelThresholds.length - 1];
+    const previousLevelXp = levelThresholds[level - 1] || 0;
+    const xpProgress = xpForNextLevel ? ((xp - previousLevelXp) / (xpForNextLevel - previousLevelXp)) * 100 : 0;
     const streak = userData?.streak || 0;
 
     return (
@@ -82,10 +86,10 @@ const LevelModal = ({ isOpen, onClose }) => {
                                 <motion.div
                                     key={i}
                                     initial={{ y: -20, x: Math.random() * 100 + '%', opacity: 1 }}
-                                    animate={{ 
-                                        y: '100vh', 
+                                    animate={{
+                                        y: '100vh',
                                         rotate: Math.random() * 360,
-                                        opacity: 0 
+                                        opacity: 0
                                     }}
                                     transition={{ duration: 2 + Math.random(), delay: Math.random() * 0.5 }}
                                     className="absolute w-3 h-3 bg-gradient-to-br from-white to-gray-400 rounded-full"
@@ -113,7 +117,7 @@ const LevelModal = ({ isOpen, onClose }) => {
                                         <div className="text-3xl font-bold text-white">{level}</div>
                                     </div>
                                 </div>
-                                
+
                                 {/* Streak Indicator */}
                                 {streak > 0 && (
                                     <motion.div
@@ -135,7 +139,7 @@ const LevelModal = ({ isOpen, onClose }) => {
                                 <p className="text-gray-400 text-sm mb-3">
                                     {xpForNextLevel - xp} XP to Level {level + 1}
                                 </p>
-                                
+
                                 {/* XP Progress Bar */}
                                 <div className="relative h-3 bg-gray-800 rounded-full overflow-hidden">
                                     <motion.div
@@ -160,7 +164,7 @@ const LevelModal = ({ isOpen, onClose }) => {
                                 <Target className="text-white" size={20} />
                                 <h3 className="text-lg font-bold text-white">Daily Missions</h3>
                             </div>
-                            
+
                             <div className="space-y-3">
                                 {missions.filter(m => m.type === 'daily').map((mission) => (
                                     <MissionCard key={mission.id} mission={mission} />
@@ -174,7 +178,7 @@ const LevelModal = ({ isOpen, onClose }) => {
                                 <Trophy className="text-white" size={20} />
                                 <h3 className="text-lg font-bold text-white">Weekly Challenges</h3>
                             </div>
-                            
+
                             <div className="space-y-3">
                                 {missions.filter(m => m.type === 'weekly').map((mission) => (
                                     <MissionCard key={mission.id} mission={mission} />
@@ -210,11 +214,10 @@ const MissionCard = ({ mission }) => {
         <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className={`p-4 rounded-lg border ${
-                isCompleted 
-                    ? 'bg-white/5 border-white/20' 
+            className={`p-4 rounded-lg border ${isCompleted
+                    ? 'bg-white/5 border-white/20'
                     : 'bg-gray-800/50 border-gray-700'
-            }`}
+                }`}
         >
             <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
@@ -223,7 +226,7 @@ const MissionCard = ({ mission }) => {
                     </h4>
                     <p className="text-gray-400 text-xs">{mission.description}</p>
                 </div>
-                
+
                 {isCompleted ? (
                     <CheckCircle2 className="text-white flex-shrink-0" size={20} />
                 ) : (
@@ -239,14 +242,13 @@ const MissionCard = ({ mission }) => {
                 <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${progress}%` }}
-                    className={`absolute inset-y-0 left-0 rounded-full ${
-                        isCompleted 
-                            ? 'bg-gradient-to-r from-white to-gray-400' 
+                    className={`absolute inset-y-0 left-0 rounded-full ${isCompleted
+                            ? 'bg-gradient-to-r from-white to-gray-400'
                             : 'bg-gradient-to-r from-gray-500 to-gray-600'
-                    }`}
+                        }`}
                 />
             </div>
-            
+
             <div className="mt-2 text-xs text-gray-400 text-right">
                 {mission.current} / {mission.target}
             </div>

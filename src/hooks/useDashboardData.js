@@ -1,12 +1,12 @@
 // src/hooks/useDashboardData.js - FIXED VERSION
 import { useState, useEffect } from 'react';
 import { db } from '@/config/firebase';
-import { 
-    collection, 
-    query, 
-    where, 
-    orderBy, 
-    limit, 
+import {
+    collection,
+    query,
+    where,
+    orderBy,
+    limit,
     onSnapshot,
     doc,
     updateDoc,
@@ -55,7 +55,7 @@ export const useDashboardData = () => {
                         const userData = doc.data();
                         const xp = userData.xp || 0;
                         const level = Math.floor(xp / 100) + 1;
-                        
+
                         setData(prev => ({
                             ...prev,
                             stats: {
@@ -81,7 +81,7 @@ export const useDashboardData = () => {
                         ...doc.data()
                         // ✅ REMOVED: Don't convert here, keep Firestore Timestamp
                     }));
-                    
+
                     setData(prev => ({
                         ...prev,
                         recentDocuments: docs.slice(0, 5),
@@ -107,9 +107,9 @@ export const useDashboardData = () => {
                         ...doc.data()
                         // ✅ REMOVED: Don't convert here
                     }));
-                    
+
                     const completed = sessions.filter(s => s.status === 'completed').length;
-                    
+
                     setData(prev => ({
                         ...prev,
                         studySessions: sessions,
@@ -118,7 +118,7 @@ export const useDashboardData = () => {
                             quizzesCompleted: completed
                         }
                     }));
-                    
+
                     console.log(`✅ Loaded ${sessions.length} study sessions`);
                 });
                 unsubscribers.push(unsubSessions);
@@ -169,7 +169,7 @@ export const useDashboardData = () => {
                         id: doc.id,
                         ...doc.data()
                     }));
-                    
+
                     setData(prev => ({
                         ...prev,
                         activeRooms: rooms
@@ -188,12 +188,12 @@ export const useDashboardData = () => {
                         id: doc.id,
                         ...doc.data()
                     }));
-                    
+
                     setData(prev => ({
                         ...prev,
                         classes: userClasses
                     }));
-                    
+
                     console.log(`✅ Loaded ${userClasses.length} classes`);
                 });
                 unsubscribers.push(unsubClasses);
@@ -216,25 +216,11 @@ export const useDashboardData = () => {
     return { data, loading };
 };
 
+// ===== REMOVED DUPLICATE awardXP =====
+// Use awardXP from gamificationService instead
+// Import: import { awardXP } from '@/services/gamificationService';
+
 // ===== ACTION HANDLERS =====
-
-export const awardXP = async (userId, points, reason) => {
-    try {
-        const userRef = doc(db, 'users', userId);
-        
-        await updateDoc(userRef, {
-            xp: increment(points),
-            lastXPTime: serverTimestamp(),
-            lastXPAmount: points,
-            lastXPReason: reason
-        });
-
-        console.log(`✅ Awarded ${points} XP for ${reason}`);
-    } catch (error) {
-        console.error('❌ Error awarding XP:', error);
-        throw error;
-    }
-};
 
 export const completeQuiz = async (userId, quizId, score, answers) => {
     try {
@@ -266,7 +252,7 @@ export const completeQuiz = async (userId, quizId, score, answers) => {
 
         await batch.commit();
         console.log(`✅ Quiz completed: ${score}%, ${xpEarned} XP awarded`);
-        
+
         return { success: true, xpEarned };
     } catch (error) {
         console.error('❌ Error completing quiz:', error);
@@ -277,7 +263,7 @@ export const completeQuiz = async (userId, quizId, score, answers) => {
 export const joinStudyRoom = async (userId, roomId) => {
     try {
         const roomRef = doc(db, 'rooms', roomId);
-        
+
         await updateDoc(roomRef, {
             members: arrayUnion(userId),
             lastActivity: serverTimestamp()
@@ -294,7 +280,7 @@ export const joinStudyRoom = async (userId, roomId) => {
 export const claimDailyBonus = async (userId) => {
     try {
         const userRef = doc(db, 'users', userId);
-        
+
         await updateDoc(userRef, {
             xp: increment(5),
             lastXPTime: serverTimestamp(),

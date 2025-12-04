@@ -1,70 +1,112 @@
 // src/components/classroom/MaterialsTab.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { 
+import {
     Plus, FileText, Download, Eye, Trash2, FolderOpen,
-    Upload, File, Image, Video, Link, Search 
+    Upload, File, Image, Video, Link, Search, Loader2, X
 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { getMaterials, uploadMaterial, deleteMaterial, addLinkMaterial } from '@/services/materialService';
 import toast from 'react-hot-toast';
 
 const MaterialsTab = ({ classId, isTeacher }) => {
+    const { user } = useAuth();
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [materials, setMaterials] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [uploading, setUploading] = useState(false);
+    const [uploadFile, setUploadFile] = useState(null);
+    const [uploadTitle, setUploadTitle] = useState('');
+    const [uploadDescription, setUploadDescription] = useState('');
+    const [uploadCategory, setUploadCategory] = useState('Notes');
 
-    // Mock materials data
-    const materials = [
-        {
-            id: 1,
-            name: 'Course Syllabus 2025',
-            type: 'pdf',
-            size: '2.4 MB',
-            uploadedBy: 'Teacher',
-            uploadDate: new Date('2025-11-15'),
-            downloads: 25,
-            category: 'Syllabus'
-        },
-        {
-            id: 2,
-            name: 'Chapter 6 Lecture Notes',
-            type: 'pdf',
-            size: '5.1 MB',
-            uploadedBy: 'Teacher',
-            uploadDate: new Date('2025-11-28'),
-            downloads: 18,
-            category: 'Notes'
-        },
-        {
-            id: 3,
-            name: 'Practice Problems Set',
-            type: 'pdf',
-            size: '1.8 MB',
-            uploadedBy: 'Teacher',
-            uploadDate: new Date('2025-12-01'),
-            downloads: 12,
-            category: 'Exercises'
-        },
-        {
-            id: 4,
-            name: 'Video Lecture - Unit 7',
-            type: 'video',
-            size: '125 MB',
-            uploadedBy: 'Teacher',
-            uploadDate: new Date('2025-11-30'),
-            downloads: 20,
-            category: 'Videos',
-            duration: '45:20'
-        },
-        {
-            id: 5,
-            name: 'Reference Book Chapter',
-            type: 'pdf',
-            size: '8.3 MB',
-            uploadedBy: 'Teacher',
-            uploadDate: new Date('2025-11-20'),
-            downloads: 15,
-            category: 'References'
-        },
-    ];
+    // Load materials from Firebase
+    useEffect(() => {
+        if (classId) {
+            loadMaterials();
+        }
+    }, [classId]);
+
+    const loadMaterials = async () => {
+        try {
+            setLoading(true);
+            const materialsData = await getMaterials(classId);
+            setMaterials(materialsData);
+        } catch (error) {
+            console.error('Error loading materials:', error);
+            toast.error('Failed to load materials');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setUploadFile(file);
+            setUploadTitle(file.name);
+        }
+    };
+
+    const handleUpload = async () => {
+        if (!uploadFile) {
+            toast.error('Please select a file');
+            return;
+        }
+
+        try {
+            setUploading(true);
+
+            // Determine file type
+            const fileType = uploadFile.type.includes('video') ? 'video'
+                : uploadFile.type.includes('image') ? 'image'
+                    : uploadFile.type.includes('pdf') ? 'pdf'
+                        : 'document';
+
+            await uploadMaterial(classId, uploadFile, {
+                title: uploadTitle,
+                description: uploadDescription,
+                type: fileType,
+                category: uploadCategory,
+                teacherId: user.uid,
+                teacherName: user.displayName || user.email
+            });
+
+            // Reload materials
+            await loadMaterials();
+
+            // Reset form
+            setShowUploadModal(false);
+            setUploadFile(null);
+            setUploadTitle('');
+            setUploadDescription('');
+            setUploadCategory('Notes');
+
+        } catch (error) {
+            console.error('Error uploading material:', error);
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handleDelete = async (materialId) => {
+        if (!window.confirm('Are you sure you want to delete this material?')) {
+            return;
+        }
+
+        try {
+            await deleteMaterial(materialId, classId);
+            await loadMaterials();
+        } catch (error) {
+            console.error('Error deleting material:', error);
+        }
+    };
+
+    const handleDownload = (material) => {
+        window.open(material.fileUrl, '_blank');
+        toast.success('Downloading...');
+    };
 
     const getFileIcon = (type) => {
         switch (type) {
@@ -79,7 +121,7 @@ const MaterialsTab = ({ classId, isTeacher }) => {
     const categories = ['All', 'Syllabus', 'Notes', 'Exercises', 'Videos', 'References'];
     const [activeCategory, setActiveCategory] = useState('All');
 
-    const filteredMaterials = materials.filter(m => 
+    const filteredMaterials = materials.filter(m =>
         (activeCategory === 'All' || m.category === activeCategory) &&
         m.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -123,11 +165,10 @@ const MaterialsTab = ({ classId, isTeacher }) => {
                         <button
                             key={cat}
                             onClick={() => setActiveCategory(cat)}
-                            className={`px-4 py-2 rounded-xl font-bold whitespace-nowrap transition-all ${
-                                activeCategory === cat
+                            className={`px-4 py-2 rounded-xl font-bold whitespace-nowrap transition-all ${activeCategory === cat
                                     ? 'bg-black text-white'
                                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                            }`}
+                                }`}
                         >
                             {cat}
                         </button>
@@ -208,10 +249,10 @@ const MaterialsTab = ({ classId, isTeacher }) => {
                         {searchQuery ? 'No materials found' : 'No Materials Yet'}
                     </h3>
                     <p className="text-gray-600 mb-6">
-                        {searchQuery 
-                            ? 'Try a different search term' 
-                            : isTeacher 
-                                ? 'Upload your first study material' 
+                        {searchQuery
+                            ? 'Try a different search term'
+                            : isTeacher
+                                ? 'Upload your first study material'
                                 : 'Your teacher hasn\'t uploaded any materials yet'}
                     </p>
                     {isTeacher && !searchQuery && (
