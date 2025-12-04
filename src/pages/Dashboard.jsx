@@ -1,4 +1,4 @@
-// src/pages/Dashboard.jsx - PREMIUM REAL-TIME DASHBOARD
+// src/pages/Dashboard.jsx - FIXED WITH useGamification HOOK
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -8,9 +8,10 @@ import {
     Sparkles, TrendingUp, Zap, Flame, Target, Activity, Award
 } from 'lucide-react';
 import { useAuth } from '@contexts/AuthContext';
-import { doc, onSnapshot, collection, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { db } from '@config/firebase';
-import { awardDailyXP, updateMission, DAILY_ACTIONS } from '@/services/gamificationService';
+import { awardDailyXP, DAILY_ACTIONS } from '@/services/gamificationService';
+import { useGamification } from '@/hooks/useGamification';
 import toast from 'react-hot-toast';
 import logoImage from '@/assets/logo/logo.svg';
 
@@ -35,8 +36,18 @@ const Dashboard = () => {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     
-    const [loading, setLoading] = useState(true);
-    const [realtimeUserData, setRealtimeUserData] = useState(null);
+    // Use gamification hook for all XP/level data
+    const {
+        xp: currentXP,
+        level: currentLevel,
+        nextLevelXp: xpForNextLevel,
+        levelProgress: xpProgress,
+        streak,
+        loading: gamificationLoading,
+        notifications,
+        dismissNotification
+    } = useGamification();
+    
     const [realtimeStats, setRealtimeStats] = useState({
         totalDocuments: 0,
         totalSessions: 0,
@@ -50,90 +61,58 @@ const Dashboard = () => {
     const [xpGained, setXpGained] = useState(0);
     const [notificationCount] = useState(0);
     const [levelModalOpen, setLevelModalOpen] = useState(false);
-    const [achievement, setAchievement] = useState(null);
     const [showLevelUp, setShowLevelUp] = useState(false);
     const [previousLevel, setPreviousLevel] = useState(0);
     
     const initialTab = searchParams.get('tab') || 'overview';
     const [activeTab, setActiveTab] = useState(initialTab);
 
-    // ✅ REAL-TIME USER DATA LISTENER
+    // ✅ HANDLE GAMIFICATION NOTIFICATIONS
     useEffect(() => {
-        if (!user?.uid) {
-            setLoading(false);
-            return;
-        }
-
-        console.log('👂 Setting up real-time user data listener');
-
-        const userRef = doc(db, 'users', user.uid);
-        const unsubscribe = onSnapshot(
-            userRef,
-            (docSnapshot) => {
-                if (!docSnapshot.exists()) {
-                    console.log('User document does not exist');
-                    setLoading(false);
-                    return;
-                }
-
-                const docData = docSnapshot.data();
-                setRealtimeUserData(docData);
-
-                // Check for XP gain
-                if (docData?.lastXPTime && docData?.lastXPAmount) {
-                    const lastXPTimeMillis = docData.lastXPTime?.toMillis?.() || 0;
-                    const now = Date.now();
-                    
-                    if (now - lastXPTimeMillis < 3000) {
-                        setXpGained(docData.lastXPAmount);
-                        setShowXPAnimation(true);
-                        setTimeout(() => setShowXPAnimation(false), 2000);
-
-                        setAchievement({
-                            title: docData.lastXPReason || 'Achievement Unlocked',
-                            xp: docData.lastXPAmount
-                        });
-                        setTimeout(() => setAchievement(null), 5000);
-                    }
-                }
-
-                // Check for level up
-                const newLevel = Math.floor((docData.xp || 0) / 100) + 1;
-                if (previousLevel > 0 && newLevel > previousLevel) {
-                    setShowLevelUp(true);
-                    setTimeout(() => setShowLevelUp(false), 3000);
-                    toast.success(`🎉 Level Up! You're now Level ${newLevel}!`, {
-                        duration: 4000,
-                        style: {
-                            background: 'linear-gradient(135deg, #1f2937 0%, #111827 100%)',
-                            color: '#fff',
-                            fontWeight: 'bold',
-                            borderRadius: '16px',
-                            padding: '16px 24px',
-                        },
-                    });
-                }
-                setPreviousLevel(newLevel);
-
-                setLoading(false);
-            },
-            (error) => {
-                console.error('User data listener error:', error);
-                setLoading(false);
+        if (notifications.length > 0) {
+            const latestNotification = notifications[notifications.length - 1];
+            
+            if (latestNotification.type === 'levelUp') {
+                setShowLevelUp(true);
+                setTimeout(() => setShowLevelUp(false), 3000);
+                toast.success(`🎉 Level Up! You're now Level ${latestNotification.data.newLevel}!`, {
+                    duration: 4000,
+                    style: {
+                        background: 'linear-gradient(135deg, #1f2937 0%, #111827 100%)',
+                        color: '#fff',
+                        fontWeight: 'bold',
+                        borderRadius: '16px',
+                        padding: '16px 24px',
+                    },
+                });
+            } else {
+                // Show XP animation for badges, achievements, etc.
+                setXpGained(latestNotification.data?.xpReward || 0);
+                setShowXPAnimation(true);
+                setTimeout(() => setShowXPAnimation(false), 2000);
             }
-        );
+            
+            // Auto-dismiss after showing
+            setTimeout(() => {
+                dismissNotification(latestNotification.id);
+            }, 3000);
+        }
+    }, [notifications, dismissNotification]);
 
-        return () => {
-            console.log('🧹 Cleaning up user data listener');
-            unsubscribe();
-        };
-    }, [user?.uid, previousLevel]);
+    // ✅ DETECT LEVEL CHANGES
+    useEffect(() => {
+        if (previousLevel > 0 && currentLevel > previousLevel) {
+            setShowLevelUp(true);
+            setTimeout(() => setShowLevelUp(false), 3000);
+        }
+        if (currentLevel > 0) {
+            setPreviousLevel(currentLevel);
+        }
+    }, [currentLevel, previousLevel]);
 
     // ✅ REAL-TIME DOCUMENTS LISTENER
     useEffect(() => {
         if (!user?.uid) return;
-
-        console.log('📚 Setting up real-time documents listener');
 
         const docsQuery = query(
             collection(db, 'documents'),
@@ -168,8 +147,6 @@ const Dashboard = () => {
     useEffect(() => {
         if (!user?.uid) return;
 
-        console.log('📊 Setting up real-time sessions listener');
-
         const sessionsQuery = query(
             collection(db, 'studySessions'),
             where('userId', '==', user.uid)
@@ -189,20 +166,20 @@ const Dashboard = () => {
                 // Calculate total study time
                 const totalTime = sessions.reduce((sum, s) => sum + (s.totalTime || 0), 0);
                 
-                // Calculate streak
+                // Calculate streak (will be overridden by gamification hook)
                 const today = new Date().toDateString();
                 const sortedDates = [...new Set(
                     sessions.map(s => new Date(s.startTime).toDateString())
                 )].sort((a, b) => new Date(b) - new Date(a));
 
-                let streak = 0;
+                let calculatedStreak = 0;
                 if (sortedDates.length > 0 && sortedDates[0] === today) {
-                    streak = 1;
+                    calculatedStreak = 1;
                     for (let i = 1; i < sortedDates.length; i++) {
                         const prevDate = new Date(sortedDates[i - 1]);
                         const currDate = new Date(sortedDates[i]);
                         const diffDays = Math.floor((prevDate - currDate) / (1000 * 60 * 60 * 24));
-                        if (diffDays === 1) streak++;
+                        if (diffDays === 1) calculatedStreak++;
                         else break;
                     }
                 }
@@ -211,7 +188,7 @@ const Dashboard = () => {
                     ...prev,
                     totalSessions: sessions.length,
                     totalStudyTime: Math.round(totalTime / 60), // minutes
-                    streak
+                    streak: calculatedStreak
                 }));
             },
             (error) => {
@@ -224,7 +201,7 @@ const Dashboard = () => {
 
     // ✅ DAILY LOGIN BONUS (ONCE PER DAY)
     useEffect(() => {
-        if (!user?.uid || !realtimeUserData) return;
+        if (!user?.uid) return;
 
         const lastLogin = localStorage.getItem(`lastLogin_${user.uid}`);
         const today = new Date().toDateString();
@@ -249,7 +226,7 @@ const Dashboard = () => {
                 })
                 .catch(err => console.error('Daily bonus error:', err));
         }
-    }, [user?.uid, realtimeUserData]);
+    }, [user?.uid]);
 
     // Tab management
     useEffect(() => {
@@ -279,27 +256,6 @@ const Dashboard = () => {
     const handleUploadClick = useCallback(() => {
         navigate('/upload');
     }, [navigate]);
-
-    // Calculate XP and level
-    const currentXP = useMemo(() => 
-        realtimeUserData?.xp ?? 0,
-        [realtimeUserData?.xp]
-    );
-
-    const currentLevel = useMemo(() => 
-        Math.floor(currentXP / 100) + 1,
-        [currentXP]
-    );
-
-    const xpForNextLevel = useMemo(() => 
-        currentLevel * 100,
-        [currentLevel]
-    );
-
-    const xpProgress = useMemo(() => 
-        ((currentXP % 100) / 100) * 100,
-        [currentXP]
-    );
 
     const quickActions = useMemo(() => [
         { 
@@ -360,7 +316,7 @@ const Dashboard = () => {
             case 'overview':
                 return (
                     <OverviewSection
-                        stats={realtimeStats}
+                        stats={{ ...realtimeStats, streak }} // Use streak from gamification hook
                         recentDocuments={recentDocuments}
                         quickActions={quickActions}
                         {...commonProps}
@@ -387,20 +343,24 @@ const Dashboard = () => {
             default:
                 return (
                     <OverviewSection
-                        stats={realtimeStats}
+                        stats={{ ...realtimeStats, streak }}
                         recentDocuments={recentDocuments}
                         quickActions={quickActions}
                         {...commonProps}
                     />
                 );
         }
-    }, [activeTab, realtimeStats, recentDocuments, quickActions, handleTabChange, handleUploadClick, navigate]);
+    }, [activeTab, realtimeStats, streak, recentDocuments, quickActions, handleTabChange, handleUploadClick, navigate]);
 
-    if (loading) {
+    if (gamificationLoading) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex items-center justify-center">
                 <div className="text-center">
-                    <div className="w-20 h-20 border-4 border-gray-200 border-t-gray-700 rounded-full animate-spin mx-auto mb-6" />
+                    <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                        className="w-20 h-20 border-4 border-gray-200 border-t-gray-700 rounded-full mx-auto mb-6"
+                    />
                     <p className="text-gray-600 font-bold text-lg">Loading your dashboard...</p>
                     <p className="text-gray-500 text-sm mt-2">Syncing real-time data...</p>
                 </div>
@@ -412,7 +372,7 @@ const Dashboard = () => {
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex overflow-hidden">
             {/* XP Gain Animation */}
             <AnimatePresence>
-                {showXPAnimation && (
+                {showXPAnimation && xpGained > 0 && (
                     <motion.div
                         initial={{ opacity: 0, y: 50, scale: 0.5 }}
                         animate={{ opacity: 1, y: -50, scale: 1 }}
@@ -438,8 +398,13 @@ const Dashboard = () => {
                         transition={{ duration: 0.5, ease: "easeOut" }}
                         className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 pointer-events-none"
                     >
-                        <div className="bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500 text-white px-12 py-6 rounded-3xl font-black text-4xl shadow-2xl border-4 border-white flex flex-col items-center gap-2 animate-bounce">
-                            <Award size={48} className="text-white" />
+                        <div className="bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500 text-white px-12 py-6 rounded-3xl font-black text-4xl shadow-2xl border-4 border-white flex flex-col items-center gap-2">
+                            <motion.div
+                                animate={{ rotate: [0, 360] }}
+                                transition={{ duration: 1, ease: "easeInOut" }}
+                            >
+                                <Award size={48} className="text-white" />
+                            </motion.div>
                             <div>Level {currentLevel}!</div>
                             <div className="text-sm font-semibold opacity-90">You're getting stronger!</div>
                         </div>
@@ -484,7 +449,7 @@ const Dashboard = () => {
                             </div>
                             <div className="flex items-center gap-1.5 text-sm text-white font-black">
                                 <Sparkles size={14} className="text-yellow-400 animate-pulse" />
-                                {currentXP} XP
+                                {currentXP.toLocaleString()} XP
                             </div>
                         </div>
                         
@@ -501,7 +466,7 @@ const Dashboard = () => {
                         
                         <div className="flex items-center justify-between mt-2.5">
                             <p className="text-xs text-gray-400 group-hover:text-gray-300 transition-colors font-semibold">
-                                {xpForNextLevel - currentXP} XP to Level {currentLevel + 1}
+                                {(xpForNextLevel - currentXP).toLocaleString()} XP to Level {currentLevel + 1}
                             </p>
                             <ChevronRight size={16} className="text-gray-500 group-hover:text-white group-hover:translate-x-1 transition-all" />
                         </div>
@@ -512,14 +477,14 @@ const Dashboard = () => {
                 <div className="mx-4 mt-4 grid grid-cols-2 gap-2">
                     <div className="bg-gradient-to-br from-gray-700 to-gray-800 rounded-xl p-3 border border-gray-600">
                         <div className="flex items-center gap-2 mb-1">
-                            <Target size={14} className="text-gray-400" />
+                            <Flame size={14} className="text-orange-400" />
                             <span className="text-xs text-gray-400 font-semibold">Streak</span>
                         </div>
-                        <p className="text-xl font-black text-white">{realtimeStats.streak}</p>
+                        <p className="text-xl font-black text-white">{streak}</p>
                     </div>
                     <div className="bg-gradient-to-br from-gray-700 to-gray-800 rounded-xl p-3 border border-gray-600">
                         <div className="flex items-center gap-2 mb-1">
-                            <Activity size={14} className="text-gray-400" />
+                            <Activity size={14} className="text-blue-400" />
                             <span className="text-xs text-gray-400 font-semibold">Time</span>
                         </div>
                         <p className="text-xl font-black text-white">{realtimeStats.totalStudyTime}m</p>
@@ -604,7 +569,7 @@ const Dashboard = () => {
                             </h1>
                             <p className="text-gray-600 text-base font-bold flex items-center gap-2">
                                 <TrendingUp size={16} className="text-gray-500" strokeWidth={2.5} />
-                                {realtimeStats.streak > 0 ? `${realtimeStats.streak} day streak! Keep it up!` : 'Start studying to build your streak'}
+                                {streak > 0 ? `${streak} day streak! Keep it up!` : 'Start studying to build your streak'}
                             </p>
                         </div>
 
@@ -650,7 +615,7 @@ const Dashboard = () => {
                                         </div>
                                         <div className="text-xs text-gray-600 font-black flex items-center gap-1">
                                             <Zap size={12} className="text-gray-500" strokeWidth={2.5} />
-                                            {currentXP} XP
+                                            {currentXP.toLocaleString()} XP
                                         </div>
                                     </div>
                                 </div>
@@ -685,8 +650,8 @@ const Dashboard = () => {
             />
 
             <AchievementToast 
-                achievement={achievement}
-                onClose={() => setAchievement(null)}
+                achievement={notifications[0]?.data}
+                onClose={() => notifications[0] && dismissNotification(notifications[0].id)}
             />
 
             <style>{`

@@ -1,8 +1,8 @@
-// src/hooks/useGamification.js - Real-time Gamification Data Hook
-import { useState, useEffect } from 'react';
-import { doc, onSnapshot, collection } from 'firebase/firestore';
+// src/hooks/useGamification.js - OPTIMIZED Real-time Gamification Hook
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
 import { db } from '@/config/firebase';
-import { useAuth } from '@contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import {
     trackActionAndCheckUnlocks,
     equipTitle,
@@ -11,12 +11,31 @@ import {
 } from '@/services/gamificationService';
 
 /**
+ * Level progression thresholds
+ */
+const LEVEL_THRESHOLDS = [0, 100, 250, 500, 1000, 2000, 4000, 8000, 16000, 32000, 64000];
+
+/**
+ * Calculate level progress percentage
+ */
+const calculateLevelProgress = (xp, level) => {
+    const currentThreshold = LEVEL_THRESHOLDS[level - 1] || 0;
+    const nextThreshold = LEVEL_THRESHOLDS[level] || LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1];
+    
+    if (nextThreshold === currentThreshold) return 100;
+    
+    const progress = ((xp - currentThreshold) / (nextThreshold - currentThreshold)) * 100;
+    return Math.min(Math.max(progress, 0), 100);
+};
+
+/**
  * Centralized hook for all gamification data with real-time updates
- * Combines user stats badges, titles, achievements, and missions
+ * Provides user stats, badges, titles, achievements, and missions
  */
 export const useGamification = () => {
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [notifications, setNotifications] = useState([]);
 
     const [data, setData] = useState({
@@ -52,7 +71,9 @@ export const useGamification = () => {
         classRank: '--'
     });
 
-    // Real-time user stats listener
+    // ==========================================
+    // REAL-TIME USER STATS LISTENER
+    // ==========================================
     useEffect(() => {
         if (!user?.uid) {
             setLoading(false);
@@ -60,142 +81,266 @@ export const useGamification = () => {
         }
 
         const userRef = doc(db, 'users', user.uid);
-        const unsubUser = onSnapshot(userRef, (snapshot) => {
-            if (snapshot.exists()) {
-                const userData = snapshot.data();
-                const xp = userData.xp || 0;
-                const level = userData.level || 1;
+        
+        const unsubUser = onSnapshot(
+            userRef,
+            (snapshot) => {
+                if (snapshot.exists()) {
+                    const userData = snapshot.data();
+                    const xp = userData.xp || 0;
+                    const level = userData.level || 1;
+                    const nextLevelXp = LEVEL_THRESHOLDS[level] || LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1];
+                    const levelProgress = calculateLevelProgress(xp, level);
 
-                // Level thresholds from gamificationService
-                const levelThresholds = [0, 100, 250, 500, 1000, 2000, 4000, 8000, 16000];
-                const nextLevelXp = levelThresholds[level] || levelThresholds[levelThresholds.length - 1];
-                const previousLevelXp = levelThresholds[level - 1] || 0;
-                const levelProgress = nextLevelXp ? ((xp - previousLevelXp) / (nextLevelXp - previousLevelXp)) * 100 : 0;
-
-                setData(prev => ({
-                    ...prev,
-                    xp,
-                    level,
-                    streak: userData.streak || 0,
-                    nextLevelXp,
-                    levelProgress: Math.min(levelProgress, 100),
-                    unlockedBadges: userData.unlockedBadges || [],
-                    unlockedTitles: userData.unlockedTitles || [],
-                    equippedTitle: userData.equippedTitle || 'Novice Learner',
-                    equippedTitleId: userData.equippedTitleId || 'novice',
-                    globalRank: userData.globalRank || '--',
-                    totalBadges: (userData.unlockedBadges || []).length
-                }));
+                    setData(prev => ({
+                        ...prev,
+                        xp,
+                        level,
+                        streak: userData.streak || 0,
+                        nextLevelXp,
+                        levelProgress,
+                        unlockedBadges: userData.unlockedBadges || [],
+                        unlockedTitles: userData.unlockedTitles || [],
+                        equippedTitle: userData.equippedTitle || 'Novice Learner',
+                        equippedTitleId: userData.equippedTitleId || 'novice',
+                        globalRank: userData.globalRank || '--',
+                        classRank: userData.classRank || '--',
+                        totalBadges: (userData.unlockedBadges || []).length
+                    }));
+                    
+                    setError(null);
+                } else {
+                    // User document doesn't exist, use defaults
+                    console.log('User gamification data not found, using defaults');
+                }
+            },
+            (err) => {
+                console.error('Error fetching user stats:', err);
+                setError('Failed to load user stats');
             }
-        });
+        );
 
         return () => unsubUser();
     }, [user?.uid]);
 
-    // Real-time badges listener
+    // ==========================================
+    // REAL-TIME GLOBAL BADGES LISTENER
+    // ==========================================
     useEffect(() => {
-        const badgesRef = collection(db, 'badges');
-        const unsubBadges = onSnapshot(badgesRef, (snapshot) => {
-            const allBadges = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const badgesRef = collection(db, 'globalBadges');
+        
+        const unsubBadges = onSnapshot(
+            badgesRef,
+            (snapshot) => {
+                let badges = [];
+                
+                if (!snapshot.empty) {
+                    // Use Firestore badges
+                    badges = snapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                    }));
+                } else {
+                    // Fallback to local definitions
+                    console.log('No globalBadges found, using local definitions');
+                    badges = Object.values(BADGE_DEFINITIONS);
+                }
 
-            setData(prev => ({
-                ...prev,
-                allBadges: allBadges.map(badge => ({
-                    ...badge,
-                    unlocked: prev.unlockedBadges.includes(badge.id)
-                }))
-            }));
-        });
+                setData(prev => ({
+                    ...prev,
+                    allBadges: badges.map(badge => ({
+                        ...badge,
+                        unlocked: prev.unlockedBadges.includes(badge.id)
+                    }))
+                }));
+                
+                setError(null);
+            },
+            (err) => {
+                console.error('Error fetching badges:', err);
+                
+                // Fallback to local definitions on error
+                const badges = Object.values(BADGE_DEFINITIONS);
+                setData(prev => ({
+                    ...prev,
+                    allBadges: badges.map(badge => ({
+                        ...badge,
+                        unlocked: prev.unlockedBadges.includes(badge.id)
+                    }))
+                }));
+            }
+        );
 
         return () => unsubBadges();
     }, []);
 
-    // Real-time titles listener
+    // ==========================================
+    // REAL-TIME GLOBAL TITLES LISTENER
+    // ==========================================
     useEffect(() => {
-        const titlesRef = collection(db, 'titles');
-        const unsubTitles = onSnapshot(titlesRef, (snapshot) => {
-            const allTitles = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const titlesRef = collection(db, 'globalTitles');
+        
+        const unsubTitles = onSnapshot(
+            titlesRef,
+            (snapshot) => {
+                let titles = [];
+                
+                if (!snapshot.empty) {
+                    // Use Firestore titles
+                    titles = snapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                    }));
+                } else {
+                    // Fallback to local definitions
+                    console.log('No globalTitles found, using local definitions');
+                    titles = Object.values(TITLE_DEFINITIONS);
+                }
 
-            setData(prev => ({
-                ...prev,
-                allTitles: allTitles.map(title => ({
-                    ...title,
-                    unlocked: prev.unlockedTitles.includes(title.id)
-                }))
-            }));
+                setData(prev => ({
+                    ...prev,
+                    allTitles: titles.map(title => ({
+                        ...title,
+                        unlocked: prev.level >= (title.requiredLevel || 1)
+                    }))
+                }));
 
-            setLoading(false);
-        });
+                setLoading(false);
+                setError(null);
+            },
+            (err) => {
+                console.error('Error fetching titles:', err);
+                
+                // Fallback to local definitions on error
+                const titles = Object.values(TITLE_DEFINITIONS);
+                setData(prev => ({
+                    ...prev,
+                    allTitles: titles.map(title => ({
+                        ...title,
+                        unlocked: prev.level >= (title.requiredLevel || 1)
+                    }))
+                }));
+                
+                setLoading(false);
+            }
+        );
 
         return () => unsubTitles();
     }, []);
 
-    // Real-time gamification data (missions & achievements) listener
+    // ==========================================
+    // REAL-TIME GAMIFICATION DATA LISTENER
+    // ==========================================
     useEffect(() => {
         if (!user?.uid) return;
 
         const gamificationRef = doc(db, 'gamification', user.uid);
-        const unsubGamification = onSnapshot(gamificationRef, (snapshot) => {
-            if (snapshot.exists()) {
-                const gamificationData = snapshot.data();
-                const achievements = gamificationData.achievements || [];
+        
+        const unsubGamification = onSnapshot(
+            gamificationRef,
+            (snapshot) => {
+                if (snapshot.exists()) {
+                    const gamificationData = snapshot.data();
+                    const achievements = gamificationData.achievements || [];
+                    const missions = gamificationData.missions || [];
 
-                setData(prev => ({
-                    ...prev,
-                    achievements,
-                    unlockedAchievements: achievements.filter(a => a.unlocked).length,
-                    totalAchievements: achievements.length,
-                    dailyMissions: (gamificationData.missions || []).filter(m => m.type === 'daily'),
-                    weeklyMissions: (gamificationData.missions || []).filter(m => m.type === 'weekly')
-                }));
+                    setData(prev => ({
+                        ...prev,
+                        achievements,
+                        unlockedAchievements: achievements.filter(a => a.unlocked).length,
+                        totalAchievements: achievements.length,
+                        dailyMissions: missions.filter(m => m.type === 'daily'),
+                        weeklyMissions: missions.filter(m => m.type === 'weekly')
+                    }));
+                    
+                    setError(null);
+                } else {
+                    // Document doesn't exist, set empty arrays
+                    setData(prev => ({
+                        ...prev,
+                        achievements: [],
+                        unlockedAchievements: 0,
+                        totalAchievements: 0,
+                        dailyMissions: [],
+                        weeklyMissions: []
+                    }));
+                }
+            },
+            (err) => {
+                console.error('Error fetching gamification data:', err);
+                // Keep existing data on error
             }
-        });
+        );
 
         return () => unsubGamification();
     }, [user?.uid]);
 
-    // Helper functions
-    const trackAction = async (action, metadata = {}) => {
-        if (!user?.uid) return;
+    // ==========================================
+    // HELPER: TRACK ACTION
+    // ==========================================
+    const trackAction = useCallback(async (action, metadata = {}) => {
+        if (!user?.uid) {
+            console.warn('Cannot track action: user not authenticated');
+            return { badges: [], titles: [], achievements: [] };
+        }
 
         try {
             const unlocks = await trackActionAndCheckUnlocks(user.uid, action, metadata);
 
-            // Add notifications for new unlocks
+            // Create notifications for new unlocks
             const newNotifications = [];
 
-            if (unlocks.badges.length > 0) {
+            if (unlocks.badges?.length > 0) {
                 unlocks.badges.forEach(badge => {
                     newNotifications.push({
                         type: 'badge',
                         data: badge,
-                        id: `badge-${badge.id}-${Date.now()}`
+                        id: `badge-${badge.id}-${Date.now()}-${Math.random()}`,
+                        timestamp: Date.now()
                     });
                 });
             }
 
-            if (unlocks.titles.length > 0) {
+            if (unlocks.titles?.length > 0) {
                 unlocks.titles.forEach(title => {
                     newNotifications.push({
                         type: 'title',
                         data: title,
-                        id: `title-${title.id}-${Date.now()}`
+                        id: `title-${title.id}-${Date.now()}-${Math.random()}`,
+                        timestamp: Date.now()
                     });
                 });
             }
 
-            if (unlocks.achievements.length > 0) {
+            if (unlocks.achievements?.length > 0) {
                 unlocks.achievements.forEach(achievement => {
                     newNotifications.push({
                         type: 'achievement',
                         data: achievement,
-                        id: `achievement-${achievement.id}-${Date.now()}`
+                        id: `achievement-${achievement.id}-${Date.now()}-${Math.random()}`,
+                        timestamp: Date.now()
                     });
+                });
+            }
+
+            if (unlocks.levelUp) {
+                newNotifications.push({
+                    type: 'levelUp',
+                    data: { newLevel: unlocks.newLevel },
+                    id: `levelup-${Date.now()}-${Math.random()}`,
+                    timestamp: Date.now()
                 });
             }
 
             if (newNotifications.length > 0) {
                 setNotifications(prev => [...prev, ...newNotifications]);
+                
+                // Auto-dismiss after 5 seconds
+                setTimeout(() => {
+                    setNotifications(prev => 
+                        prev.filter(n => !newNotifications.find(nn => nn.id === n.id))
+                    );
+                }, 5000);
             }
 
             return unlocks;
@@ -203,10 +348,15 @@ export const useGamification = () => {
             console.error('Error tracking action:', error);
             return { badges: [], titles: [], achievements: [] };
         }
-    };
+    }, [user?.uid]);
 
-    const changeTitle = async (titleId) => {
-        if (!user?.uid) return;
+    // ==========================================
+    // HELPER: CHANGE TITLE
+    // ==========================================
+    const changeTitle = useCallback(async (titleId) => {
+        if (!user?.uid) {
+            return { success: false, error: 'User not authenticated' };
+        }
 
         try {
             await equipTitle(user.uid, titleId);
@@ -215,20 +365,75 @@ export const useGamification = () => {
             console.error('Error equipping title:', error);
             return { success: false, error: error.message };
         }
-    };
+    }, [user?.uid]);
 
-    const dismissNotification = (notificationId) => {
+    // ==========================================
+    // HELPER: DISMISS NOTIFICATION
+    // ==========================================
+    const dismissNotification = useCallback((notificationId) => {
         setNotifications(prev => prev.filter(n => n.id !== notificationId));
-    };
+    }, []);
 
+    // ==========================================
+    // HELPER: CLEAR ALL NOTIFICATIONS
+    // ==========================================
+    const clearAllNotifications = useCallback(() => {
+        setNotifications([]);
+    }, []);
+
+    // ==========================================
+    // COMPUTED VALUES
+    // ==========================================
+    const computedValues = useMemo(() => ({
+        // XP until next level
+        xpToNextLevel: data.nextLevelXp - data.xp,
+        
+        // Percentage of badges unlocked
+        badgeCompletionRate: data.allBadges.length > 0 
+            ? Math.round((data.totalBadges / data.allBadges.length) * 100) 
+            : 0,
+        
+        // Percentage of titles unlocked
+        titleCompletionRate: data.allTitles.length > 0
+            ? Math.round((data.unlockedTitles.length / data.allTitles.length) * 100)
+            : 0,
+        
+        // Is max level
+        isMaxLevel: data.level >= LEVEL_THRESHOLDS.length,
+        
+        // Has active streak
+        hasStreak: data.streak > 0,
+        
+        // Next badge to unlock (sorted by XP requirement)
+        nextBadge: data.allBadges
+            .filter(b => !b.unlocked)
+            .sort((a, b) => (a.requiredXp || 0) - (b.requiredXp || 0))[0] || null,
+    }), [data]);
+
+    // ==========================================
+    // RETURN VALUE
+    // ==========================================
     return {
+        // Raw data
         ...data,
+        
+        // Computed values
+        ...computedValues,
+        
+        // State flags
         loading,
+        error,
+        isLoaded: !loading,
+        
+        // Notifications
         notifications,
+        hasNotifications: notifications.length > 0,
+        
+        // Actions
         trackAction,
         changeTitle,
         dismissNotification,
-        isLoaded: !loading
+        clearAllNotifications,
     };
 };
 

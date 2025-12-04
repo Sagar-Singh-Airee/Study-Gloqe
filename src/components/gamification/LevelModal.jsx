@@ -1,67 +1,41 @@
-// EPIC LEVEL MODAL - Opens when clicking level badge
+// src/components/modals/LevelModal.jsx - COMPACT PREMIUM
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    X, Trophy, Target, Zap, Star, TrendingUp, Award,
-    CheckCircle2, Lock, Gift, Crown, Flame, Calendar
+    X, Trophy, Target, Zap, Star, Award,
+    CheckCircle2, Gift, Crown, Flame, Calendar, Medal
 } from 'lucide-react';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '@config/firebase';
-import { useAuth } from '@contexts/AuthContext';
+import { useGamification } from '@/hooks/useGamification';
 
 const LevelModal = ({ isOpen, onClose }) => {
-    const { user } = useAuth();
-    const [userData, setUserData] = useState(null);
-    const [missions, setMissions] = useState([]);
     const [confetti, setConfetti] = useState(false);
+    const [prevLevel, setPrevLevel] = useState(null);
 
-    // Real-time user data listener
+    const {
+        xp,
+        level,
+        nextLevelXp,
+        levelProgress,
+        streak,
+        dailyMissions,
+        weeklyMissions,
+        totalBadges,
+        equippedTitle,
+        globalRank,
+        xpToNextLevel,
+    } = useGamification();
+
     useEffect(() => {
-        if (!user?.uid) return;
-
-        const unsubscribe = onSnapshot(
-            doc(db, 'users', user.uid),
-            (doc) => {
-                const data = doc.data();
-                setUserData(data);
-
-                // Check if level just increased
-                if (data?.levelUp) {
-                    setConfetti(true);
-                    setTimeout(() => setConfetti(false), 3000);
-                }
-            }
-        );
-
-        return () => unsubscribe();
-    }, [user]);
-
-    // Real-time missions listener
-    useEffect(() => {
-        if (!user?.uid) return;
-
-        const unsubscribe = onSnapshot(
-            doc(db, 'gamification', user.uid),
-            (doc) => {
-                const data = doc.data();
-                setMissions(data?.missions || []);
-            }
-        );
-
-        return () => unsubscribe();
-    }, [user]);
+        if (prevLevel !== null && level > prevLevel) {
+            setConfetti(true);
+            setTimeout(() => setConfetti(false), 3000);
+        }
+        setPrevLevel(level);
+    }, [level, prevLevel]);
 
     if (!isOpen) return null;
 
-    // Use consistent level thresholds from gamificationService
-    const levelThresholds = [0, 100, 250, 500, 1000, 2000, 4000, 8000, 16000];
-
-    const xp = userData?.xp || 0;
-    const level = userData?.level || 1;
-    const xpForNextLevel = levelThresholds[level] || levelThresholds[levelThresholds.length - 1];
-    const previousLevelXp = levelThresholds[level - 1] || 0;
-    const xpProgress = xpForNextLevel ? ((xp - previousLevelXp) / (xpForNextLevel - previousLevelXp)) * 100 : 0;
-    const streak = userData?.streak || 0;
+    const allMissions = [...dailyMissions, ...weeklyMissions];
 
     return (
         <AnimatePresence>
@@ -69,30 +43,27 @@ const LevelModal = ({ isOpen, onClose }) => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
                 onClick={onClose}
             >
                 <motion.div
-                    initial={{ scale: 0.9, y: 20 }}
-                    animate={{ scale: 1, y: 0 }}
-                    exit={{ scale: 0.9, y: 20 }}
+                    initial={{ scale: 0.95, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.95, opacity: 0 }}
+                    transition={{ type: "spring", damping: 30 }}
                     onClick={(e) => e.stopPropagation()}
-                    className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-gray-900 via-black to-gray-900 rounded-2xl border border-gray-800 shadow-2xl"
+                    className="relative w-full max-w-3xl max-h-[85vh] overflow-y-auto bg-white rounded-xl shadow-2xl"
                 >
-                    {/* Confetti Effect */}
+                    {/* Confetti */}
                     {confetti && (
-                        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                            {[...Array(50)].map((_, i) => (
+                        <div className="absolute inset-0 pointer-events-none overflow-hidden z-50 rounded-xl">
+                            {[...Array(30)].map((_, i) => (
                                 <motion.div
                                     key={i}
-                                    initial={{ y: -20, x: Math.random() * 100 + '%', opacity: 1 }}
-                                    animate={{
-                                        y: '100vh',
-                                        rotate: Math.random() * 360,
-                                        opacity: 0
-                                    }}
-                                    transition={{ duration: 2 + Math.random(), delay: Math.random() * 0.5 }}
-                                    className="absolute w-3 h-3 bg-gradient-to-br from-white to-gray-400 rounded-full"
+                                    initial={{ y: -20, x: `${Math.random() * 100}%`, opacity: 1 }}
+                                    animate={{ y: '110vh', rotate: Math.random() * 360, opacity: 0 }}
+                                    transition={{ duration: 2 + Math.random(), delay: Math.random() * 0.2 }}
+                                    className="absolute w-1.5 h-1.5 rounded-full bg-gray-800"
                                 />
                             ))}
                         </div>
@@ -101,102 +72,143 @@ const LevelModal = ({ isOpen, onClose }) => {
                     {/* Close Button */}
                     <button
                         onClick={onClose}
-                        className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors z-10"
+                        className="absolute top-4 right-4 p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all z-20"
                     >
-                        <X size={20} className="text-white" />
+                        <X size={16} className="text-gray-900" />
                     </button>
 
-                    {/* Header */}
-                    <div className="p-6 border-b border-gray-800">
+                    {/* Compact Header */}
+                    <div className="p-5 border-b border-gray-200">
                         <div className="flex items-center gap-4">
-                            {/* Level Badge */}
+                            {/* Smaller Level Badge */}
                             <div className="relative">
-                                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-gray-700 to-black flex items-center justify-center border-4 border-white/20">
+                                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center border-2 border-gray-200 shadow-lg">
                                     <div className="text-center">
-                                        <div className="text-xs text-gray-400 font-medium">LEVEL</div>
-                                        <div className="text-3xl font-bold text-white">{level}</div>
+                                        <div className="text-[10px] text-gray-400 font-bold uppercase">Level</div>
+                                        <div className="text-2xl font-black text-white">{level}</div>
                                     </div>
                                 </div>
 
-                                {/* Streak Indicator */}
                                 {streak > 0 && (
-                                    <motion.div
-                                        initial={{ scale: 0 }}
-                                        animate={{ scale: 1 }}
-                                        className="absolute -top-2 -right-2 px-2 py-1 bg-gradient-to-r from-orange-500 to-red-500 rounded-full flex items-center gap-1"
-                                    >
-                                        <Flame size={14} className="text-white" />
-                                        <span className="text-xs font-bold text-white">{streak}</span>
-                                    </motion.div>
+                                    <div className="absolute -top-1 -right-1 px-2 py-0.5 bg-black rounded-full flex items-center gap-1 border border-white">
+                                        <Flame size={10} className="text-white" />
+                                        <span className="text-[10px] font-black text-white">{streak}</span>
+                                    </div>
                                 )}
                             </div>
 
-                            {/* User Info */}
+                            {/* Compact Stats */}
                             <div className="flex-1">
-                                <h2 className="text-2xl font-bold text-white mb-2">
-                                    Level {level} Scholar
-                                </h2>
-                                <p className="text-gray-400 text-sm mb-3">
-                                    {xpForNextLevel - xp} XP to Level {level + 1}
+                                <div className="flex items-center gap-2 mb-1">
+                                    <h2 className="text-lg font-black text-gray-900">{equippedTitle}</h2>
+                                    <div className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 rounded-full border border-blue-200">
+                                        <Trophy size={10} className="text-blue-600" />
+                                        <span className="text-[10px] text-blue-900 font-bold">#{globalRank}</span>
+                                    </div>
+                                </div>
+
+                                <p className="text-xs text-gray-600 mb-2">
+                                    <span className="font-bold text-gray-900">{xpToNextLevel.toLocaleString()} XP</span> to Level {level + 1}
                                 </p>
 
-                                {/* XP Progress Bar */}
-                                <div className="relative h-3 bg-gray-800 rounded-full overflow-hidden">
+                                {/* Compact Progress Bar */}
+                                <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden border border-gray-200">
                                     <motion.div
                                         initial={{ width: 0 }}
-                                        animate={{ width: `${xpProgress}%` }}
+                                        animate={{ width: `${levelProgress}%` }}
                                         transition={{ duration: 1, ease: "easeOut" }}
-                                        className="absolute inset-y-0 left-0 bg-gradient-to-r from-white to-gray-400 rounded-full"
+                                        className="h-full bg-gradient-to-r from-blue-600 to-blue-500"
                                     />
-                                    <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-black">
-                                        {xp} / {xpForNextLevel} XP
-                                    </div>
+                                </div>
+                                <div className="flex justify-between items-center mt-1">
+                                    <span className="text-[10px] text-gray-500 font-medium">{xp.toLocaleString()} XP</span>
+                                    <span className="text-[10px] text-gray-500 font-medium">{nextLevelXp.toLocaleString()} XP</span>
+                                </div>
+                            </div>
+
+                            {/* Mini Stats */}
+                            <div className="flex gap-2">
+                                <div className="bg-gray-50 rounded-lg px-3 py-2 text-center border border-gray-200">
+                                    <Medal size={12} className="text-gray-500 mx-auto mb-0.5" />
+                                    <p className="text-xs font-black text-gray-900">{totalBadges}</p>
+                                </div>
+                                <div className="bg-gray-50 rounded-lg px-3 py-2 text-center border border-gray-200">
+                                    <Target size={12} className="text-gray-500 mx-auto mb-0.5" />
+                                    <p className="text-xs font-black text-gray-900">{allMissions.length}</p>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Content Grid */}
-                    <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Daily Missions */}
-                        <div>
-                            <div className="flex items-center gap-2 mb-4">
-                                <Target className="text-white" size={20} />
-                                <h3 className="text-lg font-bold text-white">Daily Missions</h3>
+                    {/* Compact Content */}
+                    <div className="p-5 space-y-4">
+                        {/* Missions Grid */}
+                        <div className="grid grid-cols-2 gap-4">
+                            {/* Daily Missions */}
+                            <div>
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center">
+                                        <Target className="text-white" size={14} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-black text-gray-900">Daily</h3>
+                                        <p className="text-[10px] text-gray-500">Today's tasks</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    {dailyMissions.length > 0 ? (
+                                        dailyMissions.slice(0, 3).map((mission, idx) => (
+                                            <MissionCard key={mission.id || idx} mission={mission} />
+                                        ))
+                                    ) : (
+                                        <div className="text-center py-4 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                                            <Calendar size={20} className="mx-auto mb-1 text-gray-400" />
+                                            <p className="text-[10px] text-gray-500">No missions</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
-                            <div className="space-y-3">
-                                {missions.filter(m => m.type === 'daily').map((mission) => (
-                                    <MissionCard key={mission.id} mission={mission} />
-                                ))}
+                            {/* Weekly Challenges */}
+                            <div>
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="w-7 h-7 bg-gray-800 rounded-lg flex items-center justify-center">
+                                        <Trophy className="text-white" size={14} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-black text-gray-900">Weekly</h3>
+                                        <p className="text-[10px] text-gray-500">Long-term goals</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    {weeklyMissions.length > 0 ? (
+                                        weeklyMissions.slice(0, 3).map((mission, idx) => (
+                                            <MissionCard key={mission.id || idx} mission={mission} />
+                                        ))
+                                    ) : (
+                                        <div className="text-center py-4 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                                            <Trophy size={20} className="mx-auto mb-1 text-gray-400" />
+                                            <p className="text-[10px] text-gray-500">No challenges</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
-                        {/* Weekly Challenges */}
-                        <div>
-                            <div className="flex items-center gap-2 mb-4">
-                                <Trophy className="text-white" size={20} />
-                                <h3 className="text-lg font-bold text-white">Weekly Challenges</h3>
+                        {/* Compact Rewards */}
+                        <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                            <div className="flex items-center gap-2 mb-3">
+                                <Gift className="text-gray-700" size={16} />
+                                <h3 className="text-sm font-black text-gray-900">Next Level Rewards</h3>
                             </div>
-
-                            <div className="space-y-3">
-                                {missions.filter(m => m.type === 'weekly').map((mission) => (
-                                    <MissionCard key={mission.id} mission={mission} />
-                                ))}
+                            <div className="grid grid-cols-4 gap-2">
+                                <RewardCard icon={Crown} label="Title" />
+                                <RewardCard icon={Zap} label="+100 XP" />
+                                <RewardCard icon={Star} label="Badge" />
+                                <RewardCard icon={Award} label="Effect" />
                             </div>
-                        </div>
-                    </div>
-
-                    {/* Level Rewards Preview */}
-                    <div className="p-6 border-t border-gray-800">
-                        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                            <Gift className="text-white" size={20} />
-                            Next Level Rewards
-                        </h3>
-                        <div className="grid grid-cols-3 gap-4">
-                            <RewardCard icon={Crown} label="Elite Badge" />
-                            <RewardCard icon={Zap} label="+50 XP Boost" />
-                            <RewardCard icon={Star} label="Special Title" />
                         </div>
                     </div>
                 </motion.div>
@@ -205,66 +217,73 @@ const LevelModal = ({ isOpen, onClose }) => {
     );
 };
 
-// Mission Card Component
+// Compact Mission Card
 const MissionCard = ({ mission }) => {
-    const progress = (mission.current / mission.target) * 100;
+    const progress = Math.min((mission.current / mission.target) * 100, 100);
     const isCompleted = mission.current >= mission.target;
 
     return (
         <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className={`p-4 rounded-lg border ${isCompleted
-                    ? 'bg-white/5 border-white/20'
-                    : 'bg-gray-800/50 border-gray-700'
-                }`}
+            whileHover={{ x: 2 }}
+            className={`p-2.5 rounded-lg border transition-all ${
+                isCompleted
+                    ? 'bg-gray-100 border-gray-300'
+                    : 'bg-white border-gray-200 hover:border-blue-200 hover:bg-blue-50/30'
+            }`}
         >
-            <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                    <h4 className="text-white font-semibold text-sm mb-1">
-                        {mission.title}
+            <div className="flex items-start justify-between mb-2">
+                <div className="flex-1 min-w-0">
+                    <h4 className="text-xs font-bold text-gray-900 truncate flex items-center gap-1">
+                        {mission.title || 'Mystery Mission'}
+                        {isCompleted && <CheckCircle2 size={10} className="text-gray-900 flex-shrink-0" />}
                     </h4>
-                    <p className="text-gray-400 text-xs">{mission.description}</p>
+                    <p className="text-[10px] text-gray-600 truncate">
+                        {mission.description || 'Complete to earn rewards'}
+                    </p>
                 </div>
 
-                {isCompleted ? (
-                    <CheckCircle2 className="text-white flex-shrink-0" size={20} />
-                ) : (
-                    <div className="flex items-center gap-1 text-white text-xs font-bold bg-gray-700 px-2 py-1 rounded">
-                        <Zap size={12} />
-                        +{mission.xpReward}
+                {!isCompleted && (
+                    <div className="flex items-center gap-1 text-[10px] font-black bg-black text-white px-1.5 py-0.5 rounded ml-2 flex-shrink-0">
+                        <Zap size={8} />
+                        +{mission.xpReward || 50}
                     </div>
                 )}
             </div>
 
-            {/* Progress Bar */}
-            <div className="relative h-2 bg-gray-700 rounded-full overflow-hidden">
+            {/* Mini Progress Bar */}
+            <div className="relative h-1 bg-gray-200 rounded-full overflow-hidden">
                 <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${progress}%` }}
-                    className={`absolute inset-y-0 left-0 rounded-full ${isCompleted
-                            ? 'bg-gradient-to-r from-white to-gray-400'
-                            : 'bg-gradient-to-r from-gray-500 to-gray-600'
-                        }`}
+                    transition={{ duration: 0.8, ease: "easeOut" }}
+                    className={`h-full ${
+                        isCompleted ? 'bg-gray-900' : 'bg-blue-600'
+                    }`}
                 />
             </div>
 
-            <div className="mt-2 text-xs text-gray-400 text-right">
-                {mission.current} / {mission.target}
+            <div className="flex justify-between items-center mt-1">
+                <span className="text-[10px] text-gray-500 font-medium">
+                    {mission.current || 0}/{mission.target || 0}
+                </span>
+                <span className="text-[10px] text-gray-900 font-bold">{Math.round(progress)}%</span>
             </div>
         </motion.div>
     );
 };
 
-// Reward Card Component
+// Compact Reward Card
 const RewardCard = ({ icon: Icon, label }) => {
     return (
-        <div className="p-4 bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg border border-gray-700 text-center">
-            <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-white/10 flex items-center justify-center">
-                <Icon className="text-white" size={24} />
+        <motion.div
+            whileHover={{ y: -2 }}
+            className="p-2 bg-gradient-to-br from-gray-900 to-gray-800 rounded-lg text-center shadow-md relative overflow-hidden"
+        >
+            <div className="w-8 h-8 mx-auto mb-1 rounded-lg bg-white/10 flex items-center justify-center">
+                <Icon className="text-white" size={14} />
             </div>
-            <p className="text-xs text-gray-300 font-medium">{label}</p>
-        </div>
+            <p className="text-[9px] text-white font-bold uppercase tracking-wide">{label}</p>
+        </motion.div>
     );
 };
 
