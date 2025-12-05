@@ -1,32 +1,226 @@
-// src/pages/QuizResults.jsx - PREMIUM RESULTS PAGE
-import { useState, useEffect } from 'react';
+// src/pages/QuizResults.jsx
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import confetti from 'canvas-confetti';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import ReactMarkdown from 'react-markdown';
 import {
   Trophy,
-  Target,
   Clock,
   CheckCircle2,
   XCircle,
   Home,
-  RotateCcw,
   Share2,
-  Award,
-  TrendingUp,
   Brain,
-  Sparkles,
-  Download,
   Lightbulb,
   ChevronDown,
   ChevronUp,
-  Star,
-  Zap
+  Sparkles,
+  RotateCcw,
+  Target,
+  Zap,
+  BookOpen,
+  ArrowRight,
+  Copy,
+  Check,
+  TrendingUp,
+  Award,
+  BarChart3,
+  AlertCircle,
+  Flame
 } from 'lucide-react';
-import { useAuth } from '@contexts/AuthContext';
-import { getQuizResults } from '@services/quizService';
+import { useAuth } from '@/contexts/AuthContext';
+import { getQuizResults } from '@/services/quizService';
 import toast from 'react-hot-toast';
 
+// Your Logo
+import LogoImage from '@/assets/logo/logox.png';
 
+// Initialize Gemini
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+
+// ============================================
+// SKELETON LOADER
+// ============================================
+
+const SkeletonLoader = () => (
+  <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="h-10 w-32 bg-gray-200 rounded-lg mb-12 animate-pulse" />
+      
+      <div className="grid lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-6">
+          <div className="h-40 bg-gray-200 rounded-3xl animate-pulse" />
+          <div className="h-64 bg-gray-200 rounded-3xl animate-pulse" />
+        </div>
+        <div className="h-96 bg-gray-200 rounded-3xl animate-pulse" />
+      </div>
+    </div>
+  </div>
+);
+
+// ============================================
+// CIRCULAR PROGRESS COMPONENT
+// ============================================
+
+const CircularProgress = ({ score, size = 200 }) => {
+  const strokeWidth = 16;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (score / 100) * circumference;
+  
+  const getColor = () => {
+    if (score >= 90) return { stroke: '#10B981', glow: '#10B9815c' };
+    if (score >= 70) return { stroke: '#3B82F6', glow: '#3B82F65c' };
+    if (score >= 50) return { stroke: '#F59E0B', glow: '#F59E0B5c' };
+    return { stroke: '#EF4444', glow: '#EF44445c' };
+  };
+  
+  const colors = getColor();
+
+  return (
+    <div className="relative w-full flex justify-center" style={{ width: size, height: size, margin: '0 auto' }}>
+      <svg className="transform -rotate-90 drop-shadow-lg" width={size} height={size}>
+        <defs>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+            <feMerge>
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </defs>
+        
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#F3F4F6"
+          strokeWidth={strokeWidth}
+          fill="transparent"
+        />
+        
+        <motion.circle
+          initial={{ strokeDashoffset: circumference }}
+          animate={{ strokeDashoffset: offset }}
+          transition={{ duration: 2, ease: "easeOut", delay: 0.3 }}
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={colors.stroke}
+          strokeWidth={strokeWidth}
+          fill="transparent"
+          strokeDasharray={circumference}
+          strokeLinecap="round"
+          filter="url(#glow)"
+        />
+      </svg>
+      
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <motion.div
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.5, delay: 1 }}
+          className="text-center"
+        >
+          <span className="text-6xl font-black text-gray-900">{score}</span>
+          <span className="text-2xl font-bold text-gray-400 block">%</span>
+        </motion.div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// STATS CARD COMPONENT
+// ============================================
+
+const MetricCard = ({ icon: Icon, label, value, subtext, color, delay = 0 }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay, duration: 0.4 }}
+    className={`bg-white border border-gray-100 rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all group overflow-hidden relative`}
+  >
+    <div className="absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-5 transition-opacity" style={{ backgroundImage: `linear-gradient(135deg, ${color} 0%, transparent 100%)` }} />
+    
+    <div className="relative flex items-start justify-between">
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-3xl font-black text-gray-900">{value}</span>
+        </div>
+        <p className="text-sm font-bold text-gray-600 uppercase tracking-wider">{label}</p>
+        {subtext && <p className="text-xs text-gray-400 mt-1">{subtext}</p>}
+      </div>
+      <div className={`p-3 rounded-xl transition-all group-hover:scale-110`} style={{ backgroundColor: `${color}20` }}>
+        <Icon size={24} style={{ color }} strokeWidth={2.5} />
+      </div>
+    </div>
+  </motion.div>
+);
+
+// ============================================
+// GRADE BADGE
+// ============================================
+
+const GradeBadge = ({ score }) => {
+  const getGrade = () => {
+    if (score >= 90) return { label: 'Outstanding', emoji: '🏆', bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700' };
+    if (score >= 80) return { label: 'Excellent', emoji: '🌟', bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700' };
+    if (score >= 70) return { label: 'Good Work', emoji: '✨', bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700' };
+    if (score >= 60) return { label: 'Keep Going', emoji: '💪', bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700' };
+    return { label: 'Keep Trying', emoji: '📚', bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700' };
+  };
+  
+  const grade = getGrade();
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: 0.4, type: 'spring' }}
+      className={`inline-flex items-center gap-3 px-4 py-2 rounded-full ${grade.bg} border ${grade.border}`}
+    >
+      <span className="text-2xl">{grade.emoji}</span>
+      <span className={`font-bold text-sm uppercase tracking-wide ${grade.text}`}>{grade.label}</span>
+    </motion.div>
+  );
+};
+
+// ============================================
+// PERFORMANCE BAR
+// ============================================
+
+const PerformanceBar = ({ correct, total, delay }) => {
+  const percentage = (correct / total) * 100;
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay }}
+      className="space-y-2"
+    >
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-bold text-gray-600">Question Accuracy</span>
+        <span className="text-lg font-black text-gray-900">{correct}/{total}</span>
+      </div>
+      <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: `${percentage}%` }}
+          transition={{ duration: 1.5, ease: 'easeOut', delay: delay + 0.3 }}
+          className="h-full bg-gradient-to-r from-green-500 to-emerald-600 rounded-full"
+        />
+      </div>
+    </motion.div>
+  );
+};
+
+// ============================================
+// MAIN COMPONENT
+// ============================================
 
 const QuizResults = () => {
   const { sessionId } = useParams();
@@ -34,570 +228,545 @@ const QuizResults = () => {
   const location = useLocation();
   const { user } = useAuth();
   
-  const [results, setResults] = useState(null);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showDetails, setShowDetails] = useState(false);
-  const [expandedQuestions, setExpandedQuestions] = useState(new Set());
+  const [filter, setFilter] = useState('all');
+  const [expandedQ, setExpandedQ] = useState(null);
+  const [copied, setCopied] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState('');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showAiPanel, setShowAiPanel] = useState(true);
+  const aiPanelRef = useRef(null);
 
-
+  // ============================================
+  // FETCH RESULTS
+  // ============================================
+  
   useEffect(() => {
-    if (!sessionId || !user?.uid) {
-      toast.error('Invalid session');
-      navigate('/dashboard', { replace: true });
-      return;
-    }
-    loadResults();
+    if (!sessionId || !user?.uid) return;
+
+    const fetchResults = async () => {
+      try {
+        const resultData = await getQuizResults(sessionId);
+        setData(resultData);
+        
+        if (location.state?.justCompleted && resultData.session.score >= 75) {
+          setTimeout(triggerConfetti, 800);
+        }
+
+        if (location.state?.justCompleted) {
+          generateAiAnalysis(resultData);
+        }
+      } catch (error) {
+        console.error(error);
+        toast.error('Could not load results');
+        navigate('/dashboard');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchResults();
   }, [sessionId, user]);
 
-
-  // Confetti celebration for high scores
-  useEffect(() => {
-    if (results) {
-      const percentage = (results.session.correctAnswers / results.session.totalQuestions) * 100;
-      
-      if (percentage >= 90 && location.state?.justCompleted) {
-        // Trigger confetti after a short delay
-        setTimeout(() => {
-          confetti({
-            particleCount: 100,
-            spread: 70,
-            origin: { y: 0.6 },
-            colors: ['#1f2937', '#6b7280', '#9ca3af', '#d1d5db']
-          });
-        }, 500);
-      }
-    }
-  }, [results, location.state]);
-
-
-  const loadResults = async () => {
+  // ============================================
+  // AI ANALYSIS
+  // ============================================
+  
+  const generateAiAnalysis = useCallback(async (resultData) => {
+    if (!resultData) return;
+    
     try {
-      setLoading(true);
-      const data = await getQuizResults(sessionId);
+      setIsAnalyzing(true);
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
       
-      if (!data) {
-        throw new Error('Results not found');
-      }
-      
-      setResults(data);
-      console.log('Results loaded:', data);
-      
+      const wrongAnswers = resultData.questions
+        .filter(q => !q.isCorrect)
+        .map(q => ({
+          topic: q.topic || 'General',
+          question: q.stem,
+          userAnswer: q.choices[q.userAnswer] || 'Skipped',
+          correctAnswer: q.choices[q.correctAnswer]
+        }));
+
+      const correctTopics = resultData.questions
+        .filter(q => q.isCorrect)
+        .map(q => q.topic || 'General');
+
+      const prompt = `You are an expert educational coach analyzing quiz performance.
+
+Quiz: "${resultData.quizTitle}"
+Score: ${resultData.session.score}%
+Correct: ${resultData.questions.filter(q => q.isCorrect).length}/${resultData.questions.length}
+Topics Mastered: ${[...new Set(correctTopics)].join(', ') || 'None'}
+
+Mistakes: ${wrongAnswers.length > 0 ? JSON.stringify(wrongAnswers.slice(0, 3)) : 'None'}
+
+Provide feedback in this EXACT markdown format:
+
+## 🎯 Performance Snapshot
+[1-2 sentences: encouraging summary and key observation]
+
+## 💡 Your Strengths
+- [Specific strength #1]
+- [Specific strength #2]
+
+## 🎯 Focus Areas
+- [Topic to improve #1]
+- [Topic to improve #2]
+
+## 📚 Next Steps
+1. [Specific action to improve]
+2. [Study resource or technique]
+
+Keep it motivating, concise, and actionable.`;
+
+      const result = await model.generateContent(prompt);
+      setAiAnalysis(result.response.text());
     } catch (error) {
-      console.error('Error loading results:', error);
-      toast.error(error.message || 'Failed to load results');
-      setTimeout(() => {
-        navigate('/dashboard', { replace: true });
-      }, 2000);
+      console.error("AI failed:", error);
+      setAiAnalysis("Unable to generate insights. Try again!");
     } finally {
-      setLoading(false);
+      setIsAnalyzing(false);
     }
+  }, []);
+
+  // ============================================
+  // UTILITIES
+  // ============================================
+  
+  const triggerConfetti = () => {
+    const colors = ['#10B981', '#3B82F6', '#8B5CF6', '#F59E0B', '#EC4899'];
+    const end = Date.now() + 3500;
+
+    (function frame() {
+      confetti({
+        particleCount: 4,
+        angle: 60,
+        spread: 60,
+        origin: { x: 0, y: 0.6 },
+        colors,
+        gravity: 1
+      });
+      confetti({
+        particleCount: 4,
+        angle: 120,
+        spread: 60,
+        origin: { x: 1, y: 0.6 },
+        colors,
+        gravity: 1
+      });
+
+      if (Date.now() < end) requestAnimationFrame(frame);
+    })();
   };
 
-
-  const toggleQuestion = (index) => {
-    setExpandedQuestions(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(index)) {
-        newSet.delete(index);
-      } else {
-        newSet.add(index);
-      }
-      return newSet;
-    });
-  };
-
-
-  const shareResults = async () => {
-    const percentage = Math.round((results.session.correctAnswers / results.session.totalQuestions) * 100);
-    const shareText = `🎯 I scored ${percentage}% on "${results.quiz.title}"!\n${results.session.correctAnswers}/${results.session.totalQuestions} correct answers.\n\nChallenge yourself on Accort!`;
+  const handleShare = async () => {
+    const text = `🎯 I scored ${data.session.score}% on "${data.quizTitle}"!\n✅ ${stats.correct}/${stats.total} answers correct\n⏱️ ${stats.timeTakenMin}m\n\nBeat my score!`;
     
     if (navigator.share) {
       try {
-        await navigator.share({
-          title: 'Quiz Results',
-          text: shareText,
-        });
-        toast.success('Shared successfully!');
-      } catch (error) {
-        if (error.name !== 'AbortError') {
-          copyToClipboard(shareText);
-        }
+        await navigator.share({ title: 'Quiz Result', text });
+      } catch (e) {
+        copyToClipboard(text);
       }
     } else {
-      copyToClipboard(shareText);
+      copyToClipboard(text);
     }
   };
 
-
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
-    toast.success('Results copied to clipboard!');
+    setCopied(true);
+    toast.success('Copied!');
+    setTimeout(() => setCopied(false), 2000);
   };
 
-
-  const downloadResults = () => {
-    toast.success('Download feature coming soon!');
-  };
-
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-white">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-gray-200 border-t-gray-700 rounded-full animate-spin mx-auto"></div>
-          <p className="mt-6 text-gray-600 font-semibold">Loading your results...</p>
-          <p className="mt-2 text-sm text-gray-400">Calculating score</p>
-        </div>
-      </div>
-    );
-  }
-
-
-  if (!results) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-white">
-        <div className="text-center">
-          <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Results Not Found</h2>
-          <p className="text-gray-600 mb-6">Unable to load quiz results.</p>
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="px-6 py-3 bg-gray-900 text-white rounded-xl font-semibold hover:bg-gray-800 transition-all"
-          >
-            Back to Dashboard
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-
-  const { session, quiz, questionResults } = results;
-  const correctAnswers = session.correctAnswers || questionResults.filter(r => r.isCorrect).length;
-  const totalQuestions = session.totalQuestions || questionResults.length;
-  const percentage = Math.round((correctAnswers / totalQuestions) * 100);
-  const incorrectAnswers = totalQuestions - correctAnswers;
+  // ============================================
+  // COMPUTED VALUES
+  // ============================================
   
-  // Calculate time taken
-  const startTime = session.startTime?.toDate?.() || new Date();
-  const endTime = session.endTime?.toDate?.() || new Date();
-  const timeTaken = Math.round((endTime - startTime) / 60000); // minutes
+  const stats = useMemo(() => {
+    if (!data) return null;
+    const { session, questions } = data;
+    
+    const correct = questions.filter(q => q.isCorrect).length;
+    const total = questions.length;
+    const startTime = session.startTime?.getTime?.() || Date.now();
+    const endTime = session.endTime?.getTime?.() || Date.now();
+    const timeTakenMin = Math.max(1, Math.round((endTime - startTime) / 60000));
+    const avgTime = Math.round(timeTakenMin / total);
+    
+    return { correct, total, timeTakenMin, avgTime, incorrect: total - correct };
+  }, [data]);
 
+  const filteredQuestions = useMemo(() => {
+    if (!data) return [];
+    return filter === 'all' ? data.questions : data.questions.filter(q => !q.isCorrect);
+  }, [data, filter]);
 
-  const getGrade = (percentage) => {
-    if (percentage >= 90) return { 
-      label: 'Outstanding!', 
-      color: 'text-green-700', 
-      bg: 'bg-green-50',
-      border: 'border-green-300',
-      emoji: '🎉',
-      message: 'Exceptional performance!'
-    };
-    if (percentage >= 80) return { 
-      label: 'Excellent!', 
-      color: 'text-blue-700', 
-      bg: 'bg-blue-50',
-      border: 'border-blue-300',
-      emoji: '👏',
-      message: 'Great job!'
-    };
-    if (percentage >= 70) return { 
-      label: 'Good Work!', 
-      color: 'text-yellow-700', 
-      bg: 'bg-yellow-50',
-      border: 'border-yellow-300',
-      emoji: '👍',
-      message: 'Well done!'
-    };
-    if (percentage >= 60) return { 
-      label: 'Keep Trying!', 
-      color: 'text-orange-700', 
-      bg: 'bg-orange-50',
-      border: 'border-orange-300',
-      emoji: '💪',
-      message: 'You can do better!'
-    };
-    return { 
-      label: 'Need Practice', 
-      color: 'text-red-700', 
-      bg: 'bg-red-50',
-      border: 'border-red-300',
-      emoji: '📚',
-      message: 'Keep studying!'
-    };
-  };
-
-
-  const grade = getGrade(percentage);
-  const xpEarned = session.xpAwarded || (percentage >= 60 ? Math.round(percentage / 10) * 5 : 0);
-
+  if (loading) return <SkeletonLoader />;
+  if (!data) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-gray-100 py-8">
-      <div className="max-w-5xl mx-auto px-4 space-y-6">
-        
-        {/* Hero Results Card */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5 }}
-          className={`bg-white/80 backdrop-blur-sm border-2 ${grade.border} rounded-3xl p-8 shadow-2xl text-center relative overflow-hidden`}
-        >
-          {/* Background decoration */}
-          <div className="absolute inset-0 opacity-5">
-            <div className={`absolute top-0 right-0 w-64 h-64 ${grade.bg} rounded-full -translate-y-32 translate-x-32`}></div>
-            <div className={`absolute bottom-0 left-0 w-64 h-64 ${grade.bg} rounded-full translate-y-32 -translate-x-32`}></div>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 font-sans selection:bg-indigo-100">
+      
+      {/* ============================================ */}
+      {/* HEADER & NAVIGATION */}
+      {/* ============================================ */}
+      
+      <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+          <motion.button
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            onClick={() => navigate('/dashboard')}
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 font-semibold group transition-colors"
+          >
+            <Home size={18} className="group-hover:-translate-x-1 transition-transform" />
+            Dashboard
+          </motion.button>
+          
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-center"
+          >
+            <h1 className="text-lg font-black text-gray-900 truncate max-w-sm">{data.quizTitle}</h1>
+          </motion.div>
+          
+          <div className="w-10" />
+        </div>
+      </div>
 
-          <div className="relative z-10">
-            {/* Trophy Icon */}
+      {/* ============================================ */}
+      {/* MAIN CONTENT */}
+      {/* ============================================ */}
+      
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        
+        {/* Top Section: Score + AI */}
+        <div className="grid lg:grid-cols-3 gap-8 mb-12">
+          
+          {/* LEFT: Score & Stats */}
+          <div className="lg:col-span-2 space-y-6">
+            
+            {/* Hero Card */}
             <motion.div
-              initial={{ scale: 0, rotate: -180 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-              className="w-24 h-24 rounded-full bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center mx-auto mb-6 shadow-xl"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm"
             >
-              <Trophy size={48} className="text-white" />
+              <GradeBadge score={data.session.score} />
+              
+              <div className="mt-6">
+                <PerformanceBar correct={stats.correct} total={stats.total} delay={0.2} />
+              </div>
+              
+              <div className="mt-8 pt-8 border-t border-gray-100 flex flex-wrap gap-3">
+                <button
+                  onClick={handleShare}
+                  className="flex-1 min-w-max flex items-center justify-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-all shadow-lg shadow-gray-200 hover:shadow-xl group"
+                >
+                  {copied ? <Check size={18} /> : <Share2 size={18} />}
+                  {copied ? 'Copied!' : 'Share Result'}
+                </button>
+                
+                <button
+                  onClick={() => navigate(`/quiz/${data.session.quizId}`)}
+                  className="flex-1 min-w-max flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-700 rounded-xl font-bold border-2 border-gray-200 hover:border-gray-300 transition-all"
+                >
+                  <RotateCcw size={18} />
+                  Retake
+                </button>
+              </div>
             </motion.div>
 
-            {/* Title */}
-            <motion.h1
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="text-4xl md:text-5xl font-black text-gray-900 mb-3"
-            >
-              Quiz Complete! {grade.emoji}
-            </motion.h1>
-
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className={`text-2xl font-bold ${grade.color} mb-2`}
-            >
-              {grade.label}
-            </motion.p>
-
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-              className="text-gray-600 font-semibold mb-8"
-            >
-              {grade.message}
-            </motion.p>
-
-            {/* Quiz Title */}
-            <div className="mb-8 p-4 bg-gray-50 border border-gray-200 rounded-xl">
-              <p className="text-sm text-gray-600 font-semibold mb-1">Quiz Taken</p>
-              <p className="text-lg font-black text-gray-900">{quiz.title}</p>
+            {/* Metrics Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <MetricCard 
+                icon={CheckCircle2} 
+                label="Correct" 
+                value={stats.correct}
+                color="#10B981"
+                delay={0.1}
+              />
+              <MetricCard 
+                icon={XCircle} 
+                label="Incorrect" 
+                value={stats.incorrect}
+                color="#EF4444"
+                delay={0.2}
+              />
+              <MetricCard 
+                icon={Clock} 
+                label="Total Time" 
+                value={`${stats.timeTakenMin}m`}
+                subtext={`${stats.avgTime}s/q`}
+                color="#3B82F6"
+                delay={0.3}
+              />
+              <MetricCard 
+                icon={Flame} 
+                label="Accuracy" 
+                value={`${Math.round((stats.correct / stats.total) * 100)}%`}
+                color="#F59E0B"
+                delay={0.4}
+              />
             </div>
-
-            {/* Score Display */}
-            <div className="grid grid-cols-3 gap-4 md:gap-6 max-w-3xl mx-auto">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.6 }}
-                className="p-6 rounded-2xl bg-white border-2 border-gray-200 shadow-lg hover:shadow-xl transition-all"
-              >
-                <div className="text-4xl md:text-5xl font-black text-gray-900 mb-2">
-                  {percentage}%
-                </div>
-                <div className="text-sm font-bold text-gray-600">Score</div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.7 }}
-                className="p-6 rounded-2xl bg-white border-2 border-green-300 shadow-lg hover:shadow-xl transition-all"
-              >
-                <div className="text-4xl md:text-5xl font-black text-green-700 mb-2">
-                  {correctAnswers}
-                </div>
-                <div className="text-sm font-bold text-gray-600">Correct</div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.8 }}
-                className="p-6 rounded-2xl bg-white border-2 border-red-300 shadow-lg hover:shadow-xl transition-all"
-              >
-                <div className="text-4xl md:text-5xl font-black text-red-700 mb-2">
-                  {incorrectAnswers}
-                </div>
-                <div className="text-sm font-bold text-gray-600">Incorrect</div>
-              </motion.div>
-            </div>
-
-            {/* XP Earned */}
-            {xpEarned > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.9 }}
-                className="mt-8 p-6 rounded-2xl bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 shadow-lg"
-              >
-                <div className="flex items-center justify-center gap-4">
-                  <div className="p-3 bg-yellow-100 rounded-xl border-2 border-yellow-300">
-                    <Award size={32} className="text-yellow-700" />
-                  </div>
-                  <div className="text-left">
-                    <div className="text-3xl font-black text-yellow-700">
-                      +{xpEarned} XP
-                    </div>
-                    <div className="text-sm font-bold text-gray-600">Experience Points Earned</div>
-                  </div>
-                  <Sparkles size={24} className="text-yellow-600 animate-pulse" />
-                </div>
-              </motion.div>
-            )}
           </div>
-        </motion.div>
 
-        {/* Stats Grid */}
-        <div className="grid md:grid-cols-3 gap-4">
+          {/* RIGHT: AI Coach */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.0 }}
-            className="bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2 }}
+            className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden"
           >
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-gray-100 rounded-xl">
-                <Target size={24} className="text-gray-700" />
-              </div>
-              <div className="flex-1">
-                <div className="text-2xl font-black text-gray-900">
-                  {session.totalPoints || correctAnswers}/{quiz.totalPoints || totalQuestions}
+            {/* AI Header */}
+            <button
+              onClick={() => setShowAiPanel(!showAiPanel)}
+              className="w-full p-6 flex items-center justify-between hover:bg-gray-50 transition-colors border-b border-gray-100"
+            >
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <img 
+                    src={LogoImage} 
+                    alt="AI Coach" 
+                    className="w-12 h-12 rounded-xl object-contain bg-gradient-to-br from-gray-50 to-gray-100 p-2 border border-gray-100"
+                  />
+                  <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full flex items-center justify-center border-2 border-white">
+                    <Sparkles size={8} className="text-white" />
+                  </div>
                 </div>
-                <div className="text-sm font-bold text-gray-600">Points Scored</div>
+                <div className="text-left">
+                  <h3 className="font-bold text-gray-900">AI Coach</h3>
+                  <p className="text-xs text-gray-500">Performance Analysis</p>
+                </div>
               </div>
-            </div>
-          </motion.div>
+              <ChevronDown 
+                size={20} 
+                className={`text-gray-400 transition-transform ${showAiPanel ? 'rotate-180' : ''}`} 
+              />
+            </button>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.1 }}
-            className="bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all"
-          >
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-100 rounded-xl">
-                <Clock size={24} className="text-blue-700" />
-              </div>
-              <div className="flex-1">
-                <div className="text-2xl font-black text-gray-900">
-                  {timeTaken} min
-                </div>
-                <div className="text-sm font-bold text-gray-600">Time Taken</div>
-              </div>
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.2 }}
-            className="bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all"
-          >
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-purple-100 rounded-xl">
-                <TrendingUp size={24} className="text-purple-700" />
-              </div>
-              <div className="flex-1">
-                <div className="text-2xl font-black text-gray-900">
-                  {percentage}%
-                </div>
-                <div className="text-sm font-bold text-gray-600">Accuracy</div>
-              </div>
-            </div>
+            {/* AI Content */}
+            <AnimatePresence>
+              {showAiPanel && (
+                <motion.div
+                  ref={aiPanelRef}
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="overflow-hidden"
+                >
+                  <div className="p-6 max-h-96 overflow-y-auto custom-scrollbar">
+                    {isAnalyzing ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                          <span className="text-sm text-gray-500 font-semibold">Analyzing...</span>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="h-3 bg-gray-100 rounded-full animate-pulse" />
+                          <div className="h-3 bg-gray-100 rounded-full animate-pulse w-4/5" />
+                          <div className="h-3 bg-gray-100 rounded-full animate-pulse w-3/5" />
+                        </div>
+                      </div>
+                    ) : aiAnalysis ? (
+                      <div className="prose prose-sm prose-gray max-w-none text-gray-700 space-y-2">
+                        <ReactMarkdown
+                          components={{
+                            h2: ({ children }) => <h4 className="text-sm font-bold text-gray-900 mt-3 mb-1">{children}</h4>,
+                            ul: ({ children }) => <ul className="space-y-1 list-disc list-inside text-sm">{children}</ul>,
+                            li: ({ children }) => <li className="text-sm text-gray-600">{children}</li>,
+                            p: ({ children }) => <p className="text-sm text-gray-600 mb-2">{children}</p>
+                          }}
+                        >
+                          {aiAnalysis}
+                        </ReactMarkdown>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => generateAiAnalysis(data)}
+                        className="w-full p-4 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-xl font-bold hover:from-indigo-600 hover:to-purple-600 transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-200"
+                      >
+                        <Sparkles size={18} />
+                        Generate Insights
+                      </button>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         </div>
 
-        {/* Action Buttons */}
+        {/* ============================================ */}
+        {/* REVIEW SECTION */}
+        {/* ============================================ */}
+        
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.3 }}
-          className="bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-2xl p-6 shadow-lg"
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          className="space-y-6"
         >
-          <div className="flex flex-wrap gap-3 justify-center">
-            <button
-              onClick={() => setShowDetails(!showDetails)}
-              className="flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-all shadow-md hover:scale-105"
-            >
-              <Brain size={18} />
-              {showDetails ? 'Hide' : 'Review'} Answers
-            </button>
-
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-gray-200 text-gray-700 rounded-xl font-bold hover:border-gray-400 hover:shadow-md transition-all"
-            >
-              <Home size={18} />
-              Dashboard
-            </button>
-
-            {quiz.settings?.allowRetake && (
-              <button
-                onClick={() => navigate(`/quiz/${quiz.id}`)}
-                className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-gray-200 text-gray-700 rounded-xl font-bold hover:border-gray-400 hover:shadow-md transition-all"
-              >
-                <RotateCcw size={18} />
-                Retake Quiz
-              </button>
-            )}
-
-            <button
-              onClick={shareResults}
-              className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-gray-200 text-gray-700 rounded-xl font-bold hover:border-gray-400 hover:shadow-md transition-all"
-            >
-              <Share2 size={18} />
-              Share
-            </button>
-
-            <button
-              onClick={downloadResults}
-              className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-gray-200 text-gray-700 rounded-xl font-bold hover:border-gray-400 hover:shadow-md transition-all"
-            >
-              <Download size={18} />
-              Download
-            </button>
-          </div>
-        </motion.div>
-
-        {/* Detailed Results */}
-        <AnimatePresence>
-          {showDetails && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-2xl p-8 shadow-lg"
-            >
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-3 bg-gray-100 rounded-xl">
-                  <Brain className="w-6 h-6 text-gray-700" />
-                </div>
-                <h2 className="text-2xl font-black text-gray-900">Question Review</h2>
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-gray-900 rounded-xl text-white">
+                <BookOpen size={24} />
               </div>
+              <div>
+                <h2 className="text-2xl font-black text-gray-900">Question Breakdown</h2>
+                <p className="text-gray-500 text-sm">Learn from each answer</p>
+              </div>
+            </div>
+            
+            <div className="bg-white p-1.5 rounded-xl border border-gray-200 shadow-sm inline-flex self-start">
+              <button 
+                onClick={() => setFilter('all')}
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                  filter === 'all' 
+                    ? 'bg-gray-900 text-white shadow-md' 
+                    : 'text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                All ({stats.total})
+              </button>
+              <button 
+                onClick={() => setFilter('incorrect')}
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                  filter === 'incorrect' 
+                    ? 'bg-red-500 text-white shadow-md' 
+                    : 'text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                Mistakes ({stats.incorrect})
+              </button>
+            </div>
+          </div>
 
-              <div className="space-y-4">
-                {questionResults.map((result, index) => {
-                  const isExpanded = expandedQuestions.has(index);
+          {/* Questions */}
+          <div className="space-y-4">
+            <AnimatePresence mode="popLayout">
+              {filteredQuestions.length === 0 ? (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-gray-200"
+                >
+                  <div className="w-24 h-24 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Trophy className="text-green-500" size={48} />
+                  </div>
+                  <h3 className="text-xl font-black text-gray-900 mb-1">Perfect Score! 🎉</h3>
+                  <p className="text-gray-500">No mistakes to review.</p>
+                </motion.div>
+              ) : (
+                filteredQuestions.map((q, idx) => {
+                  const isExpanded = expandedQ === idx;
+                  const qNum = data.questions.findIndex(oq => oq.stem === q.stem) + 1;
                   
                   return (
                     <motion.div
-                      key={index}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: index * 0.05 }}
-                      className={`border-2 rounded-2xl overflow-hidden transition-all ${
-                        result.isCorrect
-                          ? 'border-green-300 bg-green-50/50'
-                          : 'border-red-300 bg-red-50/50'
-                      }`}
+                      key={idx}
+                      layout
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ delay: idx * 0.05 }}
+                      className={`bg-white rounded-2xl border overflow-hidden transition-all ${
+                        q.isCorrect 
+                          ? 'border-green-100 hover:border-green-200' 
+                          : 'border-red-100 hover:border-red-200'
+                      } ${isExpanded ? 'shadow-lg' : 'shadow-sm hover:shadow-md'}`}
                     >
                       {/* Question Header */}
-                      <button
-                        onClick={() => toggleQuestion(index)}
-                        className="w-full p-5 flex items-center justify-between hover:bg-white/50 transition-all"
+                      <button 
+                        onClick={() => setExpandedQ(isExpanded ? null : idx)}
+                        className="w-full flex items-start gap-4 p-6 text-left transition-colors hover:bg-gray-50/50"
                       >
-                        <div className="flex items-center gap-4">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                            result.isCorrect 
-                              ? 'bg-green-600' 
-                              : 'bg-red-600'
-                          }`}>
-                            {result.isCorrect ? (
-                              <CheckCircle2 size={20} className="text-white" />
-                            ) : (
-                              <XCircle size={20} className="text-white" />
+                        <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-sm ${
+                          q.isCorrect ? 'bg-green-500' : 'bg-red-500'
+                        }`}>
+                          {qNum}
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <p className="text-base font-bold text-gray-900 leading-snug mb-3">
+                            {q.stem}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold ${
+                              q.isCorrect 
+                                ? 'bg-green-100 text-green-700' 
+                                : 'bg-red-100 text-red-700'
+                            }`}>
+                              {q.isCorrect ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                              {q.isCorrect ? 'Correct' : 'Incorrect'}
+                            </span>
+                            {q.topic && (
+                              <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg text-xs font-bold">
+                                {q.topic}
+                              </span>
                             )}
                           </div>
-                          <div className="text-left">
-                            <div className="font-bold text-gray-900">
-                              Question {index + 1}
-                            </div>
-                            <div className="text-sm text-gray-600 font-semibold">
-                              {result.isCorrect ? 'Correct' : 'Incorrect'}
-                            </div>
-                          </div>
                         </div>
-                        {isExpanded ? (
-                          <ChevronUp size={20} className="text-gray-600" />
-                        ) : (
-                          <ChevronDown size={20} className="text-gray-600" />
-                        )}
+                        
+                        <div className="flex-shrink-0">
+                          <ChevronDown 
+                            size={20} 
+                            className={`text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} 
+                          />
+                        </div>
                       </button>
 
-                      {/* Expanded Content */}
+                      {/* Expanded Detail */}
                       <AnimatePresence>
                         {isExpanded && (
                           <motion.div
                             initial={{ height: 0, opacity: 0 }}
                             animate={{ height: 'auto', opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.2 }}
-                            className="border-t-2 border-gray-200"
+                            transition={{ duration: 0.3 }}
+                            className="overflow-hidden"
                           >
-                            <div className="p-6 space-y-4 bg-white">
-                              {/* Question Text */}
-                              <div>
-                                <p className="text-sm font-bold text-gray-600 mb-2">Question:</p>
-                                <p className="text-gray-900 font-semibold leading-relaxed">
-                                  {result.question.stem}
-                                </p>
+                            <div className="px-6 pb-6 pt-4 space-y-4 border-t border-gray-100 bg-gray-50/30">
+                              
+                              {/* Options */}
+                              <div className="space-y-2">
+                                <p className="text-xs font-bold text-gray-600 uppercase">Options</p>
+                                {q.choices.map((choice, idx) => {
+                                  const isUser = q.userAnswer === idx;
+                                  const isCorrect = q.correctAnswer === idx;
+                                  
+                                  let style = 'bg-white border-gray-200 text-gray-700';
+                                  if (isCorrect) style = 'bg-green-50 border-green-300 text-green-900';
+                                  if (isUser && !isCorrect) style = 'bg-red-50 border-red-300 text-red-900';
+                                  
+                                  return (
+                                    <div key={idx} className={`p-3 rounded-xl border-2 flex items-center gap-3 ${style}`}>
+                                      <span className="w-7 h-7 rounded-lg bg-white border border-gray-300 flex items-center justify-center font-bold text-xs text-gray-600">
+                                        {String.fromCharCode(65 + idx)}
+                                      </span>
+                                      <span className="flex-1 font-semibold text-sm">{choice}</span>
+                                      {isCorrect && <CheckCircle2 size={18} className="text-green-600" />}
+                                      {isUser && !isCorrect && <XCircle size={18} className="text-red-600" />}
+                                    </div>
+                                  );
+                                })}
                               </div>
-
-                              {/* Your Answer */}
-                              <div className={`p-4 rounded-xl border-2 ${
-                                result.isCorrect 
-                                  ? 'bg-green-50 border-green-300' 
-                                  : 'bg-red-50 border-red-300'
-                              }`}>
-                                <p className="text-sm font-bold text-gray-600 mb-2">Your Answer:</p>
-                                <p className="text-gray-900 font-semibold">
-                                  {result.question.choices[result.userAnswer]}
-                                </p>
-                              </div>
-
-                              {/* Correct Answer (if wrong) */}
-                              {!result.isCorrect && (
-                                <div className="p-4 rounded-xl bg-green-50 border-2 border-green-300">
-                                  <p className="text-sm font-bold text-gray-600 mb-2">Correct Answer:</p>
-                                  <p className="text-gray-900 font-semibold">
-                                    {result.question.choices[result.correctAnswer]}
-                                  </p>
-                                </div>
-                              )}
 
                               {/* Explanation */}
-                              {result.explanation && (
-                                <div className="p-4 rounded-xl bg-blue-50 border-2 border-blue-200">
-                                  <div className="flex items-start gap-2">
-                                    <Lightbulb size={18} className="text-blue-600 flex-shrink-0 mt-0.5" />
-                                    <div className="flex-1">
-                                      <p className="text-sm font-bold text-gray-600 mb-2">Explanation:</p>
-                                      <p className="text-sm text-gray-700 leading-relaxed">
-                                        {result.explanation}
-                                      </p>
-                                    </div>
+                              {q.explanation && (
+                                <div className="flex gap-3 p-4 bg-blue-50 rounded-xl border border-blue-100">
+                                  <Lightbulb className="text-blue-600 flex-shrink-0 mt-0.5" size={20} />
+                                  <div>
+                                    <h4 className="font-bold text-blue-900 text-sm mb-1">Explanation</h4>
+                                    <p className="text-sm text-blue-800 leading-relaxed">{q.explanation}</p>
                                   </div>
-                                </div>
-                              )}
-
-                              {/* Topic Tag */}
-                              {result.topic && (
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs font-bold text-gray-500">Topic:</span>
-                                  <span className="px-3 py-1 bg-gray-100 border border-gray-300 rounded-lg text-xs font-bold text-gray-700">
-                                    {result.topic}
-                                  </span>
                                 </div>
                               )}
                             </div>
@@ -606,16 +775,62 @@ const QuizResults = () => {
                       </AnimatePresence>
                     </motion.div>
                   );
-                })}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                })
+              )}
+            </AnimatePresence>
+          </div>
+        </motion.div>
 
+        {/* ============================================ */}
+        {/* FOOTER CTA */}
+        {/* ============================================ */}
+        
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-50px" }}
+          className="mt-16 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-3xl p-10 md:p-16 text-center relative overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-full blur-3xl -z-10" />
+          
+          <div className="relative">
+            <Zap size={40} className="text-yellow-400 mx-auto mb-6" />
+            <h3 className="text-3xl md:text-4xl font-black text-white mb-4">
+              Keep Learning! 🚀
+            </h3>
+            <p className="text-gray-300 mb-8 max-w-md mx-auto text-lg">
+              Every quiz brings you closer to mastery. Ready to challenge yourself further?
+            </p>
+            
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="inline-flex items-center gap-2 px-8 py-4 bg-white text-gray-900 rounded-xl font-bold hover:bg-gray-100 transition-all shadow-xl hover:shadow-2xl group"
+            >
+              Explore More Quizzes
+              <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+        </motion.div>
       </div>
+
+      {/* Custom Scrollbar Styles */}
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #d1d5db;
+          border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #9ca3af;
+        }
+      `}</style>
     </div>
   );
 };
-
 
 export default QuizResults;
