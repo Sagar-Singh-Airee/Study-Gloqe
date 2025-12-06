@@ -1,17 +1,25 @@
+// routes/token.routes.js
 import express from 'express';
-import { generateToken, createRoom } from '../controllers/token.controller.js';
+import { 
+  generateRTCToken, 
+  generateStudyRoomToken, 
+  testTokenGeneration 
+} from '../controllers/token.controller.js';
+import { validateRequest, rateLimiter } from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
-router.post('/generate-token', generateToken);
-router.post('/create-room', createRoom);
+// Apply rate limiter to all token routes
+router.use(rateLimiter);
 
-router.get('/health', (req, res) => {
-    res.status(200).json({
-        success: true,
-        message: 'Token service is running',
-        timestamp: new Date().toISOString()
-    });
-});
+// Test endpoint (no auth required)
+router.get('/test', testTokenGeneration);
+
+// Generate RTC token - flexible endpoint
+router.get('/rtc/:channelName/:role/:uid', generateRTCToken);
+router.post('/rtc', generateRTCToken);
+
+// Study room specific endpoint (with validation middleware)
+router.post('/study-room', validateRequest, generateStudyRoomToken);
 
 export default router;

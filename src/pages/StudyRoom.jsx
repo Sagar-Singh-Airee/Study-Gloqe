@@ -1,21 +1,8 @@
-// src/pages/StudyRoom.jsx - FIXED HMS LEAVE ERROR
+// src/pages/StudyRoom.jsx - AGORA SDK VERSION
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-    useHMSStore,
-    useHMSActions,
-    selectIsConnectedToRoom,
-    selectPeers,
-    selectLocalPeer,
-    selectIsPeerAudioEnabled,
-    selectIsPeerVideoEnabled,
-    selectRoomState,
-    selectHMSMessages,
-    HMSRoomProvider,
-    HMSNotificationTypes,
-    useHMSNotifications,
-} from '@100mslive/react-sdk';
+import AgoraRTC from 'agora-rtc-sdk-ng';
 import { 
     collection, 
     doc, 
@@ -27,6 +14,7 @@ import {
     serverTimestamp,
     updateDoc,
     arrayUnion,
+    arrayRemove,
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -47,56 +35,94 @@ import {
     Pin,
     PinOff,
     UserPlus,
+    Volume2,
+    VolumeX,
+    Settings,
+    ScreenShare,
+    ScreenShareOff,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// ============================================
+// CONFIGURATION
+// ============================================
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const AGORA_APP_ID = import.meta.env.VITE_AGORA_APP_ID;
+
+// Configure Agora SDK
+AgoraRTC.setLogLevel(3); // Warning level only
+
+// ============================================
+// AGORA CLIENT SINGLETON
+// ============================================
+
+let agoraClient = null;
+
+const getAgoraClient = () => {
+    if (!agoraClient) {
+        agoraClient = AgoraRTC.createClient({ 
+            mode: 'rtc', 
+            codec: 'vp8' 
+        });
+    }
+    return agoraClient;
+};
 
 // ============================================
 // VIDEO TILE COMPONENT
 // ============================================
 
-const VideoTile = ({ peer, isLocal, isPinned, onPin, isSpotlight }) => {
+const VideoTile = ({ 
+    user, 
+    isLocal, 
+    isPinned, 
+    onPin, 
+    isSpotlight,
+    audioTrack,
+    videoTrack,
+    isAudioEnabled,
+    isVideoEnabled,
+}) => {
     const videoRef = useRef(null);
-    const hmsActions = useHMSActions();
-    const isConnected = useHMSStore(selectIsConnectedToRoom);
-    const isAudioEnabled = useHMSStore(selectIsPeerAudioEnabled(peer?.id));
-    const isVideoEnabled = useHMSStore(selectIsPeerVideoEnabled(peer?.id));
-    
+    const [audioLevel, setAudioLevel] = useState(0);
+
+    // Play video track
     useEffect(() => {
-        const videoElement = videoRef.current;
-        
-        // ✅ Only attach if connected and has video track
-        if (videoElement && peer?.videoTrack && isConnected) {
-            try {
-                hmsActions.attachVideo(peer.videoTrack, videoElement);
-            } catch (e) {
-                console.log('Video attach skipped:', e.message);
-            }
+        const container = videoRef.current;
+        if (!container) return;
+
+        if (videoTrack && isVideoEnabled) {
+            videoTrack.play(container, { fit: 'cover', mirror: isLocal });
         }
-        
+
         return () => {
-            // ✅ Safe cleanup
-            if (videoElement && peer?.videoTrack) {
+            if (videoTrack) {
                 try {
-                    hmsActions.detachVideo(peer.videoTrack, videoElement);
-                } catch (e) {
-                    // Silent cleanup - expected when leaving
-                }
-            }
-            
-            if (videoElement?.srcObject) {
-                try {
-                    videoElement.srcObject.getTracks().forEach(track => track.stop());
-                    videoElement.srcObject = null;
+                    videoTrack.stop();
                 } catch (e) {
                     // Silent cleanup
                 }
             }
         };
-    }, [peer?.videoTrack, peer?.id, hmsActions, isConnected]);
+    }, [videoTrack, isVideoEnabled, isLocal]);
 
-    const displayName = peer?.name || 'Anonymous';
+    // Audio level indicator
+    useEffect(() => {
+        if (!audioTrack || !isAudioEnabled) {
+            setAudioLevel(0);
+            return;
+        }
+
+        const interval = setInterval(() => {
+            const level = audioTrack.getVolumeLevel?.() || 0;
+            setAudioLevel(level);
+        }, 100);
+
+        return () => clearInterval(interval);
+    }, [audioTrack, isAudioEnabled]);
+
+    const displayName = user?.name || 'Anonymous';
     const initials = displayName.charAt(0).toUpperCase();
 
     return (
@@ -109,16 +135,13 @@ const VideoTile = ({ peer, isLocal, isPinned, onPin, isSpotlight }) => {
                 isSpotlight ? 'col-span-2 row-span-2' : ''
             } ${isPinned ? 'ring-2 ring-blue-500' : ''}`}
         >
-            <video 
-                ref={videoRef} 
-                autoPlay 
-                muted={isLocal}
-                playsInline
-                className={`w-full h-full object-cover absolute inset-0 ${
-                    isLocal ? 'scale-x-[-1]' : ''
-                } ${!isVideoEnabled ? 'hidden' : ''}`}
+            {/* Video Container */}
+            <div 
+                ref={videoRef}
+                className={`w-full h-full absolute inset-0 ${!isVideoEnabled ? 'hidden' : ''}`}
             />
             
+            {/* Avatar when video is off */}
             {!isVideoEnabled && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
                     <div className={`rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center ${
@@ -129,10 +152,12 @@ const VideoTile = ({ peer, isLocal, isPinned, onPin, isSpotlight }) => {
                 </div>
             )}
 
-            {peer?.audioLevel > 0 && (
+            {/* Audio Level Indicator */}
+            {audioLevel > 0.1 && (
                 <div className="absolute inset-0 border-4 border-green-500 rounded-2xl pointer-events-none animate-pulse" />
             )}
 
+            {/* Status Indicators */}
             <div className="absolute top-3 right-3 flex items-center gap-2">
                 {!isAudioEnabled && (
                     <div className="p-2 bg-red-500 rounded-full shadow-lg">
@@ -146,6 +171,7 @@ const VideoTile = ({ peer, isLocal, isPinned, onPin, isSpotlight }) => {
                 )}
             </div>
 
+            {/* Name Badge */}
             <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -157,17 +183,18 @@ const VideoTile = ({ peer, isLocal, isPinned, onPin, isSpotlight }) => {
                                 You
                             </span>
                         )}
-                        {peer?.roleName === 'host' && (
+                        {user?.isHost && (
                             <Shield size={14} className="text-yellow-400" />
                         )}
                     </div>
                 </div>
             </div>
 
+            {/* Hover Controls */}
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
                 <div className="flex items-center gap-2">
                     <button
-                        onClick={() => onPin?.(peer?.id)}
+                        onClick={() => onPin?.(user?.uid)}
                         className="p-3 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full transition-all"
                     >
                         {isPinned ? <PinOff size={20} className="text-white" /> : <Pin size={20} className="text-white" />}
@@ -182,13 +209,13 @@ const VideoTile = ({ peer, isLocal, isPinned, onPin, isSpotlight }) => {
 // CONTROL BUTTON COMPONENT
 // ============================================
 
-const ControlButton = ({ icon: Icon, label, isActive, isDestructive, onClick, disabled }) => (
+const ControlButton = ({ icon: Icon, label, isActive, isDestructive, onClick, disabled, badge }) => (
     <motion.button
         whileHover={{ scale: disabled ? 1 : 1.05 }}
         whileTap={{ scale: disabled ? 1 : 0.95 }}
         onClick={onClick}
         disabled={disabled}
-        className={`relative group flex flex-col items-center gap-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
+        className="relative group flex flex-col items-center gap-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
     >
         <div className={`p-4 rounded-full transition-all ${
             isDestructive 
@@ -198,6 +225,11 @@ const ControlButton = ({ icon: Icon, label, isActive, isDestructive, onClick, di
                     : 'bg-gray-800 hover:bg-gray-700 text-red-400'
         }`}>
             <Icon size={24} />
+            {badge && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                    {badge}
+                </span>
+            )}
         </div>
         <span className="text-xs font-medium text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity absolute -bottom-5">
             {label}
@@ -209,7 +241,7 @@ const ControlButton = ({ icon: Icon, label, isActive, isDestructive, onClick, di
 // PARTICIPANTS PANEL
 // ============================================
 
-const ParticipantsPanel = ({ peers, onClose }) => (
+const ParticipantsPanel = ({ participants, localUid, onClose }) => (
     <motion.div
         initial={{ x: 300, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
@@ -219,7 +251,7 @@ const ParticipantsPanel = ({ peers, onClose }) => (
         <div className="p-4 border-b border-gray-200 flex items-center justify-between">
             <h3 className="font-bold text-gray-900 flex items-center gap-2">
                 <Users size={20} />
-                Participants ({peers?.length || 0})
+                Participants ({participants?.length || 0})
             </h3>
             <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
                 <X size={18} className="text-gray-500" />
@@ -227,24 +259,26 @@ const ParticipantsPanel = ({ peers, onClose }) => (
         </div>
         
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
-            {peers?.map((peer) => (
-                <div key={peer.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors">
+            {participants?.map((participant) => (
+                <div key={participant.uid} className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
                             <span className="text-white font-bold text-sm">
-                                {peer.name?.charAt(0)?.toUpperCase() || '?'}
+                                {participant.name?.charAt(0)?.toUpperCase() || '?'}
                             </span>
                         </div>
                         <div>
                             <p className="font-semibold text-gray-900 text-sm">
-                                {peer.name} {peer.isLocal && <span className="text-blue-500">(You)</span>}
+                                {participant.name} {participant.uid === localUid && <span className="text-blue-500">(You)</span>}
                             </p>
-                            <p className="text-xs text-gray-500 capitalize">{peer.roleName || 'Participant'}</p>
+                            <p className="text-xs text-gray-500">
+                                {participant.isHost ? 'Host' : 'Participant'}
+                            </p>
                         </div>
                     </div>
                     <div className="flex items-center gap-1">
-                        {!peer.audioEnabled && <MicOff size={16} className="text-red-400" />}
-                        {!peer.videoEnabled && <VideoOff size={16} className="text-red-400" />}
+                        {!participant.hasAudio && <MicOff size={16} className="text-red-400" />}
+                        {!participant.hasVideo && <VideoOff size={16} className="text-red-400" />}
                     </div>
                 </div>
             ))}
@@ -421,10 +455,10 @@ const ShareModal = ({ roomId, onClose }) => {
 };
 
 // ============================================
-// MAIN ROOM COMPONENT
+// MAIN STUDY ROOM COMPONENT
 // ============================================
 
-const StudyRoomContent = () => {
+const StudyRoom = () => {
     const { roomId } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -438,33 +472,38 @@ const StudyRoomContent = () => {
     const [messageText, setMessageText] = useState('');
     const [messages, setMessages] = useState([]);
     const [isJoiningCall, setIsJoiningCall] = useState(false);
+    const [isConnected, setIsConnected] = useState(false);
     const [showChat, setShowChat] = useState(false);
     const [showParticipants, setShowParticipants] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
     const [pinnedPeer, setPinnedPeer] = useState(null);
     const [viewMode, setViewMode] = useState('grid');
     
-    // ✅ CRITICAL: Prevent duplicate operations
+    // Media state
+    const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+    const [isVideoEnabled, setIsVideoEnabled] = useState(true);
+    const [isScreenSharing, setIsScreenSharing] = useState(false);
+    
+    // Tracks
+    const [localAudioTrack, setLocalAudioTrack] = useState(null);
+    const [localVideoTrack, setLocalVideoTrack] = useState(null);
+    const [screenTrack, setScreenTrack] = useState(null);
+    
+    // Remote users
+    const [remoteUsers, setRemoteUsers] = useState([]);
+    
+    // Operation guards
     const [isLeaving, setIsLeaving] = useState(false);
     const [isTogglingAudio, setIsTogglingAudio] = useState(false);
     const [isTogglingVideo, setIsTogglingVideo] = useState(false);
     
     // Refs
-    const hasJoinedRef = useRef(false);
-    const lastLeftTimeRef = useRef(null);
     const isMountedRef = useRef(true);
-    
-    // HMS hooks
-    const hmsActions = useHMSActions();
-    const isConnected = useHMSStore(selectIsConnectedToRoom);
-    const peers = useHMSStore(selectPeers);
-    const localPeer = useHMSStore(selectLocalPeer);
-    const isLocalAudioEnabled = useHMSStore(selectIsPeerAudioEnabled(localPeer?.id));
-    const isLocalVideoEnabled = useHMSStore(selectIsPeerVideoEnabled(localPeer?.id));
-    const roomState = useHMSStore(selectRoomState);
+    const clientRef = useRef(null);
+    const localUidRef = useRef(null);
 
     // ============================================
-    // ✅ MOUNT/UNMOUNT TRACKING
+    // MOUNT/UNMOUNT TRACKING
     // ============================================
     
     useEffect(() => {
@@ -473,36 +512,6 @@ const StudyRoomContent = () => {
             isMountedRef.current = false;
         };
     }, []);
-
-    // ============================================
-    // ✅ HMS NOTIFICATION LISTENER - CRITICAL FIX
-    // ============================================
-    
-    const notification = useHMSNotifications();
-    
-    useEffect(() => {
-        if (!notification) return;
-        
-        // Track when HMS actually disconnects
-        if (notification.type === HMSNotificationTypes.ROOM_LEFT) {
-            console.log('HMS: Room left notification received');
-            hasJoinedRef.current = false;
-            lastLeftTimeRef.current = Date.now();
-        }
-        
-        if (notification.type === HMSNotificationTypes.ERROR) {
-            console.warn('HMS Error:', notification.data);
-            // Don't take action on errors, just log them
-        }
-        
-        if (notification.type === HMSNotificationTypes.RECONNECTING) {
-            console.log('HMS: Reconnecting...');
-        }
-        
-        if (notification.type === HMSNotificationTypes.RECONNECTED) {
-            console.log('HMS: Reconnected successfully');
-        }
-    }, [notification]);
 
     // ============================================
     // FETCH ROOM DATA
@@ -537,108 +546,185 @@ const StudyRoomContent = () => {
     }, [roomId, navigate]);
 
     // ============================================
+    // AGORA EVENT HANDLERS
+    // ============================================
+
+    const setupAgoraListeners = useCallback((client) => {
+        // User published (started sharing audio/video)
+        client.on('user-published', async (remoteUser, mediaType) => {
+            await client.subscribe(remoteUser, mediaType);
+            console.log('Subscribed to', remoteUser.uid, mediaType);
+
+            if (mediaType === 'audio') {
+                remoteUser.audioTrack?.play();
+            }
+
+            setRemoteUsers(prev => {
+                const exists = prev.find(u => u.uid === remoteUser.uid);
+                if (exists) {
+                    return prev.map(u => 
+                        u.uid === remoteUser.uid 
+                            ? { ...u, [mediaType + 'Track']: remoteUser[mediaType + 'Track'], ['has' + mediaType.charAt(0).toUpperCase() + mediaType.slice(1)]: true }
+                            : u
+                    );
+                }
+                return [...prev, {
+                    uid: remoteUser.uid,
+                    name: `User ${remoteUser.uid}`,
+                    audioTrack: remoteUser.audioTrack,
+                    videoTrack: remoteUser.videoTrack,
+                    hasAudio: mediaType === 'audio',
+                    hasVideo: mediaType === 'video',
+                }];
+            });
+        });
+
+        // User unpublished (stopped sharing)
+        client.on('user-unpublished', (remoteUser, mediaType) => {
+            console.log('User unpublished:', remoteUser.uid, mediaType);
+            
+            setRemoteUsers(prev => 
+                prev.map(u => 
+                    u.uid === remoteUser.uid 
+                        ? { ...u, [mediaType + 'Track']: null, ['has' + mediaType.charAt(0).toUpperCase() + mediaType.slice(1)]: false }
+                        : u
+                )
+            );
+        });
+
+        // User left
+        client.on('user-left', (remoteUser) => {
+            console.log('User left:', remoteUser.uid);
+            setRemoteUsers(prev => prev.filter(u => u.uid !== remoteUser.uid));
+        });
+
+        // Connection state change
+        client.on('connection-state-change', (curState, prevState) => {
+            console.log('Connection state:', prevState, '->', curState);
+            if (curState === 'CONNECTED') {
+                setIsConnected(true);
+            } else if (curState === 'DISCONNECTED') {
+                setIsConnected(false);
+            }
+        });
+
+        // Token will expire
+        client.on('token-privilege-will-expire', async () => {
+            console.log('Token expiring, fetching new token...');
+            try {
+                const response = await fetch(`${API_URL}/token/study-room`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ roomId, userId: localUidRef.current })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    await client.renewToken(data.token);
+                    console.log('Token renewed successfully');
+                }
+            } catch (error) {
+                console.error('Failed to renew token:', error);
+            }
+        });
+    }, [roomId]);
+
+    // ============================================
     // JOIN VIDEO CALL
     // ============================================
 
     const joinVideoCall = useCallback(async () => {
-        // ✅ All guards
-        if (!roomData || !user) {
-            console.log('Join skipped: No room data or user');
-            return;
-        }
-        if (isConnected) {
-            console.log('Join skipped: Already connected');
-            return;
-        }
-        if (isJoiningCall) {
-            console.log('Join skipped: Already joining');
-            return;
-        }
-        if (isLeaving) {
-            console.log('Join skipped: Currently leaving');
-            return;
-        }
-        // ✅ NEW: Check if component is still mounted
-        if (!isMountedRef.current) {
-            console.log('Join skipped: Component unmounted');
+        if (!roomData || !user || isConnected || isJoiningCall || isLeaving || !isMountedRef.current) {
             return;
         }
 
         try {
             setIsJoiningCall(true);
+            console.log('Joining Agora room...');
 
-            // Cooldown after leaving
-            if (lastLeftTimeRef.current && Date.now() - lastLeftTimeRef.current < 3000) {
-                console.log('Waiting for cooldown...');
-                await new Promise(resolve => setTimeout(resolve, 3000));
-            }
+            // Get Agora client
+            const client = getAgoraClient();
+            clientRef.current = client;
 
-            // Check if still mounted after cooldown
-            if (!isMountedRef.current) {
-                console.log('Join aborted: Component unmounted during cooldown');
-                return;
-            }
+            // Setup event listeners
+            setupAgoraListeners(client);
 
-            // Create/Get Room
-            const roomResponse = await fetch(`${API_URL}/token/create-room`, {
+            // Get token from server
+            const tokenResponse = await fetch(`${API_URL}/token/study-room`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    name: roomData.name || 'Study Room',
-                    description: roomData.description || 'Study session'
-                })
-            });
-
-            if (!roomResponse.ok) {
-                throw new Error('Failed to create room');
-            }
-            
-            const roomResult = await roomResponse.json();
-            if (!roomResult.success) {
-                throw new Error(roomResult.error || 'Room creation failed');
-            }
-
-            // Check if still mounted
-            if (!isMountedRef.current) {
-                console.log('Join aborted: Component unmounted after room creation');
-                return;
-            }
-
-            // Generate Token
-            const tokenResponse = await fetch(`${API_URL}/token/generate-token`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    roomId: roomResult.roomId,
-                    userId: user.uid,
-                    userName: user.displayName || 'Anonymous',
-                    role: 'host'
+                    roomId: roomId,
+                    userId: Math.floor(Math.random() * 100000), // Numeric UID for Agora
                 })
             });
 
             if (!tokenResponse.ok) {
-                throw new Error('Failed to generate token');
-            }
-            
-            const tokenResult = await tokenResponse.json();
-            if (!tokenResult.success) {
-                throw new Error(tokenResult.error || 'Token generation failed');
+                throw new Error('Failed to get token');
             }
 
-            // Check if still mounted and not leaving
-            if (!isMountedRef.current || isLeaving) {
-                console.log('Join aborted: Component state changed');
+            const tokenData = await tokenResponse.json();
+            if (!tokenData.success) {
+                throw new Error(tokenData.error || 'Token generation failed');
+            }
+
+            console.log('Token received, joining channel:', tokenData.channelName);
+
+            // Check if still mounted
+            if (!isMountedRef.current) {
+                console.log('Component unmounted, aborting join');
                 return;
             }
 
-            // Join HMS Room
-            await hmsActions.join({
-                userName: user.displayName || 'Anonymous',
-                authToken: tokenResult.token,
-                settings: {
-                    isAudioMuted: false,
-                    isVideoMuted: false,
-                },
+            // Join the channel
+            const uid = await client.join(
+                tokenData.appId || AGORA_APP_ID,
+                tokenData.channelName,
+                tokenData.token,
+                tokenData.uid
+            );
+
+            localUidRef.current = uid;
+            console.log('Joined with UID:', uid);
+
+            // Create and publish local tracks
+            const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
+                { encoderConfig: 'speech_standard' },
+                { encoderConfig: '720p_2' }
+            );
+
+            if (!isMountedRef.current) {
+                audioTrack.close();
+                videoTrack.close();
+                await client.leave();
+                return;
+            }
+
+            setLocalAudioTrack(audioTrack);
+            setLocalVideoTrack(videoTrack);
+
+            // Publish tracks
+            await client.publish([audioTrack, videoTrack]);
+            console.log('Published local tracks');
+
+            setIsConnected(true);
+
+            // Update Firestore
+            await updateDoc(doc(db, 'rooms', roomId), {
+                participants: arrayUnion({
+                    odUserId: user.uid,
+                    displayName: user.displayName || 'Anonymous',
+                    photoURL: user.photoURL || null,
+                    joinedAt: new Date().toISOString(),
+                    isOnline: true,
+                    agoraUid: uid,
+                }),
+                lastActive: serverTimestamp()
+            });
+
+            await addDoc(collection(db, 'rooms', roomId, 'messages'), {
+                type: 'system',
+                text: `${user.displayName || 'Someone'} joined`,
+                timestamp: serverTimestamp()
             });
 
             if (isMountedRef.current) {
@@ -648,79 +734,26 @@ const StudyRoomContent = () => {
         } catch (error) {
             console.error('Error joining room:', error);
             if (isMountedRef.current) {
-                toast.error(error.message || 'Failed to join');
-                hasJoinedRef.current = false;
+                toast.error(error.message || 'Failed to join room');
             }
         } finally {
             if (isMountedRef.current) {
                 setIsJoiningCall(false);
             }
         }
-    }, [roomData, user, isConnected, isJoiningCall, isLeaving, hmsActions]);
+    }, [roomData, user, isConnected, isJoiningCall, isLeaving, roomId, setupAgoraListeners]);
 
-    // Auto-join when ready - IMPROVED GUARDS
+    // Auto-join when ready
     useEffect(() => {
-        // ✅ Enhanced guards: Don't auto-join if already in a transitional state
-        const canAutoJoin = roomData && 
-                           user && 
-                           !isConnected && 
-                           !isJoiningCall && 
-                           !hasJoinedRef.current && 
-                           !isLeaving &&
-                           isMountedRef.current &&
-                           roomState !== 'Connecting' &&
-                           roomState !== 'Disconnecting';
-        
-        if (canAutoJoin) {
-            console.log('Auto-join: Starting...');
-            hasJoinedRef.current = true;
+        if (roomData && user && !isConnected && !isJoiningCall && !isLeaving && isMountedRef.current) {
             joinVideoCall();
-        } else if (roomData && user && !isConnected) {
-            console.log('Auto-join: Waiting...', { 
-                isConnected, 
-                isJoiningCall, 
-                hasJoined: hasJoinedRef.current, 
-                isLeaving,
-                roomState 
-            });
         }
-    }, [roomData, user, isConnected, isJoiningCall, isLeaving, roomState, joinVideoCall]);
+    }, [roomData, user, isConnected, isJoiningCall, isLeaving, joinVideoCall]);
 
     // ============================================
-    // FIRESTORE LISTENERS
+    // CHAT MESSAGES LISTENER
     // ============================================
 
-    useEffect(() => {
-        if (!roomId || !user || !isConnected) return;
-
-        const joinFirestore = async () => {
-            try {
-                const roomRef = doc(db, 'rooms', roomId);
-                await updateDoc(roomRef, {
-                    participants: arrayUnion({
-                        userId: user.uid,
-                        displayName: user.displayName || 'Anonymous',
-                        photoURL: user.photoURL || null,
-                        joinedAt: new Date().toISOString(),
-                        isOnline: true
-                    }),
-                    lastActive: serverTimestamp()
-                });
-
-                await addDoc(collection(db, 'rooms', roomId, 'messages'), {
-                    type: 'system',
-                    text: `${user.displayName || 'Someone'} joined`,
-                    timestamp: serverTimestamp()
-                });
-            } catch (error) {
-                console.error('Firestore join error:', error);
-            }
-        };
-
-        joinFirestore();
-    }, [isConnected, roomId, user]);
-
-    // Chat messages listener
     useEffect(() => {
         if (!roomId) return;
 
@@ -731,41 +764,190 @@ const StudyRoomContent = () => {
             if (isMountedRef.current) {
                 setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
             }
-        }, (error) => {
-            console.error('Messages listener error:', error);
         });
 
         return () => unsubscribe();
     }, [roomId]);
 
     // ============================================
-    // ✅ CLEANUP ON UNMOUNT - CRITICAL FIX
+    // TOGGLE AUDIO
+    // ============================================
+
+    const toggleAudio = async () => {
+        if (!isConnected || isTogglingAudio || isLeaving || !localAudioTrack) return;
+        
+        try {
+            setIsTogglingAudio(true);
+            await localAudioTrack.setEnabled(!isAudioEnabled);
+            setIsAudioEnabled(!isAudioEnabled);
+        } catch (error) {
+            console.error('Toggle audio error:', error);
+            toast.error('Failed to toggle microphone');
+        } finally {
+            setIsTogglingAudio(false);
+        }
+    };
+
+    // ============================================
+    // TOGGLE VIDEO
+    // ============================================
+
+    const toggleVideo = async () => {
+        if (!isConnected || isTogglingVideo || isLeaving || !localVideoTrack) return;
+        
+        try {
+            setIsTogglingVideo(true);
+            await localVideoTrack.setEnabled(!isVideoEnabled);
+            setIsVideoEnabled(!isVideoEnabled);
+        } catch (error) {
+            console.error('Toggle video error:', error);
+            toast.error('Failed to toggle camera');
+        } finally {
+            setIsTogglingVideo(false);
+        }
+    };
+
+    // ============================================
+    // SCREEN SHARE
+    // ============================================
+
+    const toggleScreenShare = async () => {
+        if (!isConnected || isLeaving) return;
+
+        try {
+            const client = clientRef.current;
+            
+            if (isScreenSharing && screenTrack) {
+                await client.unpublish(screenTrack);
+                screenTrack.close();
+                setScreenTrack(null);
+                setIsScreenSharing(false);
+                
+                // Re-publish video track
+                if (localVideoTrack) {
+                    await client.publish(localVideoTrack);
+                }
+                toast.success('Stopped screen sharing');
+            } else {
+                // Create screen track
+                const screen = await AgoraRTC.createScreenVideoTrack({
+                    encoderConfig: '1080p_1',
+                    optimizationMode: 'detail',
+                });
+                
+                // Unpublish video track first
+                if (localVideoTrack) {
+                    await client.unpublish(localVideoTrack);
+                }
+                
+                await client.publish(screen);
+                setScreenTrack(screen);
+                setIsScreenSharing(true);
+                
+                // Handle when user stops sharing via browser
+                screen.on('track-ended', async () => {
+                    await client.unpublish(screen);
+                    screen.close();
+                    setScreenTrack(null);
+                    setIsScreenSharing(false);
+                    
+                    if (localVideoTrack) {
+                        await client.publish(localVideoTrack);
+                    }
+                });
+                
+                toast.success('Started screen sharing');
+            }
+        } catch (error) {
+            console.error('Screen share error:', error);
+            if (error.message?.includes('Permission denied')) {
+                toast.error('Screen share permission denied');
+            } else {
+                toast.error('Failed to share screen');
+            }
+        }
+    };
+
+    // ============================================
+    // LEAVE ROOM
+    // ============================================
+
+    const handleLeave = async () => {
+        if (isLeaving) return;
+        
+        setIsLeaving(true);
+        console.log('Leaving room...');
+
+        try {
+            const client = clientRef.current;
+
+            // Close local tracks
+            if (localAudioTrack) {
+                localAudioTrack.close();
+                setLocalAudioTrack(null);
+            }
+            if (localVideoTrack) {
+                localVideoTrack.close();
+                setLocalVideoTrack(null);
+            }
+            if (screenTrack) {
+                screenTrack.close();
+                setScreenTrack(null);
+            }
+
+            // Leave Agora channel
+            if (client) {
+                await client.leave();
+                console.log('Left Agora channel');
+            }
+
+            // Update Firestore
+            if (user && roomId) {
+                try {
+                    await addDoc(collection(db, 'rooms', roomId, 'messages'), {
+                        type: 'system',
+                        text: `${user.displayName || 'Someone'} left`,
+                        timestamp: serverTimestamp()
+                    });
+                } catch (e) {
+                    console.log('Firestore update skipped');
+                }
+            }
+
+            setIsConnected(false);
+            setRemoteUsers([]);
+            
+            toast.success('Left study room');
+            navigate('/dashboard?tab=rooms', { replace: true });
+
+        } catch (error) {
+            console.error('Leave error:', error);
+            navigate('/dashboard?tab=rooms', { replace: true });
+        }
+    };
+
+    // ============================================
+    // CLEANUP ON UNMOUNT
     // ============================================
 
     useEffect(() => {
         return () => {
-            // Mark as unmounted immediately
             isMountedRef.current = false;
             
-            // Only cleanup video elements, DO NOT call HMS leave
-            // The handleLeave function handles HMS cleanup properly
-            document.querySelectorAll('video').forEach(video => {
-                try {
-                    if (video.srcObject) {
-                        video.srcObject.getTracks().forEach(track => track.stop());
-                        video.srcObject = null;
-                    }
-                } catch (e) {
-                    // Silent cleanup
-                }
-            });
+            // Cleanup tracks
+            if (localAudioTrack) localAudioTrack.close();
+            if (localVideoTrack) localVideoTrack.close();
+            if (screenTrack) screenTrack.close();
             
-            console.log('Component unmounting - video cleanup complete');
+            // Leave channel
+            if (clientRef.current) {
+                clientRef.current.leave().catch(() => {});
+            }
         };
     }, []);
 
     // ============================================
-    // HANDLERS
+    // SEND MESSAGE
     // ============================================
 
     const handleSendMessage = async (e) => {
@@ -788,146 +970,9 @@ const StudyRoomContent = () => {
         }
     };
 
-    // ✅ SAFE TOGGLE AUDIO
-    const toggleAudio = async () => {
-        if (!isConnected || isTogglingAudio || isLeaving) return;
-        
-        try {
-            setIsTogglingAudio(true);
-            await hmsActions.setLocalAudioEnabled(!isLocalAudioEnabled);
-        } catch (error) {
-            console.error('Toggle audio error:', error);
-            if (isMountedRef.current) {
-                toast.error('Failed to toggle microphone');
-            }
-        } finally {
-            if (isMountedRef.current) {
-                setIsTogglingAudio(false);
-            }
-        }
-    };
-
-    // ✅ SAFE TOGGLE VIDEO
-    const toggleVideo = async () => {
-        if (!isConnected || isTogglingVideo || isLeaving) return;
-        
-        try {
-            setIsTogglingVideo(true);
-            await hmsActions.setLocalVideoEnabled(!isLocalVideoEnabled);
-        } catch (error) {
-            console.error('Toggle video error:', error);
-            if (isMountedRef.current) {
-                toast.error('Failed to toggle camera');
-            }
-        } finally {
-            if (isMountedRef.current) {
-                setIsTogglingVideo(false);
-            }
-        }
-    };
-
     // ============================================
-    // ✅ BULLETPROOF HANDLE LEAVE - CRITICAL FIX
+    // PIN PEER
     // ============================================
-
-    const handleLeave = async () => {
-        // ✅ Prevent duplicate calls
-        if (isLeaving) {
-            console.log('Leave: Already leaving, ignoring');
-            return;
-        }
-
-        console.log('Leave: Starting...', { isConnected, roomState });
-        setIsLeaving(true);
-
-        try {
-            // ✅ CRITICAL: Only call HMS methods if room is actually connected
-            // Check BOTH isConnected AND roomState to prevent the inconsistency warning
-            const isActuallyConnected = isConnected && (roomState === 'Connected' || roomState === 'Connecting');
-            
-            if (isActuallyConnected && localPeer) {
-                console.log('Leave: Room is connected, performing graceful cleanup...');
-                
-                // Disable audio
-                try {
-                    if (localPeer.audioTrack) {
-                        await hmsActions.setLocalAudioEnabled(false);
-                    }
-                } catch (e) {
-                    console.log('Leave: Audio disable skipped -', e.message);
-                }
-                
-                // Disable video
-                try {
-                    if (localPeer.videoTrack) {
-                        await hmsActions.setLocalVideoEnabled(false);
-                    }
-                } catch (e) {
-                    console.log('Leave: Video disable skipped -', e.message);
-                }
-
-                // Small delay to ensure tracks are disabled
-                await new Promise(resolve => setTimeout(resolve, 150));
-
-                // ✅ CRITICAL: Double-check we're still connected before calling leave
-                // This prevents the "leave called when no room is connected" error
-                const currentState = useHMSStore.getState();
-                if (currentState.room) {
-                    console.log('Leave: Calling HMS leave()...');
-                    try {
-                        await hmsActions.leave();
-                        console.log('Leave: Successfully left HMS room');
-                    } catch (e) {
-                        console.log('Leave: HMS leave error (ignoring) -', e.message);
-                    }
-                } else {
-                    console.log('Leave: Room already disconnected, skipping leave()');
-                }
-            } else {
-                console.log('Leave: Not connected, skipping HMS cleanup');
-            }
-
-            // Cleanup Firestore
-            if (user && roomId) {
-                try {
-                    await addDoc(collection(db, 'rooms', roomId, 'messages'), {
-                        type: 'system',
-                        text: `${user.displayName || 'Someone'} left`,
-                        timestamp: serverTimestamp()
-                    });
-                    console.log('Leave: Firestore updated');
-                } catch (e) {
-                    console.log('Leave: Firestore update skipped -', e.message);
-                }
-            }
-
-            // Cleanup all video elements
-            document.querySelectorAll('video').forEach(video => {
-                try {
-                    if (video.srcObject) {
-                        video.srcObject.getTracks().forEach(track => track.stop());
-                        video.srcObject = null;
-                    }
-                } catch (e) {
-                    // Silent cleanup
-                }
-            });
-
-            // Update refs
-            lastLeftTimeRef.current = Date.now();
-            hasJoinedRef.current = false;
-
-            console.log('Leave: Complete, navigating...');
-            toast.success('Left study room');
-            navigate('/dashboard?tab=rooms', { replace: true });
-
-        } catch (error) {
-            console.error('Leave: Error -', error);
-            // Navigate anyway
-            navigate('/dashboard?tab=rooms', { replace: true });
-        }
-        // Note: Don't reset isLeaving since we're navigating away
-    };
 
     const handlePinPeer = (peerId) => {
         setPinnedPeer(pinnedPeer === peerId ? null : peerId);
@@ -938,27 +983,46 @@ const StudyRoomContent = () => {
     // COMPUTED VALUES
     // ============================================
 
-    const sortedPeers = useMemo(() => {
-        if (!peers) return [];
-        
-        return [...peers].sort((a, b) => {
-            if (a.id === pinnedPeer) return -1;
-            if (b.id === pinnedPeer) return 1;
+    const allParticipants = useMemo(() => {
+        const local = {
+            uid: localUidRef.current,
+            name: user?.displayName || 'You',
+            isLocal: true,
+            isHost: roomData?.hostId === user?.uid,
+            hasAudio: isAudioEnabled,
+            hasVideo: isVideoEnabled,
+            audioTrack: localAudioTrack,
+            videoTrack: isScreenSharing ? screenTrack : localVideoTrack,
+        };
+
+        const remote = remoteUsers.map(u => ({
+            ...u,
+            isLocal: false,
+            isHost: false,
+        }));
+
+        return [local, ...remote].filter(p => p.uid);
+    }, [user, roomData, isAudioEnabled, isVideoEnabled, localAudioTrack, localVideoTrack, screenTrack, isScreenSharing, remoteUsers]);
+
+    const sortedParticipants = useMemo(() => {
+        return [...allParticipants].sort((a, b) => {
+            if (a.uid === pinnedPeer) return -1;
+            if (b.uid === pinnedPeer) return 1;
             if (a.isLocal) return -1;
             if (b.isLocal) return 1;
             return 0;
         });
-    }, [peers, pinnedPeer]);
+    }, [allParticipants, pinnedPeer]);
 
     const gridClass = useMemo(() => {
-        const count = peers?.length || 1;
+        const count = allParticipants.length;
         if (viewMode === 'spotlight' && pinnedPeer) return 'grid-cols-1';
         if (count === 1) return 'grid-cols-1';
         if (count === 2) return 'grid-cols-2';
         if (count <= 4) return 'grid-cols-2';
         if (count <= 6) return 'grid-cols-3';
         return 'grid-cols-4';
-    }, [peers?.length, viewMode, pinnedPeer]);
+    }, [allParticipants.length, viewMode, pinnedPeer]);
 
     // ============================================
     // LOADING STATE
@@ -1023,33 +1087,29 @@ const StudyRoomContent = () => {
                 <div className="flex-1 p-4 overflow-auto">
                     <div className={`grid ${gridClass} gap-4 h-full auto-rows-fr`}>
                         <AnimatePresence>
-                            {sortedPeers.map((peer) => (
+                            {sortedParticipants.map((participant) => (
                                 <VideoTile
-                                    key={peer.id}
-                                    peer={peer}
-                                    isLocal={peer.isLocal}
-                                    isPinned={pinnedPeer === peer.id}
+                                    key={participant.uid}
+                                    user={participant}
+                                    isLocal={participant.isLocal}
+                                    isPinned={pinnedPeer === participant.uid}
                                     onPin={handlePinPeer}
-                                    isSpotlight={viewMode === 'spotlight' && pinnedPeer === peer.id}
+                                    isSpotlight={viewMode === 'spotlight' && pinnedPeer === participant.uid}
+                                    audioTrack={participant.audioTrack}
+                                    videoTrack={participant.videoTrack}
+                                    isAudioEnabled={participant.hasAudio}
+                                    isVideoEnabled={participant.hasVideo}
                                 />
                             ))}
                         </AnimatePresence>
                         
-                        {(!peers || peers.length === 0) && (
+                        {allParticipants.length === 0 && (
                             <div className="col-span-full flex items-center justify-center h-full">
                                 <div className="text-center">
                                     <Users size={48} className="text-gray-600 mx-auto mb-4" />
                                     <p className="text-gray-400 font-medium">
                                         {isJoiningCall ? 'Connecting to video...' : 'Waiting for others to join...'}
                                     </p>
-                                    {!isJoiningCall && (
-                                        <button
-                                            onClick={() => setShowShareModal(true)}
-                                            className="mt-4 px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium text-sm transition-colors"
-                                        >
-                                            Invite Participants
-                                        </button>
-                                    )}
                                 </div>
                             </div>
                         )}
@@ -1073,7 +1133,8 @@ const StudyRoomContent = () => {
                     {showParticipants && (
                         <div className="flex-shrink-0 p-4 pl-0">
                             <ParticipantsPanel
-                                peers={peers}
+                                participants={allParticipants}
+                                localUid={localUidRef.current}
                                 onClose={() => setShowParticipants(false)}
                             />
                         </div>
@@ -1094,18 +1155,25 @@ const StudyRoomContent = () => {
 
                     <div className="flex items-center gap-3">
                         <ControlButton
-                            icon={isLocalAudioEnabled ? Mic : MicOff}
-                            label={isLocalAudioEnabled ? 'Mute' : 'Unmute'}
-                            isActive={isLocalAudioEnabled}
+                            icon={isAudioEnabled ? Mic : MicOff}
+                            label={isAudioEnabled ? 'Mute' : 'Unmute'}
+                            isActive={isAudioEnabled}
                             onClick={toggleAudio}
                             disabled={!isConnected || isTogglingAudio || isLeaving}
                         />
                         <ControlButton
-                            icon={isLocalVideoEnabled ? Video : VideoOff}
-                            label={isLocalVideoEnabled ? 'Stop Video' : 'Start Video'}
-                            isActive={isLocalVideoEnabled}
+                            icon={isVideoEnabled ? Video : VideoOff}
+                            label={isVideoEnabled ? 'Stop Video' : 'Start Video'}
+                            isActive={isVideoEnabled}
                             onClick={toggleVideo}
                             disabled={!isConnected || isTogglingVideo || isLeaving}
+                        />
+                        <ControlButton
+                            icon={isScreenSharing ? ScreenShareOff : ScreenShare}
+                            label={isScreenSharing ? 'Stop Share' : 'Share Screen'}
+                            isActive={isScreenSharing}
+                            onClick={toggleScreenShare}
+                            disabled={!isConnected || isLeaving}
                         />
                         <ControlButton
                             icon={PhoneOff}
@@ -1121,11 +1189,16 @@ const StudyRoomContent = () => {
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => { setShowParticipants(!showParticipants); setShowChat(false); }}
-                            className={`p-3 rounded-full transition-colors ${
+                            className={`relative p-3 rounded-full transition-colors ${
                                 showParticipants ? 'bg-blue-500 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                             }`}
                         >
                             <Users size={20} />
+                            {allParticipants.length > 1 && (
+                                <span className="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 text-white text-xs rounded-full flex items-center justify-center">
+                                    {allParticipants.length}
+                                </span>
+                            )}
                         </motion.button>
                         <motion.button
                             whileHover={{ scale: 1.05 }}
@@ -1153,15 +1226,5 @@ const StudyRoomContent = () => {
         </div>
     );
 };
-
-// ============================================
-// WRAPPER WITH HMS PROVIDER
-// ============================================
-
-const StudyRoom = () => (
-    <HMSRoomProvider>
-        <StudyRoomContent />
-    </HMSRoomProvider>
-);
 
 export default StudyRoom;
