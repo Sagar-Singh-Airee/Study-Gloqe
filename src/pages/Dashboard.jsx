@@ -99,7 +99,7 @@ const XPProgressRing = ({ progress, size = 120, strokeWidth = 8 }) => {
     return (
         <div className="relative" style={{ width: size, height: size }}>
             <svg className="transform -rotate-90" width={size} height={size}>
-                ircle
+                <circle
                     cx={size / 2}
                     cy={size / 2}
                     r={radius}
@@ -373,9 +373,9 @@ const Dashboard = () => {
     // ✅ REFS FOR LEVEL UP DETECTION (FIXED)
     const isMountedRef = useRef(true);
     const listenersRef = useRef([]);
-    const isInitialLoadRef = useRef(true); // ✅ Track initial load
-    const lastKnownLevelRef = useRef(null); // ✅ Track level with ref, not state
-    const processedNotificationsRef = useRef(new Set()); // ✅ Track processed notifications
+    const isInitialLoadRef = useRef(true);
+    const lastKnownLevelRef = useRef(null);
+    const processedNotificationsRef = useRef(new Set());
 
     // ============================================
     // KEYBOARD SHORTCUTS
@@ -430,10 +430,15 @@ const Dashboard = () => {
         // Skip if no level data yet
         if (!currentLevel || currentLevel <= 0) return;
         
+        // ✅ Get stored level from localStorage
+        const storedLevel = user?.uid 
+            ? parseInt(localStorage.getItem(`lastKnownLevel_${user.uid}`), 10) 
+            : null;
+        
         // ✅ On initial load, just store the level - NO animation
         if (isInitialLoadRef.current) {
             isInitialLoadRef.current = false;
-            lastKnownLevelRef.current = currentLevel;
+            lastKnownLevelRef.current = storedLevel || currentLevel;
             
             // Store in localStorage for persistence across navigation
             if (user?.uid) {
@@ -442,13 +447,17 @@ const Dashboard = () => {
             return; // ✅ Don't show animation on initial load
         }
         
-        // ✅ Only show animation if level ACTUALLY increased during this session
-        if (lastKnownLevelRef.current !== null && currentLevel > lastKnownLevelRef.current) {
-            console.log('🎉 Level Up Detected!', lastKnownLevelRef.current, '->', currentLevel);
+        // ✅ Compare with BOTH ref and localStorage to prevent false positives
+        const previousLevel = lastKnownLevelRef.current || storedLevel || currentLevel;
+        
+        // ✅ Only show animation if level ACTUALLY increased
+        if (currentLevel > previousLevel) {
+            console.log('🎉 Level Up Detected!', previousLevel, '->', currentLevel);
             
             setShowLevelUp(true);
             
-            // Update localStorage
+            // Update both ref and localStorage
+            lastKnownLevelRef.current = currentLevel;
             if (user?.uid) {
                 localStorage.setItem(`lastKnownLevel_${user.uid}`, currentLevel.toString());
             }
@@ -459,10 +468,10 @@ const Dashboard = () => {
                     setShowLevelUp(false);
                 }
             }, 4000);
+        } else {
+            // ✅ No level up, just sync the ref
+            lastKnownLevelRef.current = currentLevel;
         }
-        
-        // ✅ Always update the ref to current level
-        lastKnownLevelRef.current = currentLevel;
         
     }, [currentLevel, user?.uid]);
 
