@@ -1,6 +1,6 @@
-// src/hooks/useGamification.js - OPTIMIZED Real-time Gamification Hook
+// src/hooks/useGamification.js - PRODUCTION-READY with Error Resilience
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
+import { doc, onSnapshot, collection } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -80,86 +80,117 @@ export const useGamification = () => {
             return;
         }
 
-        const userRef = doc(db, 'users', user.uid);
-        
-        const unsubUser = onSnapshot(
-            userRef,
-            (snapshot) => {
-                if (snapshot.exists()) {
-                    const userData = snapshot.data();
-                    const xp = userData.xp || 0;
-                    const level = userData.level || 1;
-                    const nextLevelXp = LEVEL_THRESHOLDS[level] || LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1];
-                    const levelProgress = calculateLevelProgress(xp, level);
+        let unsubUser = null;
 
-                    setData(prev => ({
-                        ...prev,
-                        xp,
-                        level,
-                        streak: userData.streak || 0,
-                        nextLevelXp,
-                        levelProgress,
-                        unlockedBadges: userData.unlockedBadges || [],
-                        unlockedTitles: userData.unlockedTitles || [],
-                        equippedTitle: userData.equippedTitle || 'Novice Learner',
-                        equippedTitleId: userData.equippedTitleId || 'novice',
-                        globalRank: userData.globalRank || '--',
-                        classRank: userData.classRank || '--',
-                        totalBadges: (userData.unlockedBadges || []).length
-                    }));
-                    
-                    setError(null);
-                } else {
-                    // User document doesn't exist, use defaults
-                    console.log('User gamification data not found, using defaults');
+        try {
+            const userRef = doc(db, 'users', user.uid);
+            
+            unsubUser = onSnapshot(
+                userRef,
+                (snapshot) => {
+                    if (snapshot.exists()) {
+                        const userData = snapshot.data();
+                        const xp = userData.xp || 0;
+                        const level = userData.level || 1;
+                        const nextLevelXp = LEVEL_THRESHOLDS[level] || LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1];
+                        const levelProgress = calculateLevelProgress(xp, level);
+
+                        setData(prev => ({
+                            ...prev,
+                            xp,
+                            level,
+                            streak: userData.streak || 0,
+                            nextLevelXp,
+                            levelProgress,
+                            unlockedBadges: userData.unlockedBadges || [],
+                            unlockedTitles: userData.unlockedTitles || [],
+                            equippedTitle: userData.equippedTitle || 'Novice Learner',
+                            equippedTitleId: userData.equippedTitleId || 'novice',
+                            globalRank: userData.globalRank || '--',
+                            classRank: userData.classRank || '--',
+                            totalBadges: (userData.unlockedBadges || []).length
+                        }));
+                        
+                        setError(null);
+                    } else {
+                        console.log('⚠️ User gamification data not found, using defaults');
+                    }
+                },
+                (err) => {
+                    console.error('❌ Error fetching user stats:', err);
+                    // Don't set error state, just log it
                 }
-            },
-            (err) => {
-                console.error('Error fetching user stats:', err);
-                setError('Failed to load user stats');
-            }
-        );
+            );
+        } catch (err) {
+            console.error('❌ Error setting up user listener:', err);
+        }
 
-        return () => unsubUser();
+        return () => {
+            if (unsubUser) unsubUser();
+        };
     }, [user?.uid]);
 
     // ==========================================
-    // REAL-TIME GLOBAL BADGES LISTENER
+    // REAL-TIME GLOBAL BADGES LISTENER (With Fallback)
     // ==========================================
     useEffect(() => {
-        const badgesRef = collection(db, 'globalBadges');
-        
-        const unsubBadges = onSnapshot(
-            badgesRef,
-            (snapshot) => {
-                let badges = [];
-                
-                if (!snapshot.empty) {
-                    // Use Firestore badges
-                    badges = snapshot.docs.map(doc => ({
-                        id: doc.id,
-                        ...doc.data()
-                    }));
-                } else {
-                    // Fallback to local definitions
-                    console.log('No globalBadges found, using local definitions');
-                    badges = Object.values(BADGE_DEFINITIONS);
-                }
+        let unsubBadges = null;
+        let mounted = true;
 
-                setData(prev => ({
-                    ...prev,
-                    allBadges: badges.map(badge => ({
-                        ...badge,
-                        unlocked: prev.unlockedBadges.includes(badge.id)
-                    }))
-                }));
+        const setupBadgesListener = async () => {
+            try {
+                const badgesRef = collection(db, 'globalBadges');
                 
-                setError(null);
-            },
-            (err) => {
-                console.error('Error fetching badges:', err);
+                unsubBadges = onSnapshot(
+                    badgesRef,
+                    (snapshot) => {
+                        if (!mounted) return;
+
+                        let badges = [];
+                        
+                        if (!snapshot.empty) {
+                            // Use Firestore badges
+                            badges = snapshot.docs.map(doc => ({
+                                id: doc.id,
+                                ...doc.data()
+                            }));
+                            console.log('✅ Loaded badges from Firestore:', badges.length);
+                        } else {
+                            // Fallback to local definitions
+                            console.log('⚠️ No globalBadges found, using local definitions');
+                            badges = Object.values(BADGE_DEFINITIONS);
+                        }
+
+                        setData(prev => ({
+                            ...prev,
+                            allBadges: badges.map(badge => ({
+                                ...badge,
+                                unlocked: prev.unlockedBadges.includes(badge.id)
+                            }))
+                        }));
+                    },
+                    (err) => {
+                        if (!mounted) return;
+                        
+                        console.warn('⚠️ Error fetching badges, using local definitions:', err.message);
+                        
+                        // Fallback to local definitions on error
+                        const badges = Object.values(BADGE_DEFINITIONS);
+                        setData(prev => ({
+                            ...prev,
+                            allBadges: badges.map(badge => ({
+                                ...badge,
+                                unlocked: prev.unlockedBadges.includes(badge.id)
+                            }))
+                        }));
+                    }
+                );
+            } catch (err) {
+                if (!mounted) return;
                 
-                // Fallback to local definitions on error
+                console.warn('⚠️ Cannot setup badges listener, using local definitions:', err.message);
+                
+                // Use local definitions
                 const badges = Object.values(BADGE_DEFINITIONS);
                 setData(prev => ({
                     ...prev,
@@ -169,49 +200,81 @@ export const useGamification = () => {
                     }))
                 }));
             }
-        );
+        };
 
-        return () => unsubBadges();
+        setupBadgesListener();
+
+        return () => {
+            mounted = false;
+            if (unsubBadges) unsubBadges();
+        };
     }, []);
 
     // ==========================================
-    // REAL-TIME GLOBAL TITLES LISTENER
+    // REAL-TIME GLOBAL TITLES LISTENER (With Fallback)
     // ==========================================
     useEffect(() => {
-        const titlesRef = collection(db, 'globalTitles');
-        
-        const unsubTitles = onSnapshot(
-            titlesRef,
-            (snapshot) => {
-                let titles = [];
-                
-                if (!snapshot.empty) {
-                    // Use Firestore titles
-                    titles = snapshot.docs.map(doc => ({
-                        id: doc.id,
-                        ...doc.data()
-                    }));
-                } else {
-                    // Fallback to local definitions
-                    console.log('No globalTitles found, using local definitions');
-                    titles = Object.values(TITLE_DEFINITIONS);
-                }
+        let unsubTitles = null;
+        let mounted = true;
 
-                setData(prev => ({
-                    ...prev,
-                    allTitles: titles.map(title => ({
-                        ...title,
-                        unlocked: prev.level >= (title.requiredLevel || 1)
-                    }))
-                }));
-
-                setLoading(false);
-                setError(null);
-            },
-            (err) => {
-                console.error('Error fetching titles:', err);
+        const setupTitlesListener = async () => {
+            try {
+                const titlesRef = collection(db, 'globalTitles');
                 
-                // Fallback to local definitions on error
+                unsubTitles = onSnapshot(
+                    titlesRef,
+                    (snapshot) => {
+                        if (!mounted) return;
+
+                        let titles = [];
+                        
+                        if (!snapshot.empty) {
+                            // Use Firestore titles
+                            titles = snapshot.docs.map(doc => ({
+                                id: doc.id,
+                                ...doc.data()
+                            }));
+                            console.log('✅ Loaded titles from Firestore:', titles.length);
+                        } else {
+                            // Fallback to local definitions
+                            console.log('⚠️ No globalTitles found, using local definitions');
+                            titles = Object.values(TITLE_DEFINITIONS);
+                        }
+
+                        setData(prev => ({
+                            ...prev,
+                            allTitles: titles.map(title => ({
+                                ...title,
+                                unlocked: prev.level >= (title.requiredLevel || 1)
+                            }))
+                        }));
+
+                        setLoading(false);
+                    },
+                    (err) => {
+                        if (!mounted) return;
+                        
+                        console.warn('⚠️ Error fetching titles, using local definitions:', err.message);
+                        
+                        // Fallback to local definitions on error
+                        const titles = Object.values(TITLE_DEFINITIONS);
+                        setData(prev => ({
+                            ...prev,
+                            allTitles: titles.map(title => ({
+                                ...title,
+                                unlocked: prev.level >= (title.requiredLevel || 1)
+                            }))
+                        }));
+                        
+                        setLoading(false);
+                    }
+                );
+            } catch (err) {
+                if (!mounted) return;
+                
+                console.warn('⚠️ Cannot setup titles listener, using local definitions:', err.message);
+                
+                // Use local definitions
                 const titles = Object.values(TITLE_DEFINITIONS);
                 setData(prev => ({
                     ...prev,
@@ -223,9 +286,14 @@ export const useGamification = () => {
                 
                 setLoading(false);
             }
-        );
+        };
 
-        return () => unsubTitles();
+        setupTitlesListener();
+
+        return () => {
+            mounted = false;
+            if (unsubTitles) unsubTitles();
+        };
     }, []);
 
     // ==========================================
@@ -234,45 +302,56 @@ export const useGamification = () => {
     useEffect(() => {
         if (!user?.uid) return;
 
-        const gamificationRef = doc(db, 'gamification', user.uid);
-        
-        const unsubGamification = onSnapshot(
-            gamificationRef,
-            (snapshot) => {
-                if (snapshot.exists()) {
-                    const gamificationData = snapshot.data();
-                    const achievements = gamificationData.achievements || [];
-                    const missions = gamificationData.missions || [];
+        let unsubGamification = null;
+        let mounted = true;
 
-                    setData(prev => ({
-                        ...prev,
-                        achievements,
-                        unlockedAchievements: achievements.filter(a => a.unlocked).length,
-                        totalAchievements: achievements.length,
-                        dailyMissions: missions.filter(m => m.type === 'daily'),
-                        weeklyMissions: missions.filter(m => m.type === 'weekly')
-                    }));
-                    
-                    setError(null);
-                } else {
-                    // Document doesn't exist, set empty arrays
-                    setData(prev => ({
-                        ...prev,
-                        achievements: [],
-                        unlockedAchievements: 0,
-                        totalAchievements: 0,
-                        dailyMissions: [],
-                        weeklyMissions: []
-                    }));
+        try {
+            const gamificationRef = doc(db, 'gamification', user.uid);
+            
+            unsubGamification = onSnapshot(
+                gamificationRef,
+                (snapshot) => {
+                    if (!mounted) return;
+
+                    if (snapshot.exists()) {
+                        const gamificationData = snapshot.data();
+                        const achievements = gamificationData.achievements || [];
+                        const missions = gamificationData.missions || [];
+
+                        setData(prev => ({
+                            ...prev,
+                            achievements,
+                            unlockedAchievements: achievements.filter(a => a.unlocked).length,
+                            totalAchievements: achievements.length,
+                            dailyMissions: missions.filter(m => m.type === 'daily'),
+                            weeklyMissions: missions.filter(m => m.type === 'weekly')
+                        }));
+                    } else {
+                        // Document doesn't exist, use defaults
+                        setData(prev => ({
+                            ...prev,
+                            achievements: [],
+                            unlockedAchievements: 0,
+                            totalAchievements: 0,
+                            dailyMissions: [],
+                            weeklyMissions: []
+                        }));
+                    }
+                },
+                (err) => {
+                    if (!mounted) return;
+                    console.warn('⚠️ Error fetching gamification data:', err.message);
+                    // Keep existing data on error
                 }
-            },
-            (err) => {
-                console.error('Error fetching gamification data:', err);
-                // Keep existing data on error
-            }
-        );
+            );
+        } catch (err) {
+            console.warn('⚠️ Cannot setup gamification listener:', err.message);
+        }
 
-        return () => unsubGamification();
+        return () => {
+            mounted = false;
+            if (unsubGamification) unsubGamification();
+        };
     }, [user?.uid]);
 
     // ==========================================
@@ -280,7 +359,7 @@ export const useGamification = () => {
     // ==========================================
     const trackAction = useCallback(async (action, metadata = {}) => {
         if (!user?.uid) {
-            console.warn('Cannot track action: user not authenticated');
+            console.warn('⚠️ Cannot track action: user not authenticated');
             return { badges: [], titles: [], achievements: [] };
         }
 
@@ -345,7 +424,7 @@ export const useGamification = () => {
 
             return unlocks;
         } catch (error) {
-            console.error('Error tracking action:', error);
+            console.error('❌ Error tracking action:', error);
             return { badges: [], titles: [], achievements: [] };
         }
     }, [user?.uid]);
@@ -362,7 +441,7 @@ export const useGamification = () => {
             await equipTitle(user.uid, titleId);
             return { success: true };
         } catch (error) {
-            console.error('Error equipping title:', error);
+            console.error('❌ Error equipping title:', error);
             return { success: false, error: error.message };
         }
     }, [user?.uid]);

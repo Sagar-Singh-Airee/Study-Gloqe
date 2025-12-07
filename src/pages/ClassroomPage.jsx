@@ -1,4 +1,4 @@
-// src/pages/ClassroomPage.jsx - UNIFIED CLASSROOM HUB
+// src/pages/ClassroomPage.jsx - UNIFIED CLASSROOM HUB WITH REAL-TIME DATA
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@contexts/AuthContext';
 import { db } from '@/config/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore'; // Changed from getDoc
 import toast from 'react-hot-toast';
 
 // Import tab components
@@ -33,43 +33,46 @@ const ClassroomPage = () => {
     const [isTeacher, setIsTeacher] = useState(false);
 
     useEffect(() => {
-        loadClassroom();
-    }, [classId, user?.uid]);
+        if (!classId || !user?.uid) return;
 
-    const loadClassroom = async () => {
-        try {
-            setLoading(true);
-            
-            const classRef = doc(db, 'classes', classId);
-            const classSnap = await getDoc(classRef);
-            
-            if (!classSnap.exists()) {
-                toast.error('Class not found');
+        // Setup real-time listener
+        const classRef = doc(db, 'classes', classId);
+        
+        const unsubscribe = onSnapshot(
+            classRef,
+            (docSnap) => {
+                if (!docSnap.exists()) {
+                    toast.error('Class not found');
+                    navigate('/dashboard');
+                    return;
+                }
+
+                const data = docSnap.data();
+                
+                // Check if user is teacher or student
+                const userIsTeacher = data.teacherId === user?.uid;
+                const userIsStudent = data.students?.includes(user?.uid);
+                
+                if (!userIsTeacher && !userIsStudent) {
+                    toast.error('You are not a member of this class');
+                    navigate('/dashboard');
+                    return;
+                }
+
+                setIsTeacher(userIsTeacher);
+                setClassData({ id: docSnap.id, ...data });
+                setLoading(false);
+            },
+            (error) => {
+                console.error('Error loading classroom:', error);
+                toast.error('Failed to load classroom');
                 navigate('/dashboard');
-                return;
             }
+        );
 
-            const data = classSnap.data();
-            
-            // Check if user is teacher or student
-            const userIsTeacher = data.teacherId === user?.uid;
-            const userIsStudent = data.students?.includes(user?.uid);
-            
-            if (!userIsTeacher && !userIsStudent) {
-                toast.error('You are not a member of this class');
-                navigate('/dashboard');
-                return;
-            }
-
-            setIsTeacher(userIsTeacher);
-            setClassData({ id: classSnap.id, ...data });
-            setLoading(false);
-        } catch (error) {
-            console.error('Error loading classroom:', error);
-            toast.error('Failed to load classroom');
-            navigate('/dashboard');
-        }
-    };
+        // Cleanup listener on unmount
+        return () => unsubscribe();
+    }, [classId, user?.uid, navigate]);
 
     if (loading) {
         return (
@@ -112,7 +115,6 @@ const ClassroomPage = () => {
             <ClassroomHeader 
                 classData={classData} 
                 isTeacher={isTeacher}
-                onRefresh={loadClassroom}
             />
 
             {/* Main Content */}

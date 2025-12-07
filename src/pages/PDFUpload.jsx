@@ -1,11 +1,11 @@
-// src/pages/PDFUpload.jsx - UPDATED WITH DEBUG LOGGING
+// src/pages/PDFUpload.jsx - FIXED & ENHANCED
 import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import { Upload, FileText, X, CheckCircle2, AlertCircle, Zap, Shield, Cloud, Award, BookOpen, Play, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { uploadDocument } from '@/services/documentService';
-import { awardDailyXP, updateMission, DAILY_ACTIONS, XP_REWARDS } from '@/services/gamificationService';
+import { awardDailyXP, DAILY_ACTIONS, XP_REWARDS } from '@/services/gamificationService';
 import toast from 'react-hot-toast';
 
 // Premium Toast Component
@@ -121,12 +121,10 @@ const PDFUpload = () => {
           title: fileObj.file.name.replace('.pdf', '')
         });
         
-        // ✅ DEBUG LOGGING
         console.log('📄 Upload result:', result);
         console.log('📄 Document ID:', result?.docId);
         console.log('📄 Subject:', result?.subject);
 
-        // ✅ Validate result
         if (!result || !result.docId) {
           throw new Error('Upload failed: No document ID returned');
         }
@@ -137,14 +135,14 @@ const PDFUpload = () => {
           f.id === fileObj.id ? { 
             ...f, 
             status: 'completed', 
-            docId: result.docId, // ✅ Use result.docId
+            docId: result.docId,
             subject: result.subject || 'General Studies'
           } : f
         ));
 
         console.log('✅ File uploaded successfully:', result.docId);
 
-        // Award XP
+        // Award XP (once per day)
         if (!xpAwarded && !xpEarnedToday) {
           try {
             const xpResult = await awardDailyXP(
@@ -157,7 +155,6 @@ const PDFUpload = () => {
               xpAwarded = true;
               setXpEarnedToday(true);
               showToast(`+${xpResult.xpGained} XP earned!`, 'success', Zap);
-              await updateMission(user.uid, 'daily_upload');
             } else if (xpResult.alreadyEarned) {
               setXpEarnedToday(true);
             }
@@ -378,10 +375,7 @@ const PDFUpload = () => {
 
                         {fileObj.status === 'completed' && fileObj.docId && (
                           <button
-                            onClick={() => {
-                              console.log('🔄 Navigating to study session:', fileObj.docId);
-                              navigate(`/study/${fileObj.docId}`);
-                            }}
+                            onClick={() => navigate(`/study/${fileObj.docId}`)}
                             className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-gray-800 to-gray-700 hover:from-gray-900 hover:to-gray-800 text-white text-xs font-bold shadow-lg transition-all flex items-center gap-1"
                           >
                             <Play size={12} />
@@ -417,10 +411,7 @@ const PDFUpload = () => {
                   {completedFilesCount > 0 && !uploading && (
                     <div className="space-y-2">
                       <button
-                        onClick={() => {
-                          console.log('🎯 Start Study Session clicked, navigating to:', completedFiles[0].docId);
-                          navigate(`/study/${completedFiles[0].docId}`);
-                        }}
+                        onClick={() => navigate(`/study/${completedFiles[0].docId}`)}
                         className="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-gray-800 to-gray-700 hover:from-gray-900 hover:to-gray-800 text-white font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-lg"
                       >
                         <Play size={16} />

@@ -1,4 +1,4 @@
-// src/pages/Dashboard.jsx - ULTIMATE PREMIUM DASHBOARD (LEVEL UP FIX)
+// src/pages/Dashboard.jsx - CLEAN VERSION (NO LEVEL UP CARD)
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -365,17 +365,13 @@ const Dashboard = () => {
     const [showXPAnimation, setShowXPAnimation] = useState(false);
     const [xpGained, setXpGained] = useState(0);
     const [levelModalOpen, setLevelModalOpen] = useState(false);
-    const [showLevelUp, setShowLevelUp] = useState(false);
     
     const initialTab = searchParams.get('tab') || 'overview';
     const [activeTab, setActiveTab] = useState(initialTab);
     
-    // ✅ REFS FOR LEVEL UP DETECTION (FIXED)
+    // Refs for tracking
     const isMountedRef = useRef(true);
     const listenersRef = useRef([]);
-    const isInitialLoadRef = useRef(true);
-    const lastKnownLevelRef = useRef(null);
-    const processedNotificationsRef = useRef(new Set());
 
     // ============================================
     // KEYBOARD SHORTCUTS
@@ -408,104 +404,22 @@ const Dashboard = () => {
     useEffect(() => {
         isMountedRef.current = true;
         
-        // ✅ Load last known level from localStorage on mount
-        if (user?.uid) {
-            const storedLevel = localStorage.getItem(`lastKnownLevel_${user.uid}`);
-            if (storedLevel) {
-                lastKnownLevelRef.current = parseInt(storedLevel, 10);
-            }
-        }
-        
         return () => {
             isMountedRef.current = false;
             listenersRef.current.forEach(unsubscribe => unsubscribe());
         };
-    }, [user?.uid]);
+    }, []);
 
     // ============================================
-    // ✅ FIXED: LEVEL UP DETECTION - ONLY ON ACTUAL LEVEL UP
-    // ============================================
-    
-    useEffect(() => {
-        // Skip if no level data yet
-        if (!currentLevel || currentLevel <= 0) return;
-        
-        // ✅ Get stored level from localStorage
-        const storedLevel = user?.uid 
-            ? parseInt(localStorage.getItem(`lastKnownLevel_${user.uid}`), 10) 
-            : null;
-        
-        // ✅ On initial load, just store the level - NO animation
-        if (isInitialLoadRef.current) {
-            isInitialLoadRef.current = false;
-            lastKnownLevelRef.current = storedLevel || currentLevel;
-            
-            // Store in localStorage for persistence across navigation
-            if (user?.uid) {
-                localStorage.setItem(`lastKnownLevel_${user.uid}`, currentLevel.toString());
-            }
-            return; // ✅ Don't show animation on initial load
-        }
-        
-        // ✅ Compare with BOTH ref and localStorage to prevent false positives
-        const previousLevel = lastKnownLevelRef.current || storedLevel || currentLevel;
-        
-        // ✅ Only show animation if level ACTUALLY increased
-        if (currentLevel > previousLevel) {
-            console.log('🎉 Level Up Detected!', previousLevel, '->', currentLevel);
-            
-            setShowLevelUp(true);
-            
-            // Update both ref and localStorage
-            lastKnownLevelRef.current = currentLevel;
-            if (user?.uid) {
-                localStorage.setItem(`lastKnownLevel_${user.uid}`, currentLevel.toString());
-            }
-            
-            // Hide animation after 4 seconds
-            setTimeout(() => {
-                if (isMountedRef.current) {
-                    setShowLevelUp(false);
-                }
-            }, 4000);
-        } else {
-            // ✅ No level up, just sync the ref
-            lastKnownLevelRef.current = currentLevel;
-        }
-        
-    }, [currentLevel, user?.uid]);
-
-    // ============================================
-    // ✅ FIXED: GAMIFICATION NOTIFICATIONS HANDLER
+    // GAMIFICATION NOTIFICATIONS HANDLER
     // ============================================
     
     useEffect(() => {
         if (!notifications || notifications.length === 0) return;
         
         notifications.forEach(notification => {
-            // ✅ Skip already processed notifications
-            if (processedNotificationsRef.current.has(notification.id)) {
-                return;
-            }
-            
-            // Mark as processed
-            processedNotificationsRef.current.add(notification.id);
-            
-            if (notification.type === 'levelUp') {
-                // ✅ Level up is now handled by the level detection effect above
-                // Just show the toast here
-                toast.success(`🎉 Level Up! You're now Level ${notification.data.newLevel}!`, {
-                    duration: 4000,
-                    style: {
-                        background: 'linear-gradient(135deg, #1f2937 0%, #111827 100%)',
-                        color: '#fff',
-                        fontWeight: 'bold',
-                        borderRadius: '16px',
-                        padding: '16px 24px',
-                    },
-                });
-            } else if (notification.data?.xpReward) {
-                // Show XP animation for other rewards
+            if (notification.data?.xpReward) {
+                // Show XP animation for rewards
                 setXpGained(notification.data.xpReward);
                 setShowXPAnimation(true);
                 setTimeout(() => {
@@ -605,7 +519,7 @@ const Dashboard = () => {
     
     useEffect(() => {
         if (!user?.uid) return;
-
+        
         const lastLogin = localStorage.getItem(`lastLogin_${user.uid}`);
         const today = new Date().toDateString();
         
@@ -800,29 +714,6 @@ const Dashboard = () => {
                 )}
             </AnimatePresence>
 
-            {/* ✅ LEVEL UP ANIMATION - ONLY SHOWS ON ACTUAL LEVEL UP */}
-            <AnimatePresence>
-                {showLevelUp && (
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.5 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.5 }}
-                        className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none"
-                    >
-                        <div className="bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500 text-white px-12 py-8 rounded-3xl font-black text-center shadow-2xl border-4 border-white">
-                            <motion.div
-                                animate={{ rotate: [0, 360] }}
-                                transition={{ duration: 1 }}
-                            >
-                                <Crown size={56} className="mx-auto mb-4" />
-                            </motion.div>
-                            <div className="text-4xl mb-2">Level {currentLevel}!</div>
-                            <div className="text-lg opacity-90">You're getting stronger!</div>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
             {/* COMMAND PALETTE */}
             <AnimatePresence>
                 {showCommandPalette && (
@@ -952,7 +843,7 @@ const Dashboard = () => {
                             </span>
                         </Link>
                     ))}
-
+                    
                     <button
                         onClick={handleUploadClick}
                         className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-white text-gray-900 font-black hover:shadow-xl hover:scale-[1.02] transition-all group"

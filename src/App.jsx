@@ -1,4 +1,4 @@
-// src/App.jsx - FINAL WORKING VERSION
+// src/App.jsx - FINAL WORKING VERSION WITH BIGQUERY TEST
 
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
@@ -26,10 +26,13 @@ import StudyRoom from './pages/StudyRoom';
 
 // Teacher Pages
 import TeacherDashboard from './pages/teacher/TeacherDashboard';
-import TeacherClassroom from './pages/teacher/TeacherClassroom'; // ✅ NEW
+import TeacherClassroom from './pages/teacher/TeacherClassroom';
 
 // ✅ KEEP YOUR EXISTING SHARED CLASSROOM
 import ClassroomPage from './pages/ClassroomPage';
+
+// ✅ NEW: BigQuery Test Page
+import BigQueryTest from './pages/BigQueryTest';
 
 // ==========================================
 // STUDENT ONLY ROUTE
@@ -272,6 +275,12 @@ function App() {
                             element={<StudentRoute><ComingSoon page="Analytics" /></StudentRoute>} 
                         />
 
+                        {/* ✅ NEW: BigQuery Test Route */}
+                        <Route 
+                            path="/bigquery-test" 
+                            element={<ProtectedRoute><BigQueryTest /></ProtectedRoute>} 
+                        />
+
                         {/* ========================================
                             TEACHER ROUTES
                         ======================================== */}
@@ -282,10 +291,16 @@ function App() {
                             element={<TeacherRoute><TeacherDashboard /></TeacherRoute>} 
                         />
 
-                        {/* ✅ NEW: Teacher's dedicated classroom page */}
+                        {/* ✅ Teacher's dedicated classroom page */}
                         <Route 
                             path="/teacher/class/:classId" 
                             element={<TeacherRoute><TeacherClassroom /></TeacherRoute>} 
+                        />
+
+                        {/* ✅ NEW: Teacher BigQuery Test Route */}
+                        <Route 
+                            path="/teacher/bigquery-test" 
+                            element={<TeacherRoute><BigQueryTest /></TeacherRoute>} 
                         />
 
                         {/* Teacher tab redirects */}

@@ -1,4 +1,4 @@
-// src/hooks/useDashboardData.js - FIXED VERSION
+// src/hooks/useDashboardData.js - ENHANCED WITH BIGQUERY
 import { useState, useEffect } from 'react';
 import { db } from '@/config/firebase';
 import {
@@ -17,6 +17,7 @@ import {
     setDoc
 } from 'firebase/firestore';
 import { useAuth } from '@contexts/AuthContext';
+import bigQueryService from '@/services/bigQueryService'; // ✅ NEW: Import BigQuery service
 
 export const useDashboardData = () => {
     const { user } = useAuth();
@@ -27,10 +28,13 @@ export const useDashboardData = () => {
             quizzesCompleted: 0,
             quizzesGenerated: 0,
             currentStreak: 0,
+            streak: 0, // ✅ NEW: Alias for compatibility
             averageAccuracy: 0,
             level: 1,
             xp: 0,
-            badges: 0
+            badges: 0,
+            totalStudyTime: 0, // ✅ NEW: From BigQuery
+            totalSessions: 0, // ✅ NEW: From BigQuery
         },
         recentDocuments: [],
         aiRecommendations: [],
@@ -38,8 +42,17 @@ export const useDashboardData = () => {
         classes: [],
         documents: [],
         studySessions: [],
-        gamification: null
+        gamification: null,
+        // ✅ NEW: BigQuery Analytics Data
+        analytics: null,
+        learningPatterns: null,
+        performanceTrends: [],
+        recommendations: [],
+        peerComparison: null
     });
+
+    // ✅ NEW: Separate loading states
+    const [analyticsLoading, setAnalyticsLoading] = useState(true);
 
     useEffect(() => {
         if (!user?.uid) return;
@@ -55,6 +68,7 @@ export const useDashboardData = () => {
                         const userData = doc.data();
                         const xp = userData.xp || 0;
                         const level = Math.floor(xp / 100) + 1;
+                        const streak = userData.streak || 0;
 
                         setData(prev => ({
                             ...prev,
@@ -62,7 +76,8 @@ export const useDashboardData = () => {
                                 ...prev.stats,
                                 level: level,
                                 xp: xp,
-                                currentStreak: userData.streak || 0
+                                currentStreak: streak,
+                                streak: streak // ✅ Both properties for compatibility
                             }
                         }));
                     }
@@ -115,7 +130,8 @@ export const useDashboardData = () => {
                         studySessions: sessions,
                         stats: {
                             ...prev.stats,
-                            quizzesCompleted: completed
+                            quizzesCompleted: completed,
+                            totalSessions: sessions.length // ✅ Real-time session count
                         }
                     }));
 
@@ -199,9 +215,14 @@ export const useDashboardData = () => {
                 unsubscribers.push(unsubClasses);
 
                 setLoading(false);
+
+                // ===== 8. ✅ NEW: FETCH BIGQUERY ANALYTICS (ONE-TIME) =====
+                fetchBigQueryAnalytics(user.uid);
+
             } catch (error) {
                 console.error('❌ Error setting up dashboard listeners:', error);
                 setLoading(false);
+                setAnalyticsLoading(false);
             }
         };
 
@@ -213,7 +234,65 @@ export const useDashboardData = () => {
         };
     }, [user?.uid]);
 
-    return { data, loading };
+    // ✅ NEW: Fetch BigQuery Analytics Data
+    const fetchBigQueryAnalytics = async (userId) => {
+        try {
+            setAnalyticsLoading(true);
+
+            // Parallel fetch all BigQuery data
+            const [
+                analytics,
+                learningPatterns,
+                performanceTrends,
+                recommendations,
+                peerComparison
+            ] = await Promise.allSettled([
+                bigQueryService.getStudentAnalytics(userId, 30),
+                bigQueryService.getLearningPatterns(userId),
+                bigQueryService.getPerformanceTrends(userId, 'weekly'),
+                bigQueryService.getPersonalizedRecommendations(userId, 10),
+                bigQueryService.getPeerComparison(userId)
+            ]);
+
+            setData(prev => ({
+                ...prev,
+                // ✅ Merge BigQuery analytics with existing stats
+                stats: {
+                    ...prev.stats,
+                    totalStudyTime: analytics.status === 'fulfilled' ? analytics.value?.total_study_time || 0 : 0,
+                    totalSessions: analytics.status === 'fulfilled' ? analytics.value?.total_sessions || prev.stats.totalSessions : prev.stats.totalSessions,
+                    averageAccuracy: analytics.status === 'fulfilled' ? analytics.value?.avg_quiz_score || 0 : 0
+                },
+                analytics: analytics.status === 'fulfilled' ? analytics.value : null,
+                learningPatterns: learningPatterns.status === 'fulfilled' ? learningPatterns.value : null,
+                performanceTrends: performanceTrends.status === 'fulfilled' ? performanceTrends.value : [],
+                recommendations: recommendations.status === 'fulfilled' ? recommendations.value : [],
+                peerComparison: peerComparison.status === 'fulfilled' ? peerComparison.value : null
+            }));
+
+            console.log('✅ BigQuery analytics loaded successfully');
+        } catch (error) {
+            console.error('❌ Error fetching BigQuery analytics:', error);
+            // Don't fail the whole dashboard if BigQuery fails
+        } finally {
+            setAnalyticsLoading(false);
+        }
+    };
+
+    // ✅ NEW: Refresh BigQuery analytics manually
+    const refreshAnalytics = () => {
+        if (user?.uid) {
+            fetchBigQueryAnalytics(user.uid);
+        }
+    };
+
+    return { 
+        data, 
+        loading: loading || analyticsLoading, 
+        firebaseLoading: loading,
+        analyticsLoading,
+        refreshAnalytics // ✅ NEW: Expose refresh function
+    };
 };
 
 // ===== REMOVED DUPLICATE awardXP =====
@@ -294,4 +373,63 @@ export const claimDailyBonus = async (userId) => {
         console.error('❌ Error claiming bonus:', error);
         throw error;
     }
+};
+
+// ✅ NEW: Separate hooks for specific BigQuery features
+
+export const useTeacherDashboard = (teacherId, dateRange = 30) => {
+    const [dashboard, setDashboard] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        if (!teacherId) {
+            setLoading(false);
+            return;
+        }
+
+        const fetchDashboard = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                const data = await bigQueryService.getTeacherDashboardData(teacherId, dateRange);
+                setDashboard(data);
+            } catch (err) {
+                console.error('Error fetching teacher dashboard:', err);
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchDashboard();
+    }, [teacherId, dateRange]);
+
+    return { dashboard, loading, error };
+};
+
+export const useAdminDashboard = (dateRange = 30) => {
+    const [metrics, setMetrics] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        const fetchMetrics = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                const data = await bigQueryService.getAdminMetrics(dateRange);
+                setMetrics(data);
+            } catch (err) {
+                console.error('Error fetching admin metrics:', err);
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchMetrics();
+    }, [dateRange]);
+
+    return { metrics, loading, error };
 };

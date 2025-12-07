@@ -1,4 +1,4 @@
-// src/components/features/RoomsSection.jsx - UPGRADED WITH DELETE & BETTER UI
+// src/components/features/RoomsSection.jsx - FIXED WITHOUT MISSION TRACKING
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -18,7 +18,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { useAuth } from '@/contexts/AuthContext';
-import { awardXP, updateMission, XP_REWARDS } from '@/services/gamificationService';
+import { awardXP, XP_REWARDS } from '@/services/gamificationService';
 import {
     Video,
     Users,
@@ -221,8 +221,8 @@ const RoomsSection = () => {
                 updatedAt: serverTimestamp()
             });
 
+            // Award XP for joining room
             await awardXP(user.uid, XP_REWARDS.JOIN_ROOM, 'Joined Study Room');
-            await updateMission(user.uid, 'weekly_rooms');
 
             toast.success(`🎯 +${XP_REWARDS.JOIN_ROOM} XP for joining!`, {
                 duration: 2500,
@@ -364,7 +364,7 @@ const RoomsSection = () => {
                 </div>
             )}
 
-            {/* Create Room Modal - FIXED TEXT VISIBILITY */}
+            {/* Create Room Modal */}
             <AnimatePresence>
                 {showCreateModal && (
                     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
