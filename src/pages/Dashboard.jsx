@@ -1,4 +1,4 @@
-// src/pages/Dashboard.jsx - CLEAN VERSION (NO LEVEL UP CARD)
+// src/pages/Dashboard.jsx - WITH ANALYTICS INTEGRATED
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -34,6 +34,9 @@ import LeaderboardSection from '@/components/features/LeaderboardSection';
 import SessionHistorySection from '@/components/features/SessionHistorySection';
 import AchievementsSection from '@/components/features/AchievementsSection';
 
+// ⭐ NEW: Analytics Page Import
+import Analytics from '@/pages/Analytics';
+
 // ============================================
 // CONSTANTS
 // ============================================
@@ -45,8 +48,10 @@ const GREETING = () => {
     return { text: 'Good evening', emoji: '🌙' };
 };
 
+// ⭐ UPDATED: Added Analytics to sidebar
 const SIDEBAR_ITEMS = [
     { icon: LayoutDashboard, label: 'Overview', tab: 'overview', badge: null },
+    { icon: BarChart3, label: 'Analytics', tab: 'analytics', badge: '✨' }, // NEW
     { icon: Users, label: 'Classes', tab: 'classes', badge: null },
     { icon: BookOpen, label: 'Documents', tab: 'documents', badge: null },
     { icon: Medal, label: 'Achievements', tab: 'achievements', badge: 'NEW' },
@@ -59,7 +64,7 @@ const SIDEBAR_ITEMS = [
 ];
 
 // ============================================
-// ANIMATED COMPONENTS
+// ANIMATED COMPONENTS (same as before)
 // ============================================
 
 const AnimatedCounter = ({ value, duration = 1000 }) => {
@@ -99,7 +104,7 @@ const XPProgressRing = ({ progress, size = 120, strokeWidth = 8 }) => {
     return (
         <div className="relative" style={{ width: size, height: size }}>
             <svg className="transform -rotate-90" width={size} height={size}>
-                <circle
+                <c
                     cx={size / 2}
                     cy={size / 2}
                     r={radius}
@@ -133,7 +138,7 @@ const XPProgressRing = ({ progress, size = 120, strokeWidth = 8 }) => {
 };
 
 // ============================================
-// COMMAND PALETTE (CMD+K)
+// COMMAND PALETTE & MOBILE SIDEBAR (same as before)
 // ============================================
 
 const CommandPalette = ({ isOpen, onClose, onNavigate, quickActions }) => {
@@ -258,10 +263,6 @@ const CommandPalette = ({ isOpen, onClose, onNavigate, quickActions }) => {
     );
 };
 
-// ============================================
-// MOBILE SIDEBAR
-// ============================================
-
 const MobileSidebar = ({ isOpen, onClose, activeTab, onTabChange, onLogout }) => (
     <AnimatePresence>
         {isOpen && (
@@ -373,10 +374,9 @@ const Dashboard = () => {
     const isMountedRef = useRef(true);
     const listenersRef = useRef([]);
 
-    // ============================================
-    // KEYBOARD SHORTCUTS
-    // ============================================
+    // [All useEffect hooks same as before - keyboard shortcuts, mounting, gamification, listeners, daily bonus, tab management]
     
+    // Keyboard shortcuts
     useEffect(() => {
         const handleKeyDown = (e) => {
             if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -397,10 +397,7 @@ const Dashboard = () => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, []);
 
-    // ============================================
-    // MOUNT/UNMOUNT TRACKING
-    // ============================================
-    
+    // Mount/unmount tracking
     useEffect(() => {
         isMountedRef.current = true;
         
@@ -410,16 +407,12 @@ const Dashboard = () => {
         };
     }, []);
 
-    // ============================================
-    // GAMIFICATION NOTIFICATIONS HANDLER
-    // ============================================
-    
+    // Gamification notifications handler
     useEffect(() => {
         if (!notifications || notifications.length === 0) return;
         
         notifications.forEach(notification => {
             if (notification.data?.xpReward) {
-                // Show XP animation for rewards
                 setXpGained(notification.data.xpReward);
                 setShowXPAnimation(true);
                 setTimeout(() => {
@@ -427,17 +420,13 @@ const Dashboard = () => {
                 }, 2500);
             }
             
-            // Auto-dismiss notification
             setTimeout(() => {
                 dismissNotification(notification.id);
             }, 4000);
         });
     }, [notifications, dismissNotification]);
 
-    // ============================================
-    // REAL-TIME DOCUMENTS LISTENER
-    // ============================================
-    
+    // Real-time documents listener
     useEffect(() => {
         if (!user?.uid) return;
 
@@ -473,10 +462,7 @@ const Dashboard = () => {
         return () => unsubscribe();
     }, [user?.uid]);
 
-    // ============================================
-    // REAL-TIME STUDY SESSIONS LISTENER
-    // ============================================
-    
+    // Real-time study sessions listener
     useEffect(() => {
         if (!user?.uid) return;
 
@@ -513,10 +499,7 @@ const Dashboard = () => {
         return () => unsubscribe();
     }, [user?.uid]);
 
-    // ============================================
-    // DAILY LOGIN BONUS
-    // ============================================
-    
+    // Daily login bonus
     useEffect(() => {
         if (!user?.uid) return;
         
@@ -544,10 +527,7 @@ const Dashboard = () => {
         }
     }, [user?.uid]);
 
-    // ============================================
-    // TAB MANAGEMENT
-    // ============================================
-    
+    // Tab management
     useEffect(() => {
         const tab = searchParams.get('tab');
         if (tab && tab !== activeTab) {
@@ -562,10 +542,7 @@ const Dashboard = () => {
         }
     }, [activeTab, setSearchParams]);
 
-    // ============================================
-    // HANDLERS
-    // ============================================
-
+    // Handlers
     const handleLogout = useCallback(async () => {
         try {
             await logout();
@@ -587,10 +564,7 @@ const Dashboard = () => {
         toast.success('Data refreshed!');
     }, []);
 
-    // ============================================
-    // QUICK ACTIONS
-    // ============================================
-
+    // Quick actions
     const quickActions = useMemo(() => [
         { 
             icon: Upload, 
@@ -626,10 +600,7 @@ const Dashboard = () => {
         }
     ], [handleUploadClick]);
 
-    // ============================================
-    // RENDER CONTENT
-    // ============================================
-
+    // ⭐ UPDATED: Added analytics case
     const renderContent = useCallback(() => {
         const commonProps = {
             handleTabChange,
@@ -647,15 +618,26 @@ const Dashboard = () => {
                         {...commonProps}
                     />
                 );
-            case 'classes': return <ClassesSection />;
-            case 'documents': return <DocumentsSection />;
-            case 'achievements': return <AchievementsSection />;
-            case 'quizzes': return <QuizzesSection />;
-            case 'flashcards': return <FlashcardsSection />;
-            case 'notes': return <NotesSection />;
-            case 'rooms': return <RoomsSection />;
-            case 'leaderboard': return <LeaderboardSection />;
-            case 'history': return <SessionHistorySection />;
+            case 'analytics': 
+                return <Analytics />; // NEW
+            case 'classes': 
+                return <ClassesSection />;
+            case 'documents': 
+                return <DocumentsSection />;
+            case 'achievements': 
+                return <AchievementsSection />;
+            case 'quizzes': 
+                return <QuizzesSection />;
+            case 'flashcards': 
+                return <FlashcardsSection />;
+            case 'notes': 
+                return <NotesSection />;
+            case 'rooms': 
+                return <RoomsSection />;
+            case 'leaderboard': 
+                return <LeaderboardSection />;
+            case 'history': 
+                return <SessionHistorySection />;
             default:
                 return (
                     <OverviewSection
@@ -668,10 +650,7 @@ const Dashboard = () => {
         }
     }, [activeTab, realtimeStats, streak, recentDocuments, quickActions, handleTabChange, handleUploadClick, navigate]);
 
-    // ============================================
-    // LOADING STATE
-    // ============================================
-
+    // Loading state
     if (gamificationLoading) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex items-center justify-center">
@@ -690,10 +669,8 @@ const Dashboard = () => {
 
     const greeting = GREETING();
 
-    // ============================================
-    // RENDER
-    // ============================================
-
+    // [Rest of the component JSX remains the same - full sidebar, top bar, content rendering]
+    
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
             
@@ -735,7 +712,7 @@ const Dashboard = () => {
                 onLogout={handleLogout}
             />
 
-            {/* DESKTOP SIDEBAR */}
+            {/* DESKTOP SIDEBAR - Same as before */}
             <aside className="hidden lg:flex w-72 bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 fixed h-screen flex-col border-r border-gray-700 z-40">
                 
                 {/* Logo */}
@@ -947,60 +924,62 @@ const Dashboard = () => {
                 {/* Content Area */}
                 <div className="p-4 lg:p-8 space-y-6 max-w-[1600px] mx-auto">
                     
-                    {/* Header */}
-                    <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
-                        <div>
-                            <div className="text-sm text-gray-500 mb-1 flex items-center gap-2 font-medium">
-                                <Calendar size={14} />
-                                {new Date().toLocaleDateString('en-US', { 
-                                    weekday: 'long', 
-                                    month: 'long', 
-                                    day: 'numeric'
-                                })}
+                    {/* Header - Only show on non-analytics pages */}
+                    {activeTab !== 'analytics' && (
+                        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+                            <div>
+                                <div className="text-sm text-gray-500 mb-1 flex items-center gap-2 font-medium">
+                                    <Calendar size={14} />
+                                    {new Date().toLocaleDateString('en-US', { 
+                                        weekday: 'long', 
+                                        month: 'long', 
+                                        day: 'numeric'
+                                    })}
+                                </div>
+                                <h1 className="text-3xl lg:text-4xl font-black text-gray-900 mb-2">
+                                    {greeting.text}, {userData?.name?.split(' ')[0] || 'Student'} {greeting.emoji}
+                                </h1>
+                                <p className="text-gray-600 font-medium flex items-center gap-2">
+                                    {streak > 0 ? (
+                                        <>
+                                            <Flame size={18} className="text-orange-500" />
+                                            {streak} day streak! Keep it up!
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Rocket size={18} className="text-gray-400" />
+                                            Start studying to build your streak
+                                        </>
+                                    )}
+                                </p>
                             </div>
-                            <h1 className="text-3xl lg:text-4xl font-black text-gray-900 mb-2">
-                                {greeting.text}, {userData?.name?.split(' ')[0] || 'Student'} {greeting.emoji}
-                            </h1>
-                            <p className="text-gray-600 font-medium flex items-center gap-2">
-                                {streak > 0 ? (
-                                    <>
-                                        <Flame size={18} className="text-orange-500" />
-                                        {streak} day streak! Keep it up!
-                                    </>
-                                ) : (
-                                    <>
-                                        <Rocket size={18} className="text-gray-400" />
-                                        Start studying to build your streak
-                                    </>
-                                )}
-                            </p>
-                        </div>
 
-                        {/* Quick Stats Cards */}
-                        <div className="flex gap-3 overflow-x-auto pb-2 lg:pb-0">
-                            <div className="flex-shrink-0 px-4 py-3 bg-white rounded-xl border border-gray-100 shadow-sm">
-                                <div className="flex items-center gap-2 text-gray-500 text-xs font-semibold mb-1">
-                                    <BookOpen size={14} />
-                                    Documents
+                            {/* Quick Stats Cards */}
+                            <div className="flex gap-3 overflow-x-auto pb-2 lg:pb-0">
+                                <div className="flex-shrink-0 px-4 py-3 bg-white rounded-xl border border-gray-100 shadow-sm">
+                                    <div className="flex items-center gap-2 text-gray-500 text-xs font-semibold mb-1">
+                                        <BookOpen size={14} />
+                                        Documents
+                                    </div>
+                                    <p className="text-2xl font-black text-gray-900">{realtimeStats.totalDocuments}</p>
                                 </div>
-                                <p className="text-2xl font-black text-gray-900">{realtimeStats.totalDocuments}</p>
-                            </div>
-                            <div className="flex-shrink-0 px-4 py-3 bg-white rounded-xl border border-gray-100 shadow-sm">
-                                <div className="flex items-center gap-2 text-gray-500 text-xs font-semibold mb-1">
-                                    <Brain size={14} />
-                                    Sessions
+                                <div className="flex-shrink-0 px-4 py-3 bg-white rounded-xl border border-gray-100 shadow-sm">
+                                    <div className="flex items-center gap-2 text-gray-500 text-xs font-semibold mb-1">
+                                        <Brain size={14} />
+                                        Sessions
+                                    </div>
+                                    <p className="text-2xl font-black text-gray-900">{realtimeStats.totalSessions}</p>
                                 </div>
-                                <p className="text-2xl font-black text-gray-900">{realtimeStats.totalSessions}</p>
-                            </div>
-                            <div className="flex-shrink-0 px-4 py-3 bg-white rounded-xl border border-gray-100 shadow-sm">
-                                <div className="flex items-center gap-2 text-gray-500 text-xs font-semibold mb-1">
-                                    <Clock size={14} />
-                                    Study Time
+                                <div className="flex-shrink-0 px-4 py-3 bg-white rounded-xl border border-gray-100 shadow-sm">
+                                    <div className="flex items-center gap-2 text-gray-500 text-xs font-semibold mb-1">
+                                        <Clock size={14} />
+                                        Study Time
+                                    </div>
+                                    <p className="text-2xl font-black text-gray-900">{realtimeStats.totalStudyTime}m</p>
                                 </div>
-                                <p className="text-2xl font-black text-gray-900">{realtimeStats.totalStudyTime}m</p>
                             </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Main Content */}
                     <AnimatePresence mode="wait">

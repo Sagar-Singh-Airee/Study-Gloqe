@@ -1,5 +1,4 @@
-// src/App.jsx - FINAL WORKING VERSION WITH BIGQUERY TEST
-
+// src/App.jsx - CLEAN FINAL VERSION
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from '@contexts/AuthContext';
@@ -20,6 +19,7 @@ import QuizResults from './pages/QuizResults';
 import Flashcard from './pages/Flashcard';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
+import Analytics from './pages/Analytics'; // ✅ ADDED
 
 // Study Room (WebRTC)
 import StudyRoom from './pages/StudyRoom';
@@ -28,11 +28,8 @@ import StudyRoom from './pages/StudyRoom';
 import TeacherDashboard from './pages/teacher/TeacherDashboard';
 import TeacherClassroom from './pages/teacher/TeacherClassroom';
 
-// ✅ KEEP YOUR EXISTING SHARED CLASSROOM
+// Shared Classroom
 import ClassroomPage from './pages/ClassroomPage';
-
-// ✅ NEW: BigQuery Test Page
-import BigQueryTest from './pages/BigQueryTest';
 
 // ==========================================
 // STUDENT ONLY ROUTE
@@ -203,7 +200,6 @@ function App() {
                             SHARED ROUTES (Both Teacher & Student)
                         ======================================== */}
                         
-                        {/* ✅ Your existing shared classroom */}
                         <Route 
                             path="/classroom/:classId" 
                             element={<ProtectedRoute><ClassroomPage /></ProtectedRoute>} 
@@ -213,17 +209,19 @@ function App() {
                             STUDENT ROUTES
                         ======================================== */}
                         
+                        {/* Main Dashboard (handles analytics tab internally) */}
                         <Route 
                             path="/dashboard" 
                             element={<StudentRoute><Dashboard /></StudentRoute>} 
                         />
 
-                        {/* ✅ Student's class details page */}
+                        {/* Class Details */}
                         <Route 
                             path="/classes/:classId" 
                             element={<StudentRoute><ClassDetails /></StudentRoute>} 
                         />
 
+                        {/* Document Management */}
                         <Route 
                             path="/upload" 
                             element={<StudentRoute><PDFUpload /></StudentRoute>} 
@@ -233,16 +231,19 @@ function App() {
                             element={<StudentRoute><PDFReader /></StudentRoute>} 
                         />
 
+                        {/* Study Session */}
                         <Route 
                             path="/study/:docId" 
                             element={<StudentRoute><StudySession /></StudentRoute>} 
                         />
 
+                        {/* Study Rooms (WebRTC) */}
                         <Route 
                             path="/study-room/:roomId" 
                             element={<StudentRoute><StudyRoom /></StudentRoute>} 
                         />
 
+                        {/* Quizzes */}
                         <Route 
                             path="/quiz/:quizId" 
                             element={<StudentRoute><QuizPage /></StudentRoute>} 
@@ -256,11 +257,13 @@ function App() {
                             element={<StudentRoute><QuizResults /></StudentRoute>} 
                         />
 
+                        {/* Flashcards */}
                         <Route 
                             path="/flashcards/:deckId" 
                             element={<StudentRoute><Flashcard /></StudentRoute>} 
                         />
 
+                        {/* User Pages */}
                         <Route 
                             path="/profile" 
                             element={<StudentRoute><Profile /></StudentRoute>} 
@@ -270,15 +273,10 @@ function App() {
                             element={<StudentRoute><Settings /></StudentRoute>} 
                         />
 
+                        {/* ✅ Analytics - Standalone Route (Optional - mainly accessed via Dashboard tab) */}
                         <Route 
                             path="/analytics" 
-                            element={<StudentRoute><ComingSoon page="Analytics" /></StudentRoute>} 
-                        />
-
-                        {/* ✅ NEW: BigQuery Test Route */}
-                        <Route 
-                            path="/bigquery-test" 
-                            element={<ProtectedRoute><BigQueryTest /></ProtectedRoute>} 
+                            element={<StudentRoute><Analytics /></StudentRoute>} 
                         />
 
                         {/* ========================================
@@ -291,19 +289,13 @@ function App() {
                             element={<TeacherRoute><TeacherDashboard /></TeacherRoute>} 
                         />
 
-                        {/* ✅ Teacher's dedicated classroom page */}
+                        {/* Teacher's Classroom Page */}
                         <Route 
                             path="/teacher/class/:classId" 
                             element={<TeacherRoute><TeacherClassroom /></TeacherRoute>} 
                         />
 
-                        {/* ✅ NEW: Teacher BigQuery Test Route */}
-                        <Route 
-                            path="/teacher/bigquery-test" 
-                            element={<TeacherRoute><BigQueryTest /></TeacherRoute>} 
-                        />
-
-                        {/* Teacher tab redirects */}
+                        {/* Teacher Dashboard Tab Redirects */}
                         <Route 
                             path="/teacher/classes" 
                             element={<Navigate to="/teacher/dashboard?tab=classes" replace />} 
