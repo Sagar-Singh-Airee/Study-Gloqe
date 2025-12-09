@@ -1,26 +1,25 @@
+// src/services/quizService.js - PRODUCTION-READY QUIZ SERVICE
 import {
   collection,
   addDoc,
   doc,
   getDoc,
   getDocs,
+  updateDoc,
+  deleteDoc,
   query,
   where,
   orderBy,
   limit,
-  updateDoc,
-  deleteDoc,
   serverTimestamp,
   runTransaction,
   Timestamp
 } from 'firebase/firestore';
-import { db } from '@/config/firebase';
 import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
-import { awardDailyXP, DAILY_ACTIONS } from './gamificationService';
-import toast from 'react-hot-toast';
+import { db } from '@/config/firebase';
+import { awardDailyXP, DAILY_ACTIONS } from '@/services/gamificationService';
+import { toast } from 'sonner';
 
-// Initialize Gemini
-// Using gemini-1.5-flash for the best balance of speed, cost, and intelligence for JSON tasks
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
 /**
@@ -83,7 +82,7 @@ export const generateQuizWithGemini = async (documentId, difficulty = 'medium', 
 
     // 3. Configure Gemini with strict JSON Schema
     const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.0-flash-exp',
       generationConfig: {
         temperature: 0.7,
         responseMimeType: "application/json",
@@ -96,9 +95,9 @@ export const generateQuizWithGemini = async (documentId, difficulty = 'medium', 
                 type: SchemaType.OBJECT,
                 properties: {
                   stem: { type: SchemaType.STRING },
-                  choices: { 
-                    type: SchemaType.ARRAY, 
-                    items: { type: SchemaType.STRING } 
+                  choices: {
+                    type: SchemaType.ARRAY,
+                    items: { type: SchemaType.STRING }
                   },
                   correctAnswer: { type: SchemaType.NUMBER, description: "Index 0-3" },
                   explanation: { type: SchemaType.STRING },
@@ -124,9 +123,11 @@ export const generateQuizWithGemini = async (documentId, difficulty = 'medium', 
       
       Rules:
       1. Questions must be factually supported by the text.
-      2. Choices must be plausible distractors.
-      3. "correctAnswer" is the 0-based index of the correct choice.
-      4. Avoid "All of the above" unless absolutely necessary.
+      2. Each question must have exactly 4 choices.
+      3. "correctAnswer" is the 0-based index (0-3) of the correct choice.
+      4. Choices must be plausible distractors.
+      5. Avoid "All of the above" unless absolutely necessary.
+      6. Provide clear explanations and helpful hints.
       
       TEXT CONTENT:
       ${textSample}
@@ -135,12 +136,13 @@ export const generateQuizWithGemini = async (documentId, difficulty = 'medium', 
     // 4. Execute with Retry
     const result = await retryOperation(() => model.generateContent(prompt));
     const responseText = result.response.text();
-    
+
     // 5. Parse & Validate
     let quizData;
     try {
       quizData = JSON.parse(responseText);
     } catch (e) {
+      console.error('JSON parse error:', e);
       throw new QuizError('AI generated invalid JSON. Please try again.', 'AI_PARSE_ERROR');
     }
 
@@ -148,13 +150,28 @@ export const generateQuizWithGemini = async (documentId, difficulty = 'medium', 
       throw new QuizError('AI could not generate questions from this text.', 'NO_QUESTIONS');
     }
 
-    // 6. Post-process
-    return quizData.questions.slice(0, questionCount).map((q, index) => ({
-      ...q,
-      id: `q_${Date.now()}_${index}`, // Stable ID for React keys
-      points: q.points || (difficulty === 'hard' ? 2 : 1),
-      difficulty // Tag each question
-    }));
+    // 6. Post-process & Validate
+    const processedQuestions = quizData.questions.slice(0, questionCount).map((q, index) => {
+      // Ensure 4 choices
+      if (!q.choices || q.choices.length !== 4) {
+        throw new QuizError('Invalid question format from AI', 'INVALID_FORMAT');
+      }
+
+      // Ensure correctAnswer is valid
+      if (typeof q.correctAnswer !== 'number' || q.correctAnswer < 0 || q.correctAnswer > 3) {
+        console.warn(`Invalid correctAnswer for question ${index}:`, q.correctAnswer);
+        q.correctAnswer = 0; // Fallback
+      }
+
+      return {
+        ...q,
+        id: `q_${Date.now()}_${index}`, // Stable ID for React keys
+        points: q.points || (difficulty === 'hard' ? 2 : 1),
+        difficulty // Tag each question
+      };
+    });
+
+    return processedQuestions;
 
   } catch (error) {
     console.error('Gemini generation failed:', error);
@@ -202,6 +219,7 @@ export const createQuiz = async (userId, documentId, questions, metadata = {}) =
     };
 
     const docRef = await addDoc(collection(db, 'quizzes'), quizData);
+    console.log('✅ Quiz created:', docRef.id);
     return docRef.id;
   } catch (error) {
     console.error('Create quiz failed:', error);
@@ -238,9 +256,9 @@ export const getUserQuizzes = async (userId) => {
 export const deleteQuiz = async (quizId) => {
   try {
     await deleteDoc(doc(db, 'quizzes', quizId));
-    toast.success('Quiz deleted');
+    toast.success('Quiz deleted successfully');
   } catch (e) {
-    console.error(e);
+    console.error('Delete quiz error:', e);
     toast.error('Could not delete quiz');
   }
 };
@@ -251,7 +269,7 @@ export const deleteQuiz = async (quizId) => {
 
 /**
  * Starts a quiz. 
- * feature: Checks for existing active session to allow "Resume" functionality.
+ * Feature: Checks for existing active session to allow "Resume" functionality.
  */
 export const startQuizSession = async (quizId, userId) => {
   try {
@@ -263,35 +281,36 @@ export const startQuizSession = async (quizId, userId) => {
       where('status', '==', 'in_progress'),
       limit(1)
     );
-    
+
     const existingSnap = await getDocs(existingQuery);
     if (!existingSnap.empty) {
-      console.log('Resuming existing session...');
+      console.log('✅ Resuming existing session...');
       return existingSnap.docs[0].id;
     }
 
     // 2. Fetch Quiz Metadata for Denormalization (Crucial for history performance)
     const quiz = await getQuiz(quizId);
 
-    // 3. Create New Session
+    // 3. Create new session
     const sessionData = {
-      quizId,
       userId,
-      // Store snapshot of quiz details to avoid N+1 reads on history screen
+      quizId,
+      status: 'in_progress',
+      startTime: serverTimestamp(),
+      answers: {}, // { questionId: { answer: index, timestamp } }
+      score: 0,
+      // Snapshot for efficient history queries
       quizSnapshot: {
         title: quiz.title,
         subject: quiz.subject,
-        totalQuestions: quiz.questions.length,
-        totalPoints: quiz.meta.totalPoints
+        difficulty: quiz.difficulty,
+        totalQuestions: quiz.meta?.totalQuestions || quiz.questions.length
       },
-      startTime: serverTimestamp(),
-      endTime: null,
-      answers: {}, 
-      status: 'in_progress',
-      score: 0
+      createdAt: serverTimestamp()
     };
 
     const docRef = await addDoc(collection(db, 'quizSessions'), sessionData);
+    console.log('✅ Quiz session started:', docRef.id);
     return docRef.id;
   } catch (error) {
     console.error('Start session failed:', error);
@@ -312,6 +331,7 @@ export const submitQuizAnswer = async (sessionId, questionId, answerIndex) => {
         timestamp: Timestamp.now()
       }
     });
+    console.log('✅ Answer submitted:', questionId, answerIndex);
   } catch (error) {
     console.error('Submit answer failed:', error);
     // Don't throw; UI should handle sync status
@@ -329,7 +349,7 @@ export const completeQuizSession = async (sessionId) => {
       const sessionRef = doc(db, 'quizSessions', sessionId);
       const sessionSnap = await transaction.get(sessionRef);
       if (!sessionSnap.exists()) throw new Error("Session missing");
-      
+
       const sessionData = sessionSnap.data();
       if (sessionData.status === 'completed') throw new Error("Already completed");
 
@@ -346,7 +366,7 @@ export const completeQuizSession = async (sessionId) => {
       const resultsDetail = quizData.questions.map(q => {
         const userAnswer = answers[q.id]?.answer;
         const isCorrect = userAnswer === q.correctAnswer;
-        
+
         if (isCorrect) {
           correctCount++;
           earnedPoints += (q.points || 1);
@@ -356,7 +376,7 @@ export const completeQuizSession = async (sessionId) => {
 
       const totalQuestions = quizData.questions.length;
       const scorePercent = Math.round((correctCount / totalQuestions) * 100);
-      
+
       // XP Logic
       let xpAwarded = 0;
       if (scorePercent >= 90) xpAwarded = 20;
@@ -396,28 +416,29 @@ export const completeQuizSession = async (sessionId) => {
     // Called after transaction succeeds
     if (result.xpAwarded > 0) {
       await awardDailyXP(
-        result.userId, 
-        DAILY_ACTIONS.COMPLETE_QUIZ, 
+        result.userId,
+        DAILY_ACTIONS.COMPLETE_QUIZ,
         `Quiz Score: ${result.scorePercent}%`
-      ).catch(e => console.warn("XP Award failed:", e));
+      ).catch(e => console.warn("⚠️ XP Award failed:", e));
     }
 
+    console.log('✅ Quiz completed:', result);
     return result;
 
   } catch (error) {
-    console.error('Complete quiz failed:', error);
+    console.error('❌ Complete quiz failed:', error);
     throw error;
   }
 };
 
 /**
  * Fetch results. 
- * optimization: Merges session data with quiz data so UI has one object.
+ * Optimization: Merges session data with quiz data so UI has one object.
  */
 export const getQuizResults = async (sessionId) => {
   const sessionSnap = await getDoc(doc(db, 'quizSessions', sessionId));
   if (!sessionSnap.exists()) throw new Error('Session not found');
-  
+
   const sessionData = sessionSnap.data();
   const quiz = await getQuiz(sessionData.quizId);
 
@@ -444,7 +465,7 @@ export const getQuizResults = async (sessionId) => {
 
 /**
  * Get History.
- * efficient: Uses the "quizSnapshot" we saved earlier to avoid fetching the Quiz collection.
+ * Efficient: Uses the "quizSnapshot" we saved earlier to avoid fetching the Quiz collection.
  */
 export const getUserQuizSessions = async (userId) => {
   try {
@@ -458,7 +479,7 @@ export const getUserQuizSessions = async (userId) => {
     );
 
     const snapshot = await getDocs(q);
-    
+
     return snapshot.docs.map(d => {
       const data = d.data();
       return {
@@ -475,4 +496,17 @@ export const getUserQuizSessions = async (userId) => {
     console.error('Fetch history failed:', error);
     return [];
   }
+};
+
+export default {
+  generateQuizWithGemini,
+  createQuiz,
+  getQuiz,
+  getUserQuizzes,
+  deleteQuiz,
+  startQuizSession,
+  submitQuizAnswer,
+  completeQuizSession,
+  getQuizResults,
+  getUserQuizSessions
 };

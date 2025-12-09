@@ -166,8 +166,8 @@ const MaterialsTab = ({ classId, isTeacher }) => {
                             key={cat}
                             onClick={() => setActiveCategory(cat)}
                             className={`px-4 py-2 rounded-xl font-bold whitespace-nowrap transition-all ${activeCategory === cat
-                                    ? 'bg-black text-white'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                ? 'bg-black text-white'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                 }`}
                         >
                             {cat}
@@ -219,19 +219,25 @@ const MaterialsTab = ({ classId, isTeacher }) => {
                             {/* Actions */}
                             <div className="flex items-center gap-2">
                                 <button
-                                    onClick={() => toast.success('Viewing file...')}
+                                    onClick={() => window.open(material.fileUrl, '_blank')}
                                     className="p-2.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all"
+                                    title="View"
                                 >
                                     <Eye size={18} className="text-gray-600" />
                                 </button>
                                 <button
-                                    onClick={() => toast.success('Downloading...')}
+                                    onClick={() => handleDownload(material)}
                                     className="p-2.5 bg-black hover:bg-gray-900 rounded-lg transition-all"
+                                    title="Download"
                                 >
                                     <Download size={18} className="text-white" />
                                 </button>
                                 {isTeacher && (
-                                    <button className="p-2.5 bg-red-50 hover:bg-red-100 rounded-lg transition-all">
+                                    <button
+                                        onClick={() => handleDelete(material.id)}
+                                        className="p-2.5 bg-red-50 hover:bg-red-100 rounded-lg transition-all"
+                                        title="Delete"
+                                    >
                                         <Trash2 size={18} className="text-red-600" />
                                     </button>
                                 )}

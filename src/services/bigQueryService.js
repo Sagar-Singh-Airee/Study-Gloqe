@@ -1,6 +1,6 @@
 // src/services/bigQueryService.js
 import { httpsCallable } from 'firebase/functions';
-import { functions } from '../config/firebase'; // Your Firebase config
+import { functions } from '../config/firebase';
 
 class BigQueryService {
   // ✅ 1. ANALYTICS METHODS
@@ -164,7 +164,30 @@ class BigQueryService {
       throw error;
     }
   }
+
+  // 🆕 NEW: Sync study session to BigQuery
+  async syncStudySessionToBigQuery(sessionData) {
+    try {
+      const callable = httpsCallable(functions, 'syncStudySessionToBigQuery');
+      const result = await callable(sessionData);
+      return result.data;
+    } catch (error) {
+      console.error('Error syncing study session to BigQuery:', error);
+      throw error;
+    }
+  }
+
+  // 🆕 NEW: Get study time from BigQuery
+  async getStudyTimeBigQuery(userId, timeframe = 30) {
+    try {
+      const callable = httpsCallable(functions, 'getStudyTimeBigQuery');
+      const result = await callable({ userId, timeframe });
+      return result.data;
+    } catch (error) {
+      console.error('Error fetching study time from BigQuery:', error);
+      throw error;
+    }
+  }
 }
 
-// Export singleton instance
 export default new BigQueryService();

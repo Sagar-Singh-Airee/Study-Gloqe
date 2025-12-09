@@ -24,6 +24,7 @@ import QuickStats from '@/components/teacher/QuickStats';
 import ClassManagement from '@/components/teacher/ClassManagement';
 import AssignmentCreator from '@/components/teacher/AssignmentCreator';
 import GradeBook from '@/components/teacher/GradeBook';
+import TeacherAnalytics from '@/components/teacher/TeacherAnalytics';
 
 const TeacherDashboard = () => {
     const { user, userData } = useAuth();
@@ -273,8 +274,8 @@ const TeacherDashboard = () => {
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex">
             {/* Sidebar */}
-            <TeacherSidebar 
-                stats={stats} 
+            <TeacherSidebar
+                stats={stats}
                 activeTab={activeTab}
                 setActiveTab={setActiveTab}
             />
@@ -298,11 +299,11 @@ const TeacherDashboard = () => {
                                 Welcome back, {userData?.name || 'Teacher'}! 👋
                             </h1>
                             <p className="text-gray-600 mt-1">
-                                {new Date().toLocaleDateString('en-US', { 
-                                    weekday: 'long', 
-                                    year: 'numeric', 
-                                    month: 'long', 
-                                    day: 'numeric' 
+                                {new Date().toLocaleDateString('en-US', {
+                                    weekday: 'long',
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
                                 })}
                             </p>
                         </div>
@@ -415,7 +416,7 @@ const TeacherDashboard = () => {
                                         ) : (
                                             <div className="text-center py-8">
                                                 <p className="text-gray-500">No classes yet</p>
-                                                <button 
+                                                <button
                                                     onClick={() => setActiveTab('classes')}
                                                     className="mt-4 text-sm text-black font-bold hover:underline"
                                                 >
@@ -457,11 +458,10 @@ const TeacherDashboard = () => {
                                                             <div className="text-xs text-gray-500 truncate">{sub.quiz}</div>
                                                         </div>
                                                         <div className="text-right flex-shrink-0">
-                                                            <div className={`text-lg font-black ${
-                                                                sub.score >= 90 ? 'text-green-600' :
-                                                                sub.score >= 70 ? 'text-black' :
-                                                                'text-red-600'
-                                                            }`}>
+                                                            <div className={`text-lg font-black ${sub.score >= 90 ? 'text-green-600' :
+                                                                    sub.score >= 70 ? 'text-black' :
+                                                                        'text-red-600'
+                                                                }`}>
                                                                 {sub.score}%
                                                             </div>
                                                             <div className="text-xs text-gray-500">{sub.time}</div>
@@ -497,7 +497,7 @@ const TeacherDashboard = () => {
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -20 }}
                             >
-                                <ComingSoonTab 
+                                <ComingSoonTab
                                     icon={Users}
                                     title="Students Management"
                                     description="View and manage all your students across classes"
@@ -536,7 +536,7 @@ const TeacherDashboard = () => {
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -20 }}
                             >
-                                <ComingSoonTab 
+                                <ComingSoonTab
                                     icon={FileText}
                                     title="Quizzes"
                                     description="Create and manage AI-powered quizzes"
@@ -551,7 +551,7 @@ const TeacherDashboard = () => {
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -20 }}
                             >
-                                <ComingSoonTab 
+                                <ComingSoonTab
                                     icon={FolderOpen}
                                     title="Materials"
                                     description="Upload and organize teaching materials"
@@ -566,7 +566,7 @@ const TeacherDashboard = () => {
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -20 }}
                             >
-                                <ComingSoonTab 
+                                <ComingSoonTab
                                     icon={Video}
                                     title="Live Sessions"
                                     description="Host live classes and interact with students in real-time"
@@ -581,11 +581,7 @@ const TeacherDashboard = () => {
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -20 }}
                             >
-                                <ComingSoonTab 
-                                    icon={BarChart3}
-                                    title="Analytics"
-                                    description="View detailed insights and performance metrics"
-                                />
+                                <TeacherAnalytics />
                             </motion.div>
                         )}
 
@@ -596,7 +592,7 @@ const TeacherDashboard = () => {
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -20 }}
                             >
-                                <ComingSoonTab 
+                                <ComingSoonTab
                                     icon={Trophy}
                                     title="Leaderboard"
                                     description="Track top performers across your classes"
@@ -611,7 +607,7 @@ const TeacherDashboard = () => {
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -20 }}
                             >
-                                <ComingSoonTab 
+                                <ComingSoonTab
                                     icon={Target}
                                     title="Performance"
                                     description="Monitor student performance and progress"
@@ -626,7 +622,7 @@ const TeacherDashboard = () => {
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -20 }}
                             >
-                                <ComingSoonTab 
+                                <ComingSoonTab
                                     icon={MessageSquare}
                                     title="Messages"
                                     description="Communicate with students and parents"
@@ -641,7 +637,7 @@ const TeacherDashboard = () => {
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -20 }}
                             >
-                                <ComingSoonTab 
+                                <ComingSoonTab
                                     icon={Bell}
                                     title="Announcements"
                                     description="Send announcements to classes and students"
@@ -656,7 +652,7 @@ const TeacherDashboard = () => {
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -20 }}
                             >
-                                <ComingSoonTab 
+                                <ComingSoonTab
                                     icon={Calendar}
                                     title="Schedule"
                                     description="Manage your class schedule and timetable"
@@ -671,7 +667,7 @@ const TeacherDashboard = () => {
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -20 }}
                             >
-                                <ComingSoonTab 
+                                <ComingSoonTab
                                     icon={Settings}
                                     title="Settings"
                                     description="Configure your account and preferences"

@@ -1,6 +1,6 @@
-// src/hooks/useGamification.js - PRODUCTION-READY with Error Resilience
+// src/hooks/useGamification.js - WITH AUTO-SYNC
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { doc, onSnapshot, collection } from 'firebase/firestore';
+import { doc, onSnapshot, collection, updateDoc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -10,14 +10,16 @@ import {
     TITLE_DEFINITIONS
 } from '@/services/gamificationService';
 
-/**
- * Level progression thresholds
- */
+// Import analytics hooks for sync
+import {
+    useDocumentsData,
+    useQuizSessionsData,
+    useStudySessionsData,
+    useFlashcardDecks
+} from '@/hooks/useAnalytics';
+
 const LEVEL_THRESHOLDS = [0, 100, 250, 500, 1000, 2000, 4000, 8000, 16000, 32000, 64000];
 
-/**
- * Calculate level progress percentage
- */
 const calculateLevelProgress = (xp, level) => {
     const currentThreshold = LEVEL_THRESHOLDS[level - 1] || 0;
     const nextThreshold = LEVEL_THRESHOLDS[level] || LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1];
@@ -28,52 +30,133 @@ const calculateLevelProgress = (xp, level) => {
     return Math.min(Math.max(progress, 0), 100);
 };
 
-/**
- * Centralized hook for all gamification data with real-time updates
- * Provides user stats, badges, titles, achievements, and missions
- */
+// 🆕 NEW: Auto-calculate badges based on user activity
+const calculateEarnedBadges = (documents, quizSessions, studySessions, decks, totalMastered) => {
+    const earnedBadgeIds = [];
+    
+    // Document badges
+    if (documents.length >= 1) earnedBadgeIds.push('first_upload');
+    if (documents.length >= 5) earnedBadgeIds.push('doc_collector');
+    if (documents.length >= 10) earnedBadgeIds.push('doc_master');
+    if (documents.length >= 25) earnedBadgeIds.push('library_builder');
+    
+    // Quiz badges
+    if (quizSessions.length >= 1) earnedBadgeIds.push('first_quiz');
+    if (quizSessions.length >= 5) earnedBadgeIds.push('quiz_novice');
+    if (quizSessions.length >= 10) earnedBadgeIds.push('quiz_expert');
+    if (quizSessions.length >= 25) earnedBadgeIds.push('quiz_master');
+    if (quizSessions.length >= 50) earnedBadgeIds.push('quiz_legend');
+    
+    // Study session badges
+    const completedStudySessions = studySessions.filter(s => s.status === 'completed');
+    const totalStudyMinutes = completedStudySessions.reduce((sum, s) => sum + (s.totalTime || 0), 0);
+    
+    if (totalStudyMinutes >= 60) earnedBadgeIds.push('study_hour');
+    if (totalStudyMinutes >= 600) earnedBadgeIds.push('study_10hrs');
+    if (totalStudyMinutes >= 3000) earnedBadgeIds.push('study_marathon');
+    
+    // Flashcard badges
+    if (decks.length >= 1) earnedBadgeIds.push('flashcard_starter');
+    if (totalMastered >= 50) earnedBadgeIds.push('card_master');
+    if (totalMastered >= 200) earnedBadgeIds.push('memory_champion');
+    
+    return [...new Set(earnedBadgeIds)]; // Remove duplicates
+};
+
 export const useGamification = () => {
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [notifications, setNotifications] = useState([]);
+    const [syncing, setSyncing] = useState(false);
+
+    // 🆕 NEW: Import user activity data for auto-sync
+    const { documents } = useDocumentsData(user?.uid);
+    const { quizSessions } = useQuizSessionsData(user?.uid, 365);
+    const { sessions: studySessions } = useStudySessionsData(user?.uid, 365);
+    const { decks, totalMastered } = useFlashcardDecks(user?.uid);
 
     const [data, setData] = useState({
-        // User Stats
         xp: 0,
         level: 1,
         streak: 0,
         nextLevelXp: 100,
         levelProgress: 0,
-
-        // Badges
         unlockedBadges: [],
         allBadges: [],
         totalBadges: 0,
-
-        // Titles
         unlockedTitles: [],
         allTitles: [],
         equippedTitle: 'Novice Learner',
         equippedTitleId: 'novice',
-
-        // Achievements
         achievements: [],
         unlockedAchievements: 0,
         totalAchievements: 0,
-
-        // Missions
         dailyMissions: [],
         weeklyMissions: [],
-
-        // Leaderboard
         globalRank: '--',
         classRank: '--'
     });
 
-    // ==========================================
+    // 🆕 NEW: Auto-sync badges when activity changes
+    useEffect(() => {
+        if (!user?.uid || loading || syncing) return;
+        if (!documents || !quizSessions || !studySessions || !decks) return;
+
+        const syncBadges = async () => {
+            try {
+                setSyncing(true);
+                
+                // Calculate earned badges
+                const earnedBadgeIds = calculateEarnedBadges(
+                    documents, 
+                    quizSessions, 
+                    studySessions, 
+                    decks, 
+                    totalMastered
+                );
+
+                // Check if there are new badges
+                const currentBadges = data.unlockedBadges || [];
+                const newBadges = earnedBadgeIds.filter(id => !currentBadges.includes(id));
+
+                if (newBadges.length > 0) {
+                    console.log(`🎖️ Auto-syncing ${newBadges.length} new badges:`, newBadges);
+                    
+                    // Update Firestore
+                    const userRef = doc(db, 'users', user.uid);
+                    await updateDoc(userRef, {
+                        unlockedBadges: earnedBadgeIds,
+                        lastBadgeSync: new Date().toISOString()
+                    });
+
+                    // Show notifications for new badges
+                    const badgeDefinitions = Object.values(BADGE_DEFINITIONS);
+                    newBadges.forEach(badgeId => {
+                        const badgeInfo = badgeDefinitions.find(b => b.id === badgeId);
+                        if (badgeInfo) {
+                            setNotifications(prev => [...prev, {
+                                type: 'badge',
+                                data: badgeInfo,
+                                id: `badge-${badgeId}-${Date.now()}`,
+                                timestamp: Date.now()
+                            }]);
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error('❌ Error syncing badges:', err);
+            } finally {
+                setSyncing(false);
+            }
+        };
+
+        // Debounce sync (wait 2 seconds after changes)
+        const timeoutId = setTimeout(syncBadges, 2000);
+        return () => clearTimeout(timeoutId);
+    }, [user?.uid, documents?.length, quizSessions?.length, studySessions?.length, decks?.length, totalMastered, loading, syncing, data.unlockedBadges]);
+
     // REAL-TIME USER STATS LISTENER
-    // ==========================================
     useEffect(() => {
         if (!user?.uid) {
             setLoading(false);
@@ -118,7 +201,6 @@ export const useGamification = () => {
                 },
                 (err) => {
                     console.error('❌ Error fetching user stats:', err);
-                    // Don't set error state, just log it
                 }
             );
         } catch (err) {
@@ -130,9 +212,7 @@ export const useGamification = () => {
         };
     }, [user?.uid]);
 
-    // ==========================================
-    // REAL-TIME GLOBAL BADGES LISTENER (With Fallback)
-    // ==========================================
+    // REAL-TIME GLOBAL BADGES LISTENER
     useEffect(() => {
         let unsubBadges = null;
         let mounted = true;
@@ -149,14 +229,12 @@ export const useGamification = () => {
                         let badges = [];
                         
                         if (!snapshot.empty) {
-                            // Use Firestore badges
                             badges = snapshot.docs.map(doc => ({
                                 id: doc.id,
                                 ...doc.data()
                             }));
                             console.log('✅ Loaded badges from Firestore:', badges.length);
                         } else {
-                            // Fallback to local definitions
                             console.log('⚠️ No globalBadges found, using local definitions');
                             badges = Object.values(BADGE_DEFINITIONS);
                         }
@@ -174,7 +252,6 @@ export const useGamification = () => {
                         
                         console.warn('⚠️ Error fetching badges, using local definitions:', err.message);
                         
-                        // Fallback to local definitions on error
                         const badges = Object.values(BADGE_DEFINITIONS);
                         setData(prev => ({
                             ...prev,
@@ -190,7 +267,6 @@ export const useGamification = () => {
                 
                 console.warn('⚠️ Cannot setup badges listener, using local definitions:', err.message);
                 
-                // Use local definitions
                 const badges = Object.values(BADGE_DEFINITIONS);
                 setData(prev => ({
                     ...prev,
@@ -210,9 +286,7 @@ export const useGamification = () => {
         };
     }, []);
 
-    // ==========================================
-    // REAL-TIME GLOBAL TITLES LISTENER (With Fallback)
-    // ==========================================
+    // REAL-TIME GLOBAL TITLES LISTENER
     useEffect(() => {
         let unsubTitles = null;
         let mounted = true;
@@ -229,14 +303,12 @@ export const useGamification = () => {
                         let titles = [];
                         
                         if (!snapshot.empty) {
-                            // Use Firestore titles
                             titles = snapshot.docs.map(doc => ({
                                 id: doc.id,
                                 ...doc.data()
                             }));
                             console.log('✅ Loaded titles from Firestore:', titles.length);
                         } else {
-                            // Fallback to local definitions
                             console.log('⚠️ No globalTitles found, using local definitions');
                             titles = Object.values(TITLE_DEFINITIONS);
                         }
@@ -256,7 +328,6 @@ export const useGamification = () => {
                         
                         console.warn('⚠️ Error fetching titles, using local definitions:', err.message);
                         
-                        // Fallback to local definitions on error
                         const titles = Object.values(TITLE_DEFINITIONS);
                         setData(prev => ({
                             ...prev,
@@ -274,7 +345,6 @@ export const useGamification = () => {
                 
                 console.warn('⚠️ Cannot setup titles listener, using local definitions:', err.message);
                 
-                // Use local definitions
                 const titles = Object.values(TITLE_DEFINITIONS);
                 setData(prev => ({
                     ...prev,
@@ -296,9 +366,7 @@ export const useGamification = () => {
         };
     }, []);
 
-    // ==========================================
     // REAL-TIME GAMIFICATION DATA LISTENER
-    // ==========================================
     useEffect(() => {
         if (!user?.uid) return;
 
@@ -327,7 +395,6 @@ export const useGamification = () => {
                             weeklyMissions: missions.filter(m => m.type === 'weekly')
                         }));
                     } else {
-                        // Document doesn't exist, use defaults
                         setData(prev => ({
                             ...prev,
                             achievements: [],
@@ -341,7 +408,6 @@ export const useGamification = () => {
                 (err) => {
                     if (!mounted) return;
                     console.warn('⚠️ Error fetching gamification data:', err.message);
-                    // Keep existing data on error
                 }
             );
         } catch (err) {
@@ -354,9 +420,7 @@ export const useGamification = () => {
         };
     }, [user?.uid]);
 
-    // ==========================================
     // HELPER: TRACK ACTION
-    // ==========================================
     const trackAction = useCallback(async (action, metadata = {}) => {
         if (!user?.uid) {
             console.warn('⚠️ Cannot track action: user not authenticated');
@@ -366,7 +430,6 @@ export const useGamification = () => {
         try {
             const unlocks = await trackActionAndCheckUnlocks(user.uid, action, metadata);
 
-            // Create notifications for new unlocks
             const newNotifications = [];
 
             if (unlocks.badges?.length > 0) {
@@ -414,7 +477,6 @@ export const useGamification = () => {
             if (newNotifications.length > 0) {
                 setNotifications(prev => [...prev, ...newNotifications]);
                 
-                // Auto-dismiss after 5 seconds
                 setTimeout(() => {
                     setNotifications(prev => 
                         prev.filter(n => !newNotifications.find(nn => nn.id === n.id))
@@ -429,9 +491,7 @@ export const useGamification = () => {
         }
     }, [user?.uid]);
 
-    // ==========================================
     // HELPER: CHANGE TITLE
-    // ==========================================
     const changeTitle = useCallback(async (titleId) => {
         if (!user?.uid) {
             return { success: false, error: 'User not authenticated' };
@@ -446,69 +506,41 @@ export const useGamification = () => {
         }
     }, [user?.uid]);
 
-    // ==========================================
     // HELPER: DISMISS NOTIFICATION
-    // ==========================================
     const dismissNotification = useCallback((notificationId) => {
         setNotifications(prev => prev.filter(n => n.id !== notificationId));
     }, []);
 
-    // ==========================================
     // HELPER: CLEAR ALL NOTIFICATIONS
-    // ==========================================
     const clearAllNotifications = useCallback(() => {
         setNotifications([]);
     }, []);
 
-    // ==========================================
     // COMPUTED VALUES
-    // ==========================================
     const computedValues = useMemo(() => ({
-        // XP until next level
         xpToNextLevel: data.nextLevelXp - data.xp,
-        
-        // Percentage of badges unlocked
         badgeCompletionRate: data.allBadges.length > 0 
             ? Math.round((data.totalBadges / data.allBadges.length) * 100) 
             : 0,
-        
-        // Percentage of titles unlocked
         titleCompletionRate: data.allTitles.length > 0
             ? Math.round((data.unlockedTitles.length / data.allTitles.length) * 100)
             : 0,
-        
-        // Is max level
         isMaxLevel: data.level >= LEVEL_THRESHOLDS.length,
-        
-        // Has active streak
         hasStreak: data.streak > 0,
-        
-        // Next badge to unlock (sorted by XP requirement)
         nextBadge: data.allBadges
             .filter(b => !b.unlocked)
             .sort((a, b) => (a.requiredXp || 0) - (b.requiredXp || 0))[0] || null,
     }), [data]);
 
-    // ==========================================
-    // RETURN VALUE
-    // ==========================================
     return {
-        // Raw data
         ...data,
-        
-        // Computed values
         ...computedValues,
-        
-        // State flags
         loading,
         error,
         isLoaded: !loading,
-        
-        // Notifications
+        syncing, // 🆕 NEW
         notifications,
         hasNotifications: notifications.length > 0,
-        
-        // Actions
         trackAction,
         changeTitle,
         dismissNotification,

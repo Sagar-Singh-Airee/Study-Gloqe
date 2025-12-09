@@ -1,11 +1,20 @@
-// functions/index.js - COMPLETE - USES quizSessions COLLECTION
+// functions/index.js - COMPLETE WITH BIGQUERY INTEGRATION + STUDY SESSION SYNC
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const { VertexAI } = require('@google-cloud/vertexai');
 const cors = require('cors')({ origin: true });
+const { BigQuery } = require('@google-cloud/bigquery');
 
 admin.initializeApp();
 const db = admin.firestore();
+const bigqueryClient = new BigQuery();
+
+// 🆕 Import BigQuery tracking functions
+const {
+  trackQuizCompletion,
+  trackStudySession,
+  trackDocumentUpload
+} = require('./bigquery/tracker');
 
 // ==========================================
 // INITIALIZE VERTEX AI
@@ -67,7 +76,158 @@ function detectSubjectFromFilename(fileName) {
 }
 
 // ==========================================
-// DOCUMENT PROCESSING
+// 🆕 NEW: STUDY SESSION BIGQUERY SYNC
+// ==========================================
+exports.syncStudySessionToBigQuery = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
+  }
+
+  const { 
+    userId, 
+    sessionId, 
+    documentId, 
+    documentTitle, 
+    subject, 
+    startTime, 
+    endTime, 
+    totalMinutes, 
+    status 
+  } = data;
+
+  // Validation
+  if (!userId || !sessionId || !totalMinutes) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Missing required fields: userId, sessionId, totalMinutes'
+    );
+  }
+
+  if (totalMinutes < 1 || totalMinutes > 720) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      `Invalid totalMinutes: ${totalMinutes}. Must be between 1-720`
+    );
+  }
+
+  try {
+    console.log(`📊 Syncing session ${sessionId} to BigQuery`, {
+      userId,
+      totalMinutes,
+      subject
+    });
+
+    const projectId = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
+    const datasetId = 'studygloqe_analytics';
+    const tableId = 'study_sessions';
+
+    const row = {
+      session_id: sessionId,
+      user_id: userId,
+      document_id: documentId || null,
+      document_title: documentTitle || 'Untitled',
+      subject: subject || 'General Studies',
+      start_time: startTime,
+      end_time: endTime,
+      total_minutes: totalMinutes,
+      status: status || 'completed',
+      sync_timestamp: new Date().toISOString()
+    };
+
+    await bigqueryClient
+      .dataset(datasetId)
+      .table(tableId)
+      .insert([row]);
+
+    console.log(`✅ Session ${sessionId} synced successfully to BigQuery`);
+
+    return {
+      success: true,
+      sessionId,
+      totalMinutes,
+      message: 'Study session synced to BigQuery'
+    };
+
+  } catch (error) {
+    console.error('❌ BigQuery sync error:', error);
+    
+    // Check if it's a duplicate error
+    if (error.message && error.message.includes('already exists')) {
+      console.warn(`⚠️ Session ${sessionId} already in BigQuery`);
+      return {
+        success: true,
+        sessionId,
+        message: 'Session already synced (duplicate)'
+      };
+    }
+
+    throw new functions.https.HttpsError('internal', `Failed to sync to BigQuery: ${error.message}`);
+  }
+});
+
+// 🆕 NEW: Get Study Time from BigQuery
+exports.getStudyTimeBigQuery = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
+  }
+
+  const { userId, timeframe = 30 } = data;
+
+  if (!userId) {
+    throw new functions.https.HttpsError('invalid-argument', 'userId is required');
+  }
+
+  try {
+    const projectId = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
+
+    const query = `
+      SELECT 
+        DATE(start_time) as date,
+        SUM(total_minutes) as total_minutes,
+        COUNT(*) as session_count,
+        STRING_AGG(DISTINCT subject, ', ') as subjects
+      FROM \`${projectId}.studygloqe_analytics.study_sessions\`
+      WHERE user_id = @userId
+        AND start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL @timeframe DAY)
+        AND status = 'completed'
+      GROUP BY date
+      ORDER BY date DESC
+    `;
+
+    const options = {
+      query,
+      params: { userId, timeframe: parseInt(timeframe) },
+      location: 'asia-south1'
+    };
+
+    const [rows] = await bigqueryClient.query(options);
+
+    const totalMinutes = rows.reduce((sum, row) => sum + parseInt(row.total_minutes || 0), 0);
+    const totalSessions = rows.reduce((sum, row) => sum + parseInt(row.session_count || 0), 0);
+
+    return {
+      success: true,
+      data: {
+        totalMinutes,
+        totalSessions,
+        averagePerSession: totalSessions > 0 ? Math.round(totalMinutes / totalSessions) : 0,
+        dailyBreakdown: rows.map(row => ({
+          date: row.date.value,
+          totalMinutes: parseInt(row.total_minutes || 0),
+          sessionCount: parseInt(row.session_count || 0),
+          subjects: row.subjects
+        }))
+      }
+    };
+
+  } catch (error) {
+    console.error('❌ Error fetching study time from BigQuery:', error);
+    throw new functions.https.HttpsError('internal', `Failed to fetch study time: ${error.message}`);
+  }
+});
+
+// ==========================================
+// DOCUMENT PROCESSING - WITH BIGQUERY
 // ==========================================
 exports.processDocument = functions.firestore
   .document('documents/{docId}')
@@ -89,6 +249,14 @@ exports.processDocument = functions.firestore
         subject: subject,
         status: 'completed',
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      // Track in BigQuery
+      await trackDocumentUpload(userId, {
+        id: snap.id,
+        title: docData.title,
+        fileName: docData.fileName,
+        subject
       });
 
       const gamificationRef = db.collection('gamification').doc(userId);
@@ -182,6 +350,14 @@ Subject:`;
         status: 'completed',
         aiProcessedAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      // Track in BigQuery
+      await trackDocumentUpload(userId, {
+        id: snap.id,
+        title: docData.title,
+        fileName: docData.fileName,
+        subject
       });
 
       const gamificationRef = db.collection('gamification').doc(userId);
@@ -294,7 +470,7 @@ exports.generateQuiz = functions.https.onCall(async (data, context) => {
 });
 
 // ==========================================
-// GAMIFICATION - FIXED TO USE quizSessions
+// GAMIFICATION - WITH BIGQUERY TRACKING
 // ==========================================
 exports.awardXPOnQuizComplete = functions.firestore
   .document('quizSessions/{sessionId}')
@@ -307,8 +483,27 @@ exports.awardXPOnQuizComplete = functions.firestore
     }
 
     try {
+      const answers = sessionData.answers || {};
+      const answerKeys = Object.keys(answers);
+      let correctAnswers = 0;
+      
+      answerKeys.forEach(key => {
+        if (answers[key].answer > 0) correctAnswers++;
+      });
+
       const score = sessionData.score || 0;
       const xpEarned = Math.max(Math.round(score / 10), 5);
+
+      // Track in BigQuery
+      await trackQuizCompletion({
+        sessionId: snap.id,
+        quizId: sessionData.quizId,
+        subject: sessionData.subject,
+        score,
+        correctAnswers,
+        totalQuestions: answerKeys.length,
+        timeTaken: sessionData.duration || 0
+      }, userId);
 
       const gamificationRef = db.collection('gamification').doc(userId);
       
@@ -330,6 +525,26 @@ exports.awardXPOnQuizComplete = functions.firestore
       console.error('Error awarding XP:', error);
       return null;
     }
+  });
+
+// 🆕 Track Study Session Completion
+exports.trackStudySessionComplete = functions.firestore
+  .document('studySessions/{sessionId}')
+  .onUpdate(async (change, context) => {
+    const before = change.before.data();
+    const after = change.after.data();
+    
+    // Only track when status changes to 'completed'
+    if (before.status !== 'completed' && after.status === 'completed') {
+      await trackStudySession({
+        id: context.params.sessionId,
+        ...after
+      }, after.userId);
+      
+      console.log(`✅ Study session tracked in BigQuery: ${context.params.sessionId}`);
+    }
+    
+    return null;
   });
 
 exports.checkLevelUp = functions.firestore
@@ -519,9 +734,166 @@ exports.explainText = functions.https.onCall(async (data, context) => {
 });
 
 // ==========================================
-// ANALYTICS FUNCTIONS - USING quizSessions
+// 🆕 BIGQUERY-POWERED ANALYTICS
 // ==========================================
+exports.getAnalyticsBigQuery = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
+  }
 
+  const { uid, timeframe = 30 } = data;
+  const projectId = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
+
+  const query = `
+    SELECT 
+      COALESCE(SUM(xp_earned), 0) as totalXP,
+      COUNT(DISTINCT CASE WHEN event_type = 'quiz_complete' THEN event_id END) as totalQuizzes,
+      ROUND(AVG(CASE WHEN event_type = 'quiz_complete' THEN quiz_score END), 2) as avgQuizScore,
+      COALESCE(SUM(CASE WHEN event_type = 'study_session' THEN study_minutes END), 0) as totalStudyMinutes,
+      COUNT(DISTINCT DATE(timestamp)) as activeDays,
+      COUNT(DISTINCT CASE WHEN event_type = 'document_upload' THEN event_id END) as documentsUploaded
+    FROM \`${projectId}.studygloqe_analytics.user_events\`
+    WHERE user_id = @userId
+      AND timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL @days DAY)
+  `;
+
+  const options = {
+    query,
+    params: { userId: uid, days: timeframe },
+    location: 'asia-south1'
+  };
+
+  try {
+    const [rows] = await bigqueryClient.query(options);
+    
+    const result = rows[0] || {
+      totalXP: 0,
+      totalQuizzes: 0,
+      avgQuizScore: 0,
+      totalStudyMinutes: 0,
+      activeDays: 0,
+      documentsUploaded: 0
+    };
+
+    const level = Math.floor(result.totalXP / 1000) + 1;
+
+    return {
+      bigQuery: {
+        totalXP: parseInt(result.totalXP),
+        level,
+        nextLevelXP: level * 1000,
+        totalQuizzes: parseInt(result.totalQuizzes),
+        avgScore: parseFloat(result.avgQuizScore) || 0,
+        studyMinutes: parseInt(result.totalStudyMinutes),
+        activeDays: parseInt(result.activeDays),
+        documentsRead: parseInt(result.documentsUploaded),
+        
+        xpFromQuizzes: parseInt(result.totalQuizzes) * 100,
+        xpFromStudy: parseInt(result.totalStudyMinutes),
+        xpFromAchievements: 0,
+        xpFromFlashcards: 0
+      }
+    };
+  } catch (error) {
+    console.error('❌ BigQuery getAnalytics error:', error);
+    throw new functions.https.HttpsError('internal', error.message);
+  }
+});
+
+exports.getTrendsBigQuery = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
+  }
+
+  const { uid, timeframe = 7 } = data;
+  const projectId = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
+
+  const query = `
+    SELECT 
+      DATE(timestamp) as date,
+      COALESCE(SUM(CASE WHEN event_type = 'study_session' THEN study_minutes END), 0) as studyMinutes,
+      COUNT(DISTINCT CASE WHEN event_type = 'quiz_complete' THEN event_id END) as quizzesCompleted,
+      ROUND(AVG(CASE WHEN event_type = 'quiz_complete' THEN quiz_score END), 2) as avgScore
+    FROM \`${projectId}.studygloqe_analytics.user_events\`
+    WHERE user_id = @userId
+      AND timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL @days DAY)
+    GROUP BY date
+    ORDER BY date DESC
+    LIMIT 7
+  `;
+
+  const options = {
+    query,
+    params: { userId: uid, days: timeframe },
+    location: 'asia-south1'
+  };
+
+  try {
+    const [rows] = await bigqueryClient.query(options);
+    
+    const trends = rows.map(row => ({
+      date: { toMillis: () => new Date(row.date.value).getTime() },
+      studyMinutes: parseInt(row.studyMinutes) || 0,
+      quizzesCompleted: parseInt(row.quizzesCompleted) || 0,
+      avgScore: parseFloat(row.avgScore) || 0
+    }));
+    
+    return { trends };
+  } catch (error) {
+    console.error('❌ BigQuery getTrends error:', error);
+    throw new functions.https.HttpsError('internal', error.message);
+  }
+});
+
+exports.getSubjectPerformanceBigQuery = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
+  }
+
+  const { uid } = data;
+  const projectId = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
+
+  const query = `
+    SELECT 
+      quiz_subject as name,
+      COUNT(*) as quizCount,
+      ROUND(AVG(quiz_score), 2) as score,
+      SUM(correct_answers) as totalCorrect,
+      SUM(total_questions) as totalQuestions
+    FROM \`${projectId}.studygloqe_analytics.user_events\`
+    WHERE user_id = @userId
+      AND event_type = 'quiz_complete'
+      AND quiz_subject IS NOT NULL
+    GROUP BY quiz_subject
+    ORDER BY score DESC
+  `;
+
+  const options = {
+    query,
+    params: { userId: uid },
+    location: 'asia-south1'
+  };
+
+  try {
+    const [rows] = await bigqueryClient.query(options);
+    
+    const performance = rows.map(row => ({
+      id: row.name,
+      name: row.name,
+      score: parseFloat(row.score) || 0,
+      quizCount: parseInt(row.quizCount) || 0
+    }));
+    
+    return { performance };
+  } catch (error) {
+    console.error('❌ BigQuery getSubjectPerformance error:', error);
+    throw new functions.https.HttpsError('internal', error.message);
+  }
+});
+
+// ==========================================
+// FIRESTORE ANALYTICS (LEGACY/FALLBACK)
+// ==========================================
 exports.getStudentAnalytics = functions.https.onRequest((req, res) => {
   return cors(req, res, async () => {
     try {
@@ -567,7 +939,6 @@ exports.getQuizPerformance = functions.https.onRequest((req, res) => {
         return res.status(400).json({ error: 'userId is required' });
       }
 
-      // FIXED: Using quizSessions
       const sessionsSnapshot = await db.collection('quizSessions')
         .where('userId', '==', userId)
         .limit(50)
@@ -649,7 +1020,6 @@ exports.getStudyTimeStats = functions.https.onRequest((req, res) => {
 
       const sessions = sessionsSnapshot.docs.map(doc => doc.data());
       
-      // Check for both duration and totalTime fields
       const totalMinutes = sessions.reduce((sum, s) => sum + (s.duration || s.totalTime || 0), 0);
       const totalSessions = sessions.length;
       const avgSessionLength = totalSessions > 0 ? totalMinutes / totalSessions : 0;
@@ -683,7 +1053,6 @@ exports.getPerformanceTrends = functions.https.onRequest((req, res) => {
         return res.status(400).json({ error: 'userId is required' });
       }
 
-      // FIXED: Using quizSessions
       const sessionsSnapshot = await db.collection('quizSessions')
         .where('userId', '==', userId)
         .limit(20)
@@ -753,7 +1122,6 @@ exports.getPersonalizedRecommendations = functions.https.onRequest((req, res) =>
         return res.status(400).json({ error: 'userId is required' });
       }
 
-      // FIXED: Using quizSessions
       const sessionsSnapshot = await db.collection('quizSessions')
         .where('userId', '==', userId)
         .limit(10)
@@ -905,7 +1273,6 @@ exports.getSubjectPerformance = functions.https.onRequest((req, res) => {
         return res.status(400).json({ error: 'userId is required' });
       }
 
-      // FIXED: Using quizSessions
       const sessionsSnapshot = await db.collection('quizSessions')
         .where('userId', '==', userId)
         .limit(50)
@@ -953,7 +1320,6 @@ exports.getWeakAreas = functions.https.onRequest((req, res) => {
         return res.status(400).json({ error: 'userId is required' });
       }
 
-      // FIXED: Using quizSessions
       const sessionsSnapshot = await db.collection('quizSessions')
         .where('userId', '==', userId)
         .limit(50)

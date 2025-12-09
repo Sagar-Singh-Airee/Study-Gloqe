@@ -19,6 +19,7 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage
 import { db, storage } from '@/config/firebase';
 import * as pdfjsLib from 'pdfjs-dist';
 import toast from 'react-hot-toast';
+import { detectSubjectFromContent, detectSubjectFromTitle } from '@/helpers/subjectDetection';
 
 // Setup PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
@@ -31,25 +32,25 @@ const extractTextFromPDF = async (file) => {
         console.log('📝 Extracting text from PDF...');
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        
+
         let fullText = '';
         const pageTexts = [];
-        
+
         for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
             const textContent = await page.getTextContent();
             const pageText = textContent.items.map(item => item.str).join(' ');
-            
+
             pageTexts.push({
                 pageNum: i,
                 text: pageText
             });
-            
+
             fullText += pageText + '\n\n';
         }
-        
+
         console.log(`✅ Extracted ${fullText.length} characters from ${pdf.numPages} pages`);
-        
+
         return {
             fullText: fullText.trim(),
             pageTexts,
@@ -67,86 +68,13 @@ const extractTextFromPDF = async (file) => {
 };
 
 /**
- * ✅ AI-BASED SUBJECT DETECTION
- */
-const detectSubjectFromText = async (text) => {
-    try {
-        const sampleText = text.split(/\s+/).slice(0, 500).join(' ');
-        
-        const subjects = {
-            'Mathematics': ['equation', 'theorem', 'calculus', 'algebra', 'geometry', 'derivative', 'integral', 'matrix', 'function', 'proof', 'polynomial', 'trigonometry', 'vector', 'limit'],
-            'Physics': ['force', 'energy', 'momentum', 'velocity', 'acceleration', 'quantum', 'newton', 'gravity', 'wave', 'particle', 'motion', 'thermodynamics', 'electromagnetic', 'kinetic'],
-            'Chemistry': ['molecule', 'atom', 'reaction', 'compound', 'element', 'acid', 'base', 'electron', 'bond', 'periodic', 'chemical', 'solution', 'oxidation', 'reduction'],
-            'Biology': ['cell', 'organism', 'evolution', 'gene', 'protein', 'DNA', 'species', 'tissue', 'enzyme', 'bacteria', 'mitochondria', 'photosynthesis', 'chromosome', 'mutation'],
-            'Computer Science': ['algorithm', 'programming', 'database', 'software', 'code', 'data structure', 'function', 'class', 'variable', 'loop', 'array', 'compile', 'syntax', 'binary'],
-            'History': ['century', 'war', 'empire', 'revolution', 'ancient', 'medieval', 'dynasty', 'civilization', 'treaty', 'battle', 'kingdom', 'colonial', 'historical', 'era'],
-            'Economics': ['market', 'supply', 'demand', 'economy', 'trade', 'inflation', 'GDP', 'capitalism', 'investment', 'revenue', 'fiscal', 'monetary', 'economic', 'price'],
-            'Literature': ['novel', 'poem', 'author', 'character', 'narrative', 'metaphor', 'plot', 'theme', 'protagonist', 'verse', 'poetry', 'literary', 'prose', 'symbolism'],
-            'Psychology': ['behavior', 'cognitive', 'mental', 'therapy', 'consciousness', 'emotion', 'brain', 'perception', 'personality', 'disorder', 'psychological', 'neuroscience', 'anxiety', 'depression'],
-            'Engineering': ['design', 'circuit', 'mechanical', 'electrical', 'system', 'structure', 'load', 'stress', 'material', 'engineering', 'CAD', 'blueprint', 'manufacturing', 'assembly']
-        };
-
-        let maxScore = 0;
-        let detectedSubject = 'General Studies';
-        const lowerText = sampleText.toLowerCase();
-
-        for (const [subject, keywords] of Object.entries(subjects)) {
-            let score = 0;
-            keywords.forEach(keyword => {
-                const regex = new RegExp(`\\b${keyword}\\b`, 'gi');
-                const matches = lowerText.match(regex);
-                if (matches) score += matches.length;
-            });
-
-            if (score > maxScore) {
-                maxScore = score;
-                detectedSubject = subject;
-            }
-        }
-
-        console.log(`🤖 AI detected subject: ${detectedSubject} (confidence score: ${maxScore})`);
-        return { subject: detectedSubject, confidence: maxScore };
-    } catch (error) {
-        console.error('Error detecting subject:', error);
-        return { subject: 'General Studies', confidence: 0 };
-    }
-};
-
-/**
- * Fallback: Simple filename-based detection
- */
-const detectSubjectFromFilename = (fileName) => {
-    const lowerName = fileName.toLowerCase();
-    
-    const subjectPatterns = {
-        'Mathematics': ['math', 'calculus', 'algebra', 'geometry', 'trigonometry'],
-        'Physics': ['physics', 'mechanics', 'quantum', 'thermodynamics'],
-        'Chemistry': ['chemistry', 'organic', 'inorganic', 'chemical'],
-        'Biology': ['biology', 'genetics', 'anatomy', 'botany', 'zoology'],
-        'Computer Science': ['cs', 'programming', 'algorithm', 'software', 'coding', 'python', 'java'],
-        'Engineering': ['engineering', 'mechanical', 'electrical', 'civil'],
-        'Economics': ['economics', 'macro', 'micro', 'finance'],
-        'History': ['history', 'historical'],
-        'Literature': ['literature', 'english', 'novel', 'poetry']
-    };
-
-    for (const [subject, patterns] of Object.entries(subjectPatterns)) {
-        if (patterns.some(pattern => lowerName.includes(pattern))) {
-            return subject;
-        }
-    }
-
-    return 'General Studies';
-};
-
-/**
  * Extract keywords for search
  */
 const extractKeywords = (text) => {
     if (!text || text.length < 10) return [];
 
     const stopWords = new Set([
-        'the', 'is', 'at', 'which', 'on', 'a', 'an', 'and', 'or', 'but', 'in', 
+        'the', 'is', 'at', 'which', 'on', 'a', 'an', 'and', 'or', 'but', 'in',
         'with', 'to', 'for', 'of', 'as', 'by', 'this', 'that', 'from', 'are',
         'was', 'were', 'been', 'be', 'have', 'has', 'had', 'do', 'does', 'did'
     ]);
@@ -156,12 +84,12 @@ const extractKeywords = (text) => {
         .replace(/[^\w\s]/g, '')
         .split(/\s+/)
         .filter(word => word.length > 3 && !stopWords.has(word));
-    
+
     const wordFreq = {};
     words.forEach(word => {
         wordFreq[word] = (wordFreq[word] || 0) + 1;
     });
-    
+
     return Object.entries(wordFreq)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 30)
@@ -173,7 +101,7 @@ const extractKeywords = (text) => {
  */
 export const uploadDocument = async (file, userId, metadata = {}) => {
     const toastId = toast.loading('Uploading document...');
-    
+
     try {
         console.log('📤 Starting document upload:', file.name);
         console.log('👤 User ID:', userId);
@@ -194,7 +122,7 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
         // ===== STEP 1: EXTRACT TEXT =====
         toast.loading('Extracting text from PDF...', { id: toastId });
         const { fullText, pageTexts, numPages, extractionError } = await extractTextFromPDF(file);
-        
+
         if (extractionError) {
             console.warn('⚠️ Text extraction had errors:', extractionError);
         }
@@ -204,22 +132,22 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
         let subject = 'General Studies';
         let detectionMethod = 'default';
         let confidenceScore = 0;
-        
+
         // First, try AI detection from text content
         if (fullText && fullText.length > 100) {
-            const aiResult = await detectSubjectFromText(fullText);
+            const aiResult = detectSubjectFromContent(fullText);
             subject = aiResult.subject;
             confidenceScore = aiResult.confidence;
             detectionMethod = 'ai_text_analysis';
             console.log(`✅ AI detected: ${subject} (score: ${confidenceScore})`);
-        } 
+        }
         // Fallback to filename detection
         else {
-            subject = detectSubjectFromFilename(file.name);
+            subject = detectSubjectFromTitle(file.name);
             detectionMethod = 'filename_pattern';
             console.log(`✅ Filename detected: ${subject}`);
         }
-        
+
         // Allow manual override from metadata
         if (metadata.subject) {
             subject = metadata.subject;
@@ -232,15 +160,15 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
 
         // ===== STEP 4: UPLOAD TO STORAGE =====
         toast.loading('Uploading file to cloud...', { id: toastId });
-        
+
         const timestamp = Date.now();
         const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
         const storagePath = `documents/${userId}/${timestamp}_${sanitizedFileName}`;
-        
+
         console.log('📁 Storage path:', storagePath);
 
         const storageRef = ref(storage, storagePath);
-        
+
         const uploadResult = await uploadBytes(storageRef, file, {
             contentType: 'application/pdf',
             customMetadata: {
@@ -250,7 +178,7 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
                 subject: subject
             }
         });
-        
+
         console.log('✅ File uploaded to Storage');
 
         const downloadURL = await getDownloadURL(uploadResult.ref);
@@ -258,7 +186,7 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
 
         // ===== STEP 5: CREATE FIRESTORE DOCUMENT =====
         toast.loading('Saving document metadata...', { id: toastId });
-        
+
         const docData = {
             title: metadata.title || file.name.replace('.pdf', ''),
             fileName: file.name,
@@ -285,14 +213,14 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
         };
 
         console.log('💾 Saving to Firestore with subject:', subject);
-        
+
         const docRef = await addDoc(collection(db, 'documents'), docData);
         console.log('✅ Document saved with Firestore ID:', docRef.id);
 
         // ===== STEP 6: SAVE PAGE TEXTS (Optional) =====
         if (pageTexts.length > 0 && pageTexts.length <= 100) {
             console.log(`📄 Saving ${pageTexts.length} page texts...`);
-            
+
             const pagePromises = pageTexts.slice(0, 50).map(pageData =>
                 addDoc(collection(db, 'documents', docRef.id, 'pages'), {
                     ...pageData,
@@ -302,7 +230,7 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
                     return null;
                 })
             );
-            
+
             await Promise.allSettled(pagePromises);
         }
 
@@ -311,7 +239,7 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
         try {
             const userRef = doc(db, 'users', userId);
             const userDoc = await getDoc(userRef);
-            
+
             if (userDoc.exists()) {
                 await updateDoc(userRef, {
                     totalDocuments: increment(1),
@@ -331,13 +259,13 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
             console.warn('⚠️ User stats update failed (non-critical):', error);
         }
 
-        toast.success(`✅ Uploaded & categorized as ${subject}!`, { 
-            id: toastId, 
-            duration: 4000 
+        toast.success(`✅ Uploaded & categorized as ${subject}!`, {
+            id: toastId,
+            duration: 4000
         });
-        
+
         console.log('🎉 Upload complete! Firestore ID:', docRef.id);
-        
+
         // ✅ CRITICAL FIX: Return object with docId, subject, and downloadURL
         return {
             docId: docRef.id,
@@ -348,9 +276,9 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
     } catch (error) {
         console.error('❌ UPLOAD ERROR:', error);
         console.error('Error stack:', error.stack);
-        
+
         let errorMessage = 'Failed to upload document';
-        
+
         if (error.message.includes('permission')) {
             errorMessage = 'Permission denied. Please check your account.';
         } else if (error.message.includes('network')) {
@@ -358,7 +286,7 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
         } else if (error.message) {
             errorMessage = error.message;
         }
-        
+
         toast.error(errorMessage, { id: toastId });
         throw new Error(errorMessage);
     }
@@ -475,7 +403,7 @@ export const updateDocumentSubject = async (firestoreId, newSubject) => {
             subjectDetectionMethod: 'manual_override',
             updatedAt: serverTimestamp()
         });
-        
+
         toast.success(`Subject updated to ${newSubject}`);
         return true;
     } catch (error) {

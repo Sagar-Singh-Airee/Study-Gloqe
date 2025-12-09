@@ -5,8 +5,14 @@ const analytics = require('./analytics');
 const recommendations = require('./recommendations');
 const dashboards = require('./dashboards');
 const trends = require('./trends');
+const tracker = require('./tracker'); // 🆕 NEW
 
 module.exports = {
+  // 🆕 NEW: Tracking Functions
+  trackQuizCompletion: tracker.trackQuizCompletion,
+  trackStudySession: tracker.trackStudySession,
+  trackDocumentUpload: tracker.trackDocumentUpload,
+  
   // Analytics Functions
   getStudentAnalytics: analytics.getStudentAnalytics,
   getClassAnalytics: analytics.getClassAnalytics,
