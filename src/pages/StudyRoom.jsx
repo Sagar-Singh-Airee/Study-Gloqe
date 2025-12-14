@@ -3,18 +3,19 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import AgoraRTC from 'agora-rtc-sdk-ng';
-import { 
-    collection, 
-    doc, 
-    getDoc, 
-    addDoc, 
-    query, 
-    orderBy, 
+import {
+    collection,
+    doc,
+    getDoc,
+    addDoc,
+    query,
+    orderBy,
     onSnapshot,
     serverTimestamp,
     updateDoc,
     arrayUnion,
     arrayRemove,
+    increment,
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -61,9 +62,9 @@ let agoraClient = null;
 
 const getAgoraClient = () => {
     if (!agoraClient) {
-        agoraClient = AgoraRTC.createClient({ 
-            mode: 'rtc', 
-            codec: 'vp8' 
+        agoraClient = AgoraRTC.createClient({
+            mode: 'rtc',
+            codec: 'vp8'
         });
     }
     return agoraClient;
@@ -73,11 +74,11 @@ const getAgoraClient = () => {
 // VIDEO TILE COMPONENT
 // ============================================
 
-const VideoTile = ({ 
-    user, 
-    isLocal, 
-    isPinned, 
-    onPin, 
+const VideoTile = ({
+    user,
+    isLocal,
+    isPinned,
+    onPin,
     isSpotlight,
     audioTrack,
     videoTrack,
@@ -131,22 +132,20 @@ const VideoTile = ({
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
-            className={`relative bg-gray-900 rounded-2xl overflow-hidden group transition-all duration-300 ${
-                isSpotlight ? 'col-span-2 row-span-2' : ''
-            } ${isPinned ? 'ring-2 ring-blue-500' : ''}`}
+            className={`relative bg-gray-900 rounded-2xl overflow-hidden group transition-all duration-300 ${isSpotlight ? 'col-span-2 row-span-2' : ''
+                } ${isPinned ? 'ring-2 ring-blue-500' : ''}`}
         >
             {/* Video Container */}
-            <div 
+            <div
                 ref={videoRef}
                 className={`w-full h-full absolute inset-0 ${!isVideoEnabled ? 'hidden' : ''}`}
             />
-            
+
             {/* Avatar when video is off */}
             {!isVideoEnabled && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
-                    <div className={`rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center ${
-                        isSpotlight ? 'w-32 h-32 text-5xl' : 'w-20 h-20 text-3xl'
-                    }`}>
+                    <div className={`rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center ${isSpotlight ? 'w-32 h-32 text-5xl' : 'w-20 h-20 text-3xl'
+                        }`}>
                         <span className="font-bold text-white">{initials}</span>
                     </div>
                 </div>
@@ -217,13 +216,12 @@ const ControlButton = ({ icon: Icon, label, isActive, isDestructive, onClick, di
         disabled={disabled}
         className="relative group flex flex-col items-center gap-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
     >
-        <div className={`p-4 rounded-full transition-all ${
-            isDestructive 
-                ? 'bg-red-500 hover:bg-red-600 text-white' 
-                : isActive 
-                    ? 'bg-gray-700 hover:bg-gray-600 text-white' 
+        <div className={`p-4 rounded-full transition-all ${isDestructive
+                ? 'bg-red-500 hover:bg-red-600 text-white'
+                : isActive
+                    ? 'bg-gray-700 hover:bg-gray-600 text-white'
                     : 'bg-gray-800 hover:bg-gray-700 text-red-400'
-        }`}>
+            }`}>
             <Icon size={24} />
             {badge && (
                 <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
@@ -257,7 +255,7 @@ const ParticipantsPanel = ({ participants, localUid, onClose }) => (
                 <X size={18} className="text-gray-500" />
             </button>
         </div>
-        
+
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
             {participants?.map((participant) => (
                 <div key={participant.uid} className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors">
@@ -292,7 +290,7 @@ const ParticipantsPanel = ({ participants, localUid, onClose }) => (
 
 const ChatPanel = ({ messages, messageText, setMessageText, onSendMessage, user, onClose }) => {
     const chatEndRef = useRef(null);
-    
+
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
@@ -313,7 +311,7 @@ const ChatPanel = ({ messages, messageText, setMessageText, onSendMessage, user,
                     <X size={18} className="text-gray-500" />
                 </button>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
                 {messages.length === 0 && (
                     <div className="text-center py-12">
@@ -322,7 +320,7 @@ const ChatPanel = ({ messages, messageText, setMessageText, onSendMessage, user,
                         <p className="text-gray-400 text-xs">Messages are only visible to people in the call</p>
                     </div>
                 )}
-                
+
                 <AnimatePresence>
                     {messages.map((msg, idx) => (
                         <motion.div
@@ -338,11 +336,10 @@ const ChatPanel = ({ messages, messageText, setMessageText, onSendMessage, user,
                                         {msg.senderId !== user?.uid && (
                                             <p className="text-xs text-gray-500 font-medium mb-1 ml-1">{msg.senderName}</p>
                                         )}
-                                        <div className={`px-4 py-2 rounded-2xl ${
-                                            msg.senderId === user?.uid 
-                                                ? 'bg-blue-500 text-white rounded-tr-sm' 
+                                        <div className={`px-4 py-2 rounded-2xl ${msg.senderId === user?.uid
+                                                ? 'bg-blue-500 text-white rounded-tr-sm'
                                                 : 'bg-white text-gray-900 shadow-sm border border-gray-100 rounded-tl-sm'
-                                        }`}>
+                                            }`}>
                                             <p className="text-sm">{msg.text}</p>
                                         </div>
                                     </div>
@@ -353,7 +350,7 @@ const ChatPanel = ({ messages, messageText, setMessageText, onSendMessage, user,
                 </AnimatePresence>
                 <div ref={chatEndRef} />
             </div>
-            
+
             <form onSubmit={onSendMessage} className="p-4 border-t border-gray-200 bg-white">
                 <div className="flex gap-2">
                     <input
@@ -414,7 +411,7 @@ const ShareModal = ({ roomId, onClose }) => {
                 className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl"
             >
                 <h2 className="text-2xl font-black text-gray-900 mb-6">Share this Study Room</h2>
-                
+
                 <div className="mb-6">
                     <label className="text-sm font-semibold text-gray-600 mb-2 block">Room Code</label>
                     <div className="bg-gray-100 p-6 rounded-2xl text-center">
@@ -462,11 +459,11 @@ const StudyRoom = () => {
     const { roomId } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
-    
+
     // ============================================
     // STATE
     // ============================================
-    
+
     const [roomData, setRoomData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [messageText, setMessageText] = useState('');
@@ -478,25 +475,25 @@ const StudyRoom = () => {
     const [showShareModal, setShowShareModal] = useState(false);
     const [pinnedPeer, setPinnedPeer] = useState(null);
     const [viewMode, setViewMode] = useState('grid');
-    
+
     // Media state
     const [isAudioEnabled, setIsAudioEnabled] = useState(true);
     const [isVideoEnabled, setIsVideoEnabled] = useState(true);
     const [isScreenSharing, setIsScreenSharing] = useState(false);
-    
+
     // Tracks
     const [localAudioTrack, setLocalAudioTrack] = useState(null);
     const [localVideoTrack, setLocalVideoTrack] = useState(null);
     const [screenTrack, setScreenTrack] = useState(null);
-    
+
     // Remote users
     const [remoteUsers, setRemoteUsers] = useState([]);
-    
+
     // Operation guards
     const [isLeaving, setIsLeaving] = useState(false);
     const [isTogglingAudio, setIsTogglingAudio] = useState(false);
     const [isTogglingVideo, setIsTogglingVideo] = useState(false);
-    
+
     // Refs
     const isMountedRef = useRef(true);
     const clientRef = useRef(null);
@@ -505,13 +502,25 @@ const StudyRoom = () => {
     // ============================================
     // MOUNT/UNMOUNT TRACKING
     // ============================================
-    
+
     useEffect(() => {
         isMountedRef.current = true;
+        const startTime = Date.now();
+
         return () => {
             isMountedRef.current = false;
+
+            // Log session duration on unmount
+            const duration = (Date.now() - startTime) / 1000 / 60; // in minutes
+            if (duration >= 1 && user?.uid) {
+                const userRef = doc(db, 'users', user.uid);
+                updateDoc(userRef, {
+                    totalTimeInRooms: increment(Math.round(duration)),
+                    roomsJoined: increment(1)
+                }).catch(err => console.error('Failed to log room stats:', err));
+            }
         };
-    }, []);
+    }, [user]);
 
     // ============================================
     // FETCH ROOM DATA
@@ -520,11 +529,11 @@ const StudyRoom = () => {
     useEffect(() => {
         const fetchRoom = async () => {
             if (!roomId) return;
-            
+
             try {
                 const roomRef = doc(db, 'rooms', roomId);
                 const roomSnap = await getDoc(roomRef);
-                
+
                 if (!roomSnap.exists()) {
                     toast.error('Room not found!');
                     navigate('/dashboard?tab=rooms');
@@ -562,8 +571,8 @@ const StudyRoom = () => {
             setRemoteUsers(prev => {
                 const exists = prev.find(u => u.uid === remoteUser.uid);
                 if (exists) {
-                    return prev.map(u => 
-                        u.uid === remoteUser.uid 
+                    return prev.map(u =>
+                        u.uid === remoteUser.uid
                             ? { ...u, [mediaType + 'Track']: remoteUser[mediaType + 'Track'], ['has' + mediaType.charAt(0).toUpperCase() + mediaType.slice(1)]: true }
                             : u
                     );
@@ -582,10 +591,10 @@ const StudyRoom = () => {
         // User unpublished (stopped sharing)
         client.on('user-unpublished', (remoteUser, mediaType) => {
             console.log('User unpublished:', remoteUser.uid, mediaType);
-            
-            setRemoteUsers(prev => 
-                prev.map(u => 
-                    u.uid === remoteUser.uid 
+
+            setRemoteUsers(prev =>
+                prev.map(u =>
+                    u.uid === remoteUser.uid
                         ? { ...u, [mediaType + 'Track']: null, ['has' + mediaType.charAt(0).toUpperCase() + mediaType.slice(1)]: false }
                         : u
                 )
@@ -759,7 +768,7 @@ const StudyRoom = () => {
 
         const messagesRef = collection(db, 'rooms', roomId, 'messages');
         const q = query(messagesRef, orderBy('timestamp', 'asc'));
-        
+
         const unsubscribe = onSnapshot(q, (snapshot) => {
             if (isMountedRef.current) {
                 setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -775,7 +784,7 @@ const StudyRoom = () => {
 
     const toggleAudio = async () => {
         if (!isConnected || isTogglingAudio || isLeaving || !localAudioTrack) return;
-        
+
         try {
             setIsTogglingAudio(true);
             await localAudioTrack.setEnabled(!isAudioEnabled);
@@ -794,7 +803,7 @@ const StudyRoom = () => {
 
     const toggleVideo = async () => {
         if (!isConnected || isTogglingVideo || isLeaving || !localVideoTrack) return;
-        
+
         try {
             setIsTogglingVideo(true);
             await localVideoTrack.setEnabled(!isVideoEnabled);
@@ -816,13 +825,13 @@ const StudyRoom = () => {
 
         try {
             const client = clientRef.current;
-            
+
             if (isScreenSharing && screenTrack) {
                 await client.unpublish(screenTrack);
                 screenTrack.close();
                 setScreenTrack(null);
                 setIsScreenSharing(false);
-                
+
                 // Re-publish video track
                 if (localVideoTrack) {
                     await client.publish(localVideoTrack);
@@ -834,28 +843,28 @@ const StudyRoom = () => {
                     encoderConfig: '1080p_1',
                     optimizationMode: 'detail',
                 });
-                
+
                 // Unpublish video track first
                 if (localVideoTrack) {
                     await client.unpublish(localVideoTrack);
                 }
-                
+
                 await client.publish(screen);
                 setScreenTrack(screen);
                 setIsScreenSharing(true);
-                
+
                 // Handle when user stops sharing via browser
                 screen.on('track-ended', async () => {
                     await client.unpublish(screen);
                     screen.close();
                     setScreenTrack(null);
                     setIsScreenSharing(false);
-                    
+
                     if (localVideoTrack) {
                         await client.publish(localVideoTrack);
                     }
                 });
-                
+
                 toast.success('Started screen sharing');
             }
         } catch (error) {
@@ -874,7 +883,7 @@ const StudyRoom = () => {
 
     const handleLeave = async () => {
         if (isLeaving) return;
-        
+
         setIsLeaving(true);
         console.log('Leaving room...');
 
@@ -916,7 +925,7 @@ const StudyRoom = () => {
 
             setIsConnected(false);
             setRemoteUsers([]);
-            
+
             toast.success('Left study room');
             navigate('/dashboard?tab=rooms', { replace: true });
 
@@ -933,15 +942,15 @@ const StudyRoom = () => {
     useEffect(() => {
         return () => {
             isMountedRef.current = false;
-            
+
             // Cleanup tracks
             if (localAudioTrack) localAudioTrack.close();
             if (localVideoTrack) localVideoTrack.close();
             if (screenTrack) screenTrack.close();
-            
+
             // Leave channel
             if (clientRef.current) {
-                clientRef.current.leave().catch(() => {});
+                clientRef.current.leave().catch(() => { });
             }
         };
     }, []);
@@ -1046,7 +1055,7 @@ const StudyRoom = () => {
 
     return (
         <div className="min-h-screen bg-gray-900 flex flex-col">
-            
+
             {/* TOP BAR */}
             <div className="flex-shrink-0 px-4 py-3 flex items-center justify-between border-b border-gray-800">
                 <div className="flex items-center gap-4">
@@ -1054,17 +1063,16 @@ const StudyRoom = () => {
                         {roomData?.name || 'Study Room'}
                     </h1>
                     <div className="hidden md:flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${
-                            isConnected ? 'bg-green-500' : 
-                            isJoiningCall ? 'bg-yellow-500 animate-pulse' : 
-                            'bg-red-500'
-                        }`} />
+                        <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' :
+                                isJoiningCall ? 'bg-yellow-500 animate-pulse' :
+                                    'bg-red-500'
+                            }`} />
                         <span className="text-gray-400 text-sm">
                             {isConnected ? 'Connected' : isJoiningCall ? 'Connecting...' : 'Disconnected'}
                         </span>
                     </div>
                 </div>
-                
+
                 <div className="flex items-center gap-3">
                     <span className="text-gray-400 text-sm font-medium hidden md:block">
                         {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -1082,7 +1090,7 @@ const StudyRoom = () => {
 
             {/* MAIN CONTENT */}
             <div className="flex-1 flex overflow-hidden">
-                
+
                 {/* VIDEO GRID */}
                 <div className="flex-1 p-4 overflow-auto">
                     <div className={`grid ${gridClass} gap-4 h-full auto-rows-fr`}>
@@ -1102,7 +1110,7 @@ const StudyRoom = () => {
                                 />
                             ))}
                         </AnimatePresence>
-                        
+
                         {allParticipants.length === 0 && (
                             <div className="col-span-full flex items-center justify-center h-full">
                                 <div className="text-center">
@@ -1145,7 +1153,7 @@ const StudyRoom = () => {
             {/* BOTTOM CONTROLS */}
             <div className="flex-shrink-0 px-4 py-4 bg-gray-900 border-t border-gray-800">
                 <div className="flex items-center justify-between max-w-4xl mx-auto">
-                    
+
                     <div className="flex items-center gap-4 flex-1">
                         <div className="hidden md:block">
                             <p className="text-gray-500 text-xs">Room Code</p>
@@ -1189,9 +1197,8 @@ const StudyRoom = () => {
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => { setShowParticipants(!showParticipants); setShowChat(false); }}
-                            className={`relative p-3 rounded-full transition-colors ${
-                                showParticipants ? 'bg-blue-500 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                            }`}
+                            className={`relative p-3 rounded-full transition-colors ${showParticipants ? 'bg-blue-500 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                                }`}
                         >
                             <Users size={20} />
                             {allParticipants.length > 1 && (
@@ -1204,9 +1211,8 @@ const StudyRoom = () => {
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => { setShowChat(!showChat); setShowParticipants(false); }}
-                            className={`p-3 rounded-full transition-colors ${
-                                showChat ? 'bg-blue-500 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                            }`}
+                            className={`p-3 rounded-full transition-colors ${showChat ? 'bg-blue-500 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                                }`}
                         >
                             <MessageCircle size={20} />
                         </motion.button>

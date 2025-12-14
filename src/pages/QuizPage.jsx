@@ -62,7 +62,7 @@ const ProgressRing = ({ current, total, size = 60 }) => {
   return (
     <div className="relative" style={{ width: size, height: size }}>
       <svg className="transform -rotate-90" width={size} height={size}>
-        ircle cx={size / 2} cy={size / 2} r={size / 2 - 2} fill="none" stroke="#F3F4F6" strokeWidth="3" />
+        <circle cx={size / 2} cy={size / 2} r={size / 2 - 2} fill="none" stroke="#F3F4F6" strokeWidth="3" />
         <motion.circle
           cx={size / 2}
           cy={size / 2}

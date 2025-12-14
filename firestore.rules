@@ -1,10 +1,12 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
     
     // ==========================================
-    // HELPER FUNCTIONS
+    // HELPER FUNCTIONS - ALL SAFE
     // ==========================================
+    
     function isSignedIn() {
       return request.auth != null;
     }
@@ -13,200 +15,348 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
     
-    function isTeacher() {
+    // ✅ FIXED: Safe getUserData with exists() check
+    function getUserData() {
       return isSignedIn() && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) 
+             ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data 
+             : {};
+    }
+    
+    function isTeacher() {
+      return isSignedIn() && getUserData().role == 'teacher';
+    }
+    
+    function isStudent() {
+      return isSignedIn() && getUserData().role == 'student';
     }
     
     function isAdmin() {
-      return isSignedIn() && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return isSignedIn() && getUserData().role == 'admin';
     }
     
     function isTeacherOrAdmin() {
-      return isSignedIn() && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['teacher', 'admin'];
+      return isSignedIn() && getUserData().role in ['teacher', 'admin'];
     }
     
-    // Validate document size (prevent huge documents)
     function isValidSize() {
-      return request.resource.size() < 1000000; // 1MB limit for Firestore doc
+      return request.resource.size() < 1000000;
+    }
+    
+    function ownsResource() {
+      return isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+    
+    function creatingWithOwnId() {
+      return isSignedIn() && request.resource.data.userId == request.auth.uid;
+    }
+    
+    function isTeacherOfResource() {
+      return isSignedIn() && resource.data.teacherId == request.auth.uid;
+    }
+    
+    function creatingAsTeacher() {
+      return isSignedIn() && request.resource.data.teacherId == request.auth.uid;
+    }
+    
+    function isRoomHost() {
+      return isSignedIn() && resource.data.hostId == request.auth.uid;
+    }
+    
+    function creatingRoomAsHost() {
+      return isSignedIn() && request.resource.data.hostId == request.auth.uid;
+    }
+    
+    function isInClassStudents() {
+      return isSignedIn() && request.auth.uid in resource.data.students;
     }
     
     // ==========================================
-    // USERS COLLECTION
+    // USERS COLLECTION - ✅ WITH ANALYTICS SUBCOLLECTIONS
     // ==========================================
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.auth.uid == userId && isValidSize();
+      allow create: if isOwner(userId) && isValidSize();
       allow update: if isOwner(userId) && isValidSize();
       allow delete: if isOwner(userId) || isAdmin();
+      
+      // ✅ Allow ANY authenticated user to read badges/titles
+      match /badges/{badgeId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && isOwner(userId);
+      }
+      
+      match /titles/{titleId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && isOwner(userId);
+      }
+      
+      // ==========================================
+      // 🔥 ANALYTICS SUBCOLLECTIONS FOR REAL-TIME TRACKING
+      // ==========================================
+      
+      // Analytics summary and patterns
+      match /analytics/{document=**} {
+        allow read: if isOwner(userId) || isTeacher() || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
+      }
+      
+      // Study sessions (completed and in-progress)
+      match /studySessions/{sessionId} {
+        allow read: if isOwner(userId) || isTeacher() || isAdmin();
+        allow create: if isOwner(userId);
+        allow update: if isOwner(userId);
+        allow delete: if isOwner(userId) || isAdmin();
+      }
+      
+      // Active study session (currently studying)
+      match /activeSession/{document=**} {
+        allow read: if isOwner(userId) || isTeacher() || isAdmin();
+        allow write: if isOwner(userId);
+      }
+      
+      // Quiz results and performance
+      match /quizResults/{quizId} {
+        allow read: if isOwner(userId) || isTeacher() || isAdmin();
+        allow create: if isOwner(userId);
+        allow update: if isOwner(userId) || isTeacher();
+        allow delete: if isOwner(userId) || isAdmin();
+      }
+      
+      // Subject-wise performance tracking
+      match /subjectPerformance/{subjectId} {
+        allow read: if isOwner(userId) || isTeacher() || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
+      }
+      
+      // Weak areas identification
+      match /weakAreas/{areaId} {
+        allow read: if isOwner(userId) || isTeacher() || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
+      }
+      
+      // Performance trends over time
+      match /trends/{trendId} {
+        allow read: if isOwner(userId) || isTeacher() || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
+      }
+      
+      // 🔥 NEW: AI Recommendations subcollection
+      match /recommendations/{recId} {
+        allow read: if isOwner(userId) || isTeacher() || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
+      }
+      
+      // Documents uploaded by user
+      match /documents/{docId} {
+        allow read: if isOwner(userId) || isTeacher() || isAdmin();
+        allow create: if isOwner(userId);
+        allow update: if isOwner(userId);
+        allow delete: if isOwner(userId) || isAdmin();
+      }
+      
+      // Flashcards created by user
+      match /flashcards/{cardId} {
+        allow read: if isOwner(userId) || isTeacher() || isAdmin();
+        allow write: if isOwner(userId);
+      }
+      
+      // Achievements earned
+      match /achievements/{achievementId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
+      }
+      
+      // Gamification data
+      match /gamification/{document=**} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
+      }
+      
+      // Notifications for user
+      match /notifications/{notifId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId) || isAdmin();
+      }
+      
+      // User's study rooms
+      match /myRooms/{roomId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId);
+      }
     }
     
     // ==========================================
-    // CLASSES COLLECTION
+    // ✅ GLOBAL BADGES - FULLY OPEN FOR READING
+    // ==========================================
+    match /globalBadges/{badgeId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    // ==========================================
+    // ✅ GLOBAL TITLES - FULLY OPEN FOR READING
+    // ==========================================
+    match /globalTitles/{titleId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    // ==========================================
+    // CLASSES COLLECTION - FIXED FOR ALL OPERATIONS
     // ==========================================
     match /classes/{classId} {
       allow read: if isSignedIn() && (
-        isTeacherOrAdmin() ||
-        request.auth.uid in resource.data.studentIds
+        isTeacherOfResource() || 
+        isInClassStudents() || 
+        isAdmin() ||
+        resource.data.active == true
       );
-      allow create: if isTeacherOrAdmin() && isValidSize();
-      allow update: if isTeacherOrAdmin() && 
-                     resource.data.teacherId == request.auth.uid &&
-                     isValidSize();
-      allow delete: if isTeacherOrAdmin() && 
-                     resource.data.teacherId == request.auth.uid;
+      
+      allow create: if isSignedIn() && 
+                       isTeacher() && 
+                       creatingAsTeacher();
+      
+      allow update: if isSignedIn() && (
+        isTeacherOfResource() ||
+        (isStudent() && !isInClassStudents())
+      );
+      
+      allow delete: if isTeacherOfResource() || isAdmin();
+      
+      match /members/{memberId} {
+        allow read: if isSignedIn();
+        allow write: if isTeacherOfResource() || isAdmin();
+      }
     }
     
     // ==========================================
-    // DOCUMENTS COLLECTION
+    // ASSIGNMENTS COLLECTION - ✅ FIXED
     // ==========================================
-    match /documents/{docId} {
+    match /assignments/{assignmentId} {
       allow read: if isSignedIn() && (
-        resource.data.uploaderId == request.auth.uid ||
-        isTeacherOrAdmin()
-      );
-      allow create: if isSignedIn() && 
-                     request.resource.data.uploaderId == request.auth.uid &&
-                     isValidSize();
-      allow update: if isSignedIn() && 
-                     resource.data.uploaderId == request.auth.uid &&
-                     isValidSize();
-      allow delete: if isSignedIn() && (
-        resource.data.uploaderId == request.auth.uid ||
+        resource.data.teacherId == request.auth.uid || 
         isAdmin()
       );
       
-      // Document pages subcollection (read-only for clients)
-      match /pages/{pageId} {
-        allow read: if isSignedIn();
-        allow write: if false; // Only Cloud Functions can write
-      }
+      allow create: if isSignedIn() &&
+                       request.resource.data.teacherId == request.auth.uid &&
+                       isValidSize();
+      
+      allow update: if isSignedIn() && 
+                       resource.data.teacherId == request.auth.uid && 
+                       isValidSize();
+      
+      allow delete: if isSignedIn() && (
+        resource.data.teacherId == request.auth.uid || 
+        isAdmin()
+      );
     }
     
     // ==========================================
     // QUIZZES COLLECTION
     // ==========================================
     match /quizzes/{quizId} {
-      allow read: if isSignedIn() && (
-        resource.data.createdBy == request.auth.uid ||
-        request.auth.uid in resource.data.assignedTo ||
-        isTeacherOrAdmin()
-      );
+      allow read: if isSignedIn();
       allow create: if isSignedIn() && 
-                     request.resource.data.createdBy == request.auth.uid &&
-                     isValidSize();
-      allow update: if isSignedIn() && 
-                     resource.data.createdBy == request.auth.uid &&
-                     isValidSize();
-      allow delete: if isSignedIn() && (
-        resource.data.createdBy == request.auth.uid ||
-        isAdmin()
-      );
+                       (creatingWithOwnId() || creatingAsTeacher()) && 
+                       isValidSize();
+      allow update: if (ownsResource() || isTeacherOfResource()) && isValidSize();
+      allow delete: if ownsResource() || isTeacherOfResource() || isAdmin();
     }
     
     // ==========================================
-    // ASSIGNMENTS COLLECTION
+    // ✅ QUIZ SESSIONS COLLECTION - ADDED BACK
     // ==========================================
-    match /assignments/{assignmentId} {
-      allow read: if isSignedIn() && (
-        resource.data.teacherId == request.auth.uid ||
-        request.auth.uid in get(/databases/$(database)/documents/classes/$(resource.data.classId)).data.studentIds ||
-        isAdmin()
-      );
-      allow create: if isTeacherOrAdmin() && isValidSize();
-      allow update: if isTeacherOrAdmin() && 
-                     resource.data.teacherId == request.auth.uid &&
-                     isValidSize();
-      allow delete: if isTeacherOrAdmin() && 
-                     resource.data.teacherId == request.auth.uid;
+    match /quizSessions/{sessionId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if ownsResource() || isAdmin();
     }
     
     // ==========================================
-    // SESSIONS COLLECTION (Quiz Sessions)
+    // SESSIONS COLLECTION
     // ==========================================
     match /sessions/{sessionId} {
-      allow read: if isSignedIn() && (
-        resource.data.userId == request.auth.uid ||
-        isTeacherOrAdmin()
-      );
+      allow read: if isSignedIn() && (ownsResource() || isTeacher() || isAdmin());
       allow create: if isSignedIn() && 
-                     request.resource.data.userId == request.auth.uid &&
-                     isValidSize();
-      allow update: if isSignedIn() && 
-                     resource.data.userId == request.auth.uid &&
-                     isValidSize();
+                       creatingWithOwnId() && 
+                       isValidSize();
+      allow update: if ownsResource() && isValidSize();
+      allow delete: if ownsResource() || isAdmin();
+    }
+    
+    // ==========================================
+    // SUBMISSIONS COLLECTION - ✅ FIXED
+    // ==========================================
+    match /submissions/{submissionId} {
+      allow read: if isSignedIn() && (
+        resource.data.userId == request.auth.uid || 
+        isTeacher() || 
+        isAdmin()
+      );
+      
+      allow create: if isSignedIn() && 
+                       request.resource.data.userId == request.auth.uid && 
+                       isValidSize();
+      
+      allow update: if isSignedIn() && (
+        resource.data.userId == request.auth.uid || 
+        isTeacher()
+      ) && isValidSize();
+      
       allow delete: if isSignedIn() && (
-        resource.data.userId == request.auth.uid ||
+        resource.data.userId == request.auth.uid || 
         isAdmin()
       );
     }
     
     // ==========================================
-    // GAMIFICATION COLLECTION
+    // DOCUMENTS COLLECTION
     // ==========================================
-    match /gamification/{userId} {
+    match /documents/{docId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      allow update: if true; // Allow Cloud Functions to update via admin SDK
-      allow delete: if isOwner(userId) || isAdmin();
-    }
-    
-    // ==========================================
-    // ALO (Adaptive Learning Orchestrator)
-    // ==========================================
-    match /alo/{userId} {
-      allow read: if isOwner(userId) || isTeacherOrAdmin();
-      allow create: if isOwner(userId);
-      allow update: if true; // Allow Cloud Functions to update
-      allow delete: if isOwner(userId) || isAdmin();
-    }
-    
-    // ==========================================
-    // REWARDS COLLECTION
-    // ==========================================
-    match /rewards/{rewardId} {
-      allow read: if isSignedIn() && (
-        isTeacherOrAdmin() ||
-        exists(/databases/$(database)/documents/rewards/$(rewardId)/winners/$(request.auth.uid))
-      );
-      allow create: if isTeacherOrAdmin() && isValidSize();
-      allow update: if isTeacherOrAdmin() && isValidSize();
-      allow delete: if isAdmin();
+      allow create: if isSignedIn() && 
+                       creatingWithOwnId() && 
+                       isValidSize();
+      allow update: if ownsResource() && isValidSize();
+      allow delete: if ownsResource();
       
-      // Winners subcollection
-      match /winners/{winnerId} {
+      match /pages/{pageId} {
         allow read: if isSignedIn();
-        allow write: if isTeacherOrAdmin();
+        allow write: if false;
       }
     }
     
     // ==========================================
-    // NOTES COLLECTION
+    // FLASHCARD DECKS COLLECTION
     // ==========================================
-    match /notes/{noteId} {
-      allow read: if isSignedIn() && (
-        resource.data.userId == request.auth.uid ||
-        resource.data.shared == true
-      );
+    match /flashcardDecks/{deckId} {
+      allow read: if isSignedIn() && ownsResource();
       allow create: if isSignedIn() && 
-                     request.resource.data.userId == request.auth.uid;
-      allow update: if isOwner(resource.data.userId);
-      allow delete: if isOwner(resource.data.userId);
+                       creatingWithOwnId() && 
+                       isValidSize();
+      allow update: if ownsResource() && isValidSize();
+      allow delete: if ownsResource();
+      
+      match /cards/{cardId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn();
+        allow update: if isSignedIn();
+        allow delete: if isSignedIn();
+      }
     }
     
     // ==========================================
-    // FLASHCARDS COLLECTION
+    // OLD FLASHCARDS COLLECTION
     // ==========================================
     match /flashcards/{deckId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && 
-                     request.resource.data.userId == request.auth.uid;
-      allow update: if isOwner(resource.data.userId);
-      allow delete: if isOwner(resource.data.userId);
+      allow read: if isSignedIn() && ownsResource();
+      allow create: if isSignedIn() && creatingWithOwnId() && isValidSize();
+      allow update: if ownsResource() && isValidSize();
+      allow delete: if ownsResource();
       
-      // Individual cards subcollection
       match /cards/{cardId} {
         allow read: if isSignedIn();
         allow write: if isSignedIn();
@@ -214,14 +364,98 @@ service cloud.firestore {
     }
     
     // ==========================================
-    // SRS (Spaced Repetition System)
+    // 🎮 GAMIFICATION COLLECTION - ✅ UPDATED FOR INITIALIZATION
+    // ==========================================
+    match /gamification/{document} {
+      allow read: if document == 'badges' || document == 'titles' || true;
+      allow write: if document == 'badges' || document == 'titles' || true;
+      
+      match /dailyActions/{actionId} {
+        allow read: if true;
+        allow create: if isSignedIn();
+        allow update: if isSignedIn();
+        allow delete: if isSignedIn();
+      }
+      
+      match /progress/{progressId} {
+        allow read: if true;
+        allow write: if isSignedIn();
+      }
+    }
+    
+    // ==========================================
+    // ✅ TOP-LEVEL DAILY ACTIONS
+    // ==========================================
+    match /dailyActions/{actionId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+    
+    // ==========================================
+    // ✅ USER GAMIFICATION DATA (SEPARATE FROM DEFINITIONS)
+    // ==========================================
+    match /userGamification/{userId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isOwner(userId) || isAdmin();
+      
+      match /earnedBadges/{badgeId} {
+        allow read: if true;
+        allow write: if isSignedIn();
+      }
+      
+      match /stats/{statId} {
+        allow read: if true;
+        allow write: if isSignedIn();
+      }
+    }
+    
+    // ==========================================
+    // ALO
+    // ==========================================
+    match /alo/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if true;
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+    
+    // ==========================================
+    // REWARDS COLLECTION
+    // ==========================================
+    match /rewards/{rewardId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidSize();
+      allow update: if ownsResource() && isValidSize();
+      allow delete: if ownsResource() || isAdmin();
+      
+      match /winners/{winnerId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn();
+      }
+    }
+    
+    // ==========================================
+    // NOTES COLLECTION
+    // ==========================================
+    match /notes/{noteId} {
+      allow read: if isSignedIn() && ownsResource();
+      allow create: if isSignedIn() && creatingWithOwnId() && isValidSize();
+      allow update: if ownsResource() && isValidSize();
+      allow delete: if ownsResource();
+    }
+    
+    // ==========================================
+    // SRS
     // ==========================================
     match /srs/{cardId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && 
-                     request.resource.data.userId == request.auth.uid;
-      allow update: if isOwner(resource.data.userId);
-      allow delete: if isOwner(resource.data.userId);
+      allow read: if isSignedIn() && ownsResource();
+      allow create: if isSignedIn() && creatingWithOwnId();
+      allow update: if ownsResource();
+      allow delete: if ownsResource();
     }
     
     // ==========================================
@@ -230,84 +464,112 @@ service cloud.firestore {
     match /rooms/{roomId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && 
-                     request.resource.data.createdBy == request.auth.uid;
-      allow update: if isSignedIn() && (
-        resource.data.createdBy == request.auth.uid ||
-        request.auth.uid in resource.data.members
-      );
-      allow delete: if isSignedIn() && (
-        resource.data.createdBy == request.auth.uid ||
-        isAdmin()
-      );
+                       creatingRoomAsHost() &&
+                       isValidSize();
+      allow update: if isSignedIn() && isValidSize();
+      allow delete: if isRoomHost() || isAdmin();
       
-      // Messages subcollection
       match /messages/{messageId} {
         allow read: if isSignedIn();
         allow create: if isSignedIn();
-        allow delete: if isSignedIn() && (
-          resource.data.userId == request.auth.uid ||
-          isAdmin()
-        );
+        allow update: if ownsResource();
+        allow delete: if ownsResource() || isAdmin();
+      }
+      
+      match /participants/{participantId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn();
+      }
+      
+      match /signals/{signalId} {
+        allow read, write: if isSignedIn();
+      }
+      
+      match /offers/{offerId} {
+        allow read, write: if isSignedIn();
+      }
+      
+      match /answers/{answerId} {
+        allow read, write: if isSignedIn();
+      }
+      
+      match /ice/{iceId} {
+        allow read, write: if isSignedIn();
       }
     }
     
     // ==========================================
-    // SUMMARIES COLLECTION (AI Generated)
+    // SUMMARIES COLLECTION
     // ==========================================
     match /summaries/{summaryId} {
-      allow read: if isSignedIn() && (
-        resource.data.userId == request.auth.uid ||
-        isTeacherOrAdmin()
-      );
-      allow create: if false; // Only Cloud Functions
-      allow update: if false; // Only Cloud Functions
-      allow delete: if isOwner(resource.data.userId) || isAdmin();
+      allow read: if isSignedIn() && ownsResource();
+      allow create: if isSignedIn() && creatingWithOwnId() && isValidSize();
+      allow update: if ownsResource() && isValidSize();
+      allow delete: if ownsResource();
     }
     
     // ==========================================
     // FLOWCHARTS COLLECTION
     // ==========================================
     match /flowcharts/{flowchartId} {
-      allow read: if isSignedIn() && (
-        resource.data.userId == request.auth.uid ||
-        resource.data.shared == true
-      );
-      allow create: if isSignedIn() && 
-                     request.resource.data.userId == request.auth.uid;
-      allow update: if isOwner(resource.data.userId);
-      allow delete: if isOwner(resource.data.userId);
+      allow read: if isSignedIn() && ownsResource();
+      allow create: if isSignedIn() && creatingWithOwnId() && isValidSize();
+      allow update: if ownsResource() && isValidSize();
+      allow delete: if ownsResource();
     }
     
     // ==========================================
     // NOTIFICATIONS COLLECTION
     // ==========================================
     match /notifications/{notificationId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if false; // Only Cloud Functions
-      allow update: if isOwner(resource.data.userId); // Can mark as read
-      allow delete: if isOwner(resource.data.userId);
+      allow read: if isSignedIn() && ownsResource();
+      allow create: if isSignedIn() && creatingWithOwnId();
+      allow update: if ownsResource();
+      allow delete: if ownsResource();
     }
     
     // ==========================================
-    // STUDY SESSIONS (StudySession page tracking)
+    // STUDY SESSIONS
     // ==========================================
     match /studySessions/{sessionId} {
-      allow read: if isSignedIn() && (
-        resource.data.userId == request.auth.uid ||
-        isTeacherOrAdmin()
-      );
-      allow create: if isSignedIn() && 
-                     request.resource.data.userId == request.auth.uid;
-      allow update: if isOwner(resource.data.userId);
-      allow delete: if isOwner(resource.data.userId) || isAdmin();
+      allow read: if isSignedIn() && ownsResource();
+      allow create: if isSignedIn() && creatingWithOwnId() && isValidSize();
+      allow update: if ownsResource() && isValidSize();
+      allow delete: if ownsResource();
     }
     
     // ==========================================
-    // LEADERBOARD COLLECTION (Read-only for students)
+    // LEADERBOARD COLLECTION - ✅ FULLY OPEN FOR READING
     // ==========================================
     match /leaderboard/{userId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+    
+    // ==========================================
+    // CHAT MESSAGES
+    // ==========================================
+    match /chatMessages/{messageId} {
       allow read: if isSignedIn();
-      allow write: if false; // Only Cloud Functions can update
+      allow create: if isSignedIn() && creatingWithOwnId();
+      allow update: if ownsResource();
+      allow delete: if ownsResource() || isAdmin();
+    }
+    
+    // ==========================================
+    // ANALYTICS COLLECTION (TOP-LEVEL)
+    // ==========================================
+    match /analytics/{userId} {
+      allow read: if isOwner(userId) || isTeacher() || isAdmin();
+      allow write: if true;
+    }
+    
+    // ==========================================
+    // RECOMMENDATIONS COLLECTION (TOP-LEVEL - KEPT FOR COMPATIBILITY)
+    // ==========================================
+    match /recommendations/{userId} {
+      allow read: if isOwner(userId) || isTeacher() || isAdmin();
+      allow write: if isAdmin();
     }
     
     // ==========================================

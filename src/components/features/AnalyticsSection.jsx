@@ -1,34 +1,68 @@
-// src/components/features/AnalyticsSection.jsx - PROFESSIONAL UI/UX
-import { useState, useMemo } from 'react';
+// src/components/features/AnalyticsSection.jsx - ULTIMATE PREMIUM EDITION
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
     BarChart3, TrendingUp, TrendingDown, Clock, Target, BookOpen,
     Flame, Zap, RefreshCw, AlertTriangle, Sparkles, ChevronRight,
     Download, Share2, Filter, Award, Calendar, ArrowUpRight, ArrowDownRight,
-    Info
+    Info, Eye, Activity, Radio
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     useCompleteAnalyticsBigQuery,
     useStudyStreaks,
     useRecommendations,
-    useDocumentsData
+    useDocumentsData,
+    useRealtimeStudyTimer
 } from '@/hooks/useAnalytics';
 
-// Professional Skeleton Loader with Shimmer
-const SkeletonCard = () => (
-    <div className="relative bg-white/60 backdrop-blur-sm border border-white/50 rounded-2xl p-5 overflow-hidden">
-        <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/60 to-transparent" />
-        <div className="flex items-center gap-3 mb-3">
-            <div className="w-6 h-6 bg-gray-200 rounded-lg animate-pulse" />
-            <div className="h-3 w-20 bg-gray-200 rounded animate-pulse" />
-        </div>
-        <div className="h-9 w-24 bg-gray-200 rounded-lg animate-pulse" />
+// ==================== ANIMATED GRADIENT BACKGROUND ====================
+const AnimatedBackground = () => (
+    <div className="fixed inset-0 -z-10 overflow-hidden">
+        {/* Base gradient */}
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-gray-50" />
+        
+        {/* Animated orbs */}
+        <motion.div
+            animate={{
+                scale: [1, 1.2, 1],
+                rotate: [0, 180, 360],
+                opacity: [0.3, 0.5, 0.3]
+            }}
+            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+            className="absolute -top-1/4 -right-1/4 w-[800px] h-[800px] rounded-full bg-gradient-to-br from-blue-200/30 via-purple-200/30 to-pink-200/30 blur-3xl"
+        />
+        <motion.div
+            animate={{
+                scale: [1.2, 1, 1.2],
+                rotate: [360, 180, 0],
+                opacity: [0.2, 0.4, 0.2]
+            }}
+            transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+            className="absolute -bottom-1/4 -left-1/4 w-[700px] h-[700px] rounded-full bg-gradient-to-tr from-cyan-200/30 via-indigo-200/30 to-violet-200/30 blur-3xl"
+        />
+        
+        {/* Grid pattern overlay */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,.02)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,.02)_1px,transparent_1px)] bg-[size:50px_50px]" />
     </div>
 );
 
-// Tooltip Component
+// ==================== SHIMMER SKELETON ====================
+const SkeletonCard = () => (
+    <div className="relative bg-white/40 backdrop-blur-2xl border border-white/60 rounded-3xl p-6 overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
+        <div className="absolute inset-0 -translate-x-full animate-[shimmer_2.5s_infinite] bg-gradient-to-r from-transparent via-white/80 to-transparent" />
+        <div className="space-y-3">
+            <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-gray-200 to-gray-300 rounded-2xl animate-pulse" />
+                <div className="h-3 w-24 bg-gradient-to-r from-gray-200 to-gray-300 rounded-full animate-pulse" />
+            </div>
+            <div className="h-10 w-32 bg-gradient-to-r from-gray-200 to-gray-300 rounded-2xl animate-pulse" />
+        </div>
+    </div>
+);
+
+// ==================== PREMIUM TOOLTIP ====================
 const Tooltip = ({ children, content }) => {
     const [show, setShow] = useState(false);
     
@@ -43,13 +77,14 @@ const Tooltip = ({ children, content }) => {
             <AnimatePresence>
                 {show && (
                     <motion.div
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 5 }}
-                        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap z-50"
+                        initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 px-4 py-2.5 bg-gradient-to-r from-slate-900 to-slate-800 text-white text-xs font-bold rounded-2xl whitespace-nowrap z-50 shadow-2xl border border-white/10"
                     >
                         {content}
-                        <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900" />
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1.5 border-8 border-transparent border-t-slate-900" />
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -57,79 +92,166 @@ const Tooltip = ({ children, content }) => {
     );
 };
 
-// Stat Card with Trend Indicator
-const StatCard = ({ icon: Icon, label, value, trend, trendValue, color = "black", onClick, delay = 0 }) => {
-    const trendColor = trend === 'up' ? 'text-green-600' : trend === 'down' ? 'text-red-600' : 'text-gray-400';
-    const trendBg = trend === 'up' ? 'bg-green-50' : trend === 'down' ? 'bg-red-50' : 'bg-gray-50';
-    const TrendIcon = trend === 'up' ? ArrowUpRight : trend === 'down' ? ArrowDownRight : null;
+// ==================== PREMIUM STAT CARD ====================
+const StatCard = ({ icon: Icon, label, value, trend, trendValue, color = "slate", onClick, delay = 0, realtime = false }) => {
+    const [isHovered, setIsHovered] = useState(false);
+    
+    const colorMap = {
+        'blue': { bg: 'from-blue-500 to-cyan-500', glow: 'group-hover:shadow-blue-500/25', icon: 'text-blue-600' },
+        'purple': { bg: 'from-purple-500 to-pink-500', glow: 'group-hover:shadow-purple-500/25', icon: 'text-purple-600' },
+        'green': { bg: 'from-green-500 to-emerald-500', glow: 'group-hover:shadow-green-500/25', icon: 'text-green-600' },
+        'orange': { bg: 'from-orange-500 to-amber-500', glow: 'group-hover:shadow-orange-500/25', icon: 'text-orange-600' },
+        'red': { bg: 'from-red-500 to-rose-500', glow: 'group-hover:shadow-red-500/25', icon: 'text-red-600' },
+        'indigo': { bg: 'from-indigo-500 to-blue-500', glow: 'group-hover:shadow-indigo-500/25', icon: 'text-indigo-600' },
+        'slate': { bg: 'from-slate-600 to-gray-600', glow: 'group-hover:shadow-slate-500/25', icon: 'text-slate-600' }
+    };
+    
+    const colors = colorMap[color] || colorMap.slate;
+    const trendColors = trend === 'up' ? 'text-emerald-600 bg-emerald-50' : trend === 'down' ? 'text-rose-600 bg-rose-50' : 'text-slate-600 bg-slate-50';
+    const TrendIcon = trend === 'up' ? TrendingUp : trend === 'down' ? TrendingDown : null;
 
     return (
         <motion.div
-            whileHover={{ scale: 1.03, y: -4 }}
+            whileHover={{ scale: 1.02, y: -8 }}
             whileTap={{ scale: 0.98 }}
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay, type: "spring", stiffness: 300, damping: 20 }}
             onClick={onClick}
-            className="group relative bg-white/70 backdrop-blur-xl border border-white/50 rounded-2xl p-5 shadow-sm hover:shadow-xl transition-all cursor-pointer overflow-hidden"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            className={`group relative bg-white/40 backdrop-blur-2xl border border-white/60 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.06)] hover:shadow-[0_20px_60px_rgba(0,0,0,0.12)] ${colors.glow} transition-all duration-500 cursor-pointer overflow-hidden`}
         >
-            {/* Hover glow effect */}
-            <div className="absolute inset-0 bg-gradient-to-br from-black/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            {/* Animated gradient overlay */}
+            <motion.div 
+                className={`absolute inset-0 bg-gradient-to-br ${colors.bg} opacity-0 group-hover:opacity-5 transition-opacity duration-500`}
+                animate={isHovered ? { 
+                    background: [
+                        `linear-gradient(135deg, rgba(0,0,0,0.02), transparent)`,
+                        `linear-gradient(225deg, rgba(0,0,0,0.02), transparent)`,
+                        `linear-gradient(135deg, rgba(0,0,0,0.02), transparent)`
+                    ]
+                } : {}}
+                transition={{ duration: 3, repeat: Infinity }}
+            />
+            
+            {/* Real-time indicator */}
+            {realtime && (
+                <div className="absolute top-4 right-4">
+                    <motion.div 
+                        animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                        className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full"
+                    >
+                        <Radio size={10} className="text-emerald-500" />
+                        <span className="text-[10px] font-black text-emerald-600">LIVE</span>
+                    </motion.div>
+                </div>
+            )}
             
             <div className="relative">
-                <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                        <div className={`p-2.5 bg-${color}/5 rounded-xl group-hover:scale-110 transition-transform`}>
-                            <Icon size={20} className={`text-${color}`} />
-                        </div>
-                        <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">{label}</div>
+                <div className="flex items-center gap-4 mb-4">
+                    <motion.div 
+                        whileHover={{ rotate: 360 }}
+                        transition={{ duration: 0.6 }}
+                        className={`p-3.5 bg-gradient-to-br ${colors.bg} rounded-2xl shadow-lg group-hover:shadow-xl transition-all duration-300`}
+                    >
+                        <Icon size={22} className="text-white" strokeWidth={2.5} />
+                    </motion.div>
+                    <div>
+                        <div className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">{label}</div>
+                        <motion.div 
+                            className="text-3xl font-black bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent"
+                            animate={realtime ? { scale: [1, 1.05, 1] } : {}}
+                            transition={{ duration: 2, repeat: realtime ? Infinity : 0 }}
+                        >
+                            {value}
+                        </motion.div>
                     </div>
-                    <Tooltip content="Click for details">
-                        <ChevronRight size={16} className="text-gray-400 group-hover:text-black transition-colors" />
-                    </Tooltip>
                 </div>
                 
-                <div className="flex items-end justify-between">
-                    <div className="text-3xl font-black text-black">{value}</div>
+                <div className="flex items-center justify-between">
                     {trendValue && (
-                        <div className={`flex items-center gap-1 px-2 py-1 ${trendBg} rounded-lg`}>
-                            {TrendIcon && <TrendIcon size={12} className={trendColor} />}
-                            <span className={`text-xs font-bold ${trendColor}`}>{trendValue}</span>
-                        </div>
+                        <motion.div 
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 ${trendColors} rounded-xl`}
+                        >
+                            {TrendIcon && <TrendIcon size={14} strokeWidth={3} />}
+                            <span className="text-xs font-black">{trendValue}</span>
+                        </motion.div>
                     )}
+                    <motion.div
+                        animate={{ x: [0, 4, 0] }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                        className="ml-auto"
+                    >
+                        <ChevronRight size={18} className="text-slate-400 group-hover:text-slate-600 transition-colors" strokeWidth={3} />
+                    </motion.div>
                 </div>
             </div>
         </motion.div>
     );
 };
 
-// Insight Card
+// ==================== INSIGHT CARD ====================
 const InsightCard = ({ icon: Icon, title, description, action, type = "info" }) => {
-    const colors = {
-        success: 'from-green-500 to-emerald-600',
-        warning: 'from-yellow-500 to-orange-600',
-        info: 'from-blue-500 to-indigo-600',
-        danger: 'from-red-500 to-pink-600'
+    const typeConfig = {
+        success: { 
+            gradient: 'from-emerald-500 via-green-500 to-teal-500',
+            bg: 'from-emerald-50 to-teal-50',
+            border: 'border-emerald-200',
+            icon: 'bg-white/20'
+        },
+        warning: { 
+            gradient: 'from-amber-500 via-yellow-500 to-orange-500',
+            bg: 'from-amber-50 to-orange-50',
+            border: 'border-amber-200',
+            icon: 'bg-white/20'
+        },
+        info: { 
+            gradient: 'from-blue-500 via-cyan-500 to-indigo-500',
+            bg: 'from-blue-50 to-indigo-50',
+            border: 'border-blue-200',
+            icon: 'bg-white/20'
+        },
+        danger: { 
+            gradient: 'from-rose-500 via-red-500 to-pink-500',
+            bg: 'from-rose-50 to-pink-50',
+            border: 'border-rose-200',
+            icon: 'bg-white/20'
+        }
     };
+
+    const config = typeConfig[type];
 
     return (
         <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
+            initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="relative bg-white/70 backdrop-blur-xl border border-white/50 rounded-2xl p-5 overflow-hidden"
+            whileHover={{ scale: 1.02 }}
+            className={`relative bg-gradient-to-br ${config.bg} border ${config.border} rounded-3xl p-5 overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300`}
         >
-            <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b ${colors[type]}`} />
-            <div className="flex items-start gap-4">
-                <div className={`p-3 bg-gradient-to-br ${colors[type]} rounded-xl`}>
-                    <Icon size={20} className="text-white" />
-                </div>
+            <div className={`absolute inset-0 bg-gradient-to-r ${config.gradient} opacity-5`} />
+            
+            <div className="relative flex items-start gap-4">
+                <motion.div 
+                    whileHover={{ rotate: 360, scale: 1.1 }}
+                    transition={{ duration: 0.6 }}
+                    className={`p-3.5 bg-gradient-to-br ${config.gradient} ${config.icon} rounded-2xl shadow-lg`}
+                >
+                    <Icon size={24} className="text-white" strokeWidth={2.5} />
+                </motion.div>
                 <div className="flex-1">
-                    <h4 className="font-bold text-black mb-1">{title}</h4>
-                    <p className="text-sm text-gray-600">{description}</p>
+                    <h4 className="font-black text-slate-800 text-lg mb-1">{title}</h4>
+                    <p className="text-sm text-slate-600 leading-relaxed">{description}</p>
                     {action && (
-                        <button className="mt-2 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors">
+                        <motion.button 
+                            whileHover={{ x: 4 }}
+                            className={`mt-3 text-sm font-black bg-gradient-to-r ${config.gradient} bg-clip-text text-transparent hover:underline`}
+                        >
                             {action} →
-                        </button>
+                        </motion.button>
                     )}
                 </div>
             </div>
@@ -137,12 +259,17 @@ const InsightCard = ({ icon: Icon, title, description, action, type = "info" }) 
     );
 };
 
+// ==================== MAIN COMPONENT ====================
 const AnalyticsSection = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const [timeframe, setTimeframe] = useState('week');
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
+    const [lastUpdate, setLastUpdate] = useState(new Date());
+
+    // Real-time timer
+    const { displayTime, isStudying, currentSubject } = useRealtimeStudyTimer(user?.uid);
 
     // Map timeframe to days
     const dateRange = useMemo(() => {
@@ -154,7 +281,7 @@ const AnalyticsSection = () => {
         }
     }, [timeframe]);
 
-    // BigQuery data hook
+    // Hooks
     const { 
         analytics, 
         trends, 
@@ -164,14 +291,21 @@ const AnalyticsSection = () => {
         refetchAll 
     } = useCompleteAnalyticsBigQuery(user?.uid, dateRange);
 
-    // Firestore real-time hooks
     const { streaks, loading: streakLoading } = useStudyStreaks(user?.uid);
     const { recommendations } = useRecommendations(user?.uid);
     const { documents, loading: docsLoading } = useDocumentsData(user?.uid);
 
     const loading = bigQueryLoading || streakLoading || docsLoading;
 
-    // Calculate stats from BigQuery
+    // Update timestamp
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setLastUpdate(new Date());
+        }, 30000); // Update every 30 seconds
+        return () => clearInterval(interval);
+    }, []);
+
+    // Calculate stats
     const stats = useMemo(() => {
         if (!analytics?.bigQuery) {
             return {
@@ -201,15 +335,15 @@ const AnalyticsSection = () => {
         };
     }, [analytics, documents, streaks, trends]);
 
-    // Generate insights based on data
+    // Generate insights
     const insights = useMemo(() => {
         const results = [];
         
         if (stats.streak >= 7) {
             results.push({
                 icon: Flame,
-                title: "Amazing Streak! 🔥",
-                description: `You've maintained a ${stats.streak}-day study streak. Keep the momentum going!`,
+                title: "🔥 Fire Streak Active!",
+                description: `${stats.streak}-day streak! You're absolutely crushing it. Keep this momentum going!`,
                 type: "success"
             });
         }
@@ -217,15 +351,15 @@ const AnalyticsSection = () => {
         if (stats.averageScore >= 80) {
             results.push({
                 icon: Award,
-                title: "Top Performer 🏆",
-                description: `Your ${stats.averageScore}% average score is excellent. You're mastering the material!`,
+                title: "🏆 Elite Performance",
+                description: `${stats.averageScore}% average score puts you in the top tier. Exceptional work!`,
                 type: "success"
             });
         } else if (stats.averageScore < 60 && stats.quizzesCompleted > 0) {
             results.push({
                 icon: Target,
-                title: "Room for Improvement",
-                description: "Your quiz scores suggest reviewing fundamentals. Try focused study sessions.",
+                title: "Growth Opportunity",
+                description: "Focus on fundamentals. Small improvements lead to big results!",
                 action: "View weak areas",
                 type: "warning"
             });
@@ -234,8 +368,8 @@ const AnalyticsSection = () => {
         if (stats.studyMinutesRaw < 60 && timeframe === 'week') {
             results.push({
                 icon: Clock,
-                title: "Boost Your Study Time",
-                description: "Aim for at least 2 hours of study per week for better retention.",
+                title: "Time to Level Up",
+                description: "Target 2+ hours weekly for optimal retention and progress.",
                 type: "info"
             });
         }
@@ -243,29 +377,31 @@ const AnalyticsSection = () => {
         return results;
     }, [stats, timeframe]);
 
-    // Subject breakdown from BigQuery
+    // Subject breakdown
     const subjectBreakdown = useMemo(() => {
-        if (!performance || performance.length === 0) {
-            return [];
-        }
+        if (!performance || performance.length === 0) return [];
 
-        const colors = ['bg-blue-500', 'bg-purple-500', 'bg-green-500', 'bg-orange-500', 'bg-pink-500'];
+        const gradients = [
+            'from-blue-500 to-cyan-500',
+            'from-purple-500 to-pink-500',
+            'from-green-500 to-emerald-500',
+            'from-orange-500 to-amber-500',
+            'from-rose-500 to-pink-500'
+        ];
         
         return performance.slice(0, 5).map((subject, idx) => ({
             subject: subject.name || 'Unknown',
             time: `${subject.quizCount || 0} quiz${subject.quizCount !== 1 ? 'zes' : ''}`,
             percentage: subject.score || 0,
-            color: colors[idx % colors.length],
+            gradient: gradients[idx % gradients.length],
             score: subject.score || 0,
             trend: subject.trend || 'stable'
         }));
     }, [performance]);
 
-    // Activity data from BigQuery trends
+    // Activity data
     const activityData = useMemo(() => {
-        if (!trends || trends.length === 0) {
-            return generateEmptyWeek();
-        }
+        if (!trends || trends.length === 0) return generateEmptyWeek();
 
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const last7Days = [];
@@ -283,7 +419,7 @@ const AnalyticsSection = () => {
 
             last7Days.push({
                 day: days[date.getDay()],
-                value: dayData ? Math.min(70, (dayData.studyMinutes || 0) * 1.5) : 0,
+                value: dayData ? Math.min(100, (dayData.studyMinutes || 0) * 2) : 0,
                 studyMinutes: dayData?.studyMinutes || 0,
                 quizzes: dayData?.quizzesCompleted || 0,
                 date: dateStr
@@ -297,7 +433,8 @@ const AnalyticsSection = () => {
     const handleRefresh = async () => {
         setIsRefreshing(true);
         await refetchAll();
-        setTimeout(() => setIsRefreshing(false), 800);
+        setLastUpdate(new Date());
+        setTimeout(() => setIsRefreshing(false), 1000);
     };
 
     // Export data
@@ -319,451 +456,561 @@ const AnalyticsSection = () => {
     // Error state
     if (bigQueryError) {
         return (
-            <div className="space-y-6">
-                <div className="mb-8">
-                    <h1 className="text-4xl font-black text-black mb-2">Analytics</h1>
-                    <p className="text-gray-600">Unable to load BigQuery data</p>
-                </div>
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="bg-red-50/80 backdrop-blur border-2 border-red-200/50 rounded-2xl p-8 text-center"
-                >
-                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <AlertTriangle size={32} className="text-red-500" />
+            <>
+                <AnimatedBackground />
+                <div className="space-y-8 relative">
+                    <div className="mb-8">
+                        <h1 className="text-5xl font-black bg-gradient-to-r from-slate-800 via-slate-600 to-slate-800 bg-clip-text text-transparent mb-2">
+                            Analytics Dashboard
+                        </h1>
+                        <p className="text-slate-600 font-medium">Connection issue detected</p>
                     </div>
-                    <h3 className="text-xl font-bold text-red-600 mb-2">Connection Error</h3>
-                    <p className="text-red-500 text-sm mb-6 max-w-md mx-auto">{bigQueryError}</p>
-                    <button
-                        onClick={handleRefresh}
-                        className="px-6 py-3 bg-black text-white rounded-xl font-bold hover:bg-gray-800 transition-all inline-flex items-center gap-2"
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="bg-gradient-to-br from-rose-50 to-red-50 border border-rose-200 rounded-3xl p-10 text-center shadow-2xl"
                     >
-                        <RefreshCw size={18} />
-                        Retry Connection
-                    </button>
-                </motion.div>
-            </div>
+                        <div className="w-20 h-20 bg-gradient-to-br from-rose-500 to-red-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl">
+                            <AlertTriangle size={40} className="text-white" strokeWidth={2.5} />
+                        </div>
+                        <h3 className="text-2xl font-black text-slate-800 mb-3">Connection Error</h3>
+                        <p className="text-slate-600 text-sm mb-8 max-w-md mx-auto leading-relaxed">{bigQueryError}</p>
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={handleRefresh}
+                            className="px-8 py-4 bg-gradient-to-r from-slate-800 to-slate-700 text-white rounded-2xl font-black hover:shadow-2xl transition-all inline-flex items-center gap-3"
+                        >
+                            <RefreshCw size={20} />
+                            Retry Connection
+                        </motion.button>
+                    </motion.div>
+                </div>
+            </>
         );
     }
 
     // Loading state
     if (loading) {
         return (
-            <div className="space-y-6">
-                <div className="mb-8">
-                    <h1 className="text-4xl font-black text-black mb-2">Analytics</h1>
-                    <p className="text-gray-600">Loading insights from BigQuery...</p>
+            <>
+                <AnimatedBackground />
+                <div className="space-y-8 relative">
+                    <div className="mb-8">
+                        <motion.h1 
+                            animate={{ opacity: [0.5, 1, 0.5] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                            className="text-5xl font-black bg-gradient-to-r from-slate-800 via-slate-600 to-slate-800 bg-clip-text text-transparent mb-2"
+                        >
+                            Analytics Dashboard
+                        </motion.h1>
+                        <p className="text-slate-600 font-medium flex items-center gap-2">
+                            <motion.span
+                                animate={{ rotate: 360 }}
+                                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                            >
+                                <Zap size={16} className="text-blue-500" />
+                            </motion.span>
+                            Loading real-time insights...
+                        </p>
+                    </div>
+                    <div className="grid md:grid-cols-3 lg:grid-cols-6 gap-6">
+                        {[...Array(6)].map((_, i) => <SkeletonCard key={i} />)}
+                    </div>
                 </div>
-                <div className="grid md:grid-cols-3 lg:grid-cols-6 gap-4">
-                    {[...Array(6)].map((_, i) => <SkeletonCard key={i} />)}
-                </div>
-            </div>
+            </>
         );
     }
 
     return (
-        <div className="space-y-6">
-            {/* Header with Actions */}
-            <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div>
-                    <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-black via-gray-800 to-gray-600 mb-2">
-                        Analytics Dashboard
-                    </h1>
-                    <p className="text-gray-600 flex items-center gap-2">
-                        Real-time insights powered by 
-                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-600 text-sm font-bold rounded-lg">
-                            <Zap size={14} />
-                            BigQuery
-                        </span>
-                    </p>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                    <Tooltip content="Export data">
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={handleExport}
-                            className="p-3 rounded-xl bg-white/70 backdrop-blur border border-black/10 shadow-sm hover:shadow-md transition-all"
+        <>
+            <AnimatedBackground />
+            
+            <div className="space-y-8 relative">
+                {/* ========== HEADER ========== */}
+                <div className="flex items-start justify-between gap-6 flex-wrap">
+                    <div>
+                        <motion.h1 
+                            initial={{ opacity: 0, y: -20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="text-5xl font-black bg-gradient-to-r from-slate-800 via-slate-600 to-slate-800 bg-clip-text text-transparent mb-3 leading-tight"
                         >
-                            <Download size={18} className="text-gray-600" />
-                        </motion.button>
-                    </Tooltip>
-                    
-                    <Tooltip content="Share analytics">
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            className="p-3 rounded-xl bg-white/70 backdrop-blur border border-black/10 shadow-sm hover:shadow-md transition-all"
-                        >
-                            <Share2 size={18} className="text-gray-600" />
-                        </motion.button>
-                    </Tooltip>
-                    
-                    <Tooltip content="Refresh data">
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={handleRefresh}
-                            disabled={isRefreshing}
-                            className="p-3 rounded-xl bg-white/70 backdrop-blur border border-black/10 shadow-sm hover:shadow-md transition-all disabled:opacity-50"
-                        >
-                            <RefreshCw size={18} className={`text-gray-600 ${isRefreshing ? 'animate-spin' : ''}`} />
-                        </motion.button>
-                    </Tooltip>
-                </div>
-            </div>
-
-            {/* Timeframe Filter with Enhanced Design */}
-            <div className="flex items-center gap-4 flex-wrap">
-                <div className="flex gap-1 bg-white/70 backdrop-blur-xl p-1.5 rounded-xl border border-white/50 shadow-sm">
-                    {['week', 'month', 'year'].map((tf) => (
-                        <motion.button
-                            key={tf}
-                            onClick={() => setTimeframe(tf)}
-                            className={`relative px-5 py-2.5 rounded-lg font-bold transition-all ${
-                                timeframe === tf
-                                    ? 'text-black'
-                                    : 'text-gray-600 hover:text-black'
-                            }`}
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                        >
-                            {timeframe === tf && (
+                            Analytics Dashboard
+                        </motion.h1>
+                        <div className="flex items-center gap-3 flex-wrap">
+                            <motion.div 
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: 0.1 }}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full"
+                            >
                                 <motion.div
-                                    layoutId="activeTimeframe"
-                                    className="absolute inset-0 bg-white rounded-lg shadow-sm"
-                                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                                />
-                            )}
-                            <span className="relative z-10">{tf.charAt(0).toUpperCase() + tf.slice(1)}</span>
-                        </motion.button>
-                    ))}
-                </div>
-                
-                <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setShowFilters(!showFilters)}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-white/70 backdrop-blur-xl rounded-xl border border-white/50 font-bold text-gray-700 hover:text-black transition-all"
-                >
-                    <Filter size={18} />
-                    Filters
-                </motion.button>
-            </div>
-
-            {/* Insights Row */}
-            {insights.length > 0 && (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {insights.map((insight, idx) => (
-                        <InsightCard key={idx} {...insight} />
-                    ))}
-                </div>
-            )}
-
-            {/* Key Metrics Grid */}
-            <div className="grid md:grid-cols-3 lg:grid-cols-6 gap-4">
-                <StatCard
-                    icon={Clock}
-                    label="Study Time"
-                    value={stats.totalStudyTime}
-                    trend={stats.trend}
-                    trendValue={stats.improvement}
-                    color="blue-600"
-                    onClick={() => navigate('/study-sessions')}
-                    delay={0}
-                />
-                
-                <StatCard
-                    icon={Target}
-                    label="Avg Score"
-                    value={`${stats.averageScore}%`}
-                    trend={stats.averageScore >= 70 ? 'up' : stats.averageScore < 60 ? 'down' : null}
-                    trendValue={stats.averageScore >= 70 ? 'Good' : stats.averageScore < 60 ? 'Improve' : 'Fair'}
-                    color="purple-600"
-                    onClick={() => navigate('/quizzes')}
-                    delay={0.05}
-                />
-                
-                <StatCard
-                    icon={BarChart3}
-                    label="Quizzes"
-                    value={stats.quizzesCompleted}
-                    trend={stats.quizzesCompleted > 5 ? 'up' : null}
-                    trendValue={stats.quizzesCompleted > 10 ? '+Active' : null}
-                    color="green-600"
-                    onClick={() => navigate('/quizzes')}
-                    delay={0.1}
-                />
-                
-                <StatCard
-                    icon={BookOpen}
-                    label="Documents"
-                    value={stats.documentsRead}
-                    trend={stats.documentsRead > 0 ? 'up' : null}
-                    color="indigo-600"
-                    onClick={() => navigate('/documents')}
-                    delay={0.15}
-                />
-                
-                <StatCard
-                    icon={Flame}
-                    label="Streak"
-                    value={`${stats.streak} days`}
-                    trend={stats.streak >= 7 ? 'up' : stats.streak === 0 ? 'down' : null}
-                    trendValue={stats.streak >= 7 ? 'Hot!' : null}
-                    color="orange-500"
-                    onClick={() => navigate('/gamification')}
-                    delay={0.2}
-                />
-                
-                <StatCard
-                    icon={stats.improvement.startsWith('+') ? TrendingUp : stats.improvement.startsWith('-') ? TrendingDown : TrendingUp}
-                    label="Growth"
-                    value={stats.improvement}
-                    trend={stats.improvement.startsWith('+') ? 'up' : stats.improvement.startsWith('-') ? 'down' : null}
-                    color={stats.improvement.startsWith('+') ? 'green-600' : stats.improvement.startsWith('-') ? 'red-600' : 'gray-600'}
-                    delay={0.25}
-                />
-            </div>
-
-            {/* Charts Row */}
-            <div className="grid md:grid-cols-2 gap-6">
-                {/* Enhanced Activity Chart */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                    className="bg-white/70 backdrop-blur-xl border border-white/50 rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all"
-                >
-                    <div className="flex items-center justify-between mb-6">
-                        <div>
-                            <h3 className="text-xl font-black text-black">Daily Activity</h3>
-                            <p className="text-xs text-gray-500 mt-1">Study time & quiz completion</p>
+                                    animate={{ scale: [1, 1.2, 1] }}
+                                    transition={{ duration: 2, repeat: Infinity }}
+                                >
+                                    <Radio size={12} className="text-emerald-500" />
+                                </motion.div>
+                                <span className="text-xs font-black text-emerald-600">LIVE DATA</span>
+                            </motion.div>
+                            <span className="text-sm text-slate-500 font-medium">
+                                Updated {lastUpdate.toLocaleTimeString()}
+                            </span>
                         </div>
-                        <span className="text-xs text-green-600 font-bold bg-green-50 px-2 py-1 rounded-lg">Live</span>
                     </div>
                     
-                    {activityData.some(d => d.value > 0) ? (
-                        <div className="space-y-4">
-                            <div className="flex items-end justify-between gap-2 h-56">
-                                {activityData.map((day, idx) => (
-                                    <Tooltip
+                    <div className="flex items-center gap-3">
+                        <Tooltip content="Export all data">
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={handleExport}
+                                className="p-3.5 rounded-2xl bg-white/40 backdrop-blur-2xl border border-white/60 shadow-lg hover:shadow-xl transition-all"
+                            >
+                                <Download size={20} className="text-slate-600" strokeWidth={2.5} />
+                            </motion.button>
+                        </Tooltip>
+                        
+                        <Tooltip content="Share dashboard">
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                className="p-3.5 rounded-2xl bg-white/40 backdrop-blur-2xl border border-white/60 shadow-lg hover:shadow-xl transition-all"
+                            >
+                                <Share2 size={20} className="text-slate-600" strokeWidth={2.5} />
+                            </motion.button>
+                        </Tooltip>
+                        
+                        <Tooltip content="Refresh data">
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={handleRefresh}
+                                disabled={isRefreshing}
+                                className="p-3.5 rounded-2xl bg-white/40 backdrop-blur-2xl border border-white/60 shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
+                            >
+                                <motion.div
+                                    animate={isRefreshing ? { rotate: 360 } : {}}
+                                    transition={{ duration: 1, repeat: isRefreshing ? Infinity : 0, ease: "linear" }}
+                                >
+                                    <RefreshCw size={20} className="text-slate-600" strokeWidth={2.5} />
+                                </motion.div>
+                            </motion.button>
+                        </Tooltip>
+                    </div>
+                </div>
+
+                {/* ========== LIVE STUDY INDICATOR ========== */}
+                {isStudying && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="relative bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 rounded-3xl p-6 overflow-hidden shadow-2xl"
+                    >
+                        <motion.div
+                            animate={{
+                                backgroundPosition: ['0% 50%', '100% 50%', '0% 50%']
+                            }}
+                            transition={{ duration: 3, repeat: Infinity }}
+                            className="absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.2),transparent)] bg-[length:200%_100%]"
+                        />
+                        <div className="relative flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <motion.div
+                                    animate={{ scale: [1, 1.1, 1] }}
+                                    transition={{ duration: 1.5, repeat: Infinity }}
+                                    className="p-3 bg-white/20 rounded-2xl"
+                                >
+                                    <Activity size={28} className="text-white" strokeWidth={2.5} />
+                                </motion.div>
+                                <div>
+                                    <div className="text-white/80 text-sm font-bold mb-1">CURRENTLY STUDYING</div>
+                                    <div className="text-2xl font-black text-white">{currentSubject}</div>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-white/80 text-sm font-bold mb-1">SESSION TIME</div>
+                                <motion.div 
+                                    className="text-3xl font-black text-white"
+                                    animate={{ scale: [1, 1.05, 1] }}
+                                    transition={{ duration: 1, repeat: Infinity }}
+                                >
+                                    {displayTime}
+                                </motion.div>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+
+                {/* ========== TIMEFRAME FILTER ========== */}
+                <div className="flex items-center gap-4 flex-wrap">
+                    <div className="flex gap-2 bg-white/40 backdrop-blur-2xl p-2 rounded-2xl border border-white/60 shadow-lg">
+                        {['week', 'month', 'year'].map((tf) => (
+                            <motion.button
+                                key={tf}
+                                onClick={() => setTimeframe(tf)}
+                                whileHover={{ scale: 1.03 }}
+                                whileTap={{ scale: 0.97 }}
+                                className="relative px-6 py-3 rounded-xl font-black transition-all"
+                            >
+                                {timeframe === tf && (
+                                    <motion.div
+                                        layoutId="activeTab"
+                                        className="absolute inset-0 bg-gradient-to-r from-slate-800 to-slate-700 rounded-xl shadow-xl"
+                                        transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                                    />
+                                )}
+                                <span className={`relative z-10 ${timeframe === tf ? 'text-white' : 'text-slate-600'}`}>
+                                    {tf.charAt(0).toUpperCase() + tf.slice(1)}
+                                </span>
+                            </motion.button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* ========== INSIGHTS ROW ========== */}
+                {insights.length > 0 && (
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {insights.map((insight, idx) => (
+                            <InsightCard key={idx} {...insight} />
+                        ))}
+                    </div>
+                )}
+
+                {/* ========== KEY METRICS ========== */}
+                <div className="grid md:grid-cols-3 lg:grid-cols-6 gap-6">
+                    <StatCard
+                        icon={Clock}
+                        label="Study Time"
+                        value={stats.totalStudyTime}
+                        trend={stats.trend}
+                        trendValue={stats.improvement}
+                        color="blue"
+                        onClick={() => navigate('/study-sessions')}
+                        delay={0}
+                        realtime={isStudying}
+                    />
+                    
+                    <StatCard
+                        icon={Target}
+                        label="Avg Score"
+                        value={`${stats.averageScore}%`}
+                        trend={stats.averageScore >= 70 ? 'up' : stats.averageScore < 60 ? 'down' : null}
+                        trendValue={stats.averageScore >= 70 ? 'Excellent' : stats.averageScore < 60 ? 'Improve' : 'Fair'}
+                        color="purple"
+                        onClick={() => navigate('/quizzes')}
+                        delay={0.05}
+                    />
+                    
+                    <StatCard
+                        icon={BarChart3}
+                        label="Quizzes"
+                        value={stats.quizzesCompleted}
+                        trend={stats.quizzesCompleted > 5 ? 'up' : null}
+                        trendValue={stats.quizzesCompleted > 10 ? 'Very Active' : null}
+                        color="green"
+                        onClick={() => navigate('/quizzes')}
+                        delay={0.1}
+                    />
+                    
+                    <StatCard
+                        icon={BookOpen}
+                        label="Documents"
+                        value={stats.documentsRead}
+                        trend={stats.documentsRead > 0 ? 'up' : null}
+                        color="indigo"
+                        onClick={() => navigate('/documents')}
+                        delay={0.15}
+                    />
+                    
+                    <StatCard
+                        icon={Flame}
+                        label="Streak"
+                        value={`${stats.streak} days`}
+                        trend={stats.streak >= 7 ? 'up' : stats.streak === 0 ? 'down' : null}
+                        trendValue={stats.streak >= 7 ? 'On Fire!' : null}
+                        color="orange"
+                        onClick={() => navigate('/gamification')}
+                        delay={0.2}
+                        realtime={true}
+                    />
+                    
+                    <StatCard
+                        icon={stats.improvement.startsWith('+') ? TrendingUp : stats.improvement.startsWith('-') ? TrendingDown : Activity}
+                        label="Growth"
+                        value={stats.improvement}
+                        trend={stats.improvement.startsWith('+') ? 'up' : stats.improvement.startsWith('-') ? 'down' : null}
+                        color={stats.improvement.startsWith('+') ? 'green' : stats.improvement.startsWith('-') ? 'red' : 'slate'}
+                        delay={0.25}
+                    />
+                </div>
+
+                {/* ========== CHARTS ROW ========== */}
+                <div className="grid md:grid-cols-2 gap-6">
+                    {/* Activity Chart */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 30 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3 }}
+                        className="bg-white/40 backdrop-blur-2xl border border-white/60 rounded-3xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.06)] hover:shadow-[0_20px_60px_rgba(0,0,0,0.12)] transition-all duration-500"
+                    >
+                        <div className="flex items-center justify-between mb-8">
+                            <div>
+                                <h3 className="text-2xl font-black text-slate-800 mb-1">Daily Activity</h3>
+                                <p className="text-sm text-slate-500 font-medium">Last 7 days performance</p>
+                            </div>
+                            <motion.div
+                                animate={{ scale: [1, 1.1, 1] }}
+                                transition={{ duration: 2, repeat: Infinity }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full"
+                            >
+                                <Radio size={10} className="text-emerald-500" />
+                                <span className="text-xs font-black text-emerald-600">LIVE</span>
+                            </motion.div>
+                        </div>
+                        
+                        {activityData.some(d => d.value > 0) ? (
+                            <div className="space-y-6">
+                                <div className="flex items-end justify-between gap-3 h-64">
+                                    {activityData.map((day, idx) => (
+                                        <Tooltip
+                                            key={idx}
+                                            content={`${day.day}: ${day.studyMinutes}m studied, ${day.quizzes} quizzes`}
+                                        >
+                                            <motion.div 
+                                                className="flex-1 flex flex-col items-center gap-3 group"
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                transition={{ delay: 0.4 + (idx * 0.05) }}
+                                            >
+                                                <div className="w-full bg-gradient-to-t from-slate-100 to-slate-50 rounded-2xl relative" style={{ height: '100%' }}>
+                                                    <motion.div
+                                                        initial={{ height: 0 }}
+                                                        animate={{ height: `${day.value}%` }}
+                                                        transition={{ duration: 1, delay: 0.5 + (idx * 0.05), ease: "easeOut" }}
+                                                        className="w-full bg-gradient-to-t from-slate-700 via-slate-600 to-slate-500 rounded-2xl absolute bottom-0 group-hover:from-cyan-600 group-hover:via-blue-500 group-hover:to-indigo-500 transition-all duration-300 shadow-lg"
+                                                    />
+                                                </div>
+                                                <span className="text-xs font-black text-slate-500 group-hover:text-slate-800 transition-colors">
+                                                    {day.day}
+                                                </span>
+                                            </motion.div>
+                                        </Tooltip>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center h-72 text-center bg-gradient-to-br from-slate-50/50 to-gray-50/50 rounded-3xl border border-slate-100">
+                                <AlertTriangle size={56} className="text-slate-300 mb-4" strokeWidth={2} />
+                                <p className="text-slate-600 font-black text-xl mb-2">No Activity Yet</p>
+                                <p className="text-slate-500 text-sm mb-6 max-w-xs">Start studying to see your progress visualized here</p>
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => navigate('/documents')}
+                                    className="px-6 py-3 bg-gradient-to-r from-slate-800 to-slate-700 text-white rounded-2xl font-black hover:shadow-2xl transition-all"
+                                >
+                                    Browse Documents
+                                </motion.button>
+                            </div>
+                        )}
+                    </motion.div>
+
+                    {/* Subject Performance */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 30 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.35 }}
+                        className="bg-white/40 backdrop-blur-2xl border border-white/60 rounded-3xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.06)] hover:shadow-[0_20px_60px_rgba(0,0,0,0.12)] transition-all duration-500"
+                    >
+                        <div className="flex items-center justify-between mb-8">
+                            <div>
+                                <h3 className="text-2xl font-black text-slate-800 mb-1">Subject Performance</h3>
+                                <p className="text-sm text-slate-500 font-medium">Top 5 subjects by score</p>
+                            </div>
+                            <motion.button
+                                whileHover={{ x: 4 }}
+                                onClick={() => navigate('/subjects')}
+                                className="flex items-center gap-1 text-sm font-black text-slate-600 hover:text-slate-800 transition-colors"
+                            >
+                                View All <ChevronRight size={16} strokeWidth={3} />
+                            </motion.button>
+                        </div>
+                        
+                        {subjectBreakdown.length > 0 ? (
+                            <div className="space-y-5">
+                                {subjectBreakdown.map((subject, idx) => (
+                                    <motion.div
                                         key={idx}
-                                        content={`${day.day}: ${day.studyMinutes}m studied, ${day.quizzes} quizzes`}
+                                        initial={{ opacity: 0, x: -30 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: 0.5 + (idx * 0.05) }}
+                                        className="group"
                                     >
-                                        <div className="flex-1 flex flex-col items-center gap-2 group">
-                                            <div className="w-full bg-gray-100/60 rounded-t-xl relative" style={{ height: '100%' }}>
-                                                <motion.div
-                                                    initial={{ height: 0 }}
-                                                    animate={{ height: `${day.value}%` }}
-                                                    transition={{ duration: 0.6, delay: 0.3 + (idx * 0.05), ease: "easeOut" }}
-                                                    className="w-full bg-gradient-to-t from-black via-gray-700 to-gray-600 rounded-t-xl absolute bottom-0 group-hover:from-blue-600 group-hover:via-blue-500 group-hover:to-blue-400 transition-all"
-                                                />
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-base font-black text-slate-800">{subject.subject}</span>
+                                                {subject.trend === 'up' && (
+                                                    <TrendingUp size={16} className="text-emerald-600" strokeWidth={3} />
+                                                )}
                                             </div>
-                                            <span className="text-xs font-bold text-gray-500 group-hover:text-black transition-colors">
-                                                {day.day}
-                                            </span>
+                                            <div className="flex items-center gap-4">
+                                                <span className="text-xs font-bold text-slate-500">{subject.time}</span>
+                                                <span className="text-base font-black text-slate-700">{subject.score}%</span>
+                                            </div>
                                         </div>
-                                    </Tooltip>
+                                        <div className="h-3 bg-gradient-to-r from-slate-100 to-gray-100 rounded-full overflow-hidden shadow-inner">
+                                            <motion.div
+                                                initial={{ width: 0 }}
+                                                animate={{ width: `${subject.score}%` }}
+                                                transition={{ duration: 1, delay: 0.5 + (idx * 0.05), ease: "easeOut" }}
+                                                className={`h-full bg-gradient-to-r ${subject.gradient} rounded-full shadow-lg group-hover:shadow-xl transition-all`}
+                                            />
+                                        </div>
+                                    </motion.div>
                                 ))}
                             </div>
-                            
-                            {/* Legend */}
-                            <div className="flex items-center justify-center gap-6 pt-4 border-t border-gray-200/50">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-3 h-3 bg-gray-700 rounded" />
-                                    <span className="text-xs text-gray-600">Study time</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <div className="w-3 h-3 bg-blue-500 rounded" />
-                                    <span className="text-xs text-gray-600">On hover</span>
-                                </div>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="flex flex-col items-center justify-center h-64 text-center bg-gradient-to-br from-gray-50/50 to-gray-100/50 rounded-xl">
-                            <AlertTriangle size={48} className="text-gray-300 mb-4" />
-                            <p className="text-gray-500 font-bold text-lg mb-2">No activity yet</p>
-                            <p className="text-gray-400 text-sm mb-4">Start studying to see your daily progress</p>
-                            <button
-                                onClick={() => navigate('/documents')}
-                                className="px-4 py-2 bg-black text-white rounded-xl font-bold hover:bg-gray-800 transition-all"
-                            >
-                                Browse Documents
-                            </button>
-                        </div>
-                    )}
-                </motion.div>
-
-                {/* Enhanced Subject Performance */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.35 }}
-                    className="bg-white/70 backdrop-blur-xl border border-white/50 rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all"
-                >
-                    <div className="flex items-center justify-between mb-6">
-                        <div>
-                            <h3 className="text-xl font-black text-black">Subject Performance</h3>
-                            <p className="text-xs text-gray-500 mt-1">Top performing subjects</p>
-                        </div>
-                        <button
-                            onClick={() => navigate('/subjects')}
-                            className="flex items-center gap-1 text-xs font-bold text-gray-500 hover:text-black transition-all"
-                        >
-                            View all <ChevronRight size={14} />
-                        </button>
-                    </div>
-                    
-                    {subjectBreakdown.length > 0 ? (
-                        <div className="space-y-4">
-                            {subjectBreakdown.map((subject, idx) => (
-                                <motion.div
-                                    key={idx}
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: 0.4 + (idx * 0.05) }}
-                                    className="group hover:bg-gray-50/50 p-2 rounded-xl transition-all"
+                        ) : (
+                            <div className="flex flex-col items-center justify-center h-72 text-center bg-gradient-to-br from-slate-50/50 to-gray-50/50 rounded-3xl border border-slate-100">
+                                <BookOpen size={56} className="text-slate-300 mb-4" strokeWidth={2} />
+                                <p className="text-slate-600 font-black text-xl mb-2">No Subjects Yet</p>
+                                <p className="text-slate-500 text-sm mb-6 max-w-xs">Take quizzes to track your performance by subject</p>
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => navigate('/quizzes')}
+                                    className="px-6 py-3 bg-gradient-to-r from-slate-800 to-slate-700 text-white rounded-2xl font-black hover:shadow-2xl transition-all"
                                 >
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm font-bold text-black">{subject.subject}</span>
-                                            {subject.trend === 'up' && (
-                                                <TrendingUp size={14} className="text-green-600" />
-                                            )}
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-xs text-gray-500">{subject.time}</span>
-                                            <span className="text-sm font-black text-gray-700">{subject.score}%</span>
-                                        </div>
-                                    </div>
-                                    <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                                        <motion.div
-                                            initial={{ width: 0 }}
-                                            animate={{ width: `${subject.score}%` }}
-                                            transition={{ duration: 0.8, delay: 0.4 + (idx * 0.05), ease: "easeOut" }}
-                                            className={`h-full ${subject.color} rounded-full group-hover:opacity-80 transition-opacity`}
-                                        />
-                                    </div>
+                                    Start Quiz
+                                </motion.button>
+                            </div>
+                        )}
+                    </motion.div>
+                </div>
+
+                {/* ========== AI RECOMMENDATIONS ========== */}
+                {recommendations && recommendations.length > 0 ? (
+                    <motion.div
+                        initial={{ opacity: 0, y: 30 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.4 }}
+                        className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-8 overflow-hidden shadow-2xl"
+                    >
+                        {/* Animated gradient overlay */}
+                        <motion.div
+                            animate={{
+                                backgroundPosition: ['0% 0%', '100% 100%', '0% 0%']
+                            }}
+                            transition={{ duration: 8, repeat: Infinity }}
+                            className="absolute inset-0 bg-gradient-to-br from-blue-600/20 via-purple-600/20 to-pink-600/20 bg-[length:200%_200%]"
+                        />
+                        
+                        <div className="relative">
+                            <div className="flex items-center gap-4 mb-8">
+                                <motion.div 
+                                    animate={{ rotate: [0, 5, -5, 0] }}
+                                    transition={{ duration: 3, repeat: Infinity }}
+                                    className="p-3.5 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-2xl shadow-xl"
+                                >
+                                    <Sparkles size={28} className="text-white" strokeWidth={2.5} />
                                 </motion.div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="flex flex-col items-center justify-center h-64 text-center bg-gradient-to-br from-gray-50/50 to-gray-100/50 rounded-xl">
-                            <BookOpen size={48} className="text-gray-300 mb-4" />
-                            <p className="text-gray-500 font-bold text-lg mb-2">No subjects yet</p>
-                            <p className="text-gray-400 text-sm mb-4">Take quizzes to track subject performance</p>
-                            <button
-                                onClick={() => navigate('/quizzes')}
-                                className="px-4 py-2 bg-black text-white rounded-xl font-bold hover:bg-gray-800 transition-all"
-                            >
-                                Start Quiz
-                            </button>
-                        </div>
-                    )}
-                </motion.div>
-            </div>
-
-            {/* AI Recommendations with Enhanced Styling */}
-            {recommendations && recommendations.length > 0 ? (
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
-                    className="relative bg-gradient-to-br from-black via-gray-900 to-gray-800 backdrop-blur-xl rounded-2xl p-6 text-white border border-white/10 shadow-2xl overflow-hidden"
-                >
-                    {/* Animated background gradient */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 via-purple-600/10 to-pink-600/10 animate-pulse" />
-                    
-                    <div className="relative">
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="p-2 bg-yellow-400/20 rounded-lg">
-                                <Sparkles size={24} className="text-yellow-400" />
+                                <div>
+                                    <h3 className="text-2xl font-black text-white mb-1">AI-Powered Insights</h3>
+                                    <p className="text-white/60 text-sm font-medium">Personalized recommendations for your learning journey</p>
+                                </div>
                             </div>
-                            <div>
-                                <h3 className="text-xl font-black">AI-Powered Recommendations</h3>
-                                <p className="text-white/60 text-sm">Personalized insights to boost your learning</p>
-                            </div>
-                        </div>
-                        
-                        <ul className="space-y-3">
-                            {recommendations.slice(0, 3).map((rec, idx) => (
-                                <motion.li
-                                    key={rec.id || idx}
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: 0.45 + (idx * 0.05) }}
-                                    className="flex items-start gap-3 p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-all group cursor-pointer"
-                                >
-                                    <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${
-                                        rec.priority === 'high' ? 'bg-red-500/20' :
-                                        rec.priority === 'medium' ? 'bg-yellow-500/20' : 'bg-green-500/20'
-                                    }`}>
-                                        <span className={`font-bold ${
-                                            rec.priority === 'high' ? 'text-red-400' :
-                                            rec.priority === 'medium' ? 'text-yellow-400' : 'text-green-400'
+                            
+                            <div className="space-y-4">
+                                {recommendations.slice(0, 3).map((rec, idx) => (
+                                    <motion.div
+                                        key={rec.id || idx}
+                                        initial={{ opacity: 0, x: -30 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: 0.5 + (idx * 0.05) }}
+                                        whileHover={{ scale: 1.02, x: 8 }}
+                                        className="flex items-start gap-4 p-5 bg-white/5 backdrop-blur-xl rounded-2xl hover:bg-white/10 transition-all cursor-pointer border border-white/10"
+                                    >
+                                        <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${
+                                            rec.priority === 'high' || rec.priority >= 90 ? 'bg-rose-500/20 border border-rose-500/30' :
+                                            rec.priority === 'medium' || rec.priority >= 80 ? 'bg-amber-500/20 border border-amber-500/30' : 
+                                            'bg-emerald-500/20 border border-emerald-500/30'
                                         }`}>
-                                            {rec.priority === 'high' ? '!' : rec.priority === 'medium' ? '→' : '✓'}
-                                        </span>
-                                    </div>
-                                    <div className="flex-1">
-                                        <span className="font-bold text-white group-hover:text-yellow-400 transition-colors">
-                                            {rec.title}
-                                        </span>
-                                        <span className="text-white/70"> — {rec.description}</span>
-                                    </div>
-                                    <ChevronRight size={16} className="text-white/40 group-hover:text-white/80 transition-colors" />
-                                </motion.li>
-                            ))}
-                        </ul>
-                    </div>
-                </motion.div>
-            ) : (
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
-                    className="relative bg-gradient-to-br from-black via-gray-900 to-gray-800 backdrop-blur-xl rounded-2xl p-6 text-white border border-white/10 shadow-2xl overflow-hidden"
-                >
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 via-purple-600/10 to-pink-600/10 animate-pulse" />
-                    
-                    <div className="relative">
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="p-2 bg-yellow-400/20 rounded-lg">
-                                <Zap size={24} className="text-yellow-400" />
-                            </div>
-                            <div>
-                                <h3 className="text-xl font-black">Getting Started Guide</h3>
-                                <p className="text-white/60 text-sm">Complete these steps to unlock insights</p>
+                                            <span className={`font-black text-lg ${
+                                                rec.priority === 'high' || rec.priority >= 90 ? 'text-rose-400' :
+                                                rec.priority === 'medium' || rec.priority >= 80 ? 'text-amber-400' : 
+                                                'text-emerald-400'
+                                            }`}>
+                                                {rec.priority === 'high' || rec.priority >= 90 ? '!' : 
+                                                 rec.priority === 'medium' || rec.priority >= 80 ? '→' : '✓'}
+                                            </span>
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="font-black text-white text-lg mb-1">{rec.title}</div>
+                                            <div className="text-white/70 text-sm leading-relaxed">{rec.description}</div>
+                                        </div>
+                                        <ChevronRight size={20} className="text-white/40 group-hover:text-white/80 transition-colors flex-shrink-0" strokeWidth={3} />
+                                    </motion.div>
+                                ))}
                             </div>
                         </div>
+                    </motion.div>
+                ) : (
+                    <motion.div
+                        initial={{ opacity: 0, y: 30 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.4 }}
+                        className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-8 overflow-hidden shadow-2xl"
+                    >
+                        <motion.div
+                            animate={{
+                                backgroundPosition: ['0% 0%', '100% 100%', '0% 0%']
+                            }}
+                            transition={{ duration: 8, repeat: Infinity }}
+                            className="absolute inset-0 bg-gradient-to-br from-blue-600/20 via-purple-600/20 to-pink-600/20 bg-[length:200%_200%]"
+                        />
                         
-                        <ul className="space-y-3">
-                            <motion.li initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.45 }} className="flex items-start gap-3 p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-all">
-                                <span className="text-green-400 font-bold">1.</span>
-                                <span>Upload study materials to create your document library</span>
-                            </motion.li>
-                            <motion.li initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 }} className="flex items-start gap-3 p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-all">
-                                <span className="text-yellow-400 font-bold">2.</span>
-                                <span>Take AI-generated quizzes to test your knowledge</span>
-                            </motion.li>
-                            <motion.li initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.55 }} className="flex items-start gap-3 p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-all">
-                                <span className="text-blue-400 font-bold">3.</span>
-                                <span>Build your study streak to unlock personalized recommendations</span>
-                            </motion.li>
-                        </ul>
-                    </div>
-                </motion.div>
-            )}
-        </div>
+                        <div className="relative">
+                            <div className="flex items-center gap-4 mb-8">
+                                <div className="p-3.5 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-2xl shadow-xl">
+                                    <Zap size={28} className="text-white" strokeWidth={2.5} />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-black text-white mb-1">Getting Started</h3>
+                                    <p className="text-white/60 text-sm font-medium">Complete these steps to unlock AI insights</p>
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-4">
+                                {[
+                                    { step: '1', text: 'Upload study materials to create your document library', color: 'emerald' },
+                                    { step: '2', text: 'Take AI-generated quizzes to test your knowledge', color: 'amber' },
+                                    { step: '3', text: 'Build your study streak to unlock personalized recommendations', color: 'blue' }
+                                ].map((item, idx) => (
+                                    <motion.div 
+                                        key={idx}
+                                        initial={{ opacity: 0, x: -30 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: 0.5 + (idx * 0.1) }}
+                                        className="flex items-start gap-4 p-5 bg-white/5 backdrop-blur-xl rounded-2xl hover:bg-white/10 transition-all border border-white/10"
+                                    >
+                                        <div className={`flex-shrink-0 w-10 h-10 bg-${item.color}-500/20 border border-${item.color}-500/30 rounded-xl flex items-center justify-center`}>
+                                            <span className={`text-${item.color}-400 font-black text-lg`}>{item.step}</span>
+                                        </div>
+                                        <span className="text-white/90 text-base leading-relaxed">{item.text}</span>
+                                    </motion.div>
+                                ))}
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </div>
+        </>
     );
 };
 
-// Helper functions
+// ==================== HELPER FUNCTIONS ====================
 function calculateImprovement(trends) {
     if (!trends || trends.length < 2) return '0%';
-
+    
     const recent = trends.slice(0, Math.ceil(trends.length / 2));
     const older = trends.slice(Math.ceil(trends.length / 2));
 

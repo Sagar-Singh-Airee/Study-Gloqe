@@ -19,7 +19,7 @@ import TextViewer from '@/components/study/TextViewer';
 import NotesPanel from '@/components/study/NotesPanel';
 import VoiceAssistant from '@/components/study/VoiceAssistant';
 import toast from 'react-hot-toast';
-import logoImage from '@/assets/logo/logox.png';
+import logoImage from '@/assets/logo/logoe.png';
 import { detectSubjectFromContent } from '@/helpers/subjectDetection';
 
 const StudySession = () => {

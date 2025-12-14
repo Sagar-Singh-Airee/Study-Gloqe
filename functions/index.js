@@ -1,15 +1,28 @@
-// functions/index.js - COMPLETE WITH BIGQUERY INTEGRATION + STUDY SESSION SYNC
+// ========================================
+// 🔥 STUDYGLOQE FIREBASE FUNCTIONS
+// WITH KAFKA + BIGQUERY INTEGRATION
+// ========================================
+
+// 🆕 LOAD ENVIRONMENT VARIABLES FIRST!
+require('dotenv').config();
+
+// ========================================
+// IMPORTS
+// ========================================
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const { VertexAI } = require('@google-cloud/vertexai');
 const cors = require('cors')({ origin: true });
 const { BigQuery } = require('@google-cloud/bigquery');
 
+// 🆕 KAFKA IMPORT
+const { publishEvent } = require('./services/kafkaService');
+
 admin.initializeApp();
 const db = admin.firestore();
 const bigqueryClient = new BigQuery();
 
-// 🆕 Import BigQuery tracking functions
+// Import BigQuery tracking functions
 const {
   trackQuizCompletion,
   trackStudySession,
@@ -75,8 +88,202 @@ function detectSubjectFromFilename(fileName) {
   return 'General';
 }
 
+// ========================================
+// 🆕 KAFKA TEST ENDPOINT
+// ========================================
+/**
+ * Test Kafka connection
+ * Usage: GET https://your-region-your-project.cloudfunctions.net/testKafka
+ */
+exports.testKafka = functions.https.onRequest(async (req, res) => {
+  try {
+    console.log('🧪 Testing Kafka connection...');
+    
+    const result = await publishEvent('quiz-events', {
+      type: 'test.connection',
+      userId: 'test-user-123',
+      message: 'Hello from StudyGloqe Firebase!',
+      timestamp: new Date().toISOString(),
+      testData: {
+        source: 'firebase-functions',
+        environment: process.env.NODE_ENV || 'production',
+        project: process.env.GOOGLE_CLOUD_PROJECT
+      }
+    });
+    
+    if (result.success) {
+      res.status(200).json({
+        success: true,
+        message: '✅ Kafka message sent successfully!',
+        topic: 'studygloqe-quiz-events',
+        timestamp: new Date().toISOString(),
+        environment: {
+          hasBootstrapServer: !!process.env.CONFLUENT_BOOTSTRAP_SERVER,
+          hasApiKey: !!process.env.CONFLUENT_API_KEY,
+          hasApiSecret: !!process.env.CONFLUENT_API_SECRET
+        }
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: result.error,
+        message: '❌ Failed to send Kafka message'
+      });
+    }
+  } catch (error) {
+    console.error('❌ Test failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+// ========================================
+// 🆕 KAFKA INTEGRATION - QUIZ EVENTS
+// ========================================
+/**
+ * Publish quiz completion event to Kafka
+ */
+exports.publishQuizEvent = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
+  }
+
+  const { quizId, sessionId, score, subject, correctAnswers, totalQuestions, timeTaken } = data;
+
+  try {
+    await publishEvent('quiz-events', {
+      type: 'quiz.completed',
+      userId: context.auth.uid,
+      quizId,
+      sessionId,
+      score,
+      subject: subject || 'General',
+      correctAnswers: correctAnswers || 0,
+      totalQuestions: totalQuestions || 0,
+      timeTaken: timeTaken || 0,
+      completedAt: new Date().toISOString(),
+      metadata: {
+        userEmail: context.auth.token.email || 'unknown'
+      }
+    });
+
+    console.log(`✅ Quiz event published to Kafka for user ${context.auth.uid}`);
+    return { success: true, message: 'Quiz event published to Kafka' };
+  } catch (error) {
+    console.error('❌ Failed to publish quiz event:', error);
+    throw new functions.https.HttpsError('internal', `Failed to publish quiz event: ${error.message}`);
+  }
+});
+
+// ========================================
+// 🆕 KAFKA INTEGRATION - STUDY SESSIONS
+// ========================================
+/**
+ * Publish study session to Kafka
+ */
+exports.publishStudySession = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
+  }
+
+  const { sessionId, documentId, documentTitle, subject, duration, status } = data;
+
+  try {
+    await publishEvent('study-sessions', {
+      type: 'session.completed',
+      userId: context.auth.uid,
+      sessionId,
+      documentId: documentId || null,
+      documentTitle: documentTitle || 'Untitled',
+      subject: subject || 'General',
+      duration: duration || 0,
+      status: status || 'completed',
+      completedAt: new Date().toISOString(),
+      metadata: {
+        userEmail: context.auth.token.email || 'unknown'
+      }
+    });
+
+    console.log(`✅ Study session published to Kafka for user ${context.auth.uid}`);
+    return { success: true, message: 'Study session published to Kafka' };
+  } catch (error) {
+    console.error('❌ Failed to publish study session:', error);
+    throw new functions.https.HttpsError('internal', `Failed to publish study session: ${error.message}`);
+  }
+});
+
+// ========================================
+// 🆕 KAFKA INTEGRATION - ACHIEVEMENTS
+// ========================================
+/**
+ * Publish achievement to Kafka
+ */
+exports.publishAchievement = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
+  }
+
+  const { achievementType, xpEarned, badgeUnlocked, level } = data;
+
+  try {
+    await publishEvent('achievements', {
+      type: 'achievement.unlocked',
+      userId: context.auth.uid,
+      achievementType: achievementType || 'unknown',
+      xpEarned: xpEarned || 0,
+      badgeUnlocked: badgeUnlocked || null,
+      level: level || 1,
+      unlockedAt: new Date().toISOString(),
+      metadata: {
+        userEmail: context.auth.token.email || 'unknown'
+      }
+    });
+
+    console.log(`✅ Achievement published to Kafka for user ${context.auth.uid}`);
+    return { success: true, message: 'Achievement published to Kafka' };
+  } catch (error) {
+    console.error('❌ Failed to publish achievement:', error);
+    throw new functions.https.HttpsError('internal', `Failed to publish achievement: ${error.message}`);
+  }
+});
+
+// ========================================
+// 🆕 KAFKA INTEGRATION - ANALYTICS EVENTS
+// ========================================
+/**
+ * Publish analytics event to Kafka
+ */
+exports.publishAnalyticsEvent = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
+  }
+
+  const { eventType, eventData } = data;
+
+  try {
+    await publishEvent('analytics', {
+      type: eventType || 'analytics.event',
+      userId: context.auth.uid,
+      ...eventData,
+      timestamp: new Date().toISOString(),
+      metadata: {
+        userEmail: context.auth.token.email || 'unknown'
+      }
+    });
+
+    console.log(`✅ Analytics event published to Kafka for user ${context.auth.uid}`);
+    return { success: true, message: 'Analytics event published to Kafka' };
+  } catch (error) {
+    console.error('❌ Failed to publish analytics event:', error);
+    throw new functions.https.HttpsError('internal', `Failed to publish analytics event: ${error.message}`);
+  }
+});
+
 // ==========================================
-// 🆕 NEW: STUDY SESSION BIGQUERY SYNC
+// STUDY SESSION BIGQUERY SYNC
 // ==========================================
 exports.syncStudySessionToBigQuery = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -141,11 +348,18 @@ exports.syncStudySessionToBigQuery = functions.https.onCall(async (data, context
 
     console.log(`✅ Session ${sessionId} synced successfully to BigQuery`);
 
+    // 🆕 Also publish to Kafka
+    await publishEvent('study-sessions', {
+      type: 'session.synced',
+      ...row,
+      timestamp: new Date().toISOString()
+    });
+
     return {
       success: true,
       sessionId,
       totalMinutes,
-      message: 'Study session synced to BigQuery'
+      message: 'Study session synced to BigQuery and Kafka'
     };
 
   } catch (error) {
@@ -165,7 +379,7 @@ exports.syncStudySessionToBigQuery = functions.https.onCall(async (data, context
   }
 });
 
-// 🆕 NEW: Get Study Time from BigQuery
+// Get Study Time from BigQuery
 exports.getStudyTimeBigQuery = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
@@ -227,75 +441,8 @@ exports.getStudyTimeBigQuery = functions.https.onCall(async (data, context) => {
 });
 
 // ==========================================
-// DOCUMENT PROCESSING - WITH BIGQUERY
+// DOCUMENT PROCESSING - WITH BIGQUERY & KAFKA
 // ==========================================
-exports.processDocument = functions.firestore
-  .document('documents/{docId}')
-  .onCreate(async (snap, context) => {
-    const docData = snap.data();
-    const userId = docData.uploaderId;
-    
-    try {
-      const model = vertex_ai.preview.getGenerativeModel({
-        model: 'gemini-pro'
-      });
-
-      const prompt = `Classify the following document into one subject category (Math, Science, History, English, Computer Science, Physics, Chemistry, Biology, etc.): ${docData.title}. Respond with only the subject name.`;
-      
-      const result = await model.generateContent(prompt);
-      const subject = result.response.text().trim();
-      
-      await snap.ref.update({
-        subject: subject,
-        status: 'completed',
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
-      });
-
-      // Track in BigQuery
-      await trackDocumentUpload(userId, {
-        id: snap.id,
-        title: docData.title,
-        fileName: docData.fileName,
-        subject
-      });
-
-      const gamificationRef = db.collection('gamification').doc(userId);
-      const gamificationSnap = await gamificationRef.get();
-
-      if (!gamificationSnap.exists) {
-        await gamificationRef.set({
-          xp: 20,
-          level: 1,
-          badges: ['first-upload'],
-          pointsHistory: [{
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
-            points: 20,
-            reason: 'document-upload'
-          }]
-        });
-      } else {
-        await gamificationRef.update({
-          xp: admin.firestore.FieldValue.increment(20),
-          pointsHistory: admin.firestore.FieldValue.arrayUnion({
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
-            points: 20,
-            reason: 'document-upload'
-          })
-        });
-      }
-
-      console.log(`✅ Document processed and 20 XP awarded to ${userId}`);
-      return { success: true };
-    } catch (error) {
-      console.error('Error processing document:', error);
-      await snap.ref.update({
-        status: 'failed',
-        error: error.message
-      });
-      throw error;
-    }
-  });
-
 exports.processDocumentEnhanced = functions.firestore
   .document('documents/{docId}')
   .onCreate(async (snap, context) => {
@@ -358,6 +505,18 @@ Subject:`;
         title: docData.title,
         fileName: docData.fileName,
         subject
+      });
+
+      // 🆕 Publish to Kafka
+      await publishEvent('analytics', {
+        type: 'document.uploaded',
+        userId,
+        documentId: snap.id,
+        documentTitle: docData.title,
+        fileName: docData.fileName,
+        subject,
+        detectionMethod,
+        timestamp: new Date().toISOString()
       });
 
       const gamificationRef = db.collection('gamification').doc(userId);
@@ -470,7 +629,7 @@ exports.generateQuiz = functions.https.onCall(async (data, context) => {
 });
 
 // ==========================================
-// GAMIFICATION - WITH BIGQUERY TRACKING
+// GAMIFICATION - WITH BIGQUERY & KAFKA TRACKING
 // ==========================================
 exports.awardXPOnQuizComplete = functions.firestore
   .document('quizSessions/{sessionId}')
@@ -505,6 +664,20 @@ exports.awardXPOnQuizComplete = functions.firestore
         timeTaken: sessionData.duration || 0
       }, userId);
 
+      // 🆕 Publish to Kafka
+      await publishEvent('quiz-events', {
+        type: 'quiz.completed',
+        userId,
+        sessionId: snap.id,
+        quizId: sessionData.quizId,
+        subject: sessionData.subject,
+        score,
+        correctAnswers,
+        totalQuestions: answerKeys.length,
+        xpEarned,
+        timestamp: new Date().toISOString()
+      });
+
       const gamificationRef = db.collection('gamification').doc(userId);
       
       await gamificationRef.update({
@@ -527,7 +700,7 @@ exports.awardXPOnQuizComplete = functions.firestore
     }
   });
 
-// 🆕 Track Study Session Completion
+// Track Study Session Completion
 exports.trackStudySessionComplete = functions.firestore
   .document('studySessions/{sessionId}')
   .onUpdate(async (change, context) => {
@@ -540,8 +713,19 @@ exports.trackStudySessionComplete = functions.firestore
         id: context.params.sessionId,
         ...after
       }, after.userId);
+
+      // 🆕 Publish to Kafka
+      await publishEvent('study-sessions', {
+        type: 'session.completed',
+        userId: after.userId,
+        sessionId: context.params.sessionId,
+        documentId: after.documentId,
+        subject: after.subject,
+        duration: after.duration || after.totalTime,
+        timestamp: new Date().toISOString()
+      });
       
-      console.log(`✅ Study session tracked in BigQuery: ${context.params.sessionId}`);
+      console.log(`✅ Study session tracked in BigQuery and Kafka: ${context.params.sessionId}`);
     }
     
     return null;
@@ -585,6 +769,16 @@ exports.checkLevelUp = functions.firestore
         message: `Congratulations! You've reached Level ${newLevel}! 🎉`,
         read: false,
         createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      // 🆕 Publish to Kafka
+      await publishEvent('achievements', {
+        type: 'level.up',
+        userId,
+        oldLevel,
+        newLevel,
+        bonusXP: 50,
+        timestamp: new Date().toISOString()
       });
 
       return { leveledUp: true, newLevel };
@@ -734,7 +928,7 @@ exports.explainText = functions.https.onCall(async (data, context) => {
 });
 
 // ==========================================
-// 🆕 BIGQUERY-POWERED ANALYTICS
+// BIGQUERY-POWERED ANALYTICS
 // ==========================================
 exports.getAnalyticsBigQuery = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -1210,20 +1404,31 @@ exports.getLearningPatterns = functions.https.onRequest((req, res) => {
 
       const sessions = sessionsSnapshot.docs.map(doc => doc.data());
       
-      const totalSessions = sessions.length;
-      const totalTime = sessions.reduce((sum, s) => sum + (s.duration || s.totalTime || 0), 0);
-      const avgSessionLength = totalSessions > 0 ? Math.round(totalTime / totalSessions) : 0;
+      const hourlyDistribution = {};
+      sessions.forEach(session => {
+        const hour = session.startTime ? new Date(session.startTime).getHours() : 9;
+        hourlyDistribution[hour] = (hourlyDistribution[hour] || 0) + 1;
+      });
 
-      const patterns = {
-        bestStudyTime: 'Morning',
-        avgSessionLength,
-        studyDaysPerWeek: Math.min(totalSessions, 7),
+      const bestHour = Object.entries(hourlyDistribution)
+        .sort(([,a], [,b]) => b - a)[0]?.[0] || 9;
+      
+      const bestStudyTime = bestHour < 12 ? 'Morning' : 
+                           bestHour < 17 ? 'Afternoon' : 'Evening';
+
+      const totalMinutes = sessions.reduce((sum, s) => sum + (s.duration || 0), 0);
+      const avgSessionLength = sessions.length > 0 ? totalMinutes / sessions.length : 0;
+
+      const patternsData = {
+        bestStudyTime,
+        avgSessionLength: Math.round(avgSessionLength),
+        studyDaysPerWeek: Math.min(Math.round(sessions.length / 4), 7),
         completionRate: 85,
-        totalSessions
+        totalSessions: sessions.length
       };
 
       console.log(`✅ Learning patterns fetched for user: ${userId}`);
-      return res.status(200).json(patterns);
+      return res.status(200).json(patternsData);
     } catch (error) {
       console.error('❌ Error in getLearningPatterns:', error);
       return res.status(500).json({ 
@@ -1234,131 +1439,7 @@ exports.getLearningPatterns = functions.https.onRequest((req, res) => {
   });
 });
 
-exports.getStudyStreaks = functions.https.onRequest((req, res) => {
-  return cors(req, res, async () => {
-    try {
-      const userId = req.body.userId || req.query.userId;
-      
-      if (!userId) {
-        return res.status(400).json({ error: 'userId is required' });
-      }
-
-      const userDoc = await db.collection('users').doc(userId).get();
-      const userData = userDoc.exists ? userDoc.data() : {};
-
-      const streakData = {
-        currentStreak: userData.streak || 0,
-        longestStreak: userData.longestStreak || 0,
-        lastStudyDate: userData.lastStudyDate || null
-      };
-
-      console.log(`✅ Study streaks fetched for user: ${userId}`);
-      return res.status(200).json(streakData);
-    } catch (error) {
-      console.error('❌ Error in getStudyStreaks:', error);
-      return res.status(500).json({ 
-        error: error.message,
-        details: 'Failed to fetch study streaks'
-      });
-    }
-  });
-});
-
-exports.getSubjectPerformance = functions.https.onRequest((req, res) => {
-  return cors(req, res, async () => {
-    try {
-      const userId = req.body.userId || req.query.userId;
-      
-      if (!userId) {
-        return res.status(400).json({ error: 'userId is required' });
-      }
-
-      const sessionsSnapshot = await db.collection('quizSessions')
-        .where('userId', '==', userId)
-        .limit(50)
-        .get();
-
-      if (sessionsSnapshot.empty) {
-        return res.status(200).json({ performance: [] });
-      }
-
-      const subjectScores = {};
-      sessionsSnapshot.docs.forEach(doc => {
-        const data = doc.data();
-        const subject = data.subject || 'General';
-        if (!subjectScores[subject]) {
-          subjectScores[subject] = { total: 0, count: 0 };
-        }
-        subjectScores[subject].total += data.score || 0;
-        subjectScores[subject].count += 1;
-      });
-
-      const performance = Object.entries(subjectScores).map(([name, data]) => ({
-        name,
-        score: Math.round(data.total / data.count),
-        quizCount: data.count
-      })).sort((a, b) => b.score - a.score);
-
-      console.log(`✅ Subject performance fetched for user: ${userId}`);
-      return res.status(200).json({ performance });
-    } catch (error) {
-      console.error('❌ Error in getSubjectPerformance:', error);
-      return res.status(500).json({ 
-        error: error.message,
-        details: 'Failed to fetch subject performance'
-      });
-    }
-  });
-});
-
-exports.getWeakAreas = functions.https.onRequest((req, res) => {
-  return cors(req, res, async () => {
-    try {
-      const userId = req.body.userId || req.query.userId;
-      
-      if (!userId) {
-        return res.status(400).json({ error: 'userId is required' });
-      }
-
-      const sessionsSnapshot = await db.collection('quizSessions')
-        .where('userId', '==', userId)
-        .limit(50)
-        .get();
-
-      if (sessionsSnapshot.empty) {
-        return res.status(200).json({ weakAreas: [] });
-      }
-
-      const subjectScores = {};
-      sessionsSnapshot.docs.forEach(doc => {
-        const data = doc.data();
-        const subject = data.subject || 'General';
-        if (!subjectScores[subject]) {
-          subjectScores[subject] = { total: 0, count: 0 };
-        }
-        subjectScores[subject].total += data.score || 0;
-        subjectScores[subject].count += 1;
-      });
-
-      const weakAreas = Object.entries(subjectScores)
-        .map(([name, data]) => ({
-          topic: name,
-          score: Math.round(data.total / data.count),
-          description: `Practice more ${name} topics to improve`,
-          quizCount: data.count
-        }))
-        .filter(area => area.score < 60)
-        .sort((a, b) => a.score - b.score)
-        .slice(0, 5);
-
-      console.log(`✅ Weak areas fetched for user: ${userId}`);
-      return res.status(200).json({ weakAreas });
-    } catch (error) {
-      console.error('❌ Error in getWeakAreas:', error);
-      return res.status(500).json({ 
-        error: error.message,
-        details: 'Failed to fetch weak areas'
-      });
-    }
-  });
-});
+// ==========================================
+// 🎉 END OF FILE
+// ==========================================
+console.log('✅ StudyGloqe Firebase Functions loaded with Kafka integration!');

@@ -2,16 +2,20 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Volume2, VolumeX, Mic, MicOff } from 'lucide-react';
+import { doc, updateDoc, increment } from 'firebase/firestore';
+import { db } from '@/config/firebase';
+import { useAuth } from '@/contexts/AuthContext';
 import { geminiModel } from '@/config/gemini';
 import { textToSpeech, VOICE_OPTIONS } from '@/services/googleTTS';
 import toast from 'react-hot-toast';
 
 // ✅ Speech recognition availability check
 const isSpeechRecognitionSupported = () => {
-  return 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
+    return 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
 };
 
 const VoiceAssistant = ({ onClose, documentContext = '' }) => {
+    const { user } = useAuth();
     const [isListening, setIsListening] = useState(true);
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [currentTranscript, setCurrentTranscript] = useState('');
@@ -22,7 +26,7 @@ const VoiceAssistant = ({ onClose, documentContext = '' }) => {
     const [isMuted, setIsMuted] = useState(false);
     const [hasRecognitionError, setHasRecognitionError] = useState(false);
     const [audioError, setAudioError] = useState(null);
-    
+
     const recognitionRef = useRef(null);
     const audioRef = useRef(null);
     const silenceTimerRef = useRef(null);
@@ -41,13 +45,13 @@ const VoiceAssistant = ({ onClose, documentContext = '' }) => {
     // ✅ Cleanup all resources
     const cleanupAll = useCallback(() => {
         console.log('🧹 Cleaning up all resources...');
-        
+
         // Clear all timeouts
         if (silenceTimerRef.current) {
             clearTimeout(silenceTimerRef.current);
             silenceTimerRef.current = null;
         }
-        
+
         if (restartTimeoutRef.current) {
             clearTimeout(restartTimeoutRef.current);
             restartTimeoutRef.current = null;
@@ -97,7 +101,7 @@ const VoiceAssistant = ({ onClose, documentContext = '' }) => {
         } catch (error) {
             console.warn('Recognition start failed:', error);
             isRecognitionRunningRef.current = false;
-            
+
             // Retry after delay
             restartTimeoutRef.current = setTimeout(() => {
                 if (isMountedRef.current && isListening && !isProcessingRef.current) {
@@ -154,7 +158,7 @@ const VoiceAssistant = ({ onClose, documentContext = '' }) => {
 
             let interimTranscript = '';
             finalTranscript = '';
-            
+
             for (let i = event.resultIndex; i < event.results.length; i++) {
                 const transcript = event.results[i][0].transcript;
                 if (event.results[i].isFinal) {
@@ -186,7 +190,7 @@ const VoiceAssistant = ({ onClose, documentContext = '' }) => {
 
         recognition.onerror = (event) => {
             if (!isMountedRef.current) return;
-            
+
             console.warn('Speech recognition error:', event.error);
             isRecognitionRunningRef.current = false;
             safeSetState(setHasRecognitionError, true);
@@ -204,10 +208,10 @@ const VoiceAssistant = ({ onClose, documentContext = '' }) => {
 
         recognition.onend = () => {
             if (!isMountedRef.current) return;
-            
+
             isRecognitionRunningRef.current = false;
             console.log('🛑 Speech recognition ended');
-            
+
             // Auto-restart if should be listening
             if (isListening && !isProcessingRef.current && !hasRecognitionError) {
                 restartTimeoutRef.current = setTimeout(() => {
@@ -254,7 +258,7 @@ const VoiceAssistant = ({ onClose, documentContext = '' }) => {
         safeSetState(setLastUserMessage, text);
         safeSetState(setIsListening, false);
         safeSetState(setAudioError, null);
-        
+
         // Stop recognition safely
         stopRecognition();
 
@@ -288,11 +292,11 @@ Respond naturally:`;
 
             const result = await geminiModel.generateContent(prompt);
             const aiResponse = result.response.text().trim();
-            
+
             console.log('🤖 AI Response:', aiResponse);
             safeSetState(setLastAIMessage, aiResponse);
             safeSetState(setConversationHistory, [...newHistory, { role: 'assistant', content: aiResponse }]);
-            
+
             if (!isMuted && isMountedRef.current) {
                 await speakText(aiResponse);
             } else if (isMountedRef.current) {
@@ -301,10 +305,19 @@ Respond naturally:`;
                     safeSetState(setLastAIMessage, '');
                 }, 3000);
             }
+
+            // Log interaction
+            if (user?.uid) {
+                const userRef = doc(db, 'users', user.uid);
+                updateDoc(userRef, {
+                    voiceInteractions: increment(1)
+                }).catch(err => console.error('Failed to log voice interaction:', err));
+            }
+
         } catch (error) {
             console.error('❌ AI generation error:', error);
             if (!isMountedRef.current) return;
-            
+
             const errorMsg = "Hmm, I didn't catch that. Could you repeat?";
             safeSetState(setLastAIMessage, errorMsg);
             if (!isMuted) {
@@ -316,7 +329,7 @@ Respond naturally:`;
                 safeSetState(setIsProcessing, false);
                 safeSetState(setLastUserMessage, '');
                 safeSetState(setCurrentTranscript, '');
-                
+
                 // Resume listening after delay
                 setTimeout(() => {
                     if (isMountedRef.current && !isProcessingRef.current) {
@@ -325,7 +338,7 @@ Respond naturally:`;
                 }, 800);
             }
         }
-    }, [conversationHistory, documentContext, isMuted, stopRecognition, safeSetState]);
+    }, [conversationHistory, documentContext, isMuted, stopRecognition, safeSetState, user]);
 
     // ✅ Enhanced Text-to-speech with male voice
     const speakText = useCallback(async (text) => {
@@ -335,15 +348,15 @@ Respond naturally:`;
             try {
                 safeSetState(setIsSpeaking, true);
                 safeSetState(setAudioError, null);
-                
+
                 // Stop any existing audio
                 if (audioRef.current) {
                     audioRef.current.pause();
                     audioRef.current = null;
                 }
-                
+
                 console.log('🔊 Generating TTS for:', text);
-                
+
                 // ✅ Use male voice with optimized settings
                 const audioDataUrl = await textToSpeech(text, {
                     ...VOICE_OPTIONS.MALE_NEURAL_D, // Male voice
@@ -351,16 +364,16 @@ Respond naturally:`;
                     pitch: -2.0,        // Slightly deeper for male voice
                     volume: 0.0         // Normal volume
                 });
-                
+
                 if (!isMountedRef.current) {
                     resolve();
                     return;
                 }
-                
+
                 // Create and configure audio element
                 const audio = new Audio();
                 audioRef.current = audio;
-                
+
                 // Wait for audio to load
                 await new Promise((loadResolve, loadReject) => {
                     audio.addEventListener('canplaythrough', loadResolve, { once: true });
@@ -368,12 +381,12 @@ Respond naturally:`;
                         console.error('Audio load error:', e);
                         loadReject(new Error('Audio failed to load'));
                     }, { once: true });
-                    
+
                     audio.src = audioDataUrl;
                 });
-                
+
                 console.log('✅ Audio loaded successfully');
-                
+
                 // Set up audio event handlers
                 audio.onended = () => {
                     console.log('✅ Audio playback completed');
@@ -385,7 +398,7 @@ Respond naturally:`;
                     }
                     resolve();
                 };
-                
+
                 audio.onerror = (e) => {
                     console.error('❌ Audio playback error:', e);
                     if (isMountedRef.current) {
@@ -395,21 +408,21 @@ Respond naturally:`;
                     }
                     resolve();
                 };
-                
+
                 // Play audio
                 await audio.play();
                 console.log('▶️ Audio playback started');
-                
+
             } catch (error) {
                 console.error('❌ TTS Error:', error);
                 if (!isMountedRef.current) {
                     resolve();
                     return;
                 }
-                
+
                 safeSetState(setIsSpeaking, false);
                 safeSetState(setAudioError, error.message);
-                
+
                 // Enhanced error messaging
                 if (error.message.includes('403')) {
                     toast.error('Voice API access denied. Check API key and billing.');
@@ -420,14 +433,14 @@ Respond naturally:`;
                 } else {
                     toast.error('Voice synthesis failed');
                 }
-                
+
                 // Show text briefly even if audio fails
                 setTimeout(() => {
                     if (isMountedRef.current) {
                         safeSetState(setLastAIMessage, '');
                     }
                 }, 3000);
-                
+
                 resolve();
             }
         });
@@ -442,7 +455,7 @@ Respond naturally:`;
         }
         const newMutedState = !isMuted;
         safeSetState(setIsMuted, newMutedState);
-        
+
         toast.success(newMutedState ? '🔇 Voice muted' : '🔊 Voice enabled', {
             duration: 1000,
             style: {
@@ -535,11 +548,10 @@ Respond naturally:`;
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={toggleMute}
-                className={`absolute top-6 left-6 p-3 rounded-full transition-all backdrop-blur-xl border shadow-xl z-10 ${
-                    isMuted 
-                        ? 'bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20' 
+                className={`absolute top-6 left-6 p-3 rounded-full transition-all backdrop-blur-xl border shadow-xl z-10 ${isMuted
+                        ? 'bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20'
                         : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
-                }`}
+                    }`}
             >
                 {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
             </motion.button>
@@ -551,17 +563,16 @@ Respond naturally:`;
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={toggleListening}
-                className={`absolute bottom-6 left-6 p-3 rounded-full transition-all backdrop-blur-xl border shadow-xl z-10 ${
-                    isListening 
-                        ? 'bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20' 
+                className={`absolute bottom-6 left-6 p-3 rounded-full transition-all backdrop-blur-xl border shadow-xl z-10 ${isListening
+                        ? 'bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20'
                         : 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/20'
-                }`}
+                    }`}
             >
                 {isListening ? <Mic size={24} /> : <MicOff size={24} />}
             </motion.button>
 
             <div className="flex flex-col items-center justify-center gap-12">
-                
+
                 {/* Voice Orb */}
                 <div className="relative">
                     {/* Pulsing rings */}
@@ -596,24 +607,23 @@ Respond naturally:`;
                             duration: isSpeaking ? 0.8 : 2,
                             ease: "easeInOut"
                         }}
-                        className={`relative w-48 h-48 rounded-full flex items-center justify-center transition-all duration-500 ${
-                            isSpeaking 
-                                ? 'bg-gradient-to-br from-blue-200 via-white to-blue-300 shadow-2xl shadow-blue-500/50' 
+                        className={`relative w-48 h-48 rounded-full flex items-center justify-center transition-all duration-500 ${isSpeaking
+                                ? 'bg-gradient-to-br from-blue-200 via-white to-blue-300 shadow-2xl shadow-blue-500/50'
                                 : isListening
-                                ? 'bg-gradient-to-br from-green-600 via-green-500 to-green-400 shadow-2xl shadow-green-500/50'
-                                : 'bg-gradient-to-br from-gray-800 via-gray-700 to-gray-600 shadow-xl'
-                        }`}
+                                    ? 'bg-gradient-to-br from-green-600 via-green-500 to-green-400 shadow-2xl shadow-green-500/50'
+                                    : 'bg-gradient-to-br from-gray-800 via-gray-700 to-gray-600 shadow-xl'
+                            }`}
                     >
                         {/* Shine effect */}
                         <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-white/20 to-transparent" />
-                        
+
                         {/* Status icon */}
                         {!isListening && !isSpeaking && !isProcessing && (
                             <div className="text-white/60 text-sm font-medium text-center">
                                 Ready
                             </div>
                         )}
-                        
+
                         {/* Waveform animation */}
                         {(isListening || isSpeaking) && (
                             <div className="absolute inset-0 flex items-center justify-center gap-1.5">
@@ -629,9 +639,8 @@ Respond naturally:`;
                                             delay: i * 0.1,
                                             ease: "easeInOut"
                                         }}
-                                        className={`w-1.5 rounded-full ${
-                                            isSpeaking ? 'bg-blue-800' : 'bg-white'
-                                        }`}
+                                        className={`w-1.5 rounded-full ${isSpeaking ? 'bg-blue-800' : 'bg-white'
+                                            }`}
                                     />
                                 ))}
                             </div>

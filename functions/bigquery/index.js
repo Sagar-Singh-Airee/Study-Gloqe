@@ -1,37 +1,83 @@
 // functions/bigquery/index.js
-// Main export file for all BigQuery functions
+// Central export for all BigQuery Cloud Functions
+// Handles analytics, recommendations, dashboards, trends, and event tracking
 
 const analytics = require('./analytics');
 const recommendations = require('./recommendations');
 const dashboards = require('./dashboards');
 const trends = require('./trends');
-const tracker = require('./tracker'); // 🆕 NEW
+const tracker = require('./tracker');
 
-module.exports = {
-  // 🆕 NEW: Tracking Functions
-  trackQuizCompletion: tracker.trackQuizCompletion,
-  trackStudySession: tracker.trackStudySession,
-  trackDocumentUpload: tracker.trackDocumentUpload,
-  
-  // Analytics Functions
-  getStudentAnalytics: analytics.getStudentAnalytics,
-  getClassAnalytics: analytics.getClassAnalytics,
-  getLearningPatterns: analytics.getLearningPatterns,
-  getPerformanceTrends: analytics.getPerformanceTrends,
+// ===================================
+// 📊 ANALYTICS FUNCTIONS
+// ===================================
+exports.getStudentAnalytics = analytics.getStudentAnalytics;
+exports.getClassAnalytics = analytics.getClassAnalytics;
+exports.getLearningPatterns = analytics.getLearningPatterns;
+exports.getPerformanceTrends = analytics.getPerformanceTrends;
 
-  // Recommendation Functions
-  getPersonalizedRecommendations: recommendations.getPersonalizedRecommendations,
-  getStudyPlanRecommendations: recommendations.getStudyPlanRecommendations,
-  getPeerComparison: recommendations.getPeerComparison,
+// ===================================
+// 🎯 RECOMMENDATION FUNCTIONS
+// ===================================
+exports.getPersonalizedRecommendations = recommendations.getPersonalizedRecommendations;
+exports.getStudyPlanRecommendations = recommendations.getStudyPlanRecommendations;
+exports.getPeerComparison = recommendations.getPeerComparison;
 
-  // Dashboard Functions
-  getTeacherDashboardData: dashboards.getTeacherDashboardData,
-  getAdminMetrics: dashboards.getAdminMetrics,
-  getSubjectInsights: dashboards.getSubjectInsights,
+// ===================================
+// 📈 DASHBOARD FUNCTIONS
+// ===================================
+exports.getTeacherDashboardData = dashboards.getTeacherDashboardData;
+exports.getAdminMetrics = dashboards.getAdminMetrics;
+exports.getSubjectInsights = dashboards.getSubjectInsights;
 
-  // Trends Functions
-  getMonthlyTrends: trends.getMonthlyTrends,
-  getRetentionCohorts: trends.getRetentionCohorts,
-  getSubjectTrends: trends.getSubjectTrends,
-  getChurnPredictionData: trends.getChurnPredictionData
-};
+// ===================================
+// 📉 TRENDS & COHORT FUNCTIONS
+// ===================================
+exports.getMonthlyTrends = trends.getMonthlyTrends;
+exports.getRetentionCohorts = trends.getRetentionCohorts;
+exports.getSubjectTrends = trends.getSubjectTrends;
+exports.getChurnPredictionData = trends.getChurnPredictionData;
+
+// ===================================
+// 🔔 EVENT TRACKING FUNCTIONS
+// ===================================
+exports.trackQuizCompletion = tracker.trackQuizCompletion;
+exports.trackStudySession = tracker.trackStudySession;
+exports.trackDocumentUpload = tracker.trackDocumentUpload;
+
+// ===================================
+// 🆕 HEALTH CHECK (Optional but useful)
+// ===================================
+const functions = require('firebase-functions');
+
+exports.bigQueryHealthCheck = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be logged in');
+  }
+
+  return {
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    dataset: 'studygloqe_analytics',
+    location: 'asia-south1',
+    availableFunctions: [
+      'getStudentAnalytics',
+      'getClassAnalytics',
+      'getLearningPatterns',
+      'getPerformanceTrends',
+      'getPersonalizedRecommendations',
+      'getStudyPlanRecommendations',
+      'getPeerComparison',
+      'getTeacherDashboardData',
+      'getAdminMetrics',
+      'getSubjectInsights',
+      'getMonthlyTrends',
+      'getRetentionCohorts',
+      'getSubjectTrends',
+      'getChurnPredictionData',
+      'trackQuizCompletion',
+      'trackStudySession',
+      'trackDocumentUpload'
+    ]
+  };
+});

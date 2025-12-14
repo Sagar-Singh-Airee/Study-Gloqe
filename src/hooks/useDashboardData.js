@@ -1,6 +1,7 @@
-// src/hooks/useDashboardData.js - ENHANCED WITH BIGQUERY
+// src/hooks/useDashboardData.js - ✅ ENHANCED WITH BIGQUERY + FIXED
 import { useState, useEffect } from 'react';
-import { db } from '@/config/firebase';
+// ✅ FIXED: Import db and COLLECTIONS from config
+import { db, COLLECTIONS } from '@/config/firebase';
 import {
     collection,
     query,
@@ -17,7 +18,8 @@ import {
     setDoc
 } from 'firebase/firestore';
 import { useAuth } from '@contexts/AuthContext';
-import bigQueryService from '@/services/bigQueryService'; // ✅ NEW: Import BigQuery service
+import bigQueryService from '@/services/bigQueryService'; // ✅ BigQuery service
+
 
 export const useDashboardData = () => {
     const { user } = useAuth();
@@ -28,13 +30,13 @@ export const useDashboardData = () => {
             quizzesCompleted: 0,
             quizzesGenerated: 0,
             currentStreak: 0,
-            streak: 0, // ✅ NEW: Alias for compatibility
+            streak: 0, // ✅ Alias for compatibility
             averageAccuracy: 0,
             level: 1,
             xp: 0,
             badges: 0,
-            totalStudyTime: 0, // ✅ NEW: From BigQuery
-            totalSessions: 0, // ✅ NEW: From BigQuery
+            totalStudyTime: 0, // ✅ From BigQuery
+            totalSessions: 0, // ✅ From BigQuery
         },
         recentDocuments: [],
         aiRecommendations: [],
@@ -43,7 +45,7 @@ export const useDashboardData = () => {
         documents: [],
         studySessions: [],
         gamification: null,
-        // ✅ NEW: BigQuery Analytics Data
+        // ✅ BigQuery Analytics Data
         analytics: null,
         learningPatterns: null,
         performanceTrends: [],
@@ -51,7 +53,7 @@ export const useDashboardData = () => {
         peerComparison: null
     });
 
-    // ✅ NEW: Separate loading states
+    // ✅ Separate loading states
     const [analyticsLoading, setAnalyticsLoading] = useState(true);
 
     useEffect(() => {
@@ -62,7 +64,8 @@ export const useDashboardData = () => {
         const setupListeners = async () => {
             try {
                 // ===== 1. REAL-TIME USER DATA LISTENER =====
-                const userRef = doc(db, 'users', user.uid);
+                // ✅ FIXED: Use COLLECTIONS.USERS
+                const userRef = doc(db, COLLECTIONS.USERS, user.uid);
                 const unsubUser = onSnapshot(userRef, (doc) => {
                     if (doc.exists()) {
                         const userData = doc.data();
@@ -85,8 +88,9 @@ export const useDashboardData = () => {
                 unsubscribers.push(unsubUser);
 
                 // ===== 2. REAL-TIME DOCUMENTS LISTENER =====
+                // ✅ FIXED: Use COLLECTIONS.DOCUMENTS
                 const documentsQuery = query(
-                    collection(db, 'documents'),
+                    collection(db, COLLECTIONS.DOCUMENTS),
                     where('uploaderId', '==', user.uid),
                     orderBy('createdAt', 'desc')
                 );
@@ -94,7 +98,7 @@ export const useDashboardData = () => {
                     const docs = snapshot.docs.map(doc => ({
                         id: doc.id,
                         ...doc.data()
-                        // ✅ REMOVED: Don't convert here, keep Firestore Timestamp
+                        // ✅ Keep Firestore Timestamp
                     }));
 
                     setData(prev => ({
@@ -110,8 +114,9 @@ export const useDashboardData = () => {
                 unsubscribers.push(unsubDocuments);
 
                 // ===== 3. REAL-TIME STUDY SESSIONS LISTENER =====
+                // ✅ FIXED: Use COLLECTIONS.STUDY_SESSIONS
                 const sessionsQuery = query(
-                    collection(db, 'studySessions'),
+                    collection(db, COLLECTIONS.STUDY_SESSIONS),
                     where('userId', '==', user.uid),
                     orderBy('startTime', 'desc'),
                     limit(20)
@@ -120,7 +125,7 @@ export const useDashboardData = () => {
                     const sessions = snapshot.docs.map(doc => ({
                         id: doc.id,
                         ...doc.data()
-                        // ✅ REMOVED: Don't convert here
+                        // ✅ Keep Firestore Timestamp
                     }));
 
                     const completed = sessions.filter(s => s.status === 'completed').length;
@@ -140,8 +145,9 @@ export const useDashboardData = () => {
                 unsubscribers.push(unsubSessions);
 
                 // ===== 4. REAL-TIME QUIZZES COUNT =====
+                // ✅ FIXED: Use COLLECTIONS.QUIZZES
                 const quizzesQuery = query(
-                    collection(db, 'quizzes'),
+                    collection(db, COLLECTIONS.QUIZZES),
                     where('createdBy', '==', user.uid)
                 );
                 const unsubQuizzes = onSnapshot(quizzesQuery, (snapshot) => {
@@ -156,7 +162,8 @@ export const useDashboardData = () => {
                 unsubscribers.push(unsubQuizzes);
 
                 // ===== 5. REAL-TIME ALO RECOMMENDATIONS =====
-                const aloRef = doc(db, 'alo', user.uid);
+                // ✅ FIXED: Use COLLECTIONS.ALO
+                const aloRef = doc(db, COLLECTIONS.ALO, user.uid);
                 const unsubALO = onSnapshot(aloRef, (doc) => {
                     if (doc.exists()) {
                         setData(prev => ({
@@ -175,8 +182,9 @@ export const useDashboardData = () => {
                 unsubscribers.push(unsubALO);
 
                 // ===== 6. REAL-TIME ACTIVE ROOMS =====
+                // ✅ FIXED: Use COLLECTIONS.ROOMS
                 const roomsQuery = query(
-                    collection(db, 'rooms'),
+                    collection(db, COLLECTIONS.ROOMS),
                     where('active', '==', true),
                     limit(3)
                 );
@@ -194,8 +202,9 @@ export const useDashboardData = () => {
                 unsubscribers.push(unsubRooms);
 
                 // ===== 7. REAL-TIME USER'S CLASSES LISTENER =====
+                // ✅ FIXED: Use COLLECTIONS.CLASSES
                 const classesQuery = query(
-                    collection(db, 'classes'),
+                    collection(db, COLLECTIONS.CLASSES),
                     where('studentIds', 'array-contains', user.uid),
                     where('active', '==', true)
                 );
@@ -216,7 +225,7 @@ export const useDashboardData = () => {
 
                 setLoading(false);
 
-                // ===== 8. ✅ NEW: FETCH BIGQUERY ANALYTICS (ONE-TIME) =====
+                // ===== 8. ✅ FETCH BIGQUERY ANALYTICS (ONE-TIME) =====
                 fetchBigQueryAnalytics(user.uid);
 
             } catch (error) {
@@ -234,7 +243,7 @@ export const useDashboardData = () => {
         };
     }, [user?.uid]);
 
-    // ✅ NEW: Fetch BigQuery Analytics Data
+    // ✅ Fetch BigQuery Analytics Data
     const fetchBigQueryAnalytics = async (userId) => {
         try {
             setAnalyticsLoading(true);
@@ -279,7 +288,7 @@ export const useDashboardData = () => {
         }
     };
 
-    // ✅ NEW: Refresh BigQuery analytics manually
+    // ✅ Refresh BigQuery analytics manually
     const refreshAnalytics = () => {
         if (user?.uid) {
             fetchBigQueryAnalytics(user.uid);
@@ -291,13 +300,10 @@ export const useDashboardData = () => {
         loading: loading || analyticsLoading, 
         firebaseLoading: loading,
         analyticsLoading,
-        refreshAnalytics // ✅ NEW: Expose refresh function
+        refreshAnalytics // ✅ Expose refresh function
     };
 };
 
-// ===== REMOVED DUPLICATE awardXP =====
-// Use awardXP from gamificationService instead
-// Import: import { awardXP } from '@/services/gamificationService';
 
 // ===== ACTION HANDLERS =====
 
@@ -305,7 +311,8 @@ export const completeQuiz = async (userId, quizId, score, answers) => {
     try {
         const batch = writeBatch(db);
 
-        const sessionRef = doc(collection(db, 'studySessions'));
+        // ✅ FIXED: Use COLLECTIONS.STUDY_SESSIONS
+        const sessionRef = doc(collection(db, COLLECTIONS.STUDY_SESSIONS));
         batch.set(sessionRef, {
             userId,
             documentId: quizId,
@@ -320,7 +327,8 @@ export const completeQuiz = async (userId, quizId, score, answers) => {
             answers
         });
 
-        const userRef = doc(db, 'users', userId);
+        // ✅ FIXED: Use COLLECTIONS.USERS
+        const userRef = doc(db, COLLECTIONS.USERS, userId);
         const xpEarned = Math.max(Math.round(score / 10), 5);
         batch.update(userRef, {
             xp: increment(xpEarned),
@@ -341,7 +349,8 @@ export const completeQuiz = async (userId, quizId, score, answers) => {
 
 export const joinStudyRoom = async (userId, roomId) => {
     try {
-        const roomRef = doc(db, 'rooms', roomId);
+        // ✅ FIXED: Use COLLECTIONS.ROOMS
+        const roomRef = doc(db, COLLECTIONS.ROOMS, roomId);
 
         await updateDoc(roomRef, {
             members: arrayUnion(userId),
@@ -358,7 +367,8 @@ export const joinStudyRoom = async (userId, roomId) => {
 
 export const claimDailyBonus = async (userId) => {
     try {
-        const userRef = doc(db, 'users', userId);
+        // ✅ FIXED: Use COLLECTIONS.USERS
+        const userRef = doc(db, COLLECTIONS.USERS, userId);
 
         await updateDoc(userRef, {
             xp: increment(5),
@@ -375,8 +385,8 @@ export const claimDailyBonus = async (userId) => {
     }
 };
 
-// ✅ NEW: Separate hooks for specific BigQuery features
 
+// ✅ TEACHER DASHBOARD HOOK
 export const useTeacherDashboard = (teacherId, dateRange = 30) => {
     const [dashboard, setDashboard] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -395,7 +405,7 @@ export const useTeacherDashboard = (teacherId, dateRange = 30) => {
                 const data = await bigQueryService.getTeacherDashboardData(teacherId, dateRange);
                 setDashboard(data);
             } catch (err) {
-                console.error('Error fetching teacher dashboard:', err);
+                console.error('❌ Error fetching teacher dashboard:', err);
                 setError(err.message);
             } finally {
                 setLoading(false);
@@ -408,6 +418,8 @@ export const useTeacherDashboard = (teacherId, dateRange = 30) => {
     return { dashboard, loading, error };
 };
 
+
+// ✅ ADMIN DASHBOARD HOOK
 export const useAdminDashboard = (dateRange = 30) => {
     const [metrics, setMetrics] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -421,7 +433,7 @@ export const useAdminDashboard = (dateRange = 30) => {
                 const data = await bigQueryService.getAdminMetrics(dateRange);
                 setMetrics(data);
             } catch (err) {
-                console.error('Error fetching admin metrics:', err);
+                console.error('❌ Error fetching admin metrics:', err);
                 setError(err.message);
             } finally {
                 setLoading(false);

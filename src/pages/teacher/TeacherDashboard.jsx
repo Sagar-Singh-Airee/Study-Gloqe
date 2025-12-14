@@ -25,6 +25,7 @@ import ClassManagement from '@/components/teacher/ClassManagement';
 import AssignmentCreator from '@/components/teacher/AssignmentCreator';
 import GradeBook from '@/components/teacher/GradeBook';
 import TeacherAnalytics from '@/components/teacher/TeacherAnalytics';
+import StudentList from '@/components/teacher/StudentList';
 
 const TeacherDashboard = () => {
     const { user, userData } = useAuth();

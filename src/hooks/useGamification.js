@@ -1,7 +1,8 @@
-// src/hooks/useGamification.js - WITH AUTO-SYNC
+// src/hooks/useGamification.js - ✅ WITH AUTO-SYNC + FIXED
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { doc, onSnapshot, collection, updateDoc, setDoc, getDoc } from 'firebase/firestore';
-import { db } from '@/config/firebase';
+// ✅ FIXED: Import db and COLLECTIONS from config
+import { db, COLLECTIONS } from '@/config/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     trackActionAndCheckUnlocks,
@@ -30,7 +31,7 @@ const calculateLevelProgress = (xp, level) => {
     return Math.min(Math.max(progress, 0), 100);
 };
 
-// 🆕 NEW: Auto-calculate badges based on user activity
+// 🆕 Auto-calculate badges based on user activity
 const calculateEarnedBadges = (documents, quizSessions, studySessions, decks, totalMastered) => {
     const earnedBadgeIds = [];
     
@@ -70,7 +71,7 @@ export const useGamification = () => {
     const [notifications, setNotifications] = useState([]);
     const [syncing, setSyncing] = useState(false);
 
-    // 🆕 NEW: Import user activity data for auto-sync
+    // 🆕 Import user activity data for auto-sync
     const { documents } = useDocumentsData(user?.uid);
     const { quizSessions } = useQuizSessionsData(user?.uid, 365);
     const { sessions: studySessions } = useStudySessionsData(user?.uid, 365);
@@ -98,7 +99,7 @@ export const useGamification = () => {
         classRank: '--'
     });
 
-    // 🆕 NEW: Auto-sync badges when activity changes
+    // 🆕 Auto-sync badges when activity changes
     useEffect(() => {
         if (!user?.uid || loading || syncing) return;
         if (!documents || !quizSessions || !studySessions || !decks) return;
@@ -123,8 +124,8 @@ export const useGamification = () => {
                 if (newBadges.length > 0) {
                     console.log(`🎖️ Auto-syncing ${newBadges.length} new badges:`, newBadges);
                     
-                    // Update Firestore
-                    const userRef = doc(db, 'users', user.uid);
+                    // ✅ FIXED: Use COLLECTIONS.USERS
+                    const userRef = doc(db, COLLECTIONS.USERS, user.uid);
                     await updateDoc(userRef, {
                         unlockedBadges: earnedBadgeIds,
                         lastBadgeSync: new Date().toISOString()
@@ -166,7 +167,8 @@ export const useGamification = () => {
         let unsubUser = null;
 
         try {
-            const userRef = doc(db, 'users', user.uid);
+            // ✅ FIXED: Use COLLECTIONS.USERS
+            const userRef = doc(db, COLLECTIONS.USERS, user.uid);
             
             unsubUser = onSnapshot(
                 userRef,
@@ -219,7 +221,8 @@ export const useGamification = () => {
 
         const setupBadgesListener = async () => {
             try {
-                const badgesRef = collection(db, 'globalBadges');
+                // ✅ FIXED: Use COLLECTIONS.GLOBAL_BADGES
+                const badgesRef = collection(db, COLLECTIONS.GLOBAL_BADGES);
                 
                 unsubBadges = onSnapshot(
                     badgesRef,
@@ -293,7 +296,8 @@ export const useGamification = () => {
 
         const setupTitlesListener = async () => {
             try {
-                const titlesRef = collection(db, 'globalTitles');
+                // ✅ FIXED: Use COLLECTIONS.GLOBAL_TITLES
+                const titlesRef = collection(db, COLLECTIONS.GLOBAL_TITLES);
                 
                 unsubTitles = onSnapshot(
                     titlesRef,
@@ -374,7 +378,8 @@ export const useGamification = () => {
         let mounted = true;
 
         try {
-            const gamificationRef = doc(db, 'gamification', user.uid);
+            // ✅ FIXED: Use COLLECTIONS.GAMIFICATION
+            const gamificationRef = doc(db, COLLECTIONS.GAMIFICATION, user.uid);
             
             unsubGamification = onSnapshot(
                 gamificationRef,
@@ -538,7 +543,7 @@ export const useGamification = () => {
         loading,
         error,
         isLoaded: !loading,
-        syncing, // 🆕 NEW
+        syncing,
         notifications,
         hasNotifications: notifications.length > 0,
         trackAction,

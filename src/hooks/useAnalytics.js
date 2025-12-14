@@ -1,7 +1,6 @@
-// src/hooks/useAnalytics.js - COMPLETE WITH BIGQUERY STUDY SESSION TRACKING
+// src/hooks/useAnalytics.js - ✅ COMPLETE FIXED VERSION
 import { useState, useEffect, useCallback } from 'react';
 import {
-  getFirestore,
   collection,
   doc,
   query,
@@ -13,10 +12,10 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { functions } from '../config/firebase';
+// ✅ FIXED: Import db, functions, and COLLECTIONS from firebase config
+import { db, functions, COLLECTIONS } from '../config/firebase';
 import { categorizeQuizSession } from '@/helpers/subjectDetection';
 
-const db = getFirestore();
 
 // ========== DOCUMENTS ==========
 export const useDocumentsData = (userId) => {
@@ -29,7 +28,8 @@ export const useDocumentsData = (userId) => {
       return;
     }
 
-    const docsRef = collection(db, 'documents');
+    // ✅ FIXED: Use COLLECTIONS.DOCUMENTS
+    const docsRef = collection(db, COLLECTIONS.DOCUMENTS);
     const q = query(docsRef, where('userId', '==', userId), limit(100));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -52,6 +52,7 @@ export const useDocumentsData = (userId) => {
   return { documents, totalDocuments: documents.length, loading };
 };
 
+
 // ========== QUIZZES ==========
 export const useQuizzesData = (userId, dateRange = 30) => {
   const [quizzes, setQuizzes] = useState([]);
@@ -63,7 +64,8 @@ export const useQuizzesData = (userId, dateRange = 30) => {
       return;
     }
 
-    const quizzesRef = collection(db, 'quizzes');
+    // ✅ FIXED: Use COLLECTIONS.QUIZZES
+    const quizzesRef = collection(db, COLLECTIONS.QUIZZES);
     const q = query(quizzesRef, where('userId', '==', userId), limit(100));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -95,6 +97,7 @@ export const useQuizzesData = (userId, dateRange = 30) => {
   return { quizzes, loading };
 };
 
+
 // ========== QUIZ SESSIONS ==========
 export const useQuizSessionsData = (userId, dateRange = 30) => {
   const [quizSessions, setQuizSessions] = useState([]);
@@ -106,7 +109,8 @@ export const useQuizSessionsData = (userId, dateRange = 30) => {
       return;
     }
 
-    const sessionsRef = collection(db, 'quizSessions');
+    // ✅ FIXED: Use COLLECTIONS.QUIZ_SESSIONS
+    const sessionsRef = collection(db, COLLECTIONS.QUIZ_SESSIONS);
     const q = query(sessionsRef, where('userId', '==', userId), limit(100));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -124,6 +128,7 @@ export const useQuizSessionsData = (userId, dateRange = 30) => {
   return { quizSessions, loading };
 };
 
+
 // ========== STUDY SESSIONS ==========
 export const useStudySessionsData = (userId, dateRange = 30) => {
   const [sessions, setSessions] = useState([]);
@@ -135,7 +140,8 @@ export const useStudySessionsData = (userId, dateRange = 30) => {
       return;
     }
 
-    const sessionsRef = collection(db, 'studySessions');
+    // ✅ FIXED: Use COLLECTIONS.STUDY_SESSIONS
+    const sessionsRef = collection(db, COLLECTIONS.STUDY_SESSIONS);
     const q = query(sessionsRef, where('userId', '==', userId), limit(200));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -168,6 +174,7 @@ export const useStudySessionsData = (userId, dateRange = 30) => {
   return { sessions, loading };
 };
 
+
 // ========== USER DATA ==========
 export const useUserData = (userId) => {
   const [userData, setUserData] = useState(null);
@@ -179,7 +186,8 @@ export const useUserData = (userId) => {
       return;
     }
 
-    const userRef = doc(db, 'users', userId);
+    // ✅ FIXED: Use COLLECTIONS.USERS
+    const userRef = doc(db, COLLECTIONS.USERS, userId);
 
     const unsubscribe = onSnapshot(userRef, (snapshot) => {
       if (snapshot.exists()) {
@@ -196,6 +204,7 @@ export const useUserData = (userId) => {
   return { userData, loading };
 };
 
+
 // ========== GAMIFICATION DATA ==========
 export const useGamificationData = (userId) => {
   const [gamification, setGamification] = useState(null);
@@ -207,7 +216,8 @@ export const useGamificationData = (userId) => {
       return;
     }
 
-    const gamificationRef = doc(db, 'gamification', userId);
+    // ✅ FIXED: Use COLLECTIONS.GAMIFICATION
+    const gamificationRef = doc(db, COLLECTIONS.GAMIFICATION, userId);
 
     const unsubscribe = onSnapshot(gamificationRef, (snapshot) => {
       if (snapshot.exists()) {
@@ -231,6 +241,7 @@ export const useGamificationData = (userId) => {
   return { gamification, loading };
 };
 
+
 // ========== FLASHCARD DECKS ==========
 export const useFlashcardDecks = (userId) => {
   const [decks, setDecks] = useState([]);
@@ -242,7 +253,8 @@ export const useFlashcardDecks = (userId) => {
       return;
     }
 
-    const decksRef = collection(db, 'flashcardDecks');
+    // ✅ FIXED: Use COLLECTIONS.FLASHCARDS
+    const decksRef = collection(db, COLLECTIONS.FLASHCARDS);
     const q = query(decksRef, where('userId', '==', userId), limit(50));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -262,6 +274,7 @@ export const useFlashcardDecks = (userId) => {
 
   return { decks, deckCount: decks.length, totalCards, totalMastered, loading };
 };
+
 
 // ========== QUIZ PERFORMANCE ==========
 export const useQuizPerformance = (userId, dateRange = 30) => {
@@ -291,7 +304,6 @@ export const useQuizPerformance = (userId, dateRange = 30) => {
       const score = totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0;
       totalScore += score;
 
-      // Use centralized subject detection
       const subject = categorizeQuizSession(session);
 
       if (!subjectScores[subject]) {
@@ -317,6 +329,7 @@ export const useQuizPerformance = (userId, dateRange = 30) => {
 
   return { quizPerformance, loading };
 };
+
 
 // ========== STUDY TIME (FIRESTORE) ==========
 export const useStudyTime = (userId, dateRange = 30) => {
@@ -360,6 +373,7 @@ export const useStudyTime = (userId, dateRange = 30) => {
 
   return { studyTime, loading };
 };
+
 
 // 🆕 NEW: STUDY TIME FROM BIGQUERY
 export const useStudyTimeBigQuery = (userId, dateRange = 30) => {
@@ -410,6 +424,7 @@ export const useStudyTimeBigQuery = (userId, dateRange = 30) => {
   return data;
 };
 
+
 // 🆕 NEW: HYBRID STUDY TIME (BIGQUERY + FIRESTORE FALLBACK)
 export const useStudyTimeHybrid = (userId, dateRange = 30, useBigQuery = true) => {
   const bigQueryData = useStudyTimeBigQuery(userId, dateRange);
@@ -439,6 +454,7 @@ export const useStudyTimeHybrid = (userId, dateRange = 30, useBigQuery = true) =
   };
 };
 
+
 // ========== SUBJECT PERFORMANCE ==========
 export const useSubjectPerformance = (userId, dateRange = 30) => {
   const { quizSessions, loading } = useQuizSessionsData(userId, dateRange);
@@ -450,7 +466,6 @@ export const useSubjectPerformance = (userId, dateRange = 30) => {
     const subjectData = {};
 
     quizSessions.forEach((session) => {
-      // Use centralized subject detection
       const subject = categorizeQuizSession(session);
 
       const answers = session.answers || {};
@@ -495,6 +510,7 @@ export const useSubjectPerformance = (userId, dateRange = 30) => {
   return { performance, loading };
 };
 
+
 // ========== WEAK AREAS ==========
 export const useWeakAreas = (userId, dateRange = 30) => {
   const { performance, loading } = useSubjectPerformance(userId, dateRange);
@@ -517,6 +533,7 @@ export const useWeakAreas = (userId, dateRange = 30) => {
 
   return { weakAreas, loading };
 };
+
 
 // ========== STREAKS ==========
 export const useStudyStreaks = (userId) => {
@@ -568,6 +585,7 @@ export const useStudyStreaks = (userId) => {
 
   return { streaks, loading };
 };
+
 
 // ========== TRENDS (FIRESTORE) ==========
 export const usePerformanceTrends = (userId) => {
@@ -647,6 +665,7 @@ export const usePerformanceTrends = (userId) => {
   return { trends, loading: sessionsLoading || quizzesLoading };
 };
 
+
 // ========== LEARNING PATTERNS ==========
 export const useLearningPatterns = (userId) => {
   const { sessions, loading } = useStudySessionsData(userId, 30);
@@ -695,6 +714,7 @@ export const useLearningPatterns = (userId) => {
 
   return { patterns, loading };
 };
+
 
 // ========== GAMIFICATION ==========
 export const useGamification = (passedUserId = null) => {
@@ -761,6 +781,7 @@ export const useGamification = (passedUserId = null) => {
   return { level, xp, nextLevelXp, badges, achievements, streak, loading: userLoading || gamificationLoading };
 };
 
+
 // ========== RECOMMENDATIONS ==========
 export const useRecommendations = (userId) => {
   const { quizSessions } = useQuizSessionsData(userId, 30);
@@ -811,7 +832,6 @@ export const useRecommendations = (userId) => {
 
     const subjectScores = {};
     quizSessions.forEach(session => {
-      // Use centralized subject detection
       const subject = categorizeQuizSession(session);
 
       const answers = session.answers || {};
@@ -849,6 +869,7 @@ export const useRecommendations = (userId) => {
   return { recommendations, loading: false };
 };
 
+
 // ========== LIVE TIMER ==========
 export const useRealtimeStudyTimer = (userId) => {
   const [displayTime, setDisplayTime] = useState('0h 0m 0s');
@@ -860,7 +881,8 @@ export const useRealtimeStudyTimer = (userId) => {
 
     let intervalId = null;
 
-    const sessionsRef = collection(db, 'studySessions');
+    // ✅ FIXED: Use COLLECTIONS.STUDY_SESSIONS
+    const sessionsRef = collection(db, COLLECTIONS.STUDY_SESSIONS);
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
@@ -886,7 +908,8 @@ export const useRealtimeStudyTimer = (userId) => {
         const elapsed = nowMs - startTime;
 
         if (elapsed > 12 * 60 * 60 * 1000) {
-          await updateDoc(doc(db, 'studySessions', sessionDoc.id), {
+          // ✅ FIXED: Use COLLECTIONS.STUDY_SESSIONS
+          await updateDoc(doc(db, COLLECTIONS.STUDY_SESSIONS, sessionDoc.id), {
             status: 'completed',
             endTime: Timestamp.fromDate(new Date(startTime + 12 * 60 * 60 * 1000)),
             totalTime: 720
@@ -927,8 +950,10 @@ export const useRealtimeStudyTimer = (userId) => {
   return { displayTime, isStudying, currentSubject };
 };
 
+
 // ========== COMBINED ANALYTICS (FIRESTORE) ==========
 export const useCompleteAnalytics = (userId, dateRange = 30) => {
+  const { userData, loading: userDataLoading } = useUserData(userId);
   const { documents } = useDocumentsData(userId);
   const { decks, totalMastered } = useFlashcardDecks(userId);
   const quizPerformance = useQuizPerformance(userId, dateRange);
@@ -941,6 +966,7 @@ export const useCompleteAnalytics = (userId, dateRange = 30) => {
   const { gamification } = useGamificationData(userId);
 
   const loading =
+    userDataLoading ||
     quizPerformance.loading ||
     studyTime.loading ||
     patterns.loading ||
@@ -966,7 +992,8 @@ export const useCompleteAnalytics = (userId, dateRange = 30) => {
       nextLevelXP: userLevel * 1000,
       documentsRead: documents.length,
       flashcardsReviewed: totalMastered,
-      roomsJoined: 0,
+      roomsJoined: userData?.roomsJoined || 0,
+      voiceInteractions: userData?.voiceInteractions || 0,
       xpFromQuizzes: (quizPerformance.quizPerformance?.totalQuizzes || 0) * 100,
       xpFromStudy: studyTime.studyTime?.totalMinutes || 0,
       xpFromAchievements: 0,
@@ -975,6 +1002,7 @@ export const useCompleteAnalytics = (userId, dateRange = 30) => {
   };
 
   return {
+    userData,
     analytics,
     quizPerformance: quizPerformance.quizPerformance,
     studyTime: studyTime.studyTime,
@@ -989,10 +1017,13 @@ export const useCompleteAnalytics = (userId, dateRange = 30) => {
   };
 };
 
+
 // ==========================================
 // 🆕 NEW: BIGQUERY-POWERED ANALYTICS
 // ==========================================
 export const useCompleteAnalyticsBigQuery = (userId, dateRange = 30) => {
+  const { userData, loading: userDataLoading } = useUserData(userId);
+  
   const [data, setData] = useState({
     analytics: null,
     trends: [],
@@ -1061,15 +1092,17 @@ export const useCompleteAnalyticsBigQuery = (userId, dateRange = 30) => {
   }, [refetchAll]);
 
   return {
+    userData,
     analytics: data.analytics,
     trends: data.trends,
     performance: data.performance,
     studyTime: data.studyTime,
-    loading: data.loading,
+    loading: data.loading || userDataLoading,
     error: data.error,
     refetchAll
   };
 };
+
 
 // ==========================================
 // EXPORT ALL HOOKS

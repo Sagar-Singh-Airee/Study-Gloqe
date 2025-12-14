@@ -1,4 +1,4 @@
-// src/services/documentService.js - FIXED VERSION
+// src/services/documentService.js - COMPLETE VERSION WITH deleteDocument
 import {
     collection,
     addDoc,
@@ -19,7 +19,7 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage
 import { db, storage } from '@/config/firebase';
 import * as pdfjsLib from 'pdfjs-dist';
 import toast from 'react-hot-toast';
-import { detectSubjectFromContent, detectSubjectFromTitle } from '@/helpers/subjectDetection';
+import { detectSubjectFromContent, detectSubjectFromTitle, detectSubjectWithAI } from '@/helpers/subjectDetection';
 
 // Setup PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
@@ -127,22 +127,31 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
             console.warn('⚠️ Text extraction had errors:', extractionError);
         }
 
-        // ===== STEP 2: AI SUBJECT DETECTION =====
+        // ===== STEP 2: DETECT SUBJECT (AI + KEYWORD FALLBACK) =====
         toast.loading('🤖 AI analyzing content...', { id: toastId });
-        let subject = 'General Studies';
+        console.log('🧠 Detecting subject...');
+
+        let subject = 'General';
         let detectionMethod = 'default';
         let confidenceScore = 0;
 
-        // First, try AI detection from text content
+        // Try AI detection first if text is available
         if (fullText && fullText.length > 100) {
-            const aiResult = detectSubjectFromContent(fullText);
-            subject = aiResult.subject;
-            confidenceScore = aiResult.confidence;
-            detectionMethod = 'ai_text_analysis';
-            console.log(`✅ AI detected: ${subject} (score: ${confidenceScore})`);
-        }
-        // Fallback to filename detection
-        else {
+            const aiSubject = await detectSubjectWithAI(fullText);
+
+            if (aiSubject && aiSubject !== 'General') {
+                subject = aiSubject;
+                detectionMethod = 'ai';
+                confidenceScore = 0.9;
+            } else {
+                console.log('⚠️ AI detection uncertain, using keyword fallback...');
+                const detection = detectSubjectFromContent(fullText);
+                subject = detection.subject;
+                detectionMethod = 'keyword';
+                confidenceScore = detection.confidence > 0 ? 0.7 : 0.3;
+            }
+        } else {
+            // Fallback to filename detection
             subject = detectSubjectFromTitle(file.name);
             detectionMethod = 'filename_pattern';
             console.log(`✅ Filename detected: ${subject}`);
@@ -154,6 +163,8 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
             detectionMethod = 'manual_override';
             console.log(`✅ Manual override: ${subject}`);
         }
+
+        console.log(`✅ Final Subject: ${subject} (Method: ${detectionMethod})`);
 
         // ===== STEP 3: EXTRACT KEYWORDS =====
         const keywords = fullText ? extractKeywords(fullText) : [];
@@ -293,6 +304,103 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
 };
 
 /**
+ * ✅ DELETE DOCUMENT - Removes from Firestore AND Storage
+ */
+export const deleteDocument = async (documentId, userId) => {
+    const toastId = toast.loading('Deleting document...');
+
+    try {
+        console.log('🗑️ Starting document deletion:', documentId);
+
+        // ===== STEP 1: GET DOCUMENT DATA =====
+        const docRef = doc(db, 'documents', documentId);
+        const docSnap = await getDoc(docRef);
+
+        if (!docSnap.exists()) {
+            throw new Error('Document not found');
+        }
+
+        const docData = docSnap.data();
+
+        // ===== STEP 2: VERIFY OWNERSHIP =====
+        if (docData.userId !== userId) {
+            throw new Error('You do not have permission to delete this document');
+        }
+
+        // ===== STEP 3: DELETE FROM STORAGE =====
+        if (docData.storagePath) {
+            try {
+                console.log('🗑️ Deleting file from Storage:', docData.storagePath);
+                const storageRef = ref(storage, docData.storagePath);
+                await deleteObject(storageRef);
+                console.log('✅ Storage file deleted');
+            } catch (storageError) {
+                console.warn('⚠️ Storage deletion failed (file may not exist):', storageError);
+                // Continue with Firestore deletion even if storage fails
+            }
+        }
+
+        // ===== STEP 4: DELETE SUBCOLLECTIONS (pages) =====
+        try {
+            const pagesQuery = query(collection(db, 'documents', documentId, 'pages'));
+            const pagesSnapshot = await getDocs(pagesQuery);
+
+            const deletePagePromises = pagesSnapshot.docs.map(pageDoc =>
+                deleteDoc(doc(db, 'documents', documentId, 'pages', pageDoc.id))
+            );
+
+            await Promise.allSettled(deletePagePromises);
+            console.log(`✅ Deleted ${pagesSnapshot.size} page documents`);
+        } catch (pageError) {
+            console.warn('⚠️ Page deletion failed (non-critical):', pageError);
+        }
+
+        // ===== STEP 5: DELETE FIRESTORE DOCUMENT =====
+        await deleteDoc(docRef);
+        console.log('✅ Firestore document deleted');
+
+        // ===== STEP 6: UPDATE USER STATS =====
+        try {
+            const userRef = doc(db, 'users', userId);
+            const userDoc = await getDoc(userRef);
+
+            if (userDoc.exists()) {
+                const currentCount = userDoc.data().totalDocuments || 0;
+                if (currentCount > 0) {
+                    await updateDoc(userRef, {
+                        totalDocuments: increment(-1)
+                    });
+                    console.log('✅ User stats updated');
+                }
+            }
+        } catch (error) {
+            console.warn('⚠️ User stats update failed (non-critical):', error);
+        }
+
+        toast.success('✅ Document deleted successfully', { id: toastId });
+        console.log('🎉 Document deletion complete!');
+
+        return { success: true };
+
+    } catch (error) {
+        console.error('❌ DELETE ERROR:', error);
+
+        let errorMessage = 'Failed to delete document';
+
+        if (error.message.includes('permission')) {
+            errorMessage = 'Permission denied. Please check your account.';
+        } else if (error.message.includes('not found')) {
+            errorMessage = 'Document not found';
+        } else if (error.message) {
+            errorMessage = error.message;
+        }
+
+        toast.error(errorMessage, { id: toastId });
+        throw new Error(errorMessage);
+    }
+};
+
+/**
  * Get document by Firestore ID
  */
 export const getDocument = async (firestoreId) => {
@@ -357,58 +465,5 @@ export const getDocumentsBySubject = async (userId, subject) => {
     } catch (error) {
         console.error('Error getting documents by subject:', error);
         return [];
-    }
-};
-
-/**
- * Delete document
- */
-export const deleteDocument = async (firestoreId) => {
-    try {
-        const docData = await getDocument(firestoreId);
-
-        // Delete from Storage
-        if (docData.storagePath) {
-            const storageRef = ref(storage, docData.storagePath);
-            await deleteObject(storageRef).catch(err => {
-                console.warn('Storage file deletion failed:', err);
-            });
-        }
-
-        // Delete subcollections (pages)
-        const pagesQuery = query(collection(db, 'documents', firestoreId, 'pages'));
-        const pagesSnapshot = await getDocs(pagesQuery);
-        await Promise.all(pagesSnapshot.docs.map(doc => deleteDoc(doc.ref)));
-
-        // Delete main document
-        await deleteDoc(doc(db, 'documents', firestoreId));
-
-        toast.success('Document deleted successfully');
-        return true;
-    } catch (error) {
-        console.error('Error deleting document:', error);
-        toast.error('Failed to delete document');
-        throw error;
-    }
-};
-
-/**
- * Update document subject manually
- */
-export const updateDocumentSubject = async (firestoreId, newSubject) => {
-    try {
-        const docRef = doc(db, 'documents', firestoreId);
-        await updateDoc(docRef, {
-            subject: newSubject,
-            subjectDetectionMethod: 'manual_override',
-            updatedAt: serverTimestamp()
-        });
-
-        toast.success(`Subject updated to ${newSubject}`);
-        return true;
-    } catch (error) {
-        console.error('Error updating subject:', error);
-        toast.error('Failed to update subject');
-        throw error;
     }
 };

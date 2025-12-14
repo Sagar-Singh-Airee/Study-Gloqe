@@ -9,7 +9,7 @@ import {
 import AOS from 'aos';
 import 'aos/dist/aos.css';
 import mascotImage from '@/assets/Landing/mascot.png';
-import logoImage from '@/assets/logo/logo.svg';
+import logoImage from '@/assets/logo/logoe.png';
 
 const LandingPage = () => {
     const [isScrolled, setIsScrolled] = useState(false);
@@ -304,7 +304,7 @@ const LandingPage = () => {
                             <img
                                 src={logoImage}
                                 alt="StudyGloqe"
-                                className="relative h-10 w-10 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3"
+                                className="relative h-15 w-20 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3"
                             />
                             <span className="relative text-xl font-black tracking-tight bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent group-hover:from-gray-100 group-hover:to-gray-300 transition-all duration-300">
                                 StudyGloqe

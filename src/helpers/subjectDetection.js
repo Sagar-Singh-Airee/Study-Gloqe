@@ -5,6 +5,45 @@
  * Detect subject from quiz content using keyword analysis
  * Same logic as documentService.js for consistency
  */
+import { geminiModel } from '@/config/gemini';
+
+/**
+ * Detect subject using Gemini AI (Primary Method)
+ */
+export const detectSubjectWithAI = async (text) => {
+    if (!text || text.length < 10) return null;
+
+    try {
+        const prompt = `Analyze the following text and categorize it into ONE of these subjects: 
+        Mathematics, Physics, Chemistry, Biology, Computer Science, History, Economics, Literature, Psychology, Engineering, Law, Medicine, Business, Art, Philosophy.
+        
+        Return ONLY the subject name. If unsure, return "General".
+        
+        Text sample: "${text.substring(0, 1000)}..."`;
+
+        const result = await geminiModel.generateContent(prompt);
+        const subject = result.response.text().trim();
+
+        // Clean up response (remove punctuation, extra spaces)
+        const cleanSubject = subject.replace(/[^a-zA-Z ]/g, '').trim();
+
+        // Validate against known list or return General
+        const validSubjects = [
+            'Mathematics', 'Physics', 'Chemistry', 'Biology', 'Computer Science',
+            'History', 'Economics', 'Literature', 'Psychology', 'Engineering',
+            'Law', 'Medicine', 'Business', 'Art', 'Philosophy', 'General'
+        ];
+
+        return validSubjects.find(s => s.toLowerCase() === cleanSubject.toLowerCase()) || 'General';
+    } catch (error) {
+        console.warn('⚠️ AI Subject Detection failed, falling back to keywords:', error);
+        return null; // Fallback to keywords
+    }
+};
+
+/**
+ * Detect subject from quiz content using keyword analysis (Fallback Method)
+ */
 export const detectSubjectFromContent = (text) => {
     if (!text || text.length < 10) {
         return { subject: 'General', confidence: 0 };
@@ -60,7 +99,12 @@ export const detectSubjectFromContent = (text) => {
             'design', 'circuit', 'mechanical', 'electrical', 'system', 'structure',
             'load', 'stress', 'material', 'engineering', 'CAD', 'blueprint',
             'manufacturing', 'assembly', 'build'
-        ]
+        ],
+        'Law': ['legal', 'court', 'judge', 'constitution', 'rights', 'law', 'statute', 'crime', 'justice'],
+        'Medicine': ['patient', 'disease', 'treatment', 'diagnosis', 'clinical', 'surgery', 'health', 'medical'],
+        'Business': ['management', 'strategy', 'marketing', 'finance', 'corporate', 'startup', 'business'],
+        'Art': ['painting', 'sculpture', 'color', 'design', 'aesthetic', 'artistic', 'visual'],
+        'Philosophy': ['logic', 'ethics', 'metaphysics', 'epistemology', 'reason', 'argument', 'philosophy']
     };
 
     let maxScore = 0;

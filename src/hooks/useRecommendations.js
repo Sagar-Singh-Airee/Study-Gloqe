@@ -1,9 +1,12 @@
-// src/hooks/useRecommendations.js
+// src/hooks/useRecommendations.js - ✅ ENHANCED VERSION
 import { useState, useEffect } from 'react';
+import { functions } from '@/config/firebase'; // ✅ Import from config
+import { httpsCallable } from 'firebase/functions';
 
 export const useRecommendations = (userId, limit = 5) => {
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!userId) {
@@ -13,21 +16,22 @@ export const useRecommendations = (userId, limit = 5) => {
 
     const fetchRecommendations = async () => {
       try {
-        const response = await fetch(
-          'https://us-central1-studygloqe.cloudfunctions.net/getPersonalizedRecommendations',
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, limit })
-          }
-        );
+        setLoading(true);
+        setError(null);
 
-        if (response.ok) {
-          const data = await response.json();
-          setRecommendations(data.recommendations || []);
-        }
-      } catch (error) {
-        console.error('Error fetching recommendations:', error);
+        // ✅ Use Firebase Functions SDK instead of direct fetch
+        const getRecommendations = httpsCallable(
+          functions, 
+          'getPersonalizedRecommendations'
+        );
+        
+        const result = await getRecommendations({ userId, limit });
+        
+        setRecommendations(result.data?.recommendations || []);
+      } catch (err) {
+        console.error('❌ Error fetching recommendations:', err);
+        setError(err.message);
+        setRecommendations([]); // Fallback to empty array
       } finally {
         setLoading(false);
       }
@@ -36,5 +40,9 @@ export const useRecommendations = (userId, limit = 5) => {
     fetchRecommendations();
   }, [userId, limit]);
 
-  return { recommendations, loading };
+  return { 
+    recommendations, 
+    loading, 
+    error // ✅ Return error state
+  };
 };

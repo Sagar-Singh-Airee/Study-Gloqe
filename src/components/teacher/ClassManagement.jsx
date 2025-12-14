@@ -10,12 +10,13 @@ import {
     Edit, Archive, MoreVertical, Building2
 } from 'lucide-react';
 import { useAuth } from '@contexts/AuthContext';
-import { 
-    getUserClasses, 
-    createClass, 
-    updateClass, 
-    deleteClass 
+import {
+    createClass,
+    updateClass,
+    deleteClass
 } from '@/services/classService';
+import { db } from '@/config/firebase';
+import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import ClassCard from './ClassCard';
 
@@ -43,24 +44,39 @@ const ClassManagement = () => {
     });
     const [formLoading, setFormLoading] = useState(false);
 
-    const loadClasses = async () => {
-        try {
-            setLoading(true);
-            const classesData = await getUserClasses(user.uid, 'teacher');
-            setClasses(classesData);
-            setFilteredClasses(classesData);
-        } catch (error) {
-            console.error('Error loading classes:', error);
-            toast.error('Failed to load classes');
-        } finally {
-            setLoading(false);
-        }
-    };
-
     useEffect(() => {
-        if (user?.uid) {
-            loadClasses();
-        }
+        if (!user?.uid) return;
+
+        setLoading(true);
+
+        const q = query(
+            collection(db, 'classes'),
+            where('teacherId', '==', user.uid),
+            where('active', '==', true),
+            orderBy('createdAt', 'desc')
+        );
+
+        const unsubscribe = onSnapshot(q,
+            (snapshot) => {
+                const classesData = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                    createdAt: doc.data().createdAt?.toDate(),
+                    updatedAt: doc.data().updatedAt?.toDate()
+                }));
+
+                setClasses(classesData);
+                setFilteredClasses(classesData); // Initial set, useEffect below will filter it
+                setLoading(false);
+            },
+            (error) => {
+                console.error("Error listening to classes:", error);
+                toast.error("Failed to sync classes");
+                setLoading(false);
+            }
+        );
+
+        return () => unsubscribe();
     }, [user?.uid]);
 
     useEffect(() => {
@@ -90,7 +106,7 @@ const ClassManagement = () => {
 
     const handleCreateClass = async (e) => {
         e.preventDefault();
-        
+
         if (!formData.name || !formData.subject) {
             toast.error('Please fill in all required fields');
             return;
@@ -110,7 +126,7 @@ const ClassManagement = () => {
                 toast.success(`✅ Class created! Code: ${result.classCode}`);
             }
 
-            await loadClasses();
+            // await loadClasses(); // Removed: Handled by listener
 
             setFormData({
                 name: '',
@@ -154,7 +170,7 @@ const ClassManagement = () => {
         try {
             await deleteClass(classId, user.uid);
             toast.success('Class deleted successfully');
-            await loadClasses();
+            // await loadClasses(); // Removed: Handled by listener
         } catch (error) {
             console.error('Error deleting class:', error);
             toast.error(error.message || 'Failed to delete class');
@@ -165,7 +181,7 @@ const ClassManagement = () => {
         try {
             await updateClass(classId, { active: false });
             toast.success('Class archived');
-            await loadClasses();
+            // await loadClasses(); // Removed: Handled by listener
         } catch (error) {
             console.error('Error archiving class:', error);
             toast.error('Failed to archive class');
@@ -244,17 +260,15 @@ const ClassManagement = () => {
                 <div className="flex items-center gap-2 bg-gray-100 rounded-xl p-1">
                     <button
                         onClick={() => setViewMode('grid')}
-                        className={`p-2 rounded-lg transition-all ${
-                            viewMode === 'grid' ? 'bg-white shadow-sm' : 'hover:bg-white/50'
-                        }`}
+                        className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm' : 'hover:bg-white/50'
+                            }`}
                     >
                         <Grid size={18} className={viewMode === 'grid' ? 'text-black' : 'text-gray-500'} />
                     </button>
                     <button
                         onClick={() => setViewMode('list')}
-                        className={`p-2 rounded-lg transition-all ${
-                            viewMode === 'list' ? 'bg-white shadow-sm' : 'hover:bg-white/50'
-                        }`}
+                        className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white shadow-sm' : 'hover:bg-white/50'
+                            }`}
                     >
                         <List size={18} className={viewMode === 'list' ? 'text-black' : 'text-gray-500'} />
                     </button>
@@ -283,7 +297,7 @@ const ClassManagement = () => {
                     </div>
                     <h3 className="text-xl font-bold text-black mb-2">No classes found</h3>
                     <p className="text-gray-600 mb-6">
-                        {searchQuery || filterSubject !== 'all' 
+                        {searchQuery || filterSubject !== 'all'
                             ? 'Try adjusting your filters'
                             : 'Create your first class to get started'
                         }

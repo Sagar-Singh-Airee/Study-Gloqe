@@ -1,7 +1,6 @@
-// src/hooks/useStudySessionManager.js - FIXED: Proper session lifecycle management
+// src/hooks/useStudySessionManager.js - ✅ FIXED: Proper imports + COLLECTIONS
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  getFirestore,
   doc,
   setDoc,
   updateDoc,
@@ -12,6 +11,8 @@ import {
   getDocs,
   writeBatch
 } from 'firebase/firestore';
+// ✅ FIXED: Import db and COLLECTIONS from config
+import { db, COLLECTIONS } from '@/config/firebase';
 
 /**
  * Hook to manage study sessions with proper lifecycle handling.
@@ -27,8 +28,6 @@ export const useStudySessionManager = (userId, documentId, documentData) => {
   const sessionEndedRef = useRef(false);
   const cleanupRanRef = useRef(false);
 
-  const db = getFirestore();
-
   // ==========================================
   // CLEANUP ORPHANED SESSIONS (Run once on mount)
   // ==========================================
@@ -39,7 +38,8 @@ export const useStudySessionManager = (userId, documentId, documentData) => {
       try {
         cleanupRanRef.current = true;
 
-        const sessionsRef = collection(db, 'studySessions');
+        // ✅ FIXED: Use COLLECTIONS.STUDY_SESSIONS
+        const sessionsRef = collection(db, COLLECTIONS.STUDY_SESSIONS);
         const q = query(
           sessionsRef,
           where('userId', '==', userId),
@@ -67,7 +67,8 @@ export const useStudySessionManager = (userId, documentId, documentData) => {
 
           if (ageHours > 24) {
             // Very old session - mark as abandoned, don't count time
-            batch.update(doc(db, 'studySessions', docSnap.id), {
+            // ✅ FIXED: Use COLLECTIONS.STUDY_SESSIONS
+            batch.update(doc(db, COLLECTIONS.STUDY_SESSIONS, docSnap.id), {
               status: 'abandoned',
               endTime: now,
               totalTime: 0,
@@ -77,7 +78,8 @@ export const useStudySessionManager = (userId, documentId, documentData) => {
           } else {
             // Recent orphan - estimate reasonable duration (max 2 hours)
             const estimatedMinutes = Math.min(Math.round(ageHours * 60), 120);
-            batch.update(doc(db, 'studySessions', docSnap.id), {
+            // ✅ FIXED: Use COLLECTIONS.STUDY_SESSIONS
+            batch.update(doc(db, COLLECTIONS.STUDY_SESSIONS, docSnap.id), {
               status: 'completed',
               endTime: now,
               totalTime: estimatedMinutes > 1 ? estimatedMinutes : 0,
@@ -98,7 +100,7 @@ export const useStudySessionManager = (userId, documentId, documentData) => {
     };
 
     cleanupOrphanedSessions();
-  }, [userId, db]);
+  }, [userId]);
 
   // ==========================================
   // START SESSION
@@ -123,7 +125,8 @@ export const useStudySessionManager = (userId, documentId, documentData) => {
         createdAt: now
       };
 
-      await setDoc(doc(db, 'studySessions', sessionId), sessionData);
+      // ✅ FIXED: Use COLLECTIONS.STUDY_SESSIONS
+      await setDoc(doc(db, COLLECTIONS.STUDY_SESSIONS, sessionId), sessionData);
 
       // Store session info in sessionStorage for recovery
       sessionStorage.setItem('activeStudySession', JSON.stringify({
@@ -141,7 +144,7 @@ export const useStudySessionManager = (userId, documentId, documentData) => {
     } catch (error) {
       console.error('❌ Error starting session:', error);
     }
-  }, [userId, documentId, documentData, db]);
+  }, [userId, documentId, documentData]);
 
   // ==========================================
   // END SESSION
@@ -157,7 +160,8 @@ export const useStudySessionManager = (userId, documentId, documentData) => {
 
       // Only save if duration is reasonable (1 min to 4 hours)
       if (durationMinutes >= 1 && durationMinutes <= 240) {
-        await updateDoc(doc(db, 'studySessions', currentSessionId), {
+        // ✅ FIXED: Use COLLECTIONS.STUDY_SESSIONS
+        await updateDoc(doc(db, COLLECTIONS.STUDY_SESSIONS, currentSessionId), {
           endTime: now,
           status: 'completed',
           totalTime: durationMinutes,
@@ -167,7 +171,8 @@ export const useStudySessionManager = (userId, documentId, documentData) => {
         console.log('✅ Study session ended. Duration:', durationMinutes, 'minutes');
       } else if (durationMinutes < 1) {
         // Very short session - mark as abandoned
-        await updateDoc(doc(db, 'studySessions', currentSessionId), {
+        // ✅ FIXED: Use COLLECTIONS.STUDY_SESSIONS
+        await updateDoc(doc(db, COLLECTIONS.STUDY_SESSIONS, currentSessionId), {
           endTime: now,
           status: 'abandoned',
           totalTime: 0,
@@ -176,7 +181,8 @@ export const useStudySessionManager = (userId, documentId, documentData) => {
         console.log('⚠️ Session too short, marked as abandoned');
       } else {
         // Session too long (over 4 hours) - cap at 4 hours
-        await updateDoc(doc(db, 'studySessions', currentSessionId), {
+        // ✅ FIXED: Use COLLECTIONS.STUDY_SESSIONS
+        await updateDoc(doc(db, COLLECTIONS.STUDY_SESSIONS, currentSessionId), {
           endTime: now,
           status: 'completed',
           totalTime: 240, // 4 hours max
@@ -195,7 +201,7 @@ export const useStudySessionManager = (userId, documentId, documentData) => {
     } catch (error) {
       console.error('❌ Error ending session:', error);
     }
-  }, [currentSessionId, sessionStartTime, db]);
+  }, [currentSessionId, sessionStartTime]);
 
   // ==========================================
   // AUTO-START ON MOUNT
@@ -211,7 +217,7 @@ export const useStudySessionManager = (userId, documentId, documentData) => {
         endSession();
       }
     };
-  }, [userId, documentId]); // Only run on mount/unmount
+  }, [userId, documentId, startSession, endSession]); // ✅ Added deps
 
   // ==========================================
   // HANDLE PAGE CLOSE/REFRESH - IMPROVED
@@ -267,7 +273,8 @@ export const useStudySessionManager = (userId, documentId, documentData) => {
 
         // Only process if less than 1 hour old
         if (Date.now() - timestamp < 60 * 60 * 1000) {
-          updateDoc(doc(db, 'studySessions', sessionId), {
+          // ✅ FIXED: Use COLLECTIONS.STUDY_SESSIONS
+          updateDoc(doc(db, COLLECTIONS.STUDY_SESSIONS, sessionId), {
             endTime: Timestamp.now(),
             status: 'completed',
             totalTime: duration,
@@ -283,7 +290,7 @@ export const useStudySessionManager = (userId, documentId, documentData) => {
         sessionStorage.removeItem('pendingSessionEnd');
       }
     }
-  }, [userId, db]);
+  }, [userId]);
 
   return {
     currentSessionId,
