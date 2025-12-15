@@ -33,13 +33,13 @@ const {
 // INITIALIZE VERTEX AI
 // ==========================================
 const getVertexAI = () => {
-  const projectId = process.env.GOOGLE_CLOUD_PROJECT || 
-                    process.env.GCLOUD_PROJECT || 
-                    functions.config().vertexai?.project_id;
-  
-  const location = process.env.VERTEX_AI_LOCATION || 
-                   functions.config().vertexai?.location || 
-                   'us-central1';
+  const projectId = process.env.GOOGLE_CLOUD_PROJECT ||
+    process.env.GCLOUD_PROJECT ||
+    functions.config().vertexai?.project_id;
+
+  const location = process.env.VERTEX_AI_LOCATION ||
+    functions.config().vertexai?.location ||
+    'us-central1';
 
   console.log(`🤖 Initializing Vertex AI - Project: ${projectId}, Location: ${location}`);
 
@@ -56,9 +56,9 @@ const vertex_ai = getVertexAI();
 // ==========================================
 function detectSubjectFromFilename(fileName) {
   if (!fileName) return 'General';
-  
+
   const lowerName = fileName.toLowerCase();
-  
+
   const patterns = {
     'Mathematics': ['math', 'calculus', 'algebra', 'geometry', 'trigonometry', 'statistics'],
     'Physics': ['physics', 'mechanics', 'quantum', 'thermodynamics', 'optics'],
@@ -98,7 +98,7 @@ function detectSubjectFromFilename(fileName) {
 exports.testKafka = functions.https.onRequest(async (req, res) => {
   try {
     console.log('🧪 Testing Kafka connection...');
-    
+
     const result = await publishEvent('quiz-events', {
       type: 'test.connection',
       userId: 'test-user-123',
@@ -110,7 +110,7 @@ exports.testKafka = functions.https.onRequest(async (req, res) => {
         project: process.env.GOOGLE_CLOUD_PROJECT
       }
     });
-    
+
     if (result.success) {
       res.status(200).json({
         success: true,
@@ -282,6 +282,94 @@ exports.publishAnalyticsEvent = functions.https.onCall(async (data, context) => 
   }
 });
 
+// ========================================
+// 🆕 KAFKA GENERIC PRODUCER (Single)
+// ========================================
+exports.produceKafkaEvent = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
+  }
+
+  const { topic, event } = data;
+
+  try {
+    // Parse event if string
+    const eventData = typeof event.value === 'string' ? JSON.parse(event.value) : (event.value || event);
+
+    // Enforce user identity
+    const enrichedEvent = {
+      ...eventData,
+      userId: context.auth.uid,
+      metadata: {
+        ...eventData.metadata,
+        userEmail: context.auth.token.email,
+        source: 'web-client',
+        timestamp: new Date().toISOString()
+      }
+    };
+
+    console.log(`📤 Producing generic event to ${topic} for user ${context.auth.uid}`);
+    await publishEvent(topic, enrichedEvent);
+
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Failed to produce generic Kafka event:', error);
+    throw new functions.https.HttpsError('internal', error.message);
+  }
+});
+
+// ========================================
+// 🆕 KAFKA GENERIC PRODUCER (Batch)
+// ========================================
+exports.produceKafkaEvents = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
+  }
+
+  const { batches } = data; // { topic: [{key, value}, ...] }
+
+  if (!batches) {
+    return { success: true, count: 0 };
+  }
+
+  try {
+    const promises = [];
+    let count = 0;
+
+    for (const [topic, items] of Object.entries(batches)) {
+      for (const item of items) {
+        let eventObj;
+        try {
+          // value comes as stringified JSON from frontend kafkaProducer
+          eventObj = typeof item.value === 'string' ? JSON.parse(item.value) : item.value;
+        } catch (e) {
+          eventObj = { raw: item.value };
+        }
+
+        // Enforce security & metadata
+        eventObj.userId = context.auth.uid;
+        eventObj.metadata = {
+          ...eventObj.metadata,
+          batchProcessed: true,
+          processedAt: new Date().toISOString()
+        };
+
+        promises.push(publishEvent(topic, eventObj));
+        count++;
+      }
+    }
+
+    await Promise.all(promises);
+    console.log(`✅ Produced batch of ${count} events to Kafka for ${context.auth.uid}`);
+
+    return { success: true, count };
+
+  } catch (error) {
+    console.error('❌ Failed to produce batch Kafka events:', error);
+    throw new functions.https.HttpsError('internal', error.message);
+  }
+});
+
 // ==========================================
 // STUDY SESSION BIGQUERY SYNC
 // ==========================================
@@ -290,16 +378,16 @@ exports.syncStudySessionToBigQuery = functions.https.onCall(async (data, context
     throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
   }
 
-  const { 
-    userId, 
-    sessionId, 
-    documentId, 
-    documentTitle, 
-    subject, 
-    startTime, 
-    endTime, 
-    totalMinutes, 
-    status 
+  const {
+    userId,
+    sessionId,
+    documentId,
+    documentTitle,
+    subject,
+    startTime,
+    endTime,
+    totalMinutes,
+    status
   } = data;
 
   // Validation
@@ -364,7 +452,7 @@ exports.syncStudySessionToBigQuery = functions.https.onCall(async (data, context
 
   } catch (error) {
     console.error('❌ BigQuery sync error:', error);
-    
+
     // Check if it's a duplicate error
     if (error.message && error.message.includes('already exists')) {
       console.warn(`⚠️ Session ${sessionId} already in BigQuery`);
@@ -447,15 +535,27 @@ exports.processDocumentEnhanced = functions.firestore
   .document('documents/{docId}')
   .onCreate(async (snap, context) => {
     const docData = snap.data();
-    const userId = docData.uploaderId;
-    
+    const userId = docData.userId || docData.uploaderId; // Handle both
+
     try {
+      console.log(`🚀 Processing Document ${snap.id} for User ${userId}`);
+
       let subject = 'General';
       let detectionMethod = 'none';
 
-      if (docData.extractedText && docData.extractedText.length > 50) {
+      // ==========================================
+      // 1. SMART SUBJECT DETECTION
+      // ==========================================
+      // If user provided context, respect it (Ground Truth)
+      if (docData.subjectDetectionMethod === 'user_context' && docData.subject) {
+        subject = docData.subject;
+        detectionMethod = 'user_context';
+        console.log(`✅ Using user-provided context for subject: ${subject}`);
+      }
+      // Otherwise, use AI or Fallback
+      else if (docData.extractedText && docData.extractedText.length > 50) {
         console.log(`🤖 Running AI subject detection for document: ${snap.id}`);
-        
+
         try {
           const model = vertex_ai.preview.getGenerativeModel({
             model: 'gemini-pro',
@@ -480,7 +580,7 @@ Subject:`;
           subject = result.response.text().trim().split('\n')[0].replace(/['"]/g, '');
           detectionMethod = 'ai';
 
-          console.log(`✅ AI detected subject: ${subject} for document ${snap.id}`);
+          console.log(`✅ AI detected subject: ${subject}`);
         } catch (aiError) {
           console.error('⚠️ AI detection failed, using filename fallback:', aiError);
           subject = detectSubjectFromFilename(docData.fileName || docData.title);
@@ -491,6 +591,7 @@ Subject:`;
         detectionMethod = 'fallback';
       }
 
+      // Update Document with finalized Subject and Status
       await snap.ref.update({
         subject,
         subjectDetectionMethod: detectionMethod,
@@ -498,6 +599,86 @@ Subject:`;
         aiProcessedAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       });
+
+      // ==========================================
+      // 2. AUTO-GENERATION (Smart Content)
+      // ==========================================
+      if (docData.autoGenerationRequested && docData.extractedText) {
+        console.log('✨ Auto-generation requested:', docData.autoGenerationRequested);
+        const { quiz, flashcards } = docData.autoGenerationRequested;
+
+        const model = vertex_ai.preview.getGenerativeModel({ model: 'gemini-pro' });
+
+        // A. Generate QUIZ
+        if (quiz) {
+          try {
+            console.log('🧠 Auto-generating Quiz...');
+            const quizPrompt = `Generate 5 multiple choice questions from the following text. 
+                Focus on key concepts. Format as JSON array with properties: {stem, choices: [], correctAnswer: index (0-3), explanation}.
+                
+                Text Context (${subject}):
+                ${docData.extractedText.substring(0, 3000)}`;
+
+            const result = await model.generateContent(quizPrompt);
+            const textResponse = result.response.text().replace(/```json|```/g, '').trim();
+            const questions = JSON.parse(textResponse);
+
+            await db.collection('quizzes').add({
+              title: `Review: ${docData.title}`,
+              docId: snap.id,
+              createdBy: userId,
+              questions: questions.map((q, i) => ({ id: `q${i + 1}`, ...q, points: 10 })),
+              totalPoints: questions.length * 10,
+              subject: subject,
+              folderId: docData.folderId || null,
+              isAutoGenerated: true,
+              createdAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            console.log('✅ Auto-generated Quiz created');
+          } catch (e) {
+            console.error('❌ Failed to auto-generate quiz:', e);
+          }
+        }
+
+        // B. Generate FLASHCARDS
+        if (flashcards) {
+          try {
+            console.log('🗂️ Auto-generating Flashcards...');
+            const fcPrompt = `Generate 8 flashcards (Concept + Definition) from the text.
+                Format as JSON array: [{front, back}].
+                
+                Text Context (${subject}):
+                ${docData.extractedText.substring(0, 3000)}`;
+
+            const result = await model.generateContent(fcPrompt);
+            const textResponse = result.response.text().replace(/```json|```/g, '').trim();
+            const cards = JSON.parse(textResponse);
+
+            const batch = db.batch();
+            cards.forEach(card => {
+              const ref = db.collection('flashcards').doc();
+              batch.set(ref, {
+                ...card,
+                userId,
+                docId: snap.id,
+                subject: subject,
+                folderId: docData.folderId || null,
+                box: 1,
+                nextReview: admin.firestore.FieldValue.serverTimestamp(),
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+              });
+            });
+            await batch.commit();
+            console.log('✅ Auto-generated Flashcards created');
+          } catch (e) {
+            console.error('❌ Failed to auto-generate flashcards:', e);
+          }
+        }
+      }
+
+      // ==========================================
+      // 3. TRACKING & ANALYTICS
+      // ==========================================
 
       // Track in BigQuery
       await trackDocumentUpload(userId, {
@@ -507,7 +688,7 @@ Subject:`;
         subject
       });
 
-      // 🆕 Publish to Kafka
+      // Publish to Kafka
       await publishEvent('analytics', {
         type: 'document.uploaded',
         userId,
@@ -519,33 +700,20 @@ Subject:`;
         timestamp: new Date().toISOString()
       });
 
+      // Award XP
       const gamificationRef = db.collection('gamification').doc(userId);
-      const gamificationSnap = await gamificationRef.get();
+      await gamificationRef.set({
+        xp: admin.firestore.FieldValue.increment(20),
+        pointsHistory: admin.firestore.FieldValue.arrayUnion({
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          points: 20,
+          reason: 'document-upload'
+        })
+      }, { merge: true });
 
-      if (!gamificationSnap.exists) {
-        await gamificationRef.set({
-          xp: 20,
-          level: 1,
-          badges: ['first-upload'],
-          pointsHistory: [{
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
-            points: 20,
-            reason: 'document-upload'
-          }]
-        });
-      } else {
-        await gamificationRef.update({
-          xp: admin.firestore.FieldValue.increment(20),
-          pointsHistory: admin.firestore.FieldValue.arrayUnion({
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
-            points: 20,
-            reason: 'document-upload'
-          })
-        });
-      }
+      console.log(`✅ Document ${snap.id} processed successfully`);
+      return { success: true, subject };
 
-      console.log(`✅ Document ${snap.id} processed with subject: ${subject}, 20 XP awarded to ${userId}`);
-      return { success: true, subject, detectionMethod };
     } catch (error) {
       console.error('❌ Error processing document:', error);
       await snap.ref.update({
@@ -569,7 +737,7 @@ exports.generateQuiz = functions.https.onCall(async (data, context) => {
   try {
     const docRef = db.collection('documents').doc(docId);
     const docSnap = await docRef.get();
-    
+
     if (!docSnap.exists) {
       throw new functions.https.HttpsError('not-found', 'Document not found');
     }
@@ -645,7 +813,7 @@ exports.awardXPOnQuizComplete = functions.firestore
       const answers = sessionData.answers || {};
       const answerKeys = Object.keys(answers);
       let correctAnswers = 0;
-      
+
       answerKeys.forEach(key => {
         if (answers[key].answer > 0) correctAnswers++;
       });
@@ -679,7 +847,7 @@ exports.awardXPOnQuizComplete = functions.firestore
       });
 
       const gamificationRef = db.collection('gamification').doc(userId);
-      
+
       await gamificationRef.update({
         xp: admin.firestore.FieldValue.increment(xpEarned),
         pointsHistory: admin.firestore.FieldValue.arrayUnion({
@@ -706,7 +874,7 @@ exports.trackStudySessionComplete = functions.firestore
   .onUpdate(async (change, context) => {
     const before = change.before.data();
     const after = change.after.data();
-    
+
     // Only track when status changes to 'completed'
     if (before.status !== 'completed' && after.status === 'completed') {
       await trackStudySession({
@@ -724,10 +892,10 @@ exports.trackStudySessionComplete = functions.firestore
         duration: after.duration || after.totalTime,
         timestamp: new Date().toISOString()
       });
-      
+
       console.log(`✅ Study session tracked in BigQuery and Kafka: ${context.params.sessionId}`);
     }
-    
+
     return null;
   });
 
@@ -744,7 +912,7 @@ exports.checkLevelUp = functions.firestore
 
     if (newLevel > oldLevel) {
       console.log(`🎉 User ${userId} leveled up from ${oldLevel} to ${newLevel}!`);
-      
+
       await change.after.ref.update({
         level: newLevel,
         badges: admin.firestore.FieldValue.arrayUnion(`level-${newLevel}`),
@@ -800,7 +968,7 @@ exports.detectSubject = functions.https.onCall(async (data, context) => {
   try {
     if (!text || text.length < 50) {
       const fallbackSubject = detectSubjectFromFilename(fileName);
-      return { 
+      return {
         subject: fallbackSubject,
         confidence: 'low',
         method: 'fallback'
@@ -844,7 +1012,7 @@ Subject (single word or short phrase only):`;
 
   } catch (error) {
     console.error('❌ Error in AI subject detection:', error);
-    
+
     const fallbackSubject = detectSubjectFromFilename(fileName);
     return {
       subject: fallbackSubject,
@@ -959,7 +1127,7 @@ exports.getAnalyticsBigQuery = functions.https.onCall(async (data, context) => {
 
   try {
     const [rows] = await bigqueryClient.query(options);
-    
+
     const result = rows[0] || {
       totalXP: 0,
       totalQuizzes: 0,
@@ -981,7 +1149,7 @@ exports.getAnalyticsBigQuery = functions.https.onCall(async (data, context) => {
         studyMinutes: parseInt(result.totalStudyMinutes),
         activeDays: parseInt(result.activeDays),
         documentsRead: parseInt(result.documentsUploaded),
-        
+
         xpFromQuizzes: parseInt(result.totalQuizzes) * 100,
         xpFromStudy: parseInt(result.totalStudyMinutes),
         xpFromAchievements: 0,
@@ -1024,14 +1192,14 @@ exports.getTrendsBigQuery = functions.https.onCall(async (data, context) => {
 
   try {
     const [rows] = await bigqueryClient.query(options);
-    
+
     const trends = rows.map(row => ({
       date: { toMillis: () => new Date(row.date.value).getTime() },
       studyMinutes: parseInt(row.studyMinutes) || 0,
       quizzesCompleted: parseInt(row.quizzesCompleted) || 0,
       avgScore: parseFloat(row.avgScore) || 0
     }));
-    
+
     return { trends };
   } catch (error) {
     console.error('❌ BigQuery getTrends error:', error);
@@ -1070,14 +1238,14 @@ exports.getSubjectPerformanceBigQuery = functions.https.onCall(async (data, cont
 
   try {
     const [rows] = await bigqueryClient.query(options);
-    
+
     const performance = rows.map(row => ({
       id: row.name,
       name: row.name,
       score: parseFloat(row.score) || 0,
       quizCount: parseInt(row.quizCount) || 0
     }));
-    
+
     return { performance };
   } catch (error) {
     console.error('❌ BigQuery getSubjectPerformance error:', error);
@@ -1092,7 +1260,7 @@ exports.getStudentAnalytics = functions.https.onRequest((req, res) => {
   return cors(req, res, async () => {
     try {
       const userId = req.body.userId || req.query.userId;
-      
+
       if (!userId) {
         return res.status(400).json({ error: 'userId is required' });
       }
@@ -1116,7 +1284,7 @@ exports.getStudentAnalytics = functions.https.onRequest((req, res) => {
       return res.status(200).json(analyticsData);
     } catch (error) {
       console.error('❌ Error in getStudentAnalytics:', error);
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: error.message,
         details: 'Failed to fetch student analytics'
       });
@@ -1128,7 +1296,7 @@ exports.getQuizPerformance = functions.https.onRequest((req, res) => {
   return cors(req, res, async () => {
     try {
       const userId = req.body.userId || req.query.userId;
-      
+
       if (!userId) {
         return res.status(400).json({ error: 'userId is required' });
       }
@@ -1148,7 +1316,7 @@ exports.getQuizPerformance = functions.https.onRequest((req, res) => {
       }
 
       const sessions = sessionsSnapshot.docs.map(doc => doc.data());
-      
+
       const totalQuizzes = sessions.length;
       const totalScore = sessions.reduce((sum, s) => sum + (s.score || 0), 0);
       const averageScore = totalQuizzes > 0 ? totalScore / totalQuizzes : 0;
@@ -1179,7 +1347,7 @@ exports.getQuizPerformance = functions.https.onRequest((req, res) => {
       return res.status(200).json(performanceData);
     } catch (error) {
       console.error('❌ Error in getQuizPerformance:', error);
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: error.message,
         details: 'Failed to fetch quiz performance'
       });
@@ -1192,7 +1360,7 @@ exports.getStudyTimeStats = functions.https.onRequest((req, res) => {
     try {
       const userId = req.body.userId || req.query.userId;
       const period = parseInt(req.body.period || req.query.period || 30);
-      
+
       if (!userId) {
         return res.status(400).json({ error: 'userId is required' });
       }
@@ -1213,7 +1381,7 @@ exports.getStudyTimeStats = functions.https.onRequest((req, res) => {
       }
 
       const sessions = sessionsSnapshot.docs.map(doc => doc.data());
-      
+
       const totalMinutes = sessions.reduce((sum, s) => sum + (s.duration || s.totalTime || 0), 0);
       const totalSessions = sessions.length;
       const avgSessionLength = totalSessions > 0 ? totalMinutes / totalSessions : 0;
@@ -1230,7 +1398,7 @@ exports.getStudyTimeStats = functions.https.onRequest((req, res) => {
       return res.status(200).json(studyData);
     } catch (error) {
       console.error('❌ Error in getStudyTimeStats:', error);
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: error.message,
         details: 'Failed to fetch study time stats'
       });
@@ -1242,7 +1410,7 @@ exports.getPerformanceTrends = functions.https.onRequest((req, res) => {
   return cors(req, res, async () => {
     try {
       const userId = req.body.userId || req.query.userId;
-      
+
       if (!userId) {
         return res.status(400).json({ error: 'userId is required' });
       }
@@ -1274,15 +1442,15 @@ exports.getPerformanceTrends = functions.https.onRequest((req, res) => {
 
       const recentScores = sessions.slice(0, 5).map(s => s.score);
       const olderScores = sessions.slice(5, 10).map(s => s.score);
-      
-      const recentAvg = recentScores.length > 0 
-        ? recentScores.reduce((sum, s) => sum + s, 0) / recentScores.length 
+
+      const recentAvg = recentScores.length > 0
+        ? recentScores.reduce((sum, s) => sum + s, 0) / recentScores.length
         : 0;
-      
+
       const olderAvg = olderScores.length > 0
-        ? olderScores.reduce((sum, s) => sum + s, 0) / olderScores.length 
+        ? olderScores.reduce((sum, s) => sum + s, 0) / olderScores.length
         : recentAvg;
-      
+
       let trend = 'stable';
       if (recentAvg > olderAvg + 5) trend = 'improving';
       if (recentAvg < olderAvg - 5) trend = 'declining';
@@ -1298,7 +1466,7 @@ exports.getPerformanceTrends = functions.https.onRequest((req, res) => {
       return res.status(200).json(trendsData);
     } catch (error) {
       console.error('❌ Error in getPerformanceTrends:', error);
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: error.message,
         details: 'Failed to fetch performance trends'
       });
@@ -1311,7 +1479,7 @@ exports.getPersonalizedRecommendations = functions.https.onRequest((req, res) =>
     try {
       const userId = req.body.userId || req.query.userId;
       const limit = parseInt(req.body.limit || req.query.limit || 5);
-      
+
       if (!userId) {
         return res.status(400).json({ error: 'userId is required' });
       }
@@ -1365,12 +1533,12 @@ exports.getPersonalizedRecommendations = functions.https.onRequest((req, res) =>
       }
 
       console.log(`✅ Recommendations generated for user: ${userId}`);
-      return res.status(200).json({ 
-        recommendations: recommendations.slice(0, limit) 
+      return res.status(200).json({
+        recommendations: recommendations.slice(0, limit)
       });
     } catch (error) {
       console.error('❌ Error in getPersonalizedRecommendations:', error);
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: error.message,
         details: 'Failed to generate recommendations'
       });
@@ -1382,7 +1550,7 @@ exports.getLearningPatterns = functions.https.onRequest((req, res) => {
   return cors(req, res, async () => {
     try {
       const userId = req.body.userId || req.query.userId;
-      
+
       if (!userId) {
         return res.status(400).json({ error: 'userId is required' });
       }
@@ -1403,7 +1571,7 @@ exports.getLearningPatterns = functions.https.onRequest((req, res) => {
       }
 
       const sessions = sessionsSnapshot.docs.map(doc => doc.data());
-      
+
       const hourlyDistribution = {};
       sessions.forEach(session => {
         const hour = session.startTime ? new Date(session.startTime).getHours() : 9;
@@ -1411,10 +1579,10 @@ exports.getLearningPatterns = functions.https.onRequest((req, res) => {
       });
 
       const bestHour = Object.entries(hourlyDistribution)
-        .sort(([,a], [,b]) => b - a)[0]?.[0] || 9;
-      
-      const bestStudyTime = bestHour < 12 ? 'Morning' : 
-                           bestHour < 17 ? 'Afternoon' : 'Evening';
+        .sort(([, a], [, b]) => b - a)[0]?.[0] || 9;
+
+      const bestStudyTime = bestHour < 12 ? 'Morning' :
+        bestHour < 17 ? 'Afternoon' : 'Evening';
 
       const totalMinutes = sessions.reduce((sum, s) => sum + (s.duration || 0), 0);
       const avgSessionLength = sessions.length > 0 ? totalMinutes / sessions.length : 0;
@@ -1431,7 +1599,7 @@ exports.getLearningPatterns = functions.https.onRequest((req, res) => {
       return res.status(200).json(patternsData);
     } catch (error) {
       console.error('❌ Error in getLearningPatterns:', error);
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: error.message,
         details: 'Failed to fetch learning patterns'
       });

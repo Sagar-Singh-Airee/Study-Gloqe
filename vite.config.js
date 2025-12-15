@@ -7,13 +7,23 @@ export default defineConfig({
     resolve: {
         alias: {
             '@': path.resolve(__dirname, './src'),
-            '@components': path.resolve(__dirname, './src/components'),
-            '@pages': path.resolve(__dirname, './src/pages'),
-            '@services': path.resolve(__dirname, './src/services'),
-            '@utils': path.resolve(__dirname, './src/utils'),
-            '@hooks': path.resolve(__dirname, './src/hooks'),
-            '@contexts': path.resolve(__dirname, './src/contexts'),
-            '@config': path.resolve(__dirname, './src/config'),
+            // Feature modules
+            '@features': path.resolve(__dirname, './src/features'),
+            '@auth': path.resolve(__dirname, './src/features/auth'),
+            '@student': path.resolve(__dirname, './src/features/student'),
+            '@teacher': path.resolve(__dirname, './src/features/teacher'),
+            '@classroom': path.resolve(__dirname, './src/features/classroom'),
+            '@study': path.resolve(__dirname, './src/features/study'),
+            '@analytics': path.resolve(__dirname, './src/features/analytics'),
+            '@gamification': path.resolve(__dirname, './src/features/gamification'),
+            '@landing': path.resolve(__dirname, './src/features/landing'),
+            // Shared infrastructure
+            '@shared': path.resolve(__dirname, './src/shared'),
+            '@components': path.resolve(__dirname, './src/shared/components'),
+            '@utils': path.resolve(__dirname, './src/shared/utils'),
+            '@config': path.resolve(__dirname, './src/shared/config'),
+            // Legacy aliases (for backward compatibility during transition)
+            '@contexts': path.resolve(__dirname, './src/features/auth/contexts'),
             '@assets': path.resolve(__dirname, './src/assets')
         }
     },
