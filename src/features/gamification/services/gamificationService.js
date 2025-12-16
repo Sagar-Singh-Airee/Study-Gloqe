@@ -1,4 +1,4 @@
-// src/services/gamificationService.js - BULLETPROOF PRODUCTION VERSION 🚀
+// src/services/gamificationService.js - ✅ FIXED PRODUCTION VERSION
 import {
     doc,
     updateDoc,
@@ -6,22 +6,19 @@ import {
     setDoc,
     getDoc,
     serverTimestamp,
-    collection,
-    getDocs,
     writeBatch,
-    arrayUnion
+    arrayUnion,
+    runTransaction
 } from 'firebase/firestore';
 import { db } from '@shared/config/firebase';
 
-// 📤 Event Bus for real-time streaming
-import { eventBus, EVENT_TYPES } from '@shared/services/eventBus';
-
+// ✅ Commented out event bus until implemented
+// import { eventBus, EVENT_TYPES } from '@shared/services/eventBus';
 
 // ==========================================
 // CONFIGURATION
 // ==========================================
 
-// XP Rewards Configuration
 const XP_REWARDS = {
     // One-time per day actions
     UPLOAD_DOCUMENT: 15,
@@ -45,7 +42,6 @@ const XP_REWARDS = {
     KNOWLEDGE_MASTER: 100,
 };
 
-// Daily action types
 const DAILY_ACTIONS = {
     UPLOAD_DOCUMENT: 'upload_document',
     STUDY_SESSION: 'study_session',
@@ -56,11 +52,13 @@ const DAILY_ACTIONS = {
     DAILY_LOGIN: 'daily_login',
 };
 
-// Level progression thresholds
 const LEVEL_THRESHOLDS = [0, 100, 250, 500, 1000, 2000, 4000, 8000, 16000, 32000, 64000];
 
+// ✅ Daily XP goal constant
+const DAILY_XP_GOAL = 100;
+
 // ==========================================
-// BADGE DEFINITIONS
+// BADGE DEFINITIONS (unchanged)
 // ==========================================
 const BADGE_DEFINITIONS = {
     first_steps: {
@@ -242,7 +240,7 @@ const BADGE_DEFINITIONS = {
 };
 
 // ==========================================
-// TITLE DEFINITIONS
+// TITLE DEFINITIONS (unchanged)
 // ==========================================
 const TITLE_DEFINITIONS = {
     novice: {
@@ -333,26 +331,6 @@ const TITLE_DEFINITIONS = {
 
 const getTodayString = () => new Date().toISOString().split('T')[0];
 
-const getStartOfDay = () => {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    return start;
-};
-
-const getEndOfDay = () => {
-    const end = new Date();
-    end.setHours(23, 59, 59, 999);
-    return end;
-};
-
-const getEndOfWeek = () => {
-    const end = new Date();
-    end.setDate(end.getDate() + (7 - end.getDay()));
-    end.setHours(23, 59, 59, 999);
-    return end;
-};
-
-// Calculate level from XP
 const calculateLevel = (xp) => {
     for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
         if (xp >= LEVEL_THRESHOLDS[i]) {
@@ -367,83 +345,68 @@ const calculateLevel = (xp) => {
 // ==========================================
 
 /**
- * Award XP to user (for non-daily actions)
+ * ✅ FIXED: Award XP using atomic operations
  */
 export const awardXP = async (userId, xpAmount, reason) => {
     try {
         const userRef = doc(db, 'users', userId);
-        const userSnap = await getDoc(userRef);
 
-        if (!userSnap.exists()) {
-            await initializeGamification(userId);
-        }
+        // ✅ Use transaction for atomic XP update
+        const result = await runTransaction(db, async (transaction) => {
+            const userSnap = await transaction.get(userRef);
 
-        const userData = userSnap.data() || {};
-        const currentXP = userData.xp || 0;
-        const currentLevel = userData.level || 1;
-        const newXP = currentXP + xpAmount;
-        const newLevel = calculateLevel(newXP);
-        const levelUp = newLevel > currentLevel;
-        const levelsGained = newLevel - currentLevel;
-
-        // Update user document
-        await updateDoc(userRef, {
-            xp: newXP,
-            level: newLevel,
-            levelUp: levelUp,
-            levelsGained: levelsGained,
-            totalXPEarned: increment(xpAmount),
-            lastXPReason: reason,
-            lastXPAmount: xpAmount,
-            lastXPTime: serverTimestamp(),
-            updatedAt: serverTimestamp()
-        });
-
-        // Reset levelUp after animation
-        if (levelUp) {
-            setTimeout(async () => {
-                try {
-                    await updateDoc(userRef, {
-                        levelUp: false,
-                        levelsGained: 0
-                    });
-                } catch (error) {
-                    console.warn('Error resetting levelUp:', error.message);
+            if (!userSnap.exists()) {
+                await initializeGamification(userId);
+                // Re-fetch after initialization
+                const newSnap = await transaction.get(userRef);
+                if (!newSnap.exists()) {
+                    throw new Error('Failed to initialize user');
                 }
-            }, 5000);
-        }
+            }
 
-        console.log(`✅ Awarded ${xpAmount} XP to ${userId}. New level: ${newLevel}`);
+            const userData = userSnap.exists() ? userSnap.data() : {};
+            const currentXP = userData.xp || 0;
+            const currentLevel = userData.level || 1;
+            const newXP = currentXP + xpAmount;
+            const newLevel = calculateLevel(newXP);
+            const levelUp = newLevel > currentLevel;
+            const levelsGained = newLevel - currentLevel;
 
-        // 📤 Publish XP_AWARDED event to Event Bus
-        eventBus.publish(EVENT_TYPES.XP_AWARDED, {
-            userId,
-            xpAmount,
-            newTotalXP: newXP,
-            newLevel,
-            reason,
-            awardedAt: new Date().toISOString()
+            // Update user document
+            transaction.update(userRef, {
+                xp: newXP,
+                level: newLevel,
+                totalXPEarned: increment(xpAmount),
+                lastXPReason: reason,
+                lastXPAmount: xpAmount,
+                lastXPTime: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+                // ✅ Don't use setTimeout - let frontend handle levelUp reset
+                ...(levelUp && {
+                    lastLevelUp: serverTimestamp(),
+                    lastLevelsGained: levelsGained
+                })
+            });
+
+            return {
+                newXP,
+                newLevel,
+                levelUp,
+                levelsGained,
+                xpGained: xpAmount,
+                nextLevelXP: LEVEL_THRESHOLDS[newLevel] || LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1]
+            };
         });
 
-        // 📤 Publish LEVEL_UP event if leveled up
-        if (levelUp) {
-            eventBus.publish(EVENT_TYPES.LEVEL_UP, {
-                userId,
-                oldLevel: currentLevel,
-                newLevel,
-                levelsGained,
-                leveledUpAt: new Date().toISOString()
-            });
-        }
+        console.log(`✅ Awarded ${xpAmount} XP to ${userId}. New level: ${result.newLevel}`);
 
-        return {
-            newXP,
-            newLevel,
-            levelUp,
-            levelsGained,
-            xpGained: xpAmount,
-            nextLevelXP: LEVEL_THRESHOLDS[newLevel] || LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1]
-        };
+        // ✅ Event bus calls removed until implemented
+        // eventBus.publish(EVENT_TYPES.XP_AWARDED, {...});
+        // if (result.levelUp) {
+        //     eventBus.publish(EVENT_TYPES.LEVEL_UP, {...});
+        // }
+
+        return result;
     } catch (error) {
         console.error('❌ Error awarding XP:', error);
         throw error;
@@ -476,7 +439,6 @@ export const canAwardDailyXP = async (userId, actionType) => {
  */
 export const awardDailyXP = async (userId, actionType, reason) => {
     try {
-        // Check if already earned today
         const canAward = await canAwardDailyXP(userId, actionType);
 
         if (!canAward) {
@@ -498,10 +460,8 @@ export const awardDailyXP = async (userId, actionType, reason) => {
             };
         }
 
-        // Award XP
         const result = await awardXP(userId, xpAmount, reason);
 
-        // Mark action as done today
         const today = getTodayString();
         const dailyActionRef = doc(db, 'gamification', userId, 'dailyActions', today);
 
@@ -532,7 +492,7 @@ export const awardDailyXP = async (userId, actionType, reason) => {
 };
 
 /**
- * Get user's today's XP total
+ * ✅ FIXED: Get user's today's XP total with correct progress calculation
  */
 export const getUserTodaysXP = async (userId) => {
     try {
@@ -557,10 +517,13 @@ export const getUserTodaysXP = async (userId) => {
             }
         });
 
+        // ✅ FIXED: Correct progress calculation
+        const dailyProgress = Math.min((totalXP / DAILY_XP_GOAL) * 100, 100);
+
         return {
             total: totalXP,
             actions: actions,
-            dailyProgress: Math.min((totalXP / 100) * 100, 100)
+            dailyProgress: Math.round(dailyProgress)
         };
     } catch (error) {
         console.warn('⚠️ Error getting today\'s XP:', error.message);
@@ -577,7 +540,7 @@ export const getUserTodaysXP = async (userId) => {
 // ==========================================
 
 /**
- * Check and unlock badges based on user stats
+ * ✅ FIXED: Check and unlock badges with validation
  */
 export const checkAndUnlockBadges = async (userId) => {
     try {
@@ -607,7 +570,8 @@ export const checkAndUnlockBadges = async (userId) => {
             const reqType = badge.requirement.type;
             const reqValue = badge.requirement.value;
 
-            if (stats[reqType] >= reqValue) {
+            // ✅ Validate requirement type exists
+            if (stats.hasOwnProperty(reqType) && stats[reqType] >= reqValue) {
                 newlyUnlocked.push(badge);
             }
         }
@@ -636,12 +600,9 @@ export const checkAndUnlockBadges = async (userId) => {
 };
 
 // ==========================================
-// TITLE FUNCTIONS
+// TITLE FUNCTIONS (unchanged)
 // ==========================================
 
-/**
- * Check and unlock titles based on level
- */
 export const checkAndUnlockTitles = async (userId) => {
     try {
         const userRef = doc(db, 'users', userId);
@@ -654,7 +615,6 @@ export const checkAndUnlockTitles = async (userId) => {
         const unlockedTitles = userData.unlockedTitles || [];
         const newlyUnlocked = [];
 
-        // Check each title
         for (const title of Object.values(TITLE_DEFINITIONS)) {
             if (unlockedTitles.includes(title.id)) continue;
 
@@ -663,7 +623,6 @@ export const checkAndUnlockTitles = async (userId) => {
             }
         }
 
-        // Unlock new titles
         if (newlyUnlocked.length > 0) {
             const titleIds = newlyUnlocked.map(t => t.id);
             const updateData = {
@@ -671,7 +630,6 @@ export const checkAndUnlockTitles = async (userId) => {
                 lastTitleUnlocked: serverTimestamp()
             };
 
-            // Auto-equip highest title if none equipped
             if (!userData.equippedTitle && newlyUnlocked.length > 0) {
                 const highestTitle = newlyUnlocked.sort((a, b) => b.requiredLevel - a.requiredLevel)[0];
                 updateData.equippedTitle = highestTitle.text;
@@ -690,9 +648,6 @@ export const checkAndUnlockTitles = async (userId) => {
     }
 };
 
-/**
- * Equip a title
- */
 export const equipTitle = async (userId, titleId) => {
     try {
         const userRef = doc(db, 'users', userId);
@@ -733,17 +688,12 @@ export const equipTitle = async (userId, titleId) => {
 // ==========================================
 
 /**
- * Update user's login streak
+ * ✅ FIXED: Update streak with consistent data storage
  */
 export const updateStreak = async (userId) => {
     try {
         const userRef = doc(db, 'users', userId);
-        const gamificationRef = doc(db, 'gamification', userId);
-
-        const [userSnap, gamificationSnap] = await Promise.all([
-            getDoc(userRef),
-            getDoc(gamificationRef)
-        ]);
+        const userSnap = await getDoc(userRef);
 
         if (!userSnap.exists()) {
             await initializeGamification(userId);
@@ -751,40 +701,38 @@ export const updateStreak = async (userId) => {
         }
 
         const userData = userSnap.data();
-        const gamificationData = gamificationSnap.exists() ? gamificationSnap.data() : {};
-
         const today = getTodayString();
-        const lastLogin = gamificationData.lastLoginDate;
+        const lastLogin = userData.lastLoginDate || null;  // ✅ From users doc
 
-        if (lastLogin !== today) {
-            const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-            const isConsecutive = lastLogin === yesterday;
-
-            const newStreak = isConsecutive ? (userData?.streak || 0) + 1 : 1;
-            const streakBonus = XP_REWARDS.STREAK_BONUS * Math.floor(newStreak / 7 + 1);
-
-            // Use batch for efficiency
-            const batch = writeBatch(db);
-            batch.update(userRef, {
-                streak: newStreak,
-                lastStreakUpdate: serverTimestamp()
-            });
-            batch.update(gamificationRef, {
-                lastLoginDate: today,
-                currentStreak: newStreak
-            });
-            await batch.commit();
-
-            // Award streak bonus
-            if (newStreak > 0) {
-                await awardXP(userId, streakBonus, `${newStreak}-day streak! 🔥`);
-            }
-
-            // Award daily login XP
-            await awardDailyXP(userId, DAILY_ACTIONS.DAILY_LOGIN, 'Daily login');
-
-            console.log(`✅ Streak updated: ${newStreak} days`);
+        // ✅ Skip if already logged in today
+        if (lastLogin === today) {
+            console.log('✅ Already logged in today');
+            return;
         }
+
+        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        const isConsecutive = lastLogin === yesterday;
+
+        const currentStreak = userData.streak || 0;
+        const newStreak = isConsecutive ? currentStreak + 1 : 1;
+        const streakBonus = XP_REWARDS.STREAK_BONUS * Math.floor(newStreak / 7 + 1);
+
+        // ✅ Store everything in users doc
+        await updateDoc(userRef, {
+            streak: newStreak,
+            lastLoginDate: today,  // Store in users doc
+            lastStreakUpdate: serverTimestamp()
+        });
+
+        // Award streak bonus
+        if (newStreak > 0) {
+            await awardXP(userId, streakBonus, `${newStreak}-day streak! 🔥`);
+        }
+
+        // Award daily login XP
+        await awardDailyXP(userId, DAILY_ACTIONS.DAILY_LOGIN, 'Daily login');
+
+        console.log(`✅ Streak updated: ${newStreak} days`);
     } catch (error) {
         console.error('❌ Error updating streak:', error);
     }
@@ -794,31 +742,17 @@ export const updateStreak = async (userId) => {
 // INITIALIZATION
 // ==========================================
 
-/**
- * Initialize gamification data for new user
- */
 export const initializeGamification = async (userId) => {
     try {
-        const gamificationRef = doc(db, 'gamification', userId);
         const userRef = doc(db, 'users', userId);
 
-        // Check if already initialized
         const userSnap = await getDoc(userRef);
         if (userSnap.exists() && userSnap.data().xp !== undefined) {
+            console.log('✅ User already initialized');
             return;
         }
 
         const batch = writeBatch(db);
-
-        batch.set(gamificationRef, {
-            missions: [],
-            achievements: [],
-            lastLoginDate: getTodayString(),
-            totalMissionsCompleted: 0,
-            totalAchievementsUnlocked: 0,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
-        }, { merge: true });
 
         batch.set(userRef, {
             xp: 0,
@@ -834,8 +768,7 @@ export const initializeGamification = async (userId) => {
             unlockedTitles: ['novice'],
             equippedTitle: 'Novice Learner',
             equippedTitleId: 'novice',
-            levelUp: false,
-            levelsGained: 0,
+            lastLoginDate: getTodayString(),
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp()
         }, { merge: true });
@@ -853,12 +786,8 @@ export const initializeGamification = async (userId) => {
 // COMPREHENSIVE TRACKING
 // ==========================================
 
-/**
- * Track action and check for all unlocks
- */
 export const trackActionAndCheckUnlocks = async (userId, action, metadata = {}) => {
     try {
-        // Update user stats
         const userRef = doc(db, 'users', userId);
         const updates = {};
 
@@ -878,13 +807,14 @@ export const trackActionAndCheckUnlocks = async (userId, action, metadata = {}) 
             case 'study_time':
                 updates.totalStudyTime = increment(metadata.minutes || 0);
                 break;
+            default:
+                console.warn(`⚠️ Unknown action type: ${action}`);
         }
 
         if (Object.keys(updates).length > 0) {
             await updateDoc(userRef, updates);
         }
 
-        // Check for unlocks
         const [badges, titles] = await Promise.all([
             checkAndUnlockBadges(userId),
             checkAndUnlockTitles(userId)
@@ -902,12 +832,9 @@ export const trackActionAndCheckUnlocks = async (userId, action, metadata = {}) 
 };
 
 // ==========================================
-// LEADERBOARD
+// LEADERBOARD (unchanged)
 // ==========================================
 
-/**
- * Get class leaderboard
- */
 export const getClassLeaderboard = async (classId) => {
     try {
         const classRef = doc(db, 'classes', classId);

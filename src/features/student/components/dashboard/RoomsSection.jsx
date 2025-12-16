@@ -1,4 +1,4 @@
-// src/components/features/RoomsSection.jsx - FIXED WITHOUT MISSION TRACKING
+// src/components/features/RoomsSection.jsx - FIXED: USER-SPECIFIC ROOMS ONLY
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -49,22 +49,28 @@ const RoomsSection = () => {
         isPrivate: false
     });
 
-    // Real-time listener for active rooms
+    // ✅ FIXED: Real-time listener for user's own active rooms
     useEffect(() => {
         if (!user?.uid) {
             setLoading(false);
             return;
         }
 
-        console.log('🔍 Setting up rooms listener...');
+        console.log('🔍 Setting up rooms listener for user:', user.uid);
 
         const roomsRef = collection(db, 'rooms');
-        const q = query(roomsRef, where('isActive', '==', true));
+        
+        // ✅ CRITICAL FIX: Filter by hostId to show only user's rooms
+        const q = query(
+            roomsRef, 
+            where('isActive', '==', true),
+            where('hostId', '==', user.uid)
+        );
 
         const unsubscribe = onSnapshot(
             q, 
             (snapshot) => {
-                console.log('📦 Received', snapshot.docs.length, 'rooms');
+                console.log('📦 Received', snapshot.docs.length, 'rooms for user');
                 
                 const roomsData = snapshot.docs.map(doc => ({
                     id: doc.id,
@@ -86,8 +92,8 @@ const RoomsSection = () => {
                 console.error('❌ Error fetching rooms:', error);
                 
                 if (error.code === 'failed-precondition') {
-                    console.log('⚠️ Index missing, fetching all rooms...');
-                    fetchAllRooms();
+                    console.log('⚠️ Index missing, fetching user rooms...');
+                    fetchUserRooms();
                 } else {
                     setLoading(false);
                 }
@@ -97,11 +103,24 @@ const RoomsSection = () => {
         return () => unsubscribe();
     }, [user?.uid]);
 
-    // Fallback: fetch all rooms
-    const fetchAllRooms = async () => {
+    // ✅ FIXED: Fallback to fetch only user's rooms
+    const fetchUserRooms = async () => {
+        if (!user?.uid) {
+            setLoading(false);
+            return;
+        }
+
         try {
             const roomsRef = collection(db, 'rooms');
-            const snapshot = await getDocs(roomsRef);
+            
+            // ✅ Filter by both isActive and hostId
+            const q = query(
+                roomsRef,
+                where('hostId', '==', user.uid),
+                where('isActive', '==', true)
+            );
+            
+            const snapshot = await getDocs(q);
             
             const roomsData = snapshot.docs
                 .map(doc => ({
@@ -109,7 +128,6 @@ const RoomsSection = () => {
                     ...doc.data(),
                     startedAt: doc.data().createdAt?.toDate()
                 }))
-                .filter(room => room.isActive === true)
                 .sort((a, b) => {
                     if (!a.createdAt) return 1;
                     if (!b.createdAt) return -1;
@@ -118,7 +136,7 @@ const RoomsSection = () => {
             
             setRooms(roomsData);
             setLoading(false);
-            console.log('✅ Fetched rooms (fallback):', roomsData.length);
+            console.log('✅ Fetched user rooms (fallback):', roomsData.length);
         } catch (error) {
             console.error('❌ Fallback fetch failed:', error);
             setLoading(false);
@@ -261,10 +279,10 @@ const RoomsSection = () => {
             <div className="flex items-center justify-between mb-8">
                 <div>
                     <div className="flex items-center gap-2 mb-2">
-                        <h1 className="text-4xl font-black text-black">Study Rooms</h1>
+                        <h1 className="text-4xl font-black text-black">My Study Rooms</h1>
                         <Sparkles size={32} className="text-black" />
                     </div>
-                    <p className="text-gray-600">Collaborate with peers in real-time</p>
+                    <p className="text-gray-600">Manage your study rooms and collaborate with peers</p>
                 </div>
                 <button 
                     onClick={() => setShowCreateModal(true)}
@@ -289,19 +307,19 @@ const RoomsSection = () => {
                             </div>
                             <div>
                                 <p className="text-white font-bold text-sm">
-                                    Join rooms to earn XP and connect with peers!
+                                    You're earning XP by creating and hosting rooms!
                                 </p>
                                 <p className="text-gray-400 text-xs">
-                                    +{XP_REWARDS.JOIN_ROOM} XP per room • +15 XP for creating rooms
+                                    +{XP_REWARDS.JOIN_ROOM} XP when others join • +15 XP for creating rooms
                                 </p>
                             </div>
                         </div>
                         <div className="px-4 py-2 bg-white/10 rounded-xl backdrop-blur-sm">
                             <p className="text-white font-black text-lg flex items-center gap-1">
                                 <Award size={20} className="text-yellow-400" />
-                                {totalXPAvailable} XP
+                                {activeRoomsCount}
                             </p>
-                            <p className="text-gray-400 text-xs">Available</p>
+                            <p className="text-gray-400 text-xs">Your Rooms</p>
                         </div>
                     </div>
                 </motion.div>
@@ -322,7 +340,7 @@ const RoomsSection = () => {
                                 <div className="text-2xl font-black text-black">
                                     {activeRoomsCount}
                                 </div>
-                                <div className="text-sm text-gray-500">Active Rooms</div>
+                                <div className="text-sm text-gray-500">Your Active Rooms</div>
                             </div>
                         </div>
                     </motion.div>
@@ -354,10 +372,10 @@ const RoomsSection = () => {
                             </div>
                             <div>
                                 <div className="text-2xl font-black text-black flex items-center gap-1">
-                                    +{XP_REWARDS.JOIN_ROOM}
+                                    +{activeRoomsCount * 15}
                                     <span className="text-sm font-normal text-gray-600">XP</span>
                                 </div>
-                                <div className="text-sm text-gray-600">Per Room Joined</div>
+                                <div className="text-sm text-gray-600">Earned from Creating</div>
                             </div>
                         </div>
                     </motion.div>
@@ -524,18 +542,16 @@ const RoomsSection = () => {
                                     <div className="w-16 h-16 bg-black rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
                                         <Video size={32} className="text-white" />
                                     </div>
-                                    {room.hostId === user?.uid && (
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setDeleteConfirm(room.id);
-                                            }}
-                                            className="p-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg transition-all"
-                                            title="Delete room"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    )}
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setDeleteConfirm(room.id);
+                                        }}
+                                        className="p-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg transition-all"
+                                        title="Delete room"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
                                 </div>
 
                                 {/* Room Info */}
@@ -552,7 +568,7 @@ const RoomsSection = () => {
                                         )}
                                         <div className="px-2 py-0.5 bg-green-500/10 text-green-600 rounded-lg flex items-center gap-1 text-xs font-bold">
                                             <Zap size={10} />
-                                            +{XP_REWARDS.JOIN_ROOM}
+                                            Host
                                         </div>
                                     </div>
                                 </div>
@@ -580,25 +596,11 @@ const RoomsSection = () => {
 
                                 {/* Join Button */}
                                 <button
-                                    onClick={() => joinRoom(room)}
-                                    disabled={room.memberCount >= room.maxMembers}
-                                    className={`w-full py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${
-                                        room.memberCount >= room.maxMembers
-                                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                            : 'bg-black text-white hover:scale-105 shadow-lg'
-                                    }`}
+                                    onClick={() => navigate(`/study-room/${room.id}`)}
+                                    className="w-full py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 bg-black text-white hover:scale-105 shadow-lg"
                                 >
-                                    {room.memberCount >= room.maxMembers ? (
-                                        <>
-                                            <Lock size={18} />
-                                            Room Full
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Video size={18} />
-                                            Join Room
-                                        </>
-                                    )}
+                                    <Video size={18} />
+                                    Enter Room
                                 </button>
                             </div>
                         </motion.div>
@@ -615,10 +617,10 @@ const RoomsSection = () => {
                         <Video size={48} className="text-white" />
                     </div>
                     <h3 className="text-2xl font-bold text-black mb-2">No Active Rooms</h3>
-                    <p className="text-gray-600 mb-2">Create a room to start studying with others</p>
+                    <p className="text-gray-600 mb-2">Create your first room to start studying with others</p>
                     <p className="text-sm text-green-600 font-bold mb-6 flex items-center justify-center gap-1">
                         <Zap size={16} />
-                        Earn +15 XP for creating the first room!
+                        Earn +15 XP for creating your first room!
                     </p>
                     <button 
                         onClick={() => setShowCreateModal(true)}

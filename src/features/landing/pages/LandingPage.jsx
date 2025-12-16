@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useState, useRef } from 'react';
-import { 
-    ArrowRight, Sparkles, Zap, Shield, Award, 
-    Upload, Brain, Users, Trophy, MessageSquare, 
+import {
+    ArrowRight, Sparkles, Zap, Shield, Award,
+    Upload, Brain, Users, Trophy, MessageSquare,
     BarChart3, Lock, Clock, BookOpen, Target,
     Lightbulb, Gift, GraduationCap, Mic, Check, X, Flame
 } from 'lucide-react';
@@ -40,10 +40,10 @@ const LandingPage = () => {
                 if (textBehindRef.current && heroRef.current) {
                     const heroHeight = heroRef.current.offsetHeight;
                     const scrollProgress = Math.min(scrolled / heroHeight, 1);
-                    
+
                     const textYPos = scrolled * 0.25;
                     const textOpacity = Math.max(0, 1 - scrollProgress * 1.2);
-                    
+
                     textBehindRef.current.style.transform = `translate(-50%, -50%) translate3d(0, ${textYPos}px, 0)`;
                     textBehindRef.current.style.opacity = textOpacity;
                 }
@@ -51,7 +51,7 @@ const LandingPage = () => {
                 if (mascotRef.current) {
                     const mascotYPos = scrolled * 0.1;
                     const scale = Math.max(0.95, 1 - (scrolled * 0.0002));
-                    
+
                     mascotRef.current.style.transform = `translate3d(0, ${mascotYPos}px, 0) scale(${scale})`;
                 }
             });
@@ -60,7 +60,7 @@ const LandingPage = () => {
         let mouseTimer;
         const handleMouseMove = (e) => {
             if (mouseTimer) return;
-            
+
             mouseTimer = setTimeout(() => {
                 const x = (e.clientX / window.innerWidth) * 2 - 1;
                 const y = (e.clientY / window.innerHeight) * 2 - 1;
@@ -264,39 +264,38 @@ const LandingPage = () => {
     ];
 
     return (
-        <div className="min-h-screen relative overflow-x-hidden bg-black font-sans antialiased selection:bg-white/10">
+        <div className="min-h-screen relative overflow-x-hidden bg-black antialiased selection:bg-white/10" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
 
             {/* Enhanced gradient background */}
             <div className="fixed inset-0 z-0 bg-gradient-to-br from-zinc-950 via-black to-zinc-900 pointer-events-none" />
 
             {/* Enhanced Dynamic Gradient Orbs with more depth */}
             <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-                <div 
+                <div
                     className="absolute top-1/4 -left-32 w-[500px] h-[500px] bg-gradient-to-r from-white/[0.06] to-transparent rounded-full blur-3xl transition-transform duration-700 ease-out"
                     style={{
                         transform: `translate(${mousePosition.x * 50}px, ${mousePosition.y * 50}px)`,
                         willChange: 'transform'
                     }}
                 />
-                <div 
+                <div
                     className="absolute bottom-1/4 -right-32 w-[400px] h-[400px] bg-gradient-to-l from-white/[0.04] to-transparent rounded-full blur-3xl transition-transform duration-700 ease-out"
                     style={{
                         transform: `translate(${mousePosition.x * -40}px, ${mousePosition.y * -40}px)`,
                         willChange: 'transform'
                     }}
                 />
-                <div 
+                <div
                     className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-white/[0.02] rounded-full blur-3xl animate-pulse"
                     style={{ animationDuration: '8s' }}
                 />
             </div>
 
             {/* Premium Navigation with enhanced effects */}
-            <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-                isScrolled 
-                    ? 'backdrop-blur-2xl bg-black/80 border-b border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]' 
+            <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${isScrolled
+                    ? 'backdrop-blur-2xl bg-black/80 border-b border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]'
                     : 'bg-transparent'
-            }`}>
+                }`}>
                 <div className="container mx-auto px-8">
                     <div className="flex items-center justify-between h-20">
                         <Link to="/" className="flex items-center gap-3 group relative">
@@ -306,17 +305,17 @@ const LandingPage = () => {
                                 alt="StudyGloqe"
                                 className="relative h-15 w-20 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3"
                             />
-                            <span className="relative text-xl font-black tracking-tight bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent group-hover:from-gray-100 group-hover:to-gray-300 transition-all duration-300">
+                            <span className="relative text-2xl font-extrabold tracking-tight bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent group-hover:from-gray-100 group-hover:to-gray-300 transition-all duration-300" style={{ letterSpacing: '-0.02em' }}>
                                 StudyGloqe
                             </span>
                         </Link>
 
                         <div className="hidden md:flex items-center gap-8">
                             {['Features', 'Teachers', 'Pricing'].map((item) => (
-                                <a 
+                                <a
                                     key={item}
                                     href={`#${item.toLowerCase()}`}
-                                    className="relative text-sm font-semibold text-gray-400 hover:text-white transition-all duration-300 group"
+                                    className="relative text-[15px] font-semibold text-gray-400 hover:text-white transition-all duration-300 group tracking-tight"
                                 >
                                     {item}
                                     <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-gradient-to-r from-white via-gray-400 to-transparent group-hover:w-full transition-all duration-500" />
@@ -327,7 +326,7 @@ const LandingPage = () => {
                         <div className="flex items-center gap-3">
                             <Link
                                 to="/auth"
-                                className="group relative px-5 py-2.5 rounded-xl text-sm font-medium text-white/80 hover:text-white transition-all duration-300 overflow-hidden"
+                                className="group relative px-6 py-2.5 rounded-xl text-[15px] font-semibold text-white/80 hover:text-white transition-all duration-300 overflow-hidden tracking-tight"
                             >
                                 <span className="relative z-10">Sign In</span>
                                 <span className="absolute inset-0 rounded-xl border border-transparent group-hover:border-white/20 transition-all duration-300" />
@@ -335,7 +334,7 @@ const LandingPage = () => {
                             </Link>
                             <Link
                                 to="/auth"
-                                className="group relative px-6 py-2.5 bg-white text-black rounded-xl text-sm font-semibold transition-all duration-300 hover:scale-105 hover:shadow-[0_8px_30px_rgba(255,255,255,0.15)] overflow-hidden"
+                                className="group relative px-7 py-2.5 bg-white text-black rounded-xl text-[15px] font-bold transition-all duration-300 hover:scale-105 hover:shadow-[0_8px_30px_rgba(255,255,255,0.15)] overflow-hidden tracking-tight"
                             >
                                 <span className="relative z-10">Get Started</span>
                                 <span className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -355,18 +354,18 @@ const LandingPage = () => {
 
                         {/* Enhanced Top Badge */}
                         <div
-                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full backdrop-blur-xl bg-white/[0.08] border border-white/20 mb-8 shadow-[0_8px_32px_rgba(255,255,255,0.1)] hover:scale-105 transition-transform duration-300"
+                            className="inline-flex items-center gap-2.5 px-6 py-3 rounded-full backdrop-blur-xl bg-white/[0.08] border border-white/20 mb-10 shadow-[0_8px_32px_rgba(255,255,255,0.1)] hover:scale-105 transition-transform duration-300"
                             data-aos="fade-down"
                             data-aos-delay="100"
                         >
-                            <Sparkles size={16} className="text-white animate-pulse" />
-                            <span className="text-sm font-bold tracking-widest text-white uppercase">
+                            <Sparkles size={18} className="text-white animate-pulse" />
+                            <span className="text-[13px] font-bold tracking-widest text-white uppercase" style={{ letterSpacing: '0.15em' }}>
                                 Introducing
                             </span>
                         </div>
 
                         {/* MINIMALIST Background Text - Enhanced */}
-                        <div 
+                        <div
                             ref={textBehindRef}
                             className="absolute top-1/2 left-1/2 w-[98vw] max-w-[1800px] text-center pointer-events-none select-none z-0"
                             style={{
@@ -374,14 +373,14 @@ const LandingPage = () => {
                                 willChange: 'transform, opacity'
                             }}
                         >
-                            <h1 
+                            <h1
                                 className="text-[18vw] sm:text-[16vw] md:text-[15vw] lg:text-[14vw] xl:text-[13vw] leading-[0.9] font-black tracking-tighter"
                                 style={{
                                     background: 'linear-gradient(180deg, rgba(160,160,160,0.45) 0%, rgba(130,130,130,0.35) 35%, rgba(110,110,110,0.25) 70%, rgba(90,90,90,0.18) 100%)',
                                     WebkitBackgroundClip: 'text',
                                     WebkitTextFillColor: 'transparent',
                                     backgroundClip: 'text',
-                                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                                    fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
                                     letterSpacing: '-0.055em',
                                     textAlign: 'center',
                                     textShadow: '0 0 80px rgba(255,255,255,0.03)'
@@ -393,16 +392,16 @@ const LandingPage = () => {
                             </h1>
                         </div>
 
-                        {/* Enhanced Mascot Container */}
-                        <div className="relative z-10 w-full max-w-md mx-auto px-6 mb-8">
-                            <div 
-                                ref={mascotRef} 
+                        {/* Enhanced Mascot Container - WITHOUT FLOATING CARDS */}
+                        <div className="relative z-10 w-full max-w-md mx-auto px-6 mb-10">
+                            <div
+                                ref={mascotRef}
                                 className="relative group"
                                 style={{ willChange: 'transform' }}
                             >
                                 {/* Multi-layer Enhanced Glow Effects */}
-                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] h-[150%] bg-gradient-radial from-white/20 via-white/8 to-transparent blur-3xl animate-pulse" 
-                                     style={{ animationDuration: '6s' }} />
+                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] h-[150%] bg-gradient-radial from-white/20 via-white/8 to-transparent blur-3xl animate-pulse"
+                                    style={{ animationDuration: '6s' }} />
                                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-white/10 blur-2xl" />
                                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-gradient-to-t from-white/5 to-transparent blur-xl animate-pulse" style={{ animationDuration: '4s', animationDelay: '1s' }} />
 
@@ -416,71 +415,17 @@ const LandingPage = () => {
                                         animation: 'gentle-float 10s ease-in-out infinite'
                                     }}
                                 />
-
-                                {/* Enhanced Floating Elements with better shadows */}
-                                <div 
-                                    className="absolute top-[15%] -left-4 md:-left-8 p-3.5 rounded-xl bg-black/80 backdrop-blur-2xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.6)] transition-all duration-500 ease-out hover:scale-110 hover:shadow-[0_12px_48px_rgba(255,255,255,0.15)]"
-                                    style={{
-                                        transform: `translate(${mousePosition.x * 10}px, ${mousePosition.y * 10}px)`,
-                                        willChange: 'transform'
-                                    }}
-                                    data-aos="fade-right"
-                                    data-aos-delay="600"
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse shadow-lg shadow-green-400/50" />
-                                        <div>
-                                            <div className="text-sm font-semibold text-white whitespace-nowrap">AI Ready</div>
-                                            <div className="text-xs text-gray-400 mt-0.5 whitespace-nowrap">Physics Detected</div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div 
-                                    className="absolute bottom-[18%] -right-4 md:-right-8 p-3.5 rounded-xl bg-black/80 backdrop-blur-2xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.6)] transition-all duration-500 ease-out hover:scale-110 hover:shadow-[0_12px_48px_rgba(255,255,255,0.15)]"
-                                    style={{
-                                        transform: `translate(${mousePosition.x * -8}px, ${mousePosition.y * -8}px)`,
-                                        willChange: 'transform'
-                                    }}
-                                    data-aos="fade-left"
-                                    data-aos-delay="700"
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-white/30 to-white/10 flex items-center justify-center shadow-lg">
-                                            <Brain size={18} className="text-white" />
-                                        </div>
-                                        <div>
-                                            <div className="text-sm font-bold text-white whitespace-nowrap">Quiz Ready</div>
-                                            <div className="text-xs text-gray-400 mt-0.5 whitespace-nowrap">15 questions</div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div 
-                                    className="absolute top-[45%] -right-3 md:-right-6 p-2.5 rounded-xl bg-black/80 backdrop-blur-2xl border border-orange-500/30 shadow-[0_8px_32px_rgba(251,146,60,0.25)] transition-all duration-500 ease-out hover:scale-110"
-                                    style={{
-                                        transform: `translateY(${mousePosition.y * 5}px)`,
-                                        willChange: 'transform'
-                                    }}
-                                    data-aos="fade-left"
-                                    data-aos-delay="800"
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <Flame size={16} className="text-orange-400 animate-pulse" />
-                                        <span className="text-sm font-bold text-white whitespace-nowrap">+250 XP</span>
-                                    </div>
-                                </div>
                             </div>
                         </div>
 
                         {/* Enhanced Description */}
-                        <div 
-                            className="relative z-20 space-y-4 max-w-2xl mx-auto mb-10 px-4"
+                        <div
+                            className="relative z-20 space-y-4 max-w-2xl mx-auto mb-12 px-4"
                             data-aos="fade-up"
                             data-aos-delay="400"
                         >
-                            <p className="text-lg text-gray-300 leading-relaxed font-medium text-center">
-                                Where AI meets empathy. We're building more than smart machines - 
+                            <p className="text-[19px] text-gray-300 leading-relaxed font-medium text-center tracking-tight" style={{ lineHeight: '1.7' }}>
+                                Where AI meets empathy. We're building more than smart machines -
                                 we're creating meaningful learning connections that transform education.
                             </p>
                         </div>
@@ -493,7 +438,7 @@ const LandingPage = () => {
                         >
                             <Link
                                 to="/auth"
-                                className="group relative inline-flex items-center justify-center gap-2.5 px-10 py-4 bg-white text-black rounded-xl text-lg font-bold transition-all duration-500 hover:scale-105 hover:shadow-[0_20px_60px_rgba(255,255,255,0.25)] overflow-hidden"
+                                className="group relative inline-flex items-center justify-center gap-3 px-12 py-4 bg-white text-black rounded-xl text-[17px] font-bold transition-all duration-500 hover:scale-105 hover:shadow-[0_20px_60px_rgba(255,255,255,0.25)] overflow-hidden tracking-tight"
                             >
                                 <span className="relative z-10 flex items-center gap-2.5 whitespace-nowrap">
                                     Start Learning Free
@@ -506,7 +451,7 @@ const LandingPage = () => {
                                     <span className="absolute top-0 left-0 w-[2px] h-full bg-gradient-to-b from-transparent via-gray-400 to-transparent animate-line-y" />
                                     <span className="absolute top-0 right-0 w-[2px] h-full bg-gradient-to-b from-transparent via-gray-400 to-transparent animate-line-y-reverse" />
                                 </span>
-                                
+
                                 {/* Shimmer effect */}
                                 <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000" />
                             </Link>
@@ -515,14 +460,14 @@ const LandingPage = () => {
                 </div>
             </section>
 
-            {/* Core Features Section - SMALLER FONT FOR PREMIUM LOOK */}
-            <section id="features" className="relative py-20 z-10">
+            {/* Core Features Section */}
+            <section id="features" className="relative py-24 z-10">
                 <div className="container mx-auto px-8">
-                    <div className="text-center mb-16" data-aos="fade-up">
-                        <h2 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent px-4">
+                    <div className="text-center mb-20" data-aos="fade-up">
+                        <h2 className="text-5xl md:text-6xl font-black mb-5 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent px-4 tracking-tight" style={{ letterSpacing: '-0.02em' }}>
                             Core Features
                         </h2>
-                        <p className="text-lg text-gray-400 max-w-2xl mx-auto px-4">
+                        <p className="text-[18px] text-gray-400 max-w-2xl mx-auto px-4 font-medium tracking-tight">
                             Everything you need for modern education
                         </p>
                     </div>
@@ -531,20 +476,20 @@ const LandingPage = () => {
                         {coreFeatures.map((feature, index) => (
                             <div
                                 key={index}
-                                className="group relative p-6 rounded-2xl backdrop-blur-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-white/20 transition-all duration-500 hover:scale-[1.02] hover:shadow-[0_8px_32px_rgba(255,255,255,0.08)]"
+                                className="group relative p-7 rounded-2xl backdrop-blur-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-white/20 transition-all duration-500 hover:scale-[1.02] hover:shadow-[0_8px_32px_rgba(255,255,255,0.08)]"
                                 data-aos="fade-up"
                                 data-aos-delay={index * 100}
                             >
                                 {/* Hover gradient overlay */}
                                 <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                                
-                                <div className="relative flex items-center justify-center w-12 h-12 rounded-xl bg-white/5 mb-5 group-hover:bg-white/10 group-hover:scale-110 transition-all duration-500 shadow-lg group-hover:shadow-white/10">
-                                    <feature.icon size={24} className="text-white" />
+
+                                <div className="relative flex items-center justify-center w-14 h-14 rounded-xl bg-white/5 mb-6 group-hover:bg-white/10 group-hover:scale-110 transition-all duration-500 shadow-lg group-hover:shadow-white/10">
+                                    <feature.icon size={26} className="text-white" />
                                 </div>
-                                <h3 className="relative text-base font-semibold text-white mb-2 group-hover:text-gray-100 transition-colors">
+                                <h3 className="relative text-[17px] font-bold text-white mb-3 group-hover:text-gray-100 transition-colors tracking-tight">
                                     {feature.title}
                                 </h3>
-                                <p className="relative text-sm text-gray-400 leading-relaxed group-hover:text-gray-300 transition-colors">
+                                <p className="relative text-[14px] text-gray-400 leading-relaxed group-hover:text-gray-300 transition-colors" style={{ lineHeight: '1.65' }}>
                                     {feature.description}
                                 </p>
                             </div>
@@ -554,34 +499,32 @@ const LandingPage = () => {
             </section>
 
             {/* Pricing Section - Enhanced */}
-            <section id="pricing" className="relative py-20 z-10">
+            <section id="pricing" className="relative py-24 z-10">
                 <div className="container mx-auto px-8">
-                    <div className="text-center mb-16" data-aos="fade-up">
-                        <h2 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent px-4">
+                    <div className="text-center mb-20" data-aos="fade-up">
+                        <h2 className="text-5xl md:text-6xl font-black mb-5 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent px-4 tracking-tight" style={{ letterSpacing: '-0.02em' }}>
                             Simple Pricing
                         </h2>
-                        <p className="text-lg text-gray-400 mb-8 px-4">
+                        <p className="text-[18px] text-gray-400 mb-10 px-4 font-medium tracking-tight">
                             Choose the plan that fits your needs
                         </p>
 
                         <div className="inline-flex items-center gap-2 p-1.5 rounded-xl backdrop-blur-xl bg-white/5 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
                             <button
                                 onClick={() => setSelectedPlan('monthly')}
-                                className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${
-                                    selectedPlan === 'monthly'
+                                className={`px-6 py-3 rounded-lg text-[14px] font-bold transition-all duration-300 tracking-tight ${selectedPlan === 'monthly'
                                         ? 'bg-white text-black shadow-lg'
                                         : 'text-gray-400 hover:text-white hover:bg-white/5'
-                                }`}
+                                    }`}
                             >
                                 Monthly
                             </button>
                             <button
                                 onClick={() => setSelectedPlan('yearly')}
-                                className={`relative px-5 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${
-                                    selectedPlan === 'yearly'
+                                className={`relative px-6 py-3 rounded-lg text-[14px] font-bold transition-all duration-300 tracking-tight ${selectedPlan === 'yearly'
                                         ? 'bg-white text-black shadow-lg'
                                         : 'text-gray-400 hover:text-white hover:bg-white/5'
-                                }`}
+                                    }`}
                             >
                                 Yearly
                                 <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse shadow-lg shadow-green-500/50" />
@@ -593,44 +536,43 @@ const LandingPage = () => {
                         {pricingPlans.map((plan, index) => (
                             <div
                                 key={index}
-                                className={`relative p-6 rounded-2xl backdrop-blur-xl border transition-all duration-500 hover:scale-[1.02] ${
-                                    plan.highlighted
+                                className={`relative p-7 rounded-2xl backdrop-blur-xl border transition-all duration-500 hover:scale-[1.02] ${plan.highlighted
                                         ? 'bg-white/[0.06] border-white/25 shadow-[0_8px_32px_rgba(255,255,255,0.12)] scale-[1.02]'
                                         : 'bg-white/[0.02] border-white/5 hover:border-white/15 hover:shadow-[0_8px_32px_rgba(255,255,255,0.06)]'
-                                }`}
+                                    }`}
                                 data-aos="fade-up"
                                 data-aos-delay={index * 100}
                             >
                                 {plan.badge && (
-                                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-white text-black text-xs font-bold z-10 whitespace-nowrap shadow-lg animate-pulse" style={{ animationDuration: '3s' }}>
+                                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-5 py-2 rounded-full bg-white text-black text-[11px] font-bold z-10 whitespace-nowrap shadow-lg animate-pulse tracking-wide uppercase" style={{ animationDuration: '3s', letterSpacing: '0.05em' }}>
                                         {plan.badge}
                                     </div>
                                 )}
 
-                                <div className="text-center mb-6">
-                                    <h3 className="text-base font-bold text-white mb-2">
+                                <div className="text-center mb-7">
+                                    <h3 className="text-[16px] font-bold text-white mb-3 tracking-tight">
                                         {plan.name}
                                     </h3>
-                                    <div className="flex items-baseline justify-center mb-1">
-                                        <span className="text-3xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+                                    <div className="flex items-baseline justify-center mb-2">
+                                        <span className="text-4xl font-black bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent tracking-tight">
                                             {plan.price}
                                         </span>
-                                        <span className="text-gray-500 text-xs ml-1 whitespace-nowrap">{plan.period}</span>
+                                        <span className="text-gray-500 text-[13px] ml-1 whitespace-nowrap font-medium">{plan.period}</span>
                                     </div>
-                                    <p className="text-xs text-gray-500">
+                                    <p className="text-[13px] text-gray-500 font-medium tracking-tight">
                                         {plan.description}
                                     </p>
                                 </div>
 
-                                <ul className="space-y-2.5 mb-6">
+                                <ul className="space-y-3 mb-7">
                                     {plan.features.map((feature, idx) => (
-                                        <li key={idx} className="flex items-start gap-2">
+                                        <li key={idx} className="flex items-start gap-2.5">
                                             {feature.included ? (
-                                                <Check size={16} className="text-green-500 mt-0.5 flex-shrink-0" />
+                                                <Check size={17} className="text-green-500 mt-0.5 flex-shrink-0" />
                                             ) : (
-                                                <X size={16} className="text-white/20 mt-0.5 flex-shrink-0" />
+                                                <X size={17} className="text-white/20 mt-0.5 flex-shrink-0" />
                                             )}
-                                            <span className={`text-xs ${feature.included ? 'text-gray-300' : 'text-gray-600'}`}>
+                                            <span className={`text-[13px] leading-relaxed ${feature.included ? 'text-gray-300 font-medium' : 'text-gray-600'}`}>
                                                 {feature.text}
                                             </span>
                                         </li>
@@ -639,16 +581,15 @@ const LandingPage = () => {
 
                                 <Link
                                     to="/auth"
-                                    className={`group/btn relative block w-full py-3 rounded-xl text-sm font-semibold text-center transition-all duration-500 overflow-hidden ${
-                                        plan.highlighted
+                                    className={`group/btn relative block w-full py-3.5 rounded-xl text-[14px] font-bold text-center transition-all duration-500 overflow-hidden tracking-tight ${plan.highlighted
                                             ? 'bg-white text-black hover:shadow-[0_8px_32px_rgba(255,255,255,0.25)]'
                                             : 'border-2 border-white/20 text-white hover:bg-white/5 hover:border-white/40'
-                                    }`}
+                                        }`}
                                 >
                                     <span className="relative z-10 whitespace-nowrap">
                                         {plan.price === 'Custom' ? 'Contact Sales' : 'Get Started'}
                                     </span>
-                                    
+
                                     <span className="absolute inset-0 rounded-xl opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300">
                                         <span className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/40 to-transparent animate-line-x" />
                                         <span className="absolute bottom-0 right-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/40 to-transparent animate-line-x-reverse" />
@@ -661,32 +602,32 @@ const LandingPage = () => {
             </section>
 
             {/* Teacher Section - Enhanced */}
-            <section id="teachers" className="relative py-20 z-10">
+            <section id="teachers" className="relative py-24 z-10">
                 <div className="container mx-auto px-8">
-                    <div className="grid lg:grid-cols-2 gap-12 items-center max-w-5xl mx-auto">
+                    <div className="grid lg:grid-cols-2 gap-16 items-center max-w-5xl mx-auto">
                         <div data-aos="fade-right">
-                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-xl bg-white/5 border border-white/10 mb-6 shadow-lg">
-                                <GraduationCap size={16} className="text-white" />
-                                <span className="text-sm font-semibold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent whitespace-nowrap">
+                            <div className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full backdrop-blur-xl bg-white/5 border border-white/10 mb-7 shadow-lg">
+                                <GraduationCap size={18} className="text-white" />
+                                <span className="text-[13px] font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent whitespace-nowrap tracking-wide uppercase" style={{ letterSpacing: '0.08em' }}>
                                     For Educators
                                 </span>
                             </div>
-                            <h2 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+                            <h2 className="text-5xl md:text-6xl font-black mb-6 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent tracking-tight" style={{ letterSpacing: '-0.02em' }}>
                                 Teaching Suite
                             </h2>
-                            <p className="text-lg text-gray-400 mb-6 leading-relaxed">
-                                Create custom quizzes, assign to classes, track student progress, and reward top performers 
+                            <p className="text-[18px] text-gray-400 mb-8 leading-relaxed font-medium tracking-tight" style={{ lineHeight: '1.7' }}>
+                                Create custom quizzes, assign to classes, track student progress, and reward top performers
                                 with comprehensive educator tools.
                             </p>
                             <Link
                                 to="/teachers"
-                                className="group relative inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-base text-black bg-white transition-all duration-500 hover:scale-105 hover:shadow-[0_12px_40px_rgba(255,255,255,0.2)] overflow-hidden"
+                                className="group relative inline-flex items-center gap-2.5 px-8 py-3.5 rounded-xl font-bold text-[16px] text-black bg-white transition-all duration-500 hover:scale-105 hover:shadow-[0_12px_40px_rgba(255,255,255,0.2)] overflow-hidden tracking-tight"
                             >
-                                <span className="relative z-10 flex items-center gap-2 whitespace-nowrap">
+                                <span className="relative z-10 flex items-center gap-2.5 whitespace-nowrap">
                                     Explore Tools
-                                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform duration-300" />
+                                    <ArrowRight size={19} className="group-hover:translate-x-1 transition-transform duration-300" />
                                 </span>
-                                
+
                                 <span className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                                     <span className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-gray-400 to-transparent animate-line-x" />
                                     <span className="absolute bottom-0 right-0 w-full h-[2px] bg-gradient-to-r from-transparent via-gray-400 to-transparent animate-line-x-reverse" />
@@ -694,20 +635,20 @@ const LandingPage = () => {
                             </Link>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4" data-aos="fade-left">
+                        <div className="grid grid-cols-2 gap-5" data-aos="fade-left">
                             {teacherFeatures.map((feature, index) => (
                                 <div
                                     key={index}
-                                    className="group relative p-5 rounded-xl backdrop-blur-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-white/15 transition-all duration-500 hover:scale-[1.03] hover:shadow-[0_8px_32px_rgba(255,255,255,0.08)]"
+                                    className="group relative p-6 rounded-xl backdrop-blur-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-white/15 transition-all duration-500 hover:scale-[1.03] hover:shadow-[0_8px_32px_rgba(255,255,255,0.08)]"
                                     data-aos="fade-up"
                                     data-aos-delay={index * 100}
                                 >
                                     <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                                    <feature.icon size={22} className="relative text-white mb-4 group-hover:scale-110 transition-transform duration-300" />
-                                    <h4 className="relative text-base font-semibold text-white mb-1.5">
+                                    <feature.icon size={24} className="relative text-white mb-5 group-hover:scale-110 transition-transform duration-300" />
+                                    <h4 className="relative text-[16px] font-bold text-white mb-2.5 tracking-tight">
                                         {feature.title}
                                     </h4>
-                                    <p className="relative text-sm text-gray-500 group-hover:text-gray-400 transition-colors">
+                                    <p className="relative text-[13px] text-gray-500 group-hover:text-gray-400 transition-colors leading-relaxed" style={{ lineHeight: '1.6' }}>
                                         {feature.description}
                                     </p>
                                 </div>
@@ -718,43 +659,43 @@ const LandingPage = () => {
             </section>
 
             {/* Gamification Section - Enhanced */}
-            <section className="relative py-20 z-10">
+            <section className="relative py-24 z-10">
                 <div className="container mx-auto px-8">
-                    <div 
-                        className="relative p-12 rounded-3xl backdrop-blur-xl bg-white/[0.02] border border-white/5 max-w-5xl mx-auto shadow-[0_8px_32px_rgba(0,0,0,0.3)] hover:border-white/10 transition-all duration-500"
+                    <div
+                        className="relative p-14 rounded-3xl backdrop-blur-xl bg-white/[0.02] border border-white/5 max-w-5xl mx-auto shadow-[0_8px_32px_rgba(0,0,0,0.3)] hover:border-white/10 transition-all duration-500"
                         data-aos="fade-up"
                     >
                         {/* Decorative gradient */}
                         <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/[0.03] to-transparent opacity-0 hover:opacity-100 transition-opacity duration-500" />
-                        
-                        <div className="relative text-center mb-12">
-                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-xl bg-white/5 border border-white/10 mb-6 shadow-lg">
-                                <Trophy size={16} className="text-white" />
-                                <span className="text-sm font-semibold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent whitespace-nowrap">
+
+                        <div className="relative text-center mb-14">
+                            <div className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full backdrop-blur-xl bg-white/5 border border-white/10 mb-7 shadow-lg">
+                                <Trophy size={18} className="text-white" />
+                                <span className="text-[13px] font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent whitespace-nowrap tracking-wide uppercase" style={{ letterSpacing: '0.08em' }}>
                                     Gamification
                                 </span>
                             </div>
-                            <h2 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent px-4">
+                            <h2 className="text-5xl md:text-6xl font-black mb-5 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent px-4 tracking-tight" style={{ letterSpacing: '-0.02em' }}>
                                 Learn & Compete
                             </h2>
-                            <p className="text-lg text-gray-400 px-4">
+                            <p className="text-[18px] text-gray-400 px-4 font-medium tracking-tight">
                                 Earn XP, unlock achievements, and climb leaderboards
                             </p>
                         </div>
 
-                        <div className="relative grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="relative grid md:grid-cols-2 lg:grid-cols-4 gap-5">
                             {gamificationFeatures.map((feature, index) => (
                                 <div
                                     key={index}
-                                    className="group p-5 rounded-xl backdrop-blur-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.05] hover:border-white/15 transition-all duration-500 text-center hover:scale-105 hover:shadow-[0_8px_32px_rgba(255,255,255,0.08)]"
+                                    className="group p-6 rounded-xl backdrop-blur-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.05] hover:border-white/15 transition-all duration-500 text-center hover:scale-105 hover:shadow-[0_8px_32px_rgba(255,255,255,0.08)]"
                                     data-aos="zoom-in"
                                     data-aos-delay={index * 100}
                                 >
-                                    <feature.icon size={22} className="text-white mb-4 mx-auto group-hover:scale-110 transition-transform duration-300" />
-                                    <h4 className="text-base font-semibold text-white mb-1.5">
+                                    <feature.icon size={24} className="text-white mb-5 mx-auto group-hover:scale-110 transition-transform duration-300" />
+                                    <h4 className="text-[16px] font-bold text-white mb-2.5 tracking-tight">
                                         {feature.title}
                                     </h4>
-                                    <p className="text-sm text-gray-500 group-hover:text-gray-400 transition-colors">
+                                    <p className="text-[13px] text-gray-500 group-hover:text-gray-400 transition-colors leading-relaxed" style={{ lineHeight: '1.6' }}>
                                         {feature.description}
                                     </p>
                                 </div>
@@ -765,23 +706,23 @@ const LandingPage = () => {
             </section>
 
             {/* Collaboration Section - Enhanced */}
-            <section className="relative py-20 z-10">
+            <section className="relative py-24 z-10">
                 <div className="container mx-auto px-8">
-                    <div className="grid lg:grid-cols-2 gap-12 items-center max-w-5xl mx-auto">
-                        <div className="grid grid-cols-2 gap-4" data-aos="fade-right">
+                    <div className="grid lg:grid-cols-2 gap-16 items-center max-w-5xl mx-auto">
+                        <div className="grid grid-cols-2 gap-5" data-aos="fade-right">
                             {collaborationTools.map((tool, index) => (
                                 <div
                                     key={index}
-                                    className="group p-5 rounded-xl backdrop-blur-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-white/15 transition-all duration-500 hover:scale-[1.03] hover:shadow-[0_8px_32px_rgba(255,255,255,0.08)]"
+                                    className="group p-6 rounded-xl backdrop-blur-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-white/15 transition-all duration-500 hover:scale-[1.03] hover:shadow-[0_8px_32px_rgba(255,255,255,0.08)]"
                                     data-aos="fade-up"
                                     data-aos-delay={index * 100}
                                 >
                                     <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                                    <tool.icon size={22} className="relative text-white mb-4 group-hover:scale-110 transition-transform duration-300" />
-                                    <h4 className="relative text-base font-semibold text-white mb-1.5">
+                                    <tool.icon size={24} className="relative text-white mb-5 group-hover:scale-110 transition-transform duration-300" />
+                                    <h4 className="relative text-[16px] font-bold text-white mb-2.5 tracking-tight">
                                         {tool.title}
                                     </h4>
-                                    <p className="relative text-sm text-gray-500 group-hover:text-gray-400 transition-colors">
+                                    <p className="relative text-[13px] text-gray-500 group-hover:text-gray-400 transition-colors leading-relaxed" style={{ lineHeight: '1.6' }}>
                                         {tool.description}
                                     </p>
                                 </div>
@@ -789,26 +730,26 @@ const LandingPage = () => {
                         </div>
 
                         <div data-aos="fade-left">
-                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-xl bg-white/5 border border-white/10 mb-6 shadow-lg">
-                                <Users size={16} className="text-white" />
-                                <span className="text-sm font-semibold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent whitespace-nowrap">
+                            <div className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full backdrop-blur-xl bg-white/5 border border-white/10 mb-7 shadow-lg">
+                                <Users size={18} className="text-white" />
+                                <span className="text-[13px] font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent whitespace-nowrap tracking-wide uppercase" style={{ letterSpacing: '0.08em' }}>
                                     Collaboration
                                 </span>
                             </div>
-                            <h2 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+                            <h2 className="text-5xl md:text-6xl font-black mb-6 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent tracking-tight" style={{ letterSpacing: '-0.02em' }}>
                                 Learn Together
                             </h2>
-                            <p className="text-lg text-gray-400 mb-6 leading-relaxed">
-                                Join study rooms with video/audio, share notes in real-time, sync timers with your group, 
+                            <p className="text-[18px] text-gray-400 mb-8 leading-relaxed font-medium tracking-tight" style={{ lineHeight: '1.7' }}>
+                                Join study rooms with video/audio, share notes in real-time, sync timers with your group,
                                 and use voice commands.
                             </p>
                             <Link
                                 to="/study-rooms"
-                                className="group relative inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-base text-white border-2 border-white/20 hover:bg-white/5 hover:border-white/40 transition-all duration-500 overflow-hidden hover:shadow-[0_8px_32px_rgba(255,255,255,0.12)]"
+                                className="group relative inline-flex items-center gap-2.5 px-8 py-3.5 rounded-xl font-bold text-[16px] text-white border-2 border-white/20 hover:bg-white/5 hover:border-white/40 transition-all duration-500 overflow-hidden hover:shadow-[0_8px_32px_rgba(255,255,255,0.12)] tracking-tight"
                             >
-                                <span className="relative z-10 flex items-center gap-2 whitespace-nowrap">
+                                <span className="relative z-10 flex items-center gap-2.5 whitespace-nowrap">
                                     Explore Rooms
-                                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform duration-300" />
+                                    <ArrowRight size={19} className="group-hover:translate-x-1 transition-transform duration-300" />
                                 </span>
 
                                 <span className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -822,19 +763,19 @@ const LandingPage = () => {
             </section>
 
             {/* Security Section - Enhanced */}
-            <section className="relative py-20 z-10">
+            <section className="relative py-24 z-10">
                 <div className="container mx-auto px-8">
-                    <div className="text-center mb-16" data-aos="fade-up">
-                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-xl bg-white/5 border border-white/10 mb-6 shadow-lg">
-                            <Lock size={16} className="text-white" />
-                            <span className="text-sm font-semibold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent whitespace-nowrap">
+                    <div className="text-center mb-20" data-aos="fade-up">
+                        <div className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full backdrop-blur-xl bg-white/5 border border-white/10 mb-7 shadow-lg">
+                            <Lock size={18} className="text-white" />
+                            <span className="text-[13px] font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent whitespace-nowrap tracking-wide uppercase" style={{ letterSpacing: '0.08em' }}>
                                 Security
                             </span>
                         </div>
-                        <h2 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent px-4">
+                        <h2 className="text-5xl md:text-6xl font-black mb-5 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent px-4 tracking-tight" style={{ letterSpacing: '-0.02em' }}>
                             Your Data, Protected
                         </h2>
-                        <p className="text-lg text-gray-400 px-4">
+                        <p className="text-[18px] text-gray-400 px-4 font-medium tracking-tight">
                             Enterprise-grade security with full compliance
                         </p>
                     </div>
@@ -843,18 +784,18 @@ const LandingPage = () => {
                         {securityFeatures.map((feature, index) => (
                             <div
                                 key={index}
-                                className="group p-6 rounded-2xl backdrop-blur-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-white/15 transition-all duration-500 text-center hover:scale-105 hover:shadow-[0_8px_32px_rgba(255,255,255,0.08)]"
+                                className="group p-8 rounded-2xl backdrop-blur-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-white/15 transition-all duration-500 text-center hover:scale-105 hover:shadow-[0_8px_32px_rgba(255,255,255,0.08)]"
                                 data-aos="fade-up"
                                 data-aos-delay={index * 100}
                             >
                                 <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                                <div className="relative flex items-center justify-center w-12 h-12 rounded-xl bg-white/5 mb-4 mx-auto group-hover:bg-white/10 group-hover:scale-110 transition-all duration-500 shadow-lg group-hover:shadow-white/10">
-                                    <feature.icon size={24} className="text-white" />
+                                <div className="relative flex items-center justify-center w-14 h-14 rounded-xl bg-white/5 mb-5 mx-auto group-hover:bg-white/10 group-hover:scale-110 transition-all duration-500 shadow-lg group-hover:shadow-white/10">
+                                    <feature.icon size={26} className="text-white" />
                                 </div>
-                                <h3 className="relative text-lg font-semibold text-white mb-2">
+                                <h3 className="relative text-[17px] font-bold text-white mb-3 tracking-tight">
                                     {feature.title}
                                 </h3>
-                                <p className="relative text-base text-gray-500 group-hover:text-gray-400 transition-colors">
+                                <p className="relative text-[14px] text-gray-500 group-hover:text-gray-400 transition-colors leading-relaxed" style={{ lineHeight: '1.65' }}>
                                     {feature.description}
                                 </p>
                             </div>
@@ -864,30 +805,30 @@ const LandingPage = () => {
             </section>
 
             {/* CTA Section - Enhanced */}
-            <section className="relative py-20 z-10">
+            <section className="relative py-24 z-10">
                 <div className="container mx-auto px-8">
-                    <div 
-                        className="relative p-12 rounded-3xl backdrop-blur-xl bg-white/[0.02] border border-white/5 text-center max-w-3xl mx-auto shadow-[0_8px_32px_rgba(0,0,0,0.3)] hover:border-white/10 transition-all duration-500"
+                    <div
+                        className="relative p-14 rounded-3xl backdrop-blur-xl bg-white/[0.02] border border-white/5 text-center max-w-3xl mx-auto shadow-[0_8px_32px_rgba(0,0,0,0.3)] hover:border-white/10 transition-all duration-500"
                         data-aos="fade-up"
                     >
                         {/* Decorative gradients */}
                         <div className="absolute top-0 left-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
                         <div className="absolute bottom-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
-                        
+
                         <div className="relative">
-                            <h2 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent px-4">
+                            <h2 className="text-5xl md:text-6xl font-black mb-6 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent px-4 tracking-tight" style={{ letterSpacing: '-0.02em' }}>
                                 Ready to Get Started?
                             </h2>
-                            <p className="text-lg text-gray-400 mb-8 px-4">
+                            <p className="text-[18px] text-gray-400 mb-10 px-4 font-medium tracking-tight">
                                 Join thousands transforming their learning experience
                             </p>
                             <Link
                                 to="/auth"
-                                className="group relative inline-flex items-center gap-2 px-8 py-4 bg-white text-black rounded-xl text-lg font-bold transition-all duration-500 hover:scale-105 hover:shadow-[0_20px_60px_rgba(255,255,255,0.25)] overflow-hidden"
+                                className="group relative inline-flex items-center gap-3 px-10 py-4 bg-white text-black rounded-xl text-[17px] font-bold transition-all duration-500 hover:scale-105 hover:shadow-[0_20px_60px_rgba(255,255,255,0.25)] overflow-hidden tracking-tight"
                             >
-                                <span className="relative z-10 flex items-center gap-2 whitespace-nowrap">
+                                <span className="relative z-10 flex items-center gap-2.5 whitespace-nowrap">
                                     Start Free Today
-                                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform duration-300" />
+                                    <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform duration-300" />
                                 </span>
 
                                 <span className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -896,7 +837,7 @@ const LandingPage = () => {
                                     <span className="absolute top-0 left-0 w-[2px] h-full bg-gradient-to-b from-transparent via-gray-400 to-transparent animate-line-y" />
                                     <span className="absolute top-0 right-0 w-[2px] h-full bg-gradient-to-b from-transparent via-gray-400 to-transparent animate-line-y-reverse" />
                                 </span>
-                                
+
                                 {/* Shimmer effect */}
                                 <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000" />
                             </Link>
@@ -906,17 +847,17 @@ const LandingPage = () => {
             </section>
 
             {/* Footer - Enhanced */}
-            <footer className="relative py-16 z-10 border-t border-white/5">
+            <footer className="relative py-20 z-10 border-t border-white/5">
                 <div className="container mx-auto px-8">
                     <div className="grid md:grid-cols-4 gap-12 mb-12">
                         <div>
-                            <div className="flex items-center gap-2 mb-4 group">
-                                <img src={logoImage} alt="StudyGloqe" className="h-7 w-7 group-hover:scale-110 transition-transform duration-300" />
-                                <span className="text-base font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent whitespace-nowrap">
+                            <div className="flex items-center gap-2.5 mb-5 group">
+                                <img src={logoImage} alt="StudyGloqe" className="h-8 w-8 group-hover:scale-110 transition-transform duration-300" />
+                                <span className="text-[17px] font-extrabold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent whitespace-nowrap tracking-tight">
                                     StudyGloqe
                                 </span>
                             </div>
-                            <p className="text-sm text-gray-600">
+                            <p className="text-[14px] text-gray-600 font-medium">
                                 AI-powered learning platform
                             </p>
                         </div>
@@ -927,15 +868,15 @@ const LandingPage = () => {
                             { title: 'Legal', links: ['Privacy', 'Terms', 'Security'] }
                         ].map((section, index) => (
                             <div key={index}>
-                                <h4 className="text-base font-semibold text-white mb-4">
+                                <h4 className="text-[15px] font-bold text-white mb-5 tracking-tight">
                                     {section.title}
                                 </h4>
-                                <ul className="space-y-2">
+                                <ul className="space-y-3">
                                     {section.links.map((link) => (
                                         <li key={link}>
-                                            <Link 
-                                                to={`/${link.toLowerCase()}`} 
-                                                className="text-sm text-gray-500 hover:text-white transition-colors duration-300 inline-block hover:translate-x-1"
+                                            <Link
+                                                to={`/${link.toLowerCase()}`}
+                                                className="text-[14px] text-gray-500 hover:text-white transition-colors duration-300 inline-block hover:translate-x-1 font-medium"
                                             >
                                                 {link}
                                             </Link>
@@ -946,7 +887,7 @@ const LandingPage = () => {
                         ))}
                     </div>
 
-                    <div className="pt-8 border-t border-white/5 text-center text-sm text-gray-600">
+                    <div className="pt-8 border-t border-white/5 text-center text-[13px] text-gray-600 font-medium">
                         © 2025 StudyGloqe. All rights reserved.
                     </div>
                 </div>
@@ -954,6 +895,8 @@ const LandingPage = () => {
 
             {/* Optimized Animations CSS */}
             <style>{`
+                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
                 @keyframes gentle-float {
                     0%, 100% { transform: translateY(0px) rotate(0deg); }
                     33% { transform: translateY(-12px) rotate(0.8deg); }

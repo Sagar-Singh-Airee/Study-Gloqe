@@ -1,4 +1,4 @@
-// src/pages/Dashboard.jsx - WITH ANALYTICS INTEGRATED
+// src/pages/Dashboard.jsx - FINAL VERSION: NO ARROW + GLOWING TUTORIAL BUTTON
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -8,7 +8,8 @@ import {
     Sparkles, TrendingUp, Zap, Flame, Target, Activity, Award,
     Search, Command, Menu, X, ChevronDown, Settings, HelpCircle,
     Calendar, BarChart3, Star, Gift, Rocket, Crown, Shield,
-    CheckCircle2, ArrowUpRight, Plus, RefreshCw
+    CheckCircle2, ArrowUpRight, Plus, RefreshCw, Info,
+    MousePointerClick
 } from 'lucide-react';
 import { useAuth } from '@auth/contexts/AuthContext';
 import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
@@ -33,12 +34,7 @@ import RoomsSection from '@student/components/dashboard/RoomsSection';
 import LeaderboardSection from '@analytics/components/LeaderboardSection';
 import SessionHistorySection from '@student/components/dashboard/SessionHistorySection';
 import AchievementsSection from '@student/components/dashboard/AchievementsSection';
-
-// ⭐ NEW: Analytics Page Import
 import Analytics from '@analytics/pages/Analytics';
-
-// 📤 Real-time Sync for consistent data between Dashboard and Analytics
-import { useDashboardSync } from '@shared/services/realtimeSync';
 
 // ============================================
 // CONSTANTS
@@ -51,10 +47,9 @@ const GREETING = () => {
     return { text: 'Good evening', emoji: '🌙' };
 };
 
-// ⭐ UPDATED: Added Analytics to sidebar
 const SIDEBAR_ITEMS = [
     { icon: LayoutDashboard, label: 'Overview', tab: 'overview', badge: null },
-    { icon: BarChart3, label: 'Analytics', tab: 'analytics', badge: '✨' }, // NEW
+    { icon: BarChart3, label: 'Analytics', tab: 'analytics', badge: '✨' },
     { icon: Users, label: 'Classes', tab: 'classes', badge: null },
     { icon: BookOpen, label: 'Documents', tab: 'documents', badge: null },
     { icon: Medal, label: 'Achievements', tab: 'achievements', badge: 'NEW' },
@@ -66,8 +61,70 @@ const SIDEBAR_ITEMS = [
     { icon: Clock, label: 'History', tab: 'history', badge: null },
 ];
 
+// ✨ TUTORIAL STEPS CONFIGURATION
+const TUTORIAL_STEPS = [
+    {
+        id: 'welcome',
+        title: '👋 Welcome to StudyGloqe!',
+        description: 'Let\'s take a quick 60-second tour of your AI-powered learning dashboard.',
+        target: null,
+        position: 'center',
+        action: null,
+        scrollTo: null
+    },
+    {
+        id: 'upload-pdf',
+        title: '📤 Upload Your Study Materials',
+        description: 'Click this button to upload PDFs. Our AI instantly generates quizzes, flashcards, and smart summaries!',
+        target: 'upload-button',
+        position: 'bottom',
+        highlight: 'teal',
+        action: null,
+        scrollTo: 'upload-button'
+    },
+    {
+        id: 'xp-card',
+        title: '⭐ Your Learning Progress',
+        description: 'Earn XP points, level up, and maintain daily streaks. Track your achievements in real-time!',
+        target: 'xp-card',
+        position: 'right',
+        highlight: 'teal',
+        action: null,
+        scrollTo: 'xp-card'
+    },
+    {
+        id: 'navigation',
+        title: '🧭 Quick Navigation',
+        description: 'Access all features from here. Use keyboard shortcuts (⌥1-9) for lightning-fast navigation!',
+        target: 'sidebar-nav',
+        position: 'right',
+        highlight: 'teal',
+        action: null,
+        scrollTo: 'sidebar-nav'
+    },
+    {
+        id: 'search',
+        title: '🔍 Power Search',
+        description: 'Press ⌘K anytime to instantly search and jump to any feature. Try it!',
+        target: 'search-button',
+        position: 'bottom',
+        highlight: 'teal',
+        action: null,
+        scrollTo: 'search-button'
+    },
+    {
+        id: 'complete',
+        title: '🎉 Ready to Excel!',
+        description: 'You\'re all set! Upload your first PDF to unlock AI-powered learning tools and start your journey.',
+        target: null,
+        position: 'center',
+        action: 'complete',
+        scrollTo: null
+    }
+];
+
 // ============================================
-// ANIMATED COMPONENTS (same as before)
+// ANIMATED COMPONENTS
 // ============================================
 
 const AnimatedCounter = ({ value, duration = 1000 }) => {
@@ -81,7 +138,6 @@ const AnimatedCounter = ({ value, duration = 1000 }) => {
         const animate = (currentTime) => {
             if (!startTime) startTime = currentTime;
             const progress = Math.min((currentTime - startTime) / duration, 1);
-
             setDisplayValue(Math.floor(startValue + (value - startValue) * progress));
 
             if (progress < 1) {
@@ -107,7 +163,7 @@ const XPProgressRing = ({ progress, size = 120, strokeWidth = 8 }) => {
     return (
         <div className="relative" style={{ width: size, height: size }}>
             <svg className="transform -rotate-90" width={size} height={size}>
-                <c
+                <circle
                     cx={size / 2}
                     cy={size / 2}
                     r={radius}
@@ -141,7 +197,166 @@ const XPProgressRing = ({ progress, size = 120, strokeWidth = 8 }) => {
 };
 
 // ============================================
-// COMMAND PALETTE & MOBILE SIDEBAR (same as before)
+// ✨ TUTORIAL OVERLAY (NO ARROW)
+// ============================================
+
+const TutorialOverlay = ({ step, onNext, onPrev, onSkip, currentStepIndex, totalSteps }) => {
+    useEffect(() => {
+        // Allow scrolling during tutorial
+        if (step) {
+            document.body.style.overflow = 'auto';
+        }
+        return () => {
+            document.body.style.overflow = 'auto';
+        };
+    }, [step]);
+
+    // Auto-scroll to target element
+    useEffect(() => {
+        if (step?.scrollTo) {
+            setTimeout(() => {
+                const element = document.getElementById(step.scrollTo);
+                if (element) {
+                    element.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center',
+                        inline: 'center'
+                    });
+                }
+            }, 300);
+        }
+    }, [step]);
+
+    if (!step) return null;
+
+    const isCenter = step.position === 'center';
+
+    return (
+        <>
+            {/* Semi-transparent Overlay - Allows scrolling */}
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/60 backdrop-blur-md z-[60]"
+                style={{ pointerEvents: 'none' }}
+            />
+
+            {/* Tutorial Card - Fixed position, always visible */}
+            <AnimatePresence mode="wait">
+                <motion.div
+                    key={step.id}
+                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: -20 }}
+                    className={`fixed z-[70] ${isCenter
+                            ? 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2'
+                            : 'bottom-8 left-1/2 -translate-x-1/2'
+                        } bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 border-2 border-teal-500`}
+                    style={{ pointerEvents: 'auto' }}
+                >
+                    {/* Animated Teal Glow Border */}
+                    <div className="absolute -inset-1 rounded-2xl">
+                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-teal-500 via-cyan-500 to-teal-500 opacity-60 blur-2xl animate-pulse" />
+                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-teal-500/50 via-cyan-500/50 to-teal-500/50 animate-border-flow" />
+                    </div>
+
+                    {/* Content */}
+                    <div className="relative bg-white rounded-2xl p-6">
+                        {/* Header */}
+                        <div className="flex items-start gap-4 mb-5">
+                            <motion.div
+                                animate={{
+                                    scale: [1, 1.15, 1],
+                                    rotate: [0, 8, -8, 0]
+                                }}
+                                transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+                                className="w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-500 via-cyan-500 to-teal-600 flex items-center justify-center shadow-lg shrink-0"
+                            >
+                                <Sparkles size={26} className="text-white" strokeWidth={2.5} />
+                            </motion.div>
+                            <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <h3 className="text-xl font-black text-gray-900">
+                                        {step.title}
+                                    </h3>
+                                    <span className="px-2 py-0.5 bg-teal-100 text-teal-700 text-xs font-black rounded-full">
+                                        {currentStepIndex + 1}/{totalSteps}
+                                    </span>
+                                </div>
+                                <p className="text-sm text-gray-600 leading-relaxed font-medium">
+                                    {step.description}
+                                </p>
+                            </div>
+                            <button
+                                onClick={onSkip}
+                                className="text-gray-400 hover:text-gray-600 transition-colors p-1 hover:bg-gray-100 rounded-lg"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="mb-6">
+                            <div className="flex items-center justify-between text-xs text-gray-500 mb-2 font-bold">
+                                <span>Progress</span>
+                                <span className="text-teal-600">{Math.round(((currentStepIndex + 1) / totalSteps) * 100)}% Complete</span>
+                            </div>
+                            <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden shadow-inner">
+                                <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${((currentStepIndex + 1) / totalSteps) * 100}%` }}
+                                    className="h-full bg-gradient-to-r from-teal-500 via-cyan-500 to-teal-600 rounded-full shadow-sm"
+                                    transition={{ duration: 0.6, ease: "easeOut" }}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-3">
+                            {currentStepIndex > 0 && (
+                                <button
+                                    onClick={onPrev}
+                                    className="px-5 py-3 rounded-xl border-2 border-gray-300 hover:border-gray-400 text-gray-700 font-bold transition-all hover:bg-gray-50 hover:shadow-md"
+                                >
+                                    ← Previous
+                                </button>
+                            )}
+                            <button
+                                onClick={onNext}
+                                className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-teal-500 via-cyan-500 to-teal-600 hover:from-teal-600 hover:via-cyan-600 hover:to-teal-700 text-white font-black transition-all shadow-lg hover:shadow-xl transform hover:scale-[1.02] flex items-center justify-center gap-2"
+                            >
+                                {step.action === 'complete' ? (
+                                    <>
+                                        <CheckCircle2 size={20} strokeWidth={2.5} />
+                                        Get Started
+                                        <Sparkles size={18} />
+                                    </>
+                                ) : (
+                                    <>
+                                        Next Step
+                                        <ChevronRight size={20} strokeWidth={3} />
+                                    </>
+                                )}
+                            </button>
+                        </div>
+
+                        {/* Skip Link */}
+                        <button
+                            onClick={onSkip}
+                            className="w-full mt-4 text-sm text-gray-500 hover:text-gray-700 font-bold transition-colors hover:bg-gray-50 py-2 rounded-lg"
+                        >
+                            Skip Tutorial →
+                        </button>
+                    </div>
+                </motion.div>
+            </AnimatePresence>
+        </>
+    );
+};
+
+// ============================================
+// COMMAND PALETTE & MOBILE SIDEBAR
 // ============================================
 
 const CommandPalette = ({ isOpen, onClose, onNavigate, quickActions }) => {
@@ -340,7 +555,6 @@ const Dashboard = () => {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
 
-    // Gamification Hook
     const {
         xp: currentXP,
         level: currentLevel,
@@ -352,7 +566,6 @@ const Dashboard = () => {
         dismissNotification
     } = useGamification();
 
-    // State
     const [realtimeStats, setRealtimeStats] = useState({
         totalDocuments: 0,
         totalSessions: 0,
@@ -368,14 +581,83 @@ const Dashboard = () => {
     const [xpGained, setXpGained] = useState(0);
     const [levelModalOpen, setLevelModalOpen] = useState(false);
 
+    // ✨ TUTORIAL STATE
+    const [tutorialActive, setTutorialActive] = useState(false);
+    const [currentTutorialStep, setCurrentTutorialStep] = useState(0);
+    const [showTutorialGlow, setShowTutorialGlow] = useState(false);
+
     const initialTab = searchParams.get('tab') || 'overview';
     const [activeTab, setActiveTab] = useState(initialTab);
 
-    // Refs for tracking
     const isMountedRef = useRef(true);
     const listenersRef = useRef([]);
 
-    // [All useEffect hooks same as before - keyboard shortcuts, mounting, gamification, listeners, daily bonus, tab management]
+    // ✨ AUTO-START TUTORIAL + 30-SECOND GLOW
+    useEffect(() => {
+        const hasSeenTutorial = localStorage.getItem('hasSeenDashboardTutorial');
+        if (!hasSeenTutorial && realtimeStats.totalDocuments === 0) {
+            // Show tutorial button glow for 30 seconds
+            setShowTutorialGlow(true);
+            const glowTimer = setTimeout(() => {
+                setShowTutorialGlow(false);
+            }, 30000); // 30 seconds
+
+            // Start tutorial after 2 seconds
+            const tutorialTimer = setTimeout(() => {
+                setTutorialActive(true);
+            }, 2000);
+
+            return () => {
+                clearTimeout(glowTimer);
+                clearTimeout(tutorialTimer);
+            };
+        }
+    }, [realtimeStats.totalDocuments]);
+
+    // ✨ TUTORIAL NAVIGATION
+    const handleNextTutorialStep = () => {
+        if (currentTutorialStep < TUTORIAL_STEPS.length - 1) {
+            setCurrentTutorialStep(prev => prev + 1);
+        } else {
+            completeTutorial();
+        }
+    };
+
+    const handlePrevTutorialStep = () => {
+        if (currentTutorialStep > 0) {
+            setCurrentTutorialStep(prev => prev - 1);
+        }
+    };
+
+    const completeTutorial = () => {
+        setTutorialActive(false);
+        setCurrentTutorialStep(0);
+        setShowTutorialGlow(false);
+        localStorage.setItem('hasSeenDashboardTutorial', 'true');
+        toast.success('🎉 Tutorial completed! Ready to supercharge your learning!', {
+            duration: 4000,
+            style: {
+                background: 'linear-gradient(135deg, #14b8a6 0%, #06b6d4 100%)',
+                color: '#fff',
+                fontWeight: 'bold',
+                borderRadius: '16px',
+                padding: '16px 24px',
+            },
+        });
+    };
+
+    const skipTutorial = () => {
+        setTutorialActive(false);
+        setCurrentTutorialStep(0);
+        setShowTutorialGlow(false);
+        localStorage.setItem('hasSeenDashboardTutorial', 'true');
+    };
+
+    const startTutorial = () => {
+        setTutorialActive(true);
+        setCurrentTutorialStep(0);
+        setShowTutorialGlow(false);
+    };
 
     // Keyboard shortcuts
     useEffect(() => {
@@ -398,17 +680,14 @@ const Dashboard = () => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, []);
 
-    // Mount/unmount tracking
     useEffect(() => {
         isMountedRef.current = true;
-
         return () => {
             isMountedRef.current = false;
             listenersRef.current.forEach(unsubscribe => unsubscribe());
         };
     }, []);
 
-    // Gamification notifications handler
     useEffect(() => {
         if (!notifications || notifications.length === 0) return;
 
@@ -427,7 +706,6 @@ const Dashboard = () => {
         });
     }, [notifications, dismissNotification]);
 
-    // Real-time documents listener
     useEffect(() => {
         if (!user?.uid) return;
 
@@ -463,7 +741,6 @@ const Dashboard = () => {
         return () => unsubscribe();
     }, [user?.uid]);
 
-    // Real-time study sessions listener
     useEffect(() => {
         if (!user?.uid) return;
 
@@ -500,7 +777,6 @@ const Dashboard = () => {
         return () => unsubscribe();
     }, [user?.uid]);
 
-    // Daily login bonus
     useEffect(() => {
         if (!user?.uid) return;
 
@@ -528,7 +804,6 @@ const Dashboard = () => {
         }
     }, [user?.uid]);
 
-    // Tab management
     useEffect(() => {
         const tab = searchParams.get('tab');
         if (tab && tab !== activeTab) {
@@ -543,7 +818,6 @@ const Dashboard = () => {
         }
     }, [activeTab, setSearchParams]);
 
-    // Handlers
     const handleLogout = useCallback(async () => {
         try {
             await logout();
@@ -565,7 +839,6 @@ const Dashboard = () => {
         toast.success('Data refreshed!');
     }, []);
 
-    // Quick actions
     const quickActions = useMemo(() => [
         {
             icon: Upload,
@@ -601,12 +874,12 @@ const Dashboard = () => {
         }
     ], [handleUploadClick]);
 
-    // ⭐ UPDATED: Added analytics case
     const renderContent = useCallback(() => {
         const commonProps = {
             handleTabChange,
             handleUploadClick,
             navigate,
+            tutorialActive,
         };
 
         switch (activeTab) {
@@ -620,7 +893,7 @@ const Dashboard = () => {
                     />
                 );
             case 'analytics':
-                return <Analytics />; // NEW
+                return <Analytics />;
             case 'classes':
                 return <ClassesSection />;
             case 'documents':
@@ -649,9 +922,8 @@ const Dashboard = () => {
                     />
                 );
         }
-    }, [activeTab, realtimeStats, streak, recentDocuments, quickActions, handleTabChange, handleUploadClick, navigate]);
+    }, [activeTab, realtimeStats, streak, recentDocuments, quickActions, handleTabChange, handleUploadClick, navigate, tutorialActive]);
 
-    // Loading state
     if (gamificationLoading) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex items-center justify-center">
@@ -669,8 +941,7 @@ const Dashboard = () => {
     }
 
     const greeting = GREETING();
-
-    // [Rest of the component JSX remains the same - full sidebar, top bar, content rendering]
+    const currentStep = TUTORIAL_STEPS[currentTutorialStep];
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
@@ -689,6 +960,20 @@ const Dashboard = () => {
                             +{xpGained} XP
                         </div>
                     </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* ✨ TUTORIAL OVERLAY */}
+            <AnimatePresence>
+                {tutorialActive && (
+                    <TutorialOverlay
+                        step={currentStep}
+                        onNext={handleNextTutorialStep}
+                        onPrev={handlePrevTutorialStep}
+                        onSkip={skipTutorial}
+                        currentStepIndex={currentTutorialStep}
+                        totalSteps={TUTORIAL_STEPS.length}
+                    />
                 )}
             </AnimatePresence>
 
@@ -713,10 +998,8 @@ const Dashboard = () => {
                 onLogout={handleLogout}
             />
 
-            {/* DESKTOP SIDEBAR - Same as before */}
+            {/* DESKTOP SIDEBAR */}
             <aside className="hidden lg:flex w-72 bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 fixed h-screen flex-col border-r border-gray-700 z-40">
-
-                {/* Logo */}
                 <div className="p-5 border-b border-gray-700/50">
                     <Link to="/dashboard" className="flex items-center gap-3 group">
                         <img
@@ -734,11 +1017,22 @@ const Dashboard = () => {
                     </Link>
                 </div>
 
-                {/* XP Card */}
+                {/* ✨ XP CARD WITH TUTORIAL HIGHLIGHT */}
                 <button
+                    id="xp-card"
                     onClick={() => setLevelModalOpen(true)}
-                    className="mx-4 mt-4 p-4 bg-gradient-to-br from-gray-700/80 to-gray-800/80 hover:from-gray-600/80 hover:to-gray-700/80 rounded-2xl border border-gray-600/50 transition-all group cursor-pointer relative overflow-hidden"
+                    className={`mx-4 mt-4 p-4 bg-gradient-to-br from-gray-700/80 to-gray-800/80 hover:from-gray-600/80 hover:to-gray-700/80 rounded-2xl border transition-all group cursor-pointer relative overflow-hidden ${tutorialActive && currentStep?.target === 'xp-card'
+                            ? 'border-teal-500 ring-4 ring-teal-500/50 shadow-[0_0_30px_rgba(20,184,166,0.6)]'
+                            : 'border-gray-600/50'
+                        }`}
                 >
+                    {tutorialActive && currentStep?.target === 'xp-card' && (
+                        <>
+                            <div className="absolute inset-0 bg-gradient-to-r from-teal-500/20 via-cyan-500/20 to-teal-500/20 animate-pulse" />
+                            <div className="absolute inset-0 bg-gradient-to-r from-teal-500/30 via-transparent to-cyan-500/30 animate-border-flow" />
+                        </>
+                    )}
+
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
 
                     <div className="relative flex items-center gap-4">
@@ -765,7 +1059,6 @@ const Dashboard = () => {
                     </div>
                 </button>
 
-                {/* Quick Stats */}
                 <div className="mx-4 mt-3 grid grid-cols-2 gap-2">
                     <div className="bg-gray-800/50 rounded-xl p-3 border border-gray-700/50">
                         <div className="flex items-center gap-1.5 mb-1">
@@ -783,8 +1076,18 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                {/* Navigation */}
-                <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto custom-scrollbar">
+                {/* ✨ NAVIGATION WITH TUTORIAL HIGHLIGHT */}
+                <nav
+                    id="sidebar-nav"
+                    className={`flex-1 px-4 py-4 space-y-1 overflow-y-auto custom-scrollbar relative ${tutorialActive && currentStep?.target === 'sidebar-nav'
+                            ? 'ring-4 ring-teal-500/50 rounded-2xl shadow-[0_0_30px_rgba(20,184,166,0.6)] mx-2'
+                            : ''
+                        }`}
+                >
+                    {tutorialActive && currentStep?.target === 'sidebar-nav' && (
+                        <div className="absolute inset-0 bg-gradient-to-r from-teal-500/10 via-cyan-500/10 to-teal-500/10 rounded-2xl animate-pulse pointer-events-none" />
+                    )}
+
                     {SIDEBAR_ITEMS.map((item, index) => (
                         <Link
                             key={item.tab}
@@ -820,26 +1123,144 @@ const Dashboard = () => {
                         </Link>
                     ))}
 
+                    {/* ✨ UPLOAD BUTTON WITH TEAL GLOW */}
                     <button
+                        id="upload-button"
                         onClick={handleUploadClick}
-                        className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-white text-gray-900 font-black hover:shadow-xl hover:scale-[1.02] transition-all group"
+                        className={`w-full mt-4 flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-white text-gray-900 font-black hover:shadow-xl hover:scale-[1.02] transition-all group relative overflow-hidden ${tutorialActive && currentStep?.target === 'upload-button'
+                                ? 'ring-4 ring-teal-500/70 shadow-[0_0_50px_rgba(20,184,166,0.7)] scale-105'
+                                : ''
+                            }`}
                     >
-                        <Plus size={20} className="group-hover:rotate-90 transition-transform" />
-                        Upload PDF
+                        {tutorialActive && currentStep?.target === 'upload-button' && (
+                            <>
+                                <motion.div
+                                    animate={{
+                                        opacity: [0.3, 0.7, 0.3],
+                                        scale: [1, 1.05, 1]
+                                    }}
+                                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                                    className="absolute inset-0 bg-gradient-to-r from-teal-500/30 via-cyan-500/30 to-teal-500/30 rounded-xl"
+                                />
+                                <motion.div
+                                    animate={{
+                                        rotate: [0, 360]
+                                    }}
+                                    transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                                    className="absolute inset-0 bg-gradient-to-r from-transparent via-teal-500/40 to-transparent rounded-xl"
+                                />
+                            </>
+                        )}
+                        <Plus size={20} className="group-hover:rotate-90 transition-transform relative z-10" />
+                        <span className="relative z-10">Upload PDF</span>
                     </button>
                 </nav>
 
-                {/* Bottom */}
+                {/* BOTTOM SECTION */}
                 <div className="p-4 border-t border-gray-700/50 space-y-2">
+                    {/* ✨ TUTORIAL TOGGLE WITH 30-SECOND TEAL GLOW - FIXED */}
                     <button
-                        onClick={() => setShowCommandPalette(true)}
-                        className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-sm text-gray-500 hover:bg-gray-800 hover:text-gray-300 transition-all"
+                        onClick={startTutorial}
+                        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all relative overflow-hidden ${tutorialActive || showTutorialGlow
+                                ? 'bg-gradient-to-r from-teal-500/30 to-cyan-500/30 text-teal-300 border-2 border-teal-400 shadow-[0_0_35px_rgba(20,184,166,0.7)]'
+                                : 'text-gray-500 hover:bg-gray-800 hover:text-gray-300 border-2 border-transparent'
+                            }`}
                     >
-                        <div className="flex items-center gap-2">
+                        {/* ✨ POWERFUL 30-SECOND GLOW ANIMATION */}
+                        {(showTutorialGlow || tutorialActive) && (
+                            <>
+                                {/* Outer glow pulse */}
+                                <motion.div
+                                    animate={{
+                                        opacity: [0.5, 1, 0.5],
+                                        scale: [1, 1.05, 1]
+                                    }}
+                                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                                    className="absolute inset-0 bg-gradient-to-r from-teal-500/40 via-cyan-500/40 to-teal-500/40 rounded-xl blur-sm"
+                                />
+                                {/* Rotating gradient */}
+                                <motion.div
+                                    animate={{
+                                        rotate: [0, 360],
+                                        opacity: [0.6, 1, 0.6]
+                                    }}
+                                    transition={{
+                                        rotate: { duration: 4, repeat: Infinity, ease: "linear" },
+                                        opacity: { duration: 2, repeat: Infinity, ease: "easeInOut" }
+                                    }}
+                                    className="absolute inset-0 bg-gradient-to-r from-transparent via-teal-400/50 to-transparent rounded-xl"
+                                />
+                                {/* Inner shimmer */}
+                                <motion.div
+                                    animate={{
+                                        x: ['-100%', '100%']
+                                    }}
+                                    transition={{ duration: 2.5, repeat: Infinity, ease: "linear" }}
+                                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent rounded-xl"
+                                />
+                            </>
+                        )}
+
+                        <div className="flex items-center gap-2 relative z-10">
+                            <motion.div
+                                animate={showTutorialGlow && !tutorialActive ? {
+                                    rotate: [0, 12, -12, 0],
+                                    scale: [1, 1.1, 1]
+                                } : {}}
+                                transition={{ duration: 2, repeat: Infinity }}
+                            >
+                                <HelpCircle size={18} strokeWidth={3} />
+                            </motion.div>
+                            <span className="font-black">Tutorial</span>
+                        </div>
+
+                        {tutorialActive && (
+                            <motion.span
+                                animate={{ scale: [1, 1.15, 1] }}
+                                transition={{ duration: 1, repeat: Infinity }}
+                                className="text-xs text-teal-300 font-black relative z-10"
+                            >
+                                ACTIVE
+                            </motion.span>
+                        )}
+
+                        {showTutorialGlow && !tutorialActive && (
+                            <motion.span
+                                animate={{
+                                    scale: [1, 1.25, 1],
+                                    opacity: [0.8, 1, 0.8]
+                                }}
+                                transition={{ duration: 1.5, repeat: Infinity }}
+                                className="text-xs text-white font-black relative z-10 flex items-center gap-1.5"
+                            >
+                                <motion.div
+                                    animate={{ scale: [1, 1.3, 1] }}
+                                    transition={{ duration: 1, repeat: Infinity }}
+                                >
+                                    <MousePointerClick size={14} strokeWidth={3} />
+                                </motion.div>
+                                CLICK ME
+                            </motion.span>
+                        )}
+                    </button>
+
+                    {/* ✨ SEARCH BUTTON WITH TUTORIAL HIGHLIGHT */}
+                    <button
+                        id="search-button"
+                        onClick={() => setShowCommandPalette(true)}
+                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-sm transition-all relative ${tutorialActive && currentStep?.target === 'search-button'
+                                ? 'bg-gray-800 text-gray-300 ring-4 ring-teal-500/50 shadow-[0_0_30px_rgba(20,184,166,0.6)]'
+                                : 'text-gray-500 hover:bg-gray-800 hover:text-gray-300'
+                            }`}
+                    >
+                        {tutorialActive && currentStep?.target === 'search-button' && (
+                            <div className="absolute inset-0 bg-gradient-to-r from-teal-500/20 via-cyan-500/20 to-teal-500/20 rounded-xl animate-pulse" />
+                        )}
+                        <div className="flex items-center gap-2 relative z-10">
                             <Search size={16} />
                             <span>Search</span>
                         </div>
-                        <kbd className="px-2 py-0.5 bg-gray-700 text-xs rounded">⌘K</kbd>
+                        <kbd className="px-2 py-0.5 bg-gray-700 text-xs rounded relative z-10">⌘K</kbd>
                     </button>
 
                     <button
@@ -854,12 +1275,8 @@ const Dashboard = () => {
 
             {/* MAIN CONTENT */}
             <main className="lg:ml-72">
-
-                {/* Top Bar */}
                 <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-gray-100">
                     <div className="px-4 lg:px-8 py-4 flex items-center justify-between gap-4">
-
-                        {/* Mobile Menu Button */}
                         <button
                             onClick={() => setMobileSidebarOpen(true)}
                             className="lg:hidden p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors"
@@ -867,7 +1284,6 @@ const Dashboard = () => {
                             <Menu size={24} className="text-gray-700" />
                         </button>
 
-                        {/* Search Bar */}
                         <button
                             onClick={() => setShowCommandPalette(true)}
                             className="hidden md:flex items-center gap-3 flex-1 max-w-md px-4 py-2.5 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors group"
@@ -877,10 +1293,7 @@ const Dashboard = () => {
                             <kbd className="ml-auto px-2 py-0.5 bg-gray-200 text-gray-500 text-xs rounded font-mono">⌘K</kbd>
                         </button>
 
-                        {/* Right Actions */}
                         <div className="flex items-center gap-3">
-
-                            {/* Refresh */}
                             <button
                                 onClick={handleRefresh}
                                 disabled={isRefreshing}
@@ -889,7 +1302,6 @@ const Dashboard = () => {
                                 <RefreshCw size={18} className={`text-gray-600 ${isRefreshing ? 'animate-spin' : ''}`} />
                             </button>
 
-                            {/* Profile */}
                             <Link
                                 to="/profile"
                                 className="flex items-center gap-3 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-all group"
@@ -920,10 +1332,7 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                {/* Content Area */}
                 <div className="p-4 lg:p-8 space-y-6 max-w-[1600px] mx-auto">
-
-                    {/* Header - Only show on non-analytics pages */}
                     {activeTab !== 'analytics' && (
                         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
                             <div>
@@ -953,7 +1362,6 @@ const Dashboard = () => {
                                 </p>
                             </div>
 
-                            {/* Quick Stats Cards */}
                             <div className="flex gap-3 overflow-x-auto pb-2 lg:pb-0">
                                 <div className="flex-shrink-0 px-4 py-3 bg-white rounded-xl border border-gray-100 shadow-sm">
                                     <div className="flex items-center gap-2 text-gray-500 text-xs font-semibold mb-1">
@@ -980,7 +1388,6 @@ const Dashboard = () => {
                         </div>
                     )}
 
-                    {/* Main Content */}
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={activeTab}
@@ -995,7 +1402,6 @@ const Dashboard = () => {
                 </div>
             </main>
 
-            {/* MODALS */}
             <LevelModal
                 isOpen={levelModalOpen}
                 onClose={() => setLevelModalOpen(false)}
@@ -1006,7 +1412,7 @@ const Dashboard = () => {
                 onClose={() => notifications[0] && dismissNotification(notifications[0].id)}
             />
 
-            {/* STYLES */}
+            {/* ✨ CUSTOM STYLES FOR TEAL GLOW ANIMATIONS */}
             <style>{`
                 .custom-scrollbar::-webkit-scrollbar {
                     width: 4px;
@@ -1020,6 +1426,23 @@ const Dashboard = () => {
                 }
                 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
                     background: rgba(107, 114, 128, 0.5);
+                }
+
+                @keyframes border-flow {
+                    0% {
+                        background-position: 0% 50%;
+                    }
+                    50% {
+                        background-position: 100% 50%;
+                    }
+                    100% {
+                        background-position: 0% 50%;
+                    }
+                }
+
+                .animate-border-flow {
+                    background-size: 200% 200%;
+                    animation: border-flow 3s ease infinite;
                 }
             `}</style>
         </div>

@@ -1,7 +1,6 @@
-// src/services/challengeService.js - Daily Challenges System
+// src/services/challengeService.js - ✅ FIXED Daily Challenges System
 import {
-    doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs,
-    serverTimestamp, increment, arrayUnion
+    doc, getDoc, setDoc, updateDoc, serverTimestamp, runTransaction
 } from 'firebase/firestore';
 import { db } from '@shared/config/firebase';
 import { awardXP } from './gamificationService';
@@ -116,8 +115,12 @@ const DAILY_CHALLENGES = {
     }
 };
 
-// Get today's date string
-const getTodayString = () => new Date().toISOString().split('T')[0];
+// ✅ FIXED: Get today's date string in UTC to avoid timezone issues
+const getTodayString = () => {
+    const now = new Date();
+    const utcDate = new Date(now.getTime() + now.getTimezoneOffset() * 60000);
+    return utcDate.toISOString().split('T')[0];
+};
 
 // Generate daily challenges for a user
 export const generateDailyChallenges = async (userId) => {
@@ -130,6 +133,7 @@ export const generateDailyChallenges = async (userId) => {
         const existingDoc = await getDoc(userChallengesRef);
 
         if (existingDoc.exists()) {
+            console.log('✅ Challenges already exist for today');
             return existingDoc.data().challenges;
         }
 
@@ -141,9 +145,9 @@ export const generateDailyChallenges = async (userId) => {
         const randomPick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
         const selectedChallenges = [
-            { ...DAILY_CHALLENGES[randomPick(easyKeys)], progress: 0, completed: false },
-            { ...DAILY_CHALLENGES[randomPick(mediumKeys)], progress: 0, completed: false },
-            { ...DAILY_CHALLENGES[randomPick(hardKeys)], progress: 0, completed: false }
+            { ...DAILY_CHALLENGES[randomPick(easyKeys)], progress: 0, completed: false, completedAt: null },
+            { ...DAILY_CHALLENGES[randomPick(mediumKeys)], progress: 0, completed: false, completedAt: null },
+            { ...DAILY_CHALLENGES[randomPick(hardKeys)], progress: 0, completed: false, completedAt: null }
         ];
 
         await setDoc(userChallengesRef, {
@@ -151,19 +155,21 @@ export const generateDailyChallenges = async (userId) => {
             date: today,
             createdAt: serverTimestamp(),
             allCompleted: false,
+            allCompletedAt: null,
             streakBonus: false
         });
 
+        console.log('✅ Generated new challenges for', today);
         return selectedChallenges;
     } catch (error) {
-        console.error('Error generating daily challenges:', error);
+        console.error('❌ Error generating daily challenges:', error);
         return [];
     }
 };
 
 // Get user's daily challenges
 export const getDailyChallenges = async (userId) => {
-    if (!userId) return { challenges: [], allCompleted: false };
+    if (!userId) return { challenges: [], allCompleted: false, date: null };
 
     const today = getTodayString();
     const userChallengesRef = doc(db, 'users', userId, 'dailyChallenges', today);
@@ -172,91 +178,154 @@ export const getDailyChallenges = async (userId) => {
         const docSnap = await getDoc(userChallengesRef);
 
         if (!docSnap.exists()) {
+            console.log('⚠️ No challenges found, generating new ones');
             const challenges = await generateDailyChallenges(userId);
-            return { challenges, allCompleted: false };
+            return { challenges, allCompleted: false, date: today };
         }
 
         const data = docSnap.data();
         return {
             challenges: data.challenges || [],
             allCompleted: data.allCompleted || false,
-            streakBonus: data.streakBonus || false
+            allCompletedAt: data.allCompletedAt || null,
+            streakBonus: data.streakBonus || false,
+            date: data.date
         };
     } catch (error) {
-        console.error('Error getting daily challenges:', error);
-        return { challenges: [], allCompleted: false };
+        console.error('❌ Error getting daily challenges:', error);
+        return { challenges: [], allCompleted: false, date: null };
     }
 };
 
-// Update challenge progress
+// ✅ FIXED: Update challenge progress with proper quiz score logic and transactions
 export const updateChallengeProgress = async (userId, challengeType, amount = 1) => {
-    if (!userId) return;
+    if (!userId) {
+        console.warn('⚠️ No userId provided to updateChallengeProgress');
+        return;
+    }
 
     const today = getTodayString();
     const userChallengesRef = doc(db, 'users', userId, 'dailyChallenges', today);
+    const userRef = doc(db, 'users', userId);
 
     try {
-        const docSnap = await getDoc(userChallengesRef);
-        if (!docSnap.exists()) {
-            await generateDailyChallenges(userId);
-            return;
-        }
-
-        const data = docSnap.data();
-        let challenges = [...data.challenges];
-        let updated = false;
-        let completedChallenge = null;
-
-        challenges = challenges.map(challenge => {
-            if (challenge.type === challengeType && !challenge.completed) {
-                const newProgress = Math.min(challenge.progress + amount, challenge.target);
-                const isNowCompleted = newProgress >= challenge.target;
-
-                if (isNowCompleted && !challenge.completed) {
-                    completedChallenge = { ...challenge, progress: newProgress, completed: true };
-                    updated = true;
-                    return completedChallenge;
-                } else if (newProgress !== challenge.progress) {
-                    updated = true;
-                    return { ...challenge, progress: newProgress };
-                }
+        // ✅ Use transaction to prevent race conditions
+        await runTransaction(db, async (transaction) => {
+            const docSnap = await transaction.get(userChallengesRef);
+            
+            if (!docSnap.exists()) {
+                console.log('⚠️ No challenges exist, generating...');
+                await generateDailyChallenges(userId);
+                return;
             }
-            return challenge;
-        });
 
-        if (updated) {
-            const allCompleted = challenges.every(c => c.completed);
-            await updateDoc(userChallengesRef, {
-                challenges,
-                allCompleted
+            const data = docSnap.data();
+            let challenges = [...data.challenges];
+            let updated = false;
+            let completedChallenge = null;
+
+            challenges = challenges.map(challenge => {
+                if (challenge.type === challengeType && !challenge.completed) {
+                    let newProgress;
+                    let isNowCompleted;
+
+                    // ✅ FIXED: Different logic for quiz scores vs counts/times
+                    if (challenge.type === 'quiz_score') {
+                        // For quiz scores, check if current score meets target
+                        newProgress = Math.max(challenge.progress || 0, amount);
+                        isNowCompleted = amount >= challenge.target;
+                        
+                        console.log(`📊 Quiz Score Challenge: ${amount}% (target: ${challenge.target}%)`);
+                    } else {
+                        // For counts/times, increment progress
+                        newProgress = Math.min(challenge.progress + amount, challenge.target);
+                        isNowCompleted = newProgress >= challenge.target;
+                        
+                        console.log(`📈 Challenge Progress: ${newProgress}/${challenge.target}`);
+                    }
+
+                    if (isNowCompleted && !challenge.completed) {
+                        completedChallenge = { 
+                            ...challenge, 
+                            progress: newProgress, 
+                            completed: true,
+                            completedAt: new Date().toISOString()
+                        };
+                        updated = true;
+                        return completedChallenge;
+                    } else if (newProgress !== challenge.progress) {
+                        updated = true;
+                        return { ...challenge, progress: newProgress };
+                    }
+                }
+                return challenge;
             });
 
-            // Award XP for completed challenge
-            if (completedChallenge) {
-                await awardXP(userId, completedChallenge.xpReward, `Daily Challenge: ${completedChallenge.title}`);
-                toast.success(`Challenge Complete! +${completedChallenge.xpReward} XP 🎯`, {
-                    icon: '🏆',
-                    duration: 4000,
-                    style: { background: '#000', color: '#fff' }
+            if (updated) {
+                const allCompleted = challenges.every(c => c.completed);
+                const wasAllCompleted = data.allCompleted;
+
+                transaction.update(userChallengesRef, {
+                    challenges,
+                    allCompleted,
+                    ...(allCompleted && !wasAllCompleted && {
+                        allCompletedAt: serverTimestamp()
+                    })
                 });
 
-                // Check if all challenges completed for bonus
-                if (allCompleted && !data.allCompleted) {
-                    await awardXP(userId, 100, 'All Daily Challenges Completed Bonus');
-                    toast.success('All challenges complete! +100 XP Bonus! 🌟', {
-                        icon: '🎉',
-                        duration: 5000,
-                        style: { background: '#FFD700', color: '#000' }
+                // ✅ Award XP for completed challenge
+                if (completedChallenge) {
+                    await awardXP(userId, completedChallenge.xpReward, `Daily Challenge: ${completedChallenge.title}`);
+                    
+                    toast.success(`Challenge Complete! +${completedChallenge.xpReward} XP 🎯`, {
+                        icon: '🏆',
+                        duration: 4000,
+                        style: { 
+                            background: 'linear-gradient(135deg, #000 0%, #1a1a1a 100%)',
+                            color: '#fff',
+                            fontWeight: 'bold'
+                        }
                     });
+
+                    // ✅ FIXED: Check if all challenges completed for bonus + streak
+                    if (allCompleted && !wasAllCompleted) {
+                        // Award completion bonus
+                        await awardXP(userId, 100, 'All Daily Challenges Completed Bonus');
+                        
+                        // ✅ Update streak
+                        const userSnap = await transaction.get(userRef);
+                        const currentStreak = userSnap.exists() ? (userSnap.data().challengeStreak || 0) : 0;
+                        const newStreak = currentStreak + 1;
+                        
+                        transaction.update(userRef, {
+                            challengeStreak: newStreak,
+                            lastChallengeDate: today,
+                            totalChallengesCompleted: (userSnap.data()?.totalChallengesCompleted || 0) + 1
+                        });
+
+                        toast.success(`All challenges complete! +100 XP Bonus! 🔥 ${newStreak} Day Streak!`, {
+                            icon: '🎉',
+                            duration: 6000,
+                            style: { 
+                                background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
+                                color: '#000',
+                                fontWeight: 'bold',
+                                fontSize: '16px'
+                            }
+                        });
+
+                        console.log(`✅ All challenges completed! Streak: ${newStreak} days`);
+                    }
                 }
             }
-        }
+        });
     } catch (error) {
-        console.error('Error updating challenge progress:', error);
+        console.error('❌ Error updating challenge progress:', error);
+        toast.error('Failed to update challenge progress');
     }
 };
 
-// Get challenge streak
+// ✅ FIXED: Get challenge streak with proper reset logic
 export const getChallengeStreak = async (userId) => {
     if (!userId) return 0;
 
@@ -264,13 +333,71 @@ export const getChallengeStreak = async (userId) => {
         const userRef = doc(db, 'users', userId);
         const userSnap = await getDoc(userRef);
 
-        if (userSnap.exists()) {
-            return userSnap.data().challengeStreak || 0;
+        if (!userSnap.exists()) {
+            return 0;
         }
+
+        const userData = userSnap.data();
+        const lastChallengeDate = userData.lastChallengeDate;
+        const currentStreak = userData.challengeStreak || 0;
+
+        // ✅ Check if streak should be reset
+        if (!lastChallengeDate) {
+            return 0;
+        }
+
+        const today = getTodayString();
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayString = yesterday.toISOString().split('T')[0];
+
+        // Streak is valid if last completion was today or yesterday
+        if (lastChallengeDate === today || lastChallengeDate === yesterdayString) {
+            return currentStreak;
+        }
+
+        // ✅ Streak broken - reset to 0
+        await updateDoc(userRef, {
+            challengeStreak: 0
+        });
+
+        console.log('⚠️ Challenge streak reset due to inactivity');
         return 0;
     } catch (error) {
-        console.error('Error getting challenge streak:', error);
+        console.error('❌ Error getting challenge streak:', error);
         return 0;
+    }
+};
+
+// ✅ NEW: Check and reset streak if needed (call on app load)
+export const checkStreakStatus = async (userId) => {
+    if (!userId) return;
+
+    try {
+        const userRef = doc(db, 'users', userId);
+        const userSnap = await getDoc(userRef);
+
+        if (!userSnap.exists()) return;
+
+        const userData = userSnap.data();
+        const lastChallengeDate = userData.lastChallengeDate;
+        
+        if (!lastChallengeDate) return;
+
+        const today = getTodayString();
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayString = yesterday.toISOString().split('T')[0];
+
+        // Reset streak if last completion was more than 1 day ago
+        if (lastChallengeDate !== today && lastChallengeDate !== yesterdayString) {
+            await updateDoc(userRef, {
+                challengeStreak: 0
+            });
+            console.log('🔄 Streak reset due to missed day');
+        }
+    } catch (error) {
+        console.error('❌ Error checking streak status:', error);
     }
 };
 
