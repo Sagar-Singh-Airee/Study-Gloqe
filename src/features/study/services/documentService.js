@@ -1,4 +1,4 @@
-// src/services/documentService.js - AI-POWERED VERSION
+// src/services/documentService.js - 🏆 ULTIMATE ENTERPRISE EDITION 2025
 import {
     collection,
     addDoc,
@@ -13,74 +13,232 @@ import {
     deleteDoc,
     serverTimestamp,
     increment,
-    writeBatch
+    writeBatch,
+    Timestamp,
+    startAfter,
+    setDoc
 } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject, listAll } from 'firebase/storage';
+import {
+    ref,
+    uploadBytesResumable,
+    getDownloadURL,
+    deleteObject,
+    listAll,
+    getMetadata
+} from 'firebase/storage';
 import { db, storage, COLLECTIONS } from '@shared/config/firebase';
-import { detectSubjectHybrid } from '@shared/utils/subjectDetection'; // ✅ NEW: Import AI detection
+import { detectSubjectHybrid } from '@shared/utils/subjectDetection';
 import * as pdfjsLib from 'pdfjs-dist';
 import toast from 'react-hot-toast';
 
-// Setup PDF.js worker
+// ==================== 🔧 CONFIGURATION ====================
+
+const CONFIG = {
+    MAX_FILE_SIZE: 100 * 1024 * 1024, // 100MB (increased)
+    MAX_PAGES: 1000, // Process up to 1000 pages
+    BATCH_SIZE: 500,
+    RETRY_ATTEMPTS: 3,
+    RETRY_DELAY: 1000,
+    CACHE_TTL: 5 * 60 * 1000, // 5 minutes
+    CHUNK_SIZE: 50, // Pages per chunk
+    MIN_TEXT_LENGTH: 30, // Minimum text for AI detection
+    KEYWORD_COUNT: 50,
+    CONCURRENT_OPERATIONS: 5
+};
+
+// PDF.js worker setup
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
 
-// ==================== 📝 TEXT EXTRACTION ====================
+// ==================== 💾 IN-MEMORY CACHE ====================
+
+class DocumentCache {
+    constructor(ttl = CONFIG.CACHE_TTL) {
+        this.cache = new Map();
+        this.ttl = ttl;
+    }
+
+    set(key, value) {
+        this.cache.set(key, {
+            value,
+            timestamp: Date.now()
+        });
+    }
+
+    get(key) {
+        const item = this.cache.get(key);
+        if (!item) return null;
+
+        if (Date.now() - item.timestamp > this.ttl) {
+            this.cache.delete(key);
+            return null;
+        }
+
+        return item.value;
+    }
+
+    delete(key) {
+        this.cache.delete(key);
+    }
+
+    clear() {
+        this.cache.clear();
+    }
+
+    has(key) {
+        return this.cache.has(key) && this.get(key) !== null;
+    }
+}
+
+const documentCache = new DocumentCache();
+
+// ==================== 🔄 RETRY MECHANISM ====================
 
 /**
- * Extract text from PDF file with enhanced error handling
- * @param {File} file - PDF file to extract text from
- * @returns {Promise<Object>} Extracted text data
+ * Retry function with exponential backoff
  */
-export const extractTextFromPDF = async (file) => {
+const retryOperation = async (operation, attempts = CONFIG.RETRY_ATTEMPTS, delay = CONFIG.RETRY_DELAY) => {
+    for (let i = 0; i < attempts; i++) {
+        try {
+            return await operation();
+        } catch (error) {
+            if (i === attempts - 1) throw error;
+
+            console.warn(`⚠️ Attempt ${i + 1} failed, retrying in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
+        }
+    }
+};
+
+// ==================== 📝 ADVANCED TEXT EXTRACTION ====================
+
+/**
+ * Extract text from PDF with advanced features
+ * @param {File} file - PDF file
+ * @param {Function} onProgress - Progress callback
+ * @returns {Promise<Object>} Extraction result
+ */
+export const extractTextFromPDF = async (file, onProgress = null) => {
     try {
-        console.log('📝 Starting PDF text extraction...');
-        
+        console.log('📝 Starting advanced PDF extraction...');
+
         if (!file || file.size === 0) {
             throw new Error('Invalid or empty file');
         }
 
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        if (file.size > CONFIG.MAX_FILE_SIZE) {
+            throw new Error(`File size exceeds ${CONFIG.MAX_FILE_SIZE / 1024 / 1024}MB limit`);
+        }
 
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({
+            data: arrayBuffer,
+            useWorkerFetch: false,
+            isEvalSupported: false,
+            useSystemFonts: true
+        }).promise;
+
+        const totalPages = Math.min(pdf.numPages, CONFIG.MAX_PAGES);
         let fullText = '';
         const pageTexts = [];
-        const maxPages = Math.min(pdf.numPages, 500); // Limit to 500 pages for performance
+        const metadata = {
+            hasImages: false,
+            hasTables: false,
+            languages: new Set(),
+            fonts: new Set(),
+            averageWordsPerPage: 0
+        };
 
-        console.log(`📖 Processing ${maxPages} pages...`);
+        console.log(`📖 Processing ${totalPages} pages...`);
 
-        for (let i = 1; i <= maxPages; i++) {
+        // Process pages in chunks for better performance
+        for (let i = 1; i <= totalPages; i++) {
             try {
                 const page = await pdf.getPage(i);
+
+                // Extract text content
                 const textContent = await page.getTextContent();
                 const pageText = textContent.items
-                    .map(item => item.str)
+                    .map(item => {
+                        // Track fonts
+                        if (item.fontName) {
+                            metadata.fonts.add(item.fontName);
+                        }
+                        return item.str;
+                    })
                     .join(' ')
-                    .trim();
+                    .trim()
+                    .replace(/\s+/g, ' '); // Normalize whitespace
 
                 if (pageText) {
+                    const wordCount = pageText.split(/\s+/).length;
+
                     pageTexts.push({
                         pageNum: i,
                         text: pageText,
-                        wordCount: pageText.split(/\s+/).length
+                        wordCount,
+                        hasContent: wordCount > 10
                     });
 
                     fullText += pageText + '\n\n';
                 }
+
+                // Check for images
+                const operatorList = await page.getOperatorList();
+                if (operatorList.fnArray.includes(pdfjsLib.OPS.paintImageXObject)) {
+                    metadata.hasImages = true;
+                }
+
+                // Report progress
+                if (onProgress) {
+                    onProgress({
+                        current: i,
+                        total: totalPages,
+                        percentage: Math.round((i / totalPages) * 100)
+                    });
+                }
+
             } catch (pageError) {
-                console.warn(`⚠️ Failed to extract page ${i}:`, pageError.message);
+                console.warn(`⚠️ Page ${i} extraction failed:`, pageError.message);
+                pageTexts.push({
+                    pageNum: i,
+                    text: '',
+                    wordCount: 0,
+                    hasContent: false,
+                    error: pageError.message
+                });
             }
         }
 
+        // Calculate statistics
+        const totalWords = fullText.split(/\s+/).filter(w => w.length > 0).length;
+        metadata.averageWordsPerPage = Math.round(totalWords / pageTexts.length);
+
+        // Detect language (simple heuristic)
+        const sampleText = fullText.substring(0, 1000).toLowerCase();
+        if (/[а-яё]/.test(sampleText)) metadata.languages.add('Russian');
+        if (/[一-龯]/.test(sampleText)) metadata.languages.add('Chinese');
+        if (/[ぁ-ゔ]|[ァ-ヴー]/.test(sampleText)) metadata.languages.add('Japanese');
+        if (/[가-힣]/.test(sampleText)) metadata.languages.add('Korean');
+        if (/[a-z]/.test(sampleText)) metadata.languages.add('English');
+
         const result = {
             fullText: fullText.trim(),
-            pageTexts,
+            pageTexts: pageTexts.filter(p => p.hasContent),
             numPages: pdf.numPages,
-            extractedPages: pageTexts.length,
-            totalWords: fullText.split(/\s+/).filter(w => w.length > 0).length,
+            extractedPages: pageTexts.filter(p => p.hasContent).length,
+            totalWords,
+            metadata: {
+                ...metadata,
+                languages: Array.from(metadata.languages),
+                fonts: Array.from(metadata.fonts)
+            },
+            quality: calculateExtractionQuality(pageTexts, totalWords),
             success: true
         };
 
         console.log(`✅ Extracted ${result.totalWords} words from ${result.extractedPages} pages`);
+        console.log(`📊 Quality score: ${result.quality}%`);
+
         return result;
 
     } catch (error) {
@@ -91,6 +249,8 @@ export const extractTextFromPDF = async (file) => {
             numPages: 0,
             extractedPages: 0,
             totalWords: 0,
+            metadata: {},
+            quality: 0,
             success: false,
             error: error.message
         };
@@ -98,12 +258,22 @@ export const extractTextFromPDF = async (file) => {
 };
 
 /**
- * Extract keywords for search optimization
- * @param {string} text - Text to extract keywords from
- * @param {number} maxKeywords - Maximum number of keywords to return
- * @returns {string[]} Array of keywords
+ * Calculate extraction quality score
  */
-export const extractKeywords = (text, maxKeywords = 30) => {
+const calculateExtractionQuality = (pageTexts, totalWords) => {
+    if (pageTexts.length === 0) return 0;
+
+    const pagesWithContent = pageTexts.filter(p => p.hasContent).length;
+    const coverageScore = (pagesWithContent / pageTexts.length) * 50;
+    const densityScore = Math.min((totalWords / pageTexts.length / 100), 1) * 50;
+
+    return Math.round(coverageScore + densityScore);
+};
+
+/**
+ * Advanced keyword extraction with TF-IDF weighting
+ */
+export const extractKeywords = (text, maxKeywords = CONFIG.KEYWORD_COUNT) => {
     if (!text || text.length < 10) return [];
 
     const stopWords = new Set([
@@ -111,89 +281,164 @@ export const extractKeywords = (text, maxKeywords = 30) => {
         'with', 'to', 'for', 'of', 'as', 'by', 'this', 'that', 'from', 'are',
         'was', 'were', 'been', 'be', 'have', 'has', 'had', 'do', 'does', 'did',
         'will', 'would', 'could', 'should', 'can', 'may', 'might', 'must',
-        'it', 'its', 'they', 'them', 'their', 'we', 'our', 'you', 'your'
+        'it', 'its', 'they', 'them', 'their', 'we', 'our', 'you', 'your',
+        'when', 'where', 'who', 'what', 'why', 'how', 'there', 'here',
+        'then', 'than', 'these', 'those', 'such', 'some', 'more', 'most',
+        'all', 'both', 'each', 'few', 'many', 'other', 'another', 'any'
     ]);
 
-    // Extract and clean words
+    // Tokenize and clean
     const words = text
         .toLowerCase()
-        .replace(/[^\w\s]/g, ' ')
+        .replace(/[^\w\s-]/g, ' ')
         .split(/\s+/)
-        .filter(word => 
-            word.length > 3 && 
+        .filter(word =>
+            word.length > 3 &&
+            word.length < 20 &&
             !stopWords.has(word) &&
-            !/^\d+$/.test(word) // Exclude pure numbers
+            !/^\d+$/.test(word) &&
+            !/^[^a-z0-9]+$/.test(word)
         );
 
     // Count frequency
     const wordFreq = {};
+    const totalWords = words.length;
+
     words.forEach(word => {
         wordFreq[word] = (wordFreq[word] || 0) + 1;
     });
 
-    // Sort by frequency and return top keywords
-    return Object.entries(wordFreq)
-        .sort((a, b) => b[1] - a[1])
+    // Calculate TF-IDF score (simplified)
+    const scored = Object.entries(wordFreq).map(([word, freq]) => {
+        const tf = freq / totalWords;
+        const idf = Math.log(totalWords / freq); // Simplified IDF
+        return {
+            word,
+            score: tf * idf,
+            frequency: freq
+        };
+    });
+
+    // Sort by score and return top keywords
+    return scored
+        .sort((a, b) => b.score - a.score)
         .slice(0, maxKeywords)
-        .map(([word]) => word);
+        .map(item => item.word);
 };
 
-// ==================== 📤 UPLOAD FUNCTIONS ====================
+/**
+ * Generate document summary using extractive summarization
+ */
+export const generateSummary = (text, maxSentences = 5) => {
+    if (!text || text.length < 100) return '';
+
+    // Split into sentences
+    const sentences = text
+        .split(/[.!?]+/)
+        .map(s => s.trim())
+        .filter(s => s.length > 20);
+
+    if (sentences.length <= maxSentences) return text;
+
+    // Score sentences by keyword density
+    const keywords = extractKeywords(text, 20);
+    const keywordSet = new Set(keywords);
+
+    const scored = sentences.map(sentence => {
+        const words = sentence.toLowerCase().split(/\s+/);
+        const score = words.filter(w => keywordSet.has(w)).length;
+        return { sentence, score };
+    });
+
+    // Return top sentences in original order
+    const topSentences = scored
+        .sort((a, b) => b.score - a.score)
+        .slice(0, maxSentences)
+        .map(s => s.sentence);
+
+    return topSentences.join('. ') + '.';
+};
+
+// ==================== 📤 ADVANCED UPLOAD SYSTEM ====================
 
 /**
- * Initiate document upload to Firebase Storage
- * @param {File} file - PDF file to upload
- * @param {string} userId - User ID
- * @returns {Object} Upload task and metadata
+ * Initiate document upload with validation and optimization
  */
-export const initiateDocumentUpload = (file, userId) => {
-    // Validation
+export const initiateDocumentUpload = (file, userId, options = {}) => {
+    // Enhanced validation
     if (!file) {
         throw new Error('No file provided');
     }
-    
+
     if (!file.type.includes('pdf')) {
         throw new Error('Only PDF files are supported');
     }
-    
-    if (file.size > 50 * 1024 * 1024) {
-        throw new Error('File size must be less than 50MB');
+
+    if (file.size === 0) {
+        throw new Error('File is empty');
     }
-    
+
+    if (file.size > CONFIG.MAX_FILE_SIZE) {
+        throw new Error(`File size must be less than ${CONFIG.MAX_FILE_SIZE / 1024 / 1024}MB`);
+    }
+
     if (!userId) {
         throw new Error('User ID is required');
     }
 
+    // Generate optimized storage path
     const timestamp = Date.now();
     const sanitizedFileName = file.name
         .replace(/[^a-zA-Z0-9.-]/g, '_')
-        .substring(0, 100); // Limit filename length
-    
-    const storagePath = `documents/${userId}/${timestamp}_${sanitizedFileName}`;
+        .replace(/_{2,}/g, '_')
+        .substring(0, 100);
+
+    const fileHash = generateFileHash(file.name, file.size, timestamp);
+    const storagePath = `documents/${userId}/${fileHash}/${sanitizedFileName}`;
     const storageRef = ref(storage, storagePath);
 
+    // Create upload task with metadata
     const uploadTask = uploadBytesResumable(storageRef, file, {
         contentType: 'application/pdf',
         customMetadata: {
             userId: userId,
             originalName: file.name,
-            uploadTimestamp: timestamp.toString()
+            uploadTimestamp: timestamp.toString(),
+            fileSize: file.size.toString(),
+            version: '2.0'
         }
     });
 
-    return { uploadTask, storageRef, storagePath };
+    console.log('📤 Upload initiated:', storagePath);
+
+    return {
+        uploadTask,
+        storageRef,
+        storagePath,
+        fileHash
+    };
 };
 
 /**
- * Create document record in Firestore with AI-powered subject detection
- * @param {string} userId - User ID
- * @param {File} file - Original file
- * @param {Object} data - Document data
- * @returns {Promise<Object>} Created document info
+ * Generate unique file hash
+ */
+const generateFileHash = (fileName, fileSize, timestamp) => {
+    const str = `${fileName}-${fileSize}-${timestamp}`;
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+    }
+    return Math.abs(hash).toString(36);
+};
+
+/**
+ * Create document record with AI detection and advanced features
  */
 export const createDocumentRecord = async (userId, file, data) => {
     try {
-        console.log('💾 Creating document record with AI detection...');
+        console.log('💾 Creating advanced document record...');
 
         const {
             downloadURL,
@@ -202,45 +447,54 @@ export const createDocumentRecord = async (userId, file, data) => {
             pageTexts,
             numPages,
             totalWords,
+            metadata = {},
+            quality = 0,
             context = {}
         } = data;
 
-        // Extract keywords
+        // Generate keywords and summary
         const keywords = extractedText ? extractKeywords(extractedText, 50) : [];
+        const summary = extractedText ? generateSummary(extractedText, 5) : '';
 
-        // ✅ NEW: AI-POWERED SUBJECT DETECTION
+        // AI-POWERED SUBJECT DETECTION with enhanced fallbacks
         let subject = 'General Studies';
         let subjectConfidence = 0;
         let detectionMethod = 'default';
+        let alternativeSubjects = [];
 
-        if (extractedText && extractedText.length > 50) {
+        if (extractedText && extractedText.length >= CONFIG.MIN_TEXT_LENGTH) {
             try {
                 console.log('🤖 Running AI subject detection...');
-                
-                const detection = await detectSubjectHybrid({
-                    title: file.name.replace('.pdf', ''),
-                    content: extractedText,
-                    fileName: file.name
+
+                const detection = await retryOperation(async () => {
+                    return await detectSubjectHybrid({
+                        title: file.name.replace('.pdf', ''),
+                        content: extractedText,
+                        fileName: file.name,
+                        keywords: keywords.slice(0, 10)
+                    });
                 });
 
                 if (detection && detection.subject) {
                     subject = detection.subject;
                     subjectConfidence = detection.confidence || 0;
-                    detectionMethod = detection.method || 'unknown';
-                    
+                    detectionMethod = detection.method || 'ai';
+                    alternativeSubjects = detection.alternatives || [];
+
                     console.log(`✅ AI detected: ${subject} (${subjectConfidence}% via ${detectionMethod})`);
                 } else {
-                    console.warn('⚠️ AI detection returned null, using default');
+                    console.warn('⚠️ AI detection returned null');
+                    subject = await fallbackSubjectDetection(file.name, keywords);
+                    detectionMethod = 'fallback';
                 }
             } catch (aiError) {
-                console.error('❌ AI detection error:', aiError);
-                console.log('⚠️ Falling back to General Studies');
+                console.error('❌ AI detection failed:', aiError);
+                subject = await fallbackSubjectDetection(file.name, keywords);
+                detectionMethod = 'fallback';
             }
-        } else {
-            console.log('⚠️ Insufficient text for AI detection');
         }
 
-        // Override with user-provided subject if available
+        // User override takes precedence
         if (context.subject && context.subject !== 'General Studies') {
             console.log(`✏️ User override: ${context.subject}`);
             subject = context.subject;
@@ -248,7 +502,7 @@ export const createDocumentRecord = async (userId, file, data) => {
             detectionMethod = 'user_provided';
         }
 
-        // Build document data
+        // Build comprehensive document data
         const docData = {
             // Basic info
             title: file.name.replace('.pdf', ''),
@@ -257,22 +511,26 @@ export const createDocumentRecord = async (userId, file, data) => {
             fileSize: file.size,
             downloadURL,
             storagePath,
-            
-            // Status
+
+            // Status and metrics
             status: 'completed',
             pages: numPages || 0,
             totalWords: totalWords || 0,
+            quality: quality || 0,
 
-            // ✅ ENHANCED: Classification with AI metadata
+            // Classification
             subject: subject,
             subjectConfidence: subjectConfidence,
             detectionMethod: detectionMethod,
+            alternativeSubjects: alternativeSubjects,
             purpose: context.purpose || '',
             folderId: context.folderId || null,
-            
-            // Search & Discovery
+
+            // Content analysis
             keywords,
+            summary,
             extractedText: extractedText || '',
+            metadata: metadata,
 
             // Timestamps
             createdAt: serverTimestamp(),
@@ -283,172 +541,249 @@ export const createDocumentRecord = async (userId, file, data) => {
             lastStudiedAt: null,
             readingProgress: 0,
             viewCount: 0,
+            studySessions: 0,
 
-            // Generated content
+            // Generated content counters
             quizCount: 0,
             flashcardCount: 0,
             summaryCount: 0,
-            
-            // Flags
+            notesCount: 0,
+
+            // User interactions
             isArchived: false,
             isFavorite: false,
-            tags: context.tags || []
+            rating: 0,
+            tags: context.tags || [],
+
+            // Analytics
+            analytics: {
+                uploadDuration: context.uploadDuration || 0,
+                processingDuration: context.processingDuration || 0,
+                extractionQuality: quality || 0,
+                version: '2.0'
+            }
         };
 
-        // Create document
-        const docRef = await addDoc(collection(db, 'documents'), docData);
+        // Create document with retry
+        const docRef = await retryOperation(async () => {
+            return await addDoc(collection(db, 'documents'), docData);
+        });
+
         console.log('✅ Document record created:', docRef.id);
 
-        // Save pages in batches (non-blocking)
-        if (pageTexts && pageTexts.length > 0) {
-            savePages(docRef.id, pageTexts).catch(err => 
-                console.warn('⚠️ Page save warning:', err.message)
-            );
-        }
+        // Async operations (non-blocking)
+        Promise.all([
+            savePages(docRef.id, pageTexts),
+            updateStatistics(userId, context.folderId, { subject }),
+            createDocumentIndex(docRef.id, docData) // For advanced search
+        ]).catch(err => console.warn('⚠️ Async operation warning:', err.message));
 
-        // Update statistics (non-blocking)
-        updateStatistics(userId, context.folderId).catch(err =>
-            console.warn('⚠️ Stats update warning:', err.message)
-        );
+        // Clear cache for this user
+        documentCache.delete(`user_docs_${userId}`);
 
         return {
             docId: docRef.id,
             subject,
             subjectConfidence,
             detectionMethod,
+            alternativeSubjects,
             folderId: context.folderId,
+            quality,
             success: true
         };
 
     } catch (error) {
-        console.error('❌ Document record creation failed:', error);
-        throw new Error(`Failed to create document record: ${error.message}`);
+        console.error('❌ Document creation failed:', error);
+        throw new Error(`Failed to create document: ${error.message}`);
     }
 };
 
 /**
- * Save pages to subcollection (batched for performance)
- * @param {string} docId - Document ID
- * @param {Array} pageTexts - Array of page text objects
+ * Fallback subject detection using keyword matching
+ */
+const fallbackSubjectDetection = async (fileName, keywords) => {
+    const subjectKeywords = {
+        'Mathematics': ['math', 'calculus', 'algebra', 'geometry', 'equation', 'theorem', 'integral'],
+        'Physics': ['physics', 'force', 'energy', 'motion', 'quantum', 'wave', 'particle'],
+        'Chemistry': ['chemistry', 'molecule', 'atom', 'reaction', 'element', 'compound'],
+        'Biology': ['biology', 'cell', 'organism', 'dna', 'protein', 'evolution'],
+        'Computer Science': ['programming', 'algorithm', 'code', 'software', 'computer', 'data'],
+        'History': ['history', 'war', 'century', 'civilization', 'empire', 'revolution'],
+        'Literature': ['literature', 'novel', 'poetry', 'author', 'story', 'character']
+    };
+
+    const text = (fileName + ' ' + keywords.join(' ')).toLowerCase();
+    let bestMatch = 'General Studies';
+    let maxScore = 0;
+
+    for (const [subject, subjectWords] of Object.entries(subjectKeywords)) {
+        const score = subjectWords.filter(word => text.includes(word)).length;
+        if (score > maxScore) {
+            maxScore = score;
+            bestMatch = subject;
+        }
+    }
+
+    return bestMatch;
+};
+
+/**
+ * Save pages in optimized batches
  */
 const savePages = async (docId, pageTexts) => {
-    const batchSize = 500; // Firestore batch limit
-    const pages = pageTexts.slice(0, 100); // Limit to 100 pages for performance
+    if (!pageTexts || pageTexts.length === 0) return;
 
-    for (let i = 0; i < pages.length; i += batchSize) {
-        const batch = writeBatch(db);
-        const chunk = pages.slice(i, i + batchSize);
+    try {
+        const pages = pageTexts.slice(0, 100); // Limit to 100 pages
+        const chunks = [];
 
-        chunk.forEach(pageData => {
-            const pageRef = doc(collection(db, 'documents', docId, 'pages'));
-            batch.set(pageRef, {
-                ...pageData,
-                createdAt: serverTimestamp()
-            });
+        // Split into chunks
+        for (let i = 0; i < pages.length; i += CONFIG.BATCH_SIZE) {
+            chunks.push(pages.slice(i, i + CONFIG.BATCH_SIZE));
+        }
+
+        // Process chunks concurrently (max 5 at a time)
+        for (let i = 0; i < chunks.length; i += CONFIG.CONCURRENT_OPERATIONS) {
+            const chunkBatch = chunks.slice(i, i + CONFIG.CONCURRENT_OPERATIONS);
+
+            await Promise.all(chunkBatch.map(async (chunk) => {
+                const batch = writeBatch(db);
+
+                chunk.forEach(pageData => {
+                    const pageRef = doc(collection(db, 'documents', docId, 'pages'));
+                    batch.set(pageRef, {
+                        ...pageData,
+                        createdAt: serverTimestamp()
+                    });
+                });
+
+                await batch.commit();
+            }));
+        }
+
+        console.log(`✅ Saved ${pages.length} pages in ${chunks.length} batches`);
+    } catch (error) {
+        console.error('❌ Page save error:', error);
+        throw error;
+    }
+};
+
+/**
+ * Create search index for advanced queries
+ */
+const createDocumentIndex = async (docId, docData) => {
+    try {
+        const indexRef = doc(db, 'documentIndex', docId);
+        await setDoc(indexRef, {
+            docId,
+            userId: docData.userId,
+            title: docData.title,
+            subject: docData.subject,
+            keywords: docData.keywords,
+            summary: docData.summary,
+            createdAt: serverTimestamp()
         });
+        console.log('✅ Search index created');
+    } catch (error) {
+        console.warn('⚠️ Index creation failed:', error);
+    }
+};
+
+/**
+ * Update statistics with detailed tracking
+ */
+const updateStatistics = async (userId, folderId, extras = {}) => {
+    try {
+        const batch = writeBatch(db);
+
+        // Update user stats
+        const userRef = doc(db, 'users', userId);
+        batch.update(userRef, {
+            totalDocuments: increment(1),
+            lastUploadAt: serverTimestamp(),
+            [`subjectCounts.${extras.subject || 'General Studies'}`]: increment(1)
+        });
+
+        // Update folder stats
+        if (folderId) {
+            const folderRef = doc(db, COLLECTIONS.FOLDERS, folderId);
+            batch.update(folderRef, {
+                docCount: increment(1),
+                updatedAt: serverTimestamp()
+            });
+        }
 
         await batch.commit();
+        console.log('✅ Statistics updated');
+    } catch (error) {
+        console.warn('⚠️ Stats update failed:', error);
     }
-
-    console.log(`✅ Saved ${pages.length} pages`);
 };
 
-/**
- * Update user and folder statistics
- * @param {string} userId - User ID
- * @param {string|null} folderId - Folder ID (optional)
- */
-const updateStatistics = async (userId, folderId) => {
-    const batch = writeBatch(db);
-
-    // Update user stats
-    const userRef = doc(db, 'users', userId);
-    batch.update(userRef, {
-        totalDocuments: increment(1),
-        lastUploadAt: serverTimestamp()
-    });
-
-    // Update folder stats if applicable
-    if (folderId) {
-        const folderRef = doc(db, COLLECTIONS.FOLDERS, folderId);
-        batch.update(folderRef, {
-            docCount: increment(1),
-            updatedAt: serverTimestamp()
-        });
-    }
-
-    await batch.commit();
-};
-
-// ==================== 🗑️ DELETE FUNCTION (ENHANCED) ====================
+// ==================== 🗑️ ADVANCED DELETE SYSTEM ====================
 
 /**
- * Permanently delete document from Firestore and Storage
- * @param {string} documentId - Document ID to delete
- * @returns {Promise<Object>} Deletion result
+ * Delete document with complete cleanup and validation
  */
 export const deleteDocument = async (documentId) => {
     try {
-        console.log('🗑️ Starting deletion for:', documentId);
+        console.log('🗑️ Starting enhanced deletion:', documentId);
 
         if (!documentId) {
             throw new Error('Document ID is required');
         }
 
-        // ===== STEP 1: GET DOCUMENT =====
+        // Get document data
         const docRef = doc(db, 'documents', documentId);
         const docSnap = await getDoc(docRef);
 
         if (!docSnap.exists()) {
-            console.warn('⚠️ Document not found, may already be deleted');
+            console.warn('⚠️ Document not found');
+            documentCache.delete(documentId);
             return { success: true, alreadyDeleted: true };
         }
 
         const docData = docSnap.data();
-        console.log('📄 Document found:', {
-            id: documentId,
-            userId: docData.userId,
-            fileName: docData.fileName,
-            storagePath: docData.storagePath
+        console.log('📄 Document found:', documentId);
+
+        // Delete in parallel for speed
+        const deletionResults = await Promise.allSettled([
+            deleteStorageFiles(docData.storagePath),
+            deleteSubcollections(documentId),
+            deleteSearchIndex(documentId),
+            deleteRelatedContent(documentId) // Quizzes, flashcards, etc.
+        ]);
+
+        // Log results
+        deletionResults.forEach((result, index) => {
+            if (result.status === 'rejected') {
+                console.warn(`⚠️ Deletion step ${index} failed:`, result.reason);
+            }
         });
 
-        // ===== STEP 2: DELETE STORAGE FILES =====
-        let storageDeleted = false;
-        if (docData.storagePath) {
-            storageDeleted = await deleteStorageFiles(docData.storagePath);
-        }
+        // Delete main document
+        await deleteDoc(docRef);
+        console.log('✅ Firestore document deleted');
 
-        // ===== STEP 3: DELETE SUBCOLLECTIONS =====
-        await deleteSubcollections(documentId);
+        // Update statistics
+        await updateStatisticsAfterDeletion(docData.userId, docData.folderId, docData.subject);
 
-        // ===== STEP 4: DELETE FIRESTORE DOCUMENT =====
-        try {
-            await deleteDoc(docRef);
-            console.log('✅ Firestore document deleted');
-        } catch (firestoreError) {
-            if (firestoreError.code === 'not-found') {
-                console.warn('⚠️ Document already deleted');
-                return { success: true, alreadyDeleted: true };
-            }
-            throw firestoreError;
-        }
+        // Clear cache
+        documentCache.delete(documentId);
+        documentCache.delete(`user_docs_${docData.userId}`);
 
-        // ===== STEP 5: UPDATE STATISTICS =====
-        await updateStatisticsAfterDeletion(docData.userId, docData.folderId);
-
-        console.log('🎉 Document deletion complete!');
-        return { 
-            success: true, 
-            storageDeleted,
-            documentId 
+        console.log('🎉 Deletion complete!');
+        return {
+            success: true,
+            documentId,
+            storageDeleted: deletionResults[0].status === 'fulfilled'
         };
 
     } catch (error) {
         console.error('❌ DELETE ERROR:', error);
 
-        // Format error message
         let errorMessage = 'Failed to delete document';
-        
+
         if (error.code === 'permission-denied') {
             errorMessage = 'Permission denied. You do not own this document.';
         } else if (error.code === 'not-found') {
@@ -462,145 +797,198 @@ export const deleteDocument = async (documentId) => {
 };
 
 /**
- * Delete files from Storage (with folder cleanup)
- * @param {string} storagePath - Path to file in Storage
- * @returns {Promise<boolean>} Success status
+ * Enhanced storage deletion with retry
  */
 const deleteStorageFiles = async (storagePath) => {
+    if (!storagePath) return false;
+
     try {
-        console.log('🗂️ Deleting from storage:', storagePath);
+        console.log('🗂️ Deleting storage files:', storagePath);
 
         // Delete main file
-        try {
-            const storageRef = ref(storage, storagePath);
-            await deleteObject(storageRef);
-            console.log('✅ Main file deleted');
-        } catch (error) {
-            if (error.code === 'storage/object-not-found') {
-                console.warn('⚠️ File not found in storage');
-            } else {
-                throw error;
-            }
-        }
+        const storageRef = ref(storage, storagePath);
+        await retryOperation(() => deleteObject(storageRef));
 
         // Delete entire folder
+        const folderPath = storagePath.substring(0, storagePath.lastIndexOf('/'));
+        const folderRef = ref(storage, folderPath);
+
         try {
-            const folderPath = storagePath.substring(0, storagePath.lastIndexOf('/'));
-            const folderRef = ref(storage, folderPath);
             const filesList = await listAll(folderRef);
 
             if (filesList.items.length > 0) {
-                console.log(`📂 Deleting ${filesList.items.length} files from folder`);
-                
-                const deletePromises = filesList.items.map(item =>
-                    deleteObject(item).catch(err => {
-                        console.warn(`⚠️ Failed to delete ${item.name}:`, err.message);
-                    })
-                );
+                console.log(`📂 Deleting ${filesList.items.length} files`);
 
-                await Promise.allSettled(deletePromises);
-                console.log('✅ Folder cleaned up');
+                // Delete in batches
+                const chunks = [];
+                for (let i = 0; i < filesList.items.length; i += CONFIG.CONCURRENT_OPERATIONS) {
+                    chunks.push(filesList.items.slice(i, i + CONFIG.CONCURRENT_OPERATIONS));
+                }
+
+                for (const chunk of chunks) {
+                    await Promise.allSettled(
+                        chunk.map(item => deleteObject(item))
+                    );
+                }
             }
         } catch (folderError) {
             console.warn('⚠️ Folder cleanup warning:', folderError.message);
         }
 
+        console.log('✅ Storage files deleted');
         return true;
 
     } catch (error) {
+        if (error.code === 'storage/object-not-found') {
+            console.warn('⚠️ File not found in storage');
+            return true;
+        }
         console.error('❌ Storage deletion error:', error);
         return false;
     }
 };
 
 /**
- * Delete all subcollections (pages, etc.)
- * @param {string} documentId - Document ID
+ * Delete all subcollections
  */
 const deleteSubcollections = async (documentId) => {
-    try {
-        // Delete pages subcollection
-        const pagesRef = collection(db, 'documents', documentId, 'pages');
-        const pagesSnap = await getDocs(pagesRef);
+    const subcollections = ['pages', 'notes', 'annotations', 'highlights'];
 
-        if (!pagesSnap.empty) {
-            console.log(`📑 Deleting ${pagesSnap.size} pages...`);
-            
-            const batch = writeBatch(db);
-            pagesSnap.docs.forEach(pageDoc => {
-                batch.delete(doc(db, 'documents', documentId, 'pages', pageDoc.id));
-            });
-            
-            await batch.commit();
-            console.log('✅ Pages deleted');
+    for (const subCol of subcollections) {
+        try {
+            const colRef = collection(db, 'documents', documentId, subCol);
+            const snapshot = await getDocs(colRef);
+
+            if (!snapshot.empty) {
+                console.log(`📑 Deleting ${snapshot.size} ${subCol}...`);
+
+                const chunks = [];
+                const docs = snapshot.docs;
+
+                for (let i = 0; i < docs.length; i += CONFIG.BATCH_SIZE) {
+                    chunks.push(docs.slice(i, i + CONFIG.BATCH_SIZE));
+                }
+
+                for (const chunk of chunks) {
+                    const batch = writeBatch(db);
+                    chunk.forEach(docSnap => {
+                        batch.delete(doc(db, 'documents', documentId, subCol, docSnap.id));
+                    });
+                    await batch.commit();
+                }
+            }
+        } catch (error) {
+            console.warn(`⚠️ ${subCol} deletion warning:`, error.message);
         }
-
-        // Add more subcollections here if needed (notes, annotations, etc.)
-
-    } catch (error) {
-        console.warn('⚠️ Subcollection deletion warning:', error.message);
-        // Non-critical, continue
     }
 };
 
 /**
- * Update statistics after document deletion
- * @param {string} userId - User ID
- * @param {string|null} folderId - Folder ID
+ * Delete search index
  */
-const updateStatisticsAfterDeletion = async (userId, folderId) => {
+const deleteSearchIndex = async (documentId) => {
+    try {
+        const indexRef = doc(db, 'documentIndex', documentId);
+        await deleteDoc(indexRef);
+        console.log('✅ Search index deleted');
+    } catch (error) {
+        console.warn('⚠️ Index deletion warning:', error);
+    }
+};
+
+/**
+ * Delete related content (quizzes, flashcards, etc.)
+ */
+const deleteRelatedContent = async (documentId) => {
+    const relatedCollections = [
+        { name: 'quizzes', field: 'documentId' },
+        { name: 'flashcards', field: 'documentId' },
+        { name: 'summaries', field: 'documentId' }
+    ];
+
+    for (const { name, field } of relatedCollections) {
+        try {
+            const q = query(
+                collection(db, name),
+                where(field, '==', documentId),
+                limit(100)
+            );
+
+            const snapshot = await getDocs(q);
+
+            if (!snapshot.empty) {
+                console.log(`🗑️ Deleting ${snapshot.size} related ${name}...`);
+
+                const batch = writeBatch(db);
+                snapshot.docs.forEach(docSnap => {
+                    batch.delete(doc(db, name, docSnap.id));
+                });
+
+                await batch.commit();
+            }
+        } catch (error) {
+            console.warn(`⚠️ ${name} cleanup warning:`, error);
+        }
+    }
+};
+
+/**
+ * Update statistics after deletion
+ */
+const updateStatisticsAfterDeletion = async (userId, folderId, subject) => {
     try {
         const batch = writeBatch(db);
 
-        // Update user stats
         if (userId) {
             const userRef = doc(db, 'users', userId);
             const userSnap = await getDoc(userRef);
-            
+
             if (userSnap.exists()) {
-                const currentCount = userSnap.data().totalDocuments || 0;
-                if (currentCount > 0) {
-                    batch.update(userRef, {
-                        totalDocuments: increment(-1)
-                    });
+                const updates = {
+                    totalDocuments: increment(-1)
+                };
+
+                if (subject) {
+                    updates[`subjectCounts.${subject}`] = increment(-1);
                 }
+
+                batch.update(userRef, updates);
             }
         }
 
-        // Update folder stats
         if (folderId) {
             const folderRef = doc(db, COLLECTIONS.FOLDERS, folderId);
             const folderSnap = await getDoc(folderRef);
-            
+
             if (folderSnap.exists()) {
-                const currentCount = folderSnap.data().docCount || 0;
-                if (currentCount > 0) {
-                    batch.update(folderRef, {
-                        docCount: increment(-1),
-                        updatedAt: serverTimestamp()
-                    });
-                }
+                batch.update(folderRef, {
+                    docCount: increment(-1),
+                    updatedAt: serverTimestamp()
+                });
             }
         }
 
         await batch.commit();
-        console.log('✅ Statistics updated');
+        console.log('✅ Statistics updated after deletion');
 
     } catch (error) {
-        console.warn('⚠️ Statistics update warning:', error.message);
-        // Non-critical, don't throw
+        console.warn('⚠️ Stats update warning:', error);
     }
 };
 
-// ==================== 📖 RETRIEVAL FUNCTIONS ====================
+// ==================== 📖 ADVANCED RETRIEVAL ====================
 
 /**
- * Get document by ID
- * @param {string} documentId - Document ID
- * @returns {Promise<Object>} Document data
+ * Get document with caching
  */
-export const getDocument = async (documentId) => {
+export const getDocument = async (documentId, useCache = true) => {
     try {
+        // Check cache first
+        if (useCache && documentCache.has(documentId)) {
+            console.log('💾 Cache hit:', documentId);
+            return documentCache.get(documentId);
+        }
+
         const docRef = doc(db, 'documents', documentId);
         const docSnap = await getDoc(docRef);
 
@@ -608,10 +996,15 @@ export const getDocument = async (documentId) => {
             throw new Error('Document not found');
         }
 
-        return {
+        const docData = {
             id: docSnap.id,
             ...docSnap.data()
         };
+
+        // Cache the result
+        documentCache.set(documentId, docData);
+
+        return docData;
     } catch (error) {
         console.error('Error getting document:', error);
         throw error;
@@ -619,25 +1012,62 @@ export const getDocument = async (documentId) => {
 };
 
 /**
- * Get all documents for a user
- * @param {string} userId - User ID
- * @param {number} limitCount - Maximum documents to return
- * @returns {Promise<Array>} Array of documents
+ * Get user documents with advanced filtering and caching
  */
-export const getUserDocuments = async (userId, limitCount = 100) => {
+export const getUserDocuments = async (userId, options = {}) => {
     try {
-        const q = query(
+        const {
+            limitCount = 100,
+            orderByField = 'createdAt',
+            orderDirection = 'desc',
+            subject = null,
+            folderId = null,
+            useCache = true,
+            startAfterDoc = null
+        } = options;
+
+        const cacheKey = `user_docs_${userId}_${subject || 'all'}_${folderId || 'all'}`;
+
+        // Check cache
+        if (useCache && !startAfterDoc && documentCache.has(cacheKey)) {
+            console.log('💾 Cache hit for user documents');
+            return documentCache.get(cacheKey);
+        }
+
+        // Build query
+        let q = query(
             collection(db, 'documents'),
-            where('userId', '==', userId),
-            orderBy('createdAt', 'desc'),
-            limit(limitCount)
+            where('userId', '==', userId)
         );
 
+        if (subject) {
+            q = query(q, where('subject', '==', subject));
+        }
+
+        if (folderId) {
+            q = query(q, where('folderId', '==', folderId));
+        }
+
+        q = query(q, orderBy(orderByField, orderDirection));
+
+        if (startAfterDoc) {
+            q = query(q, startAfter(startAfterDoc));
+        }
+
+        q = query(q, limit(limitCount));
+
         const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => ({
+        const documents = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         }));
+
+        // Cache results
+        if (!startAfterDoc) {
+            documentCache.set(cacheKey, documents);
+        }
+
+        return documents;
     } catch (error) {
         console.error('Error getting user documents:', error);
         return [];
@@ -645,55 +1075,49 @@ export const getUserDocuments = async (userId, limitCount = 100) => {
 };
 
 /**
- * Get documents by subject
- * @param {string} userId - User ID
- * @param {string} subject - Subject name
- * @returns {Promise<Array>} Array of documents
+ * Advanced search with multiple filters
  */
-export const getDocumentsBySubject = async (userId, subject) => {
+export const searchDocuments = async (userId, searchTerm, filters = {}) => {
     try {
-        const q = query(
-            collection(db, 'documents'),
-            where('userId', '==', userId),
-            where('subject', '==', subject),
-            orderBy('createdAt', 'desc')
-        );
+        const allDocs = await getUserDocuments(userId, { useCache: true });
+        const searchLower = searchTerm.toLowerCase().trim();
 
-        const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        }));
-    } catch (error) {
-        console.error('Error getting documents by subject:', error);
-        return [];
-    }
-};
+        if (!searchLower) return allDocs;
 
-/**
- * Search documents by keyword
- * @param {string} userId - User ID
- * @param {string} searchTerm - Search term
- * @returns {Promise<Array>} Matching documents
- */
-export const searchDocuments = async (userId, searchTerm) => {
-    try {
-        const allDocs = await getUserDocuments(userId);
-        const searchLower = searchTerm.toLowerCase();
-
-        return allDocs.filter(doc => {
+        let results = allDocs.filter(doc => {
             const title = (doc.title || '').toLowerCase();
             const fileName = (doc.fileName || '').toLowerCase();
             const subject = (doc.subject || '').toLowerCase();
             const keywords = (doc.keywords || []).join(' ').toLowerCase();
+            const summary = (doc.summary || '').toLowerCase();
 
             return (
                 title.includes(searchLower) ||
                 fileName.includes(searchLower) ||
                 subject.includes(searchLower) ||
-                keywords.includes(searchLower)
+                keywords.includes(searchLower) ||
+                summary.includes(searchLower)
             );
         });
+
+        // Apply additional filters
+        if (filters.subject) {
+            results = results.filter(doc => doc.subject === filters.subject);
+        }
+
+        if (filters.minQuality) {
+            results = results.filter(doc => (doc.quality || 0) >= filters.minQuality);
+        }
+
+        if (filters.isFavorite) {
+            results = results.filter(doc => doc.isFavorite === true);
+        }
+
+        if (filters.minRating) {
+            results = results.filter(doc => (doc.rating || 0) >= filters.minRating);
+        }
+
+        return results;
     } catch (error) {
         console.error('Error searching documents:', error);
         return [];
@@ -701,18 +1125,112 @@ export const searchDocuments = async (userId, searchTerm) => {
 };
 
 /**
- * Update document metadata
- * @param {string} documentId - Document ID
- * @param {Object} updates - Fields to update
- * @returns {Promise<void>}
+ * Get documents by multiple subjects
+ */
+export const getDocumentsBySubjects = async (userId, subjects) => {
+    try {
+        const allDocs = await getUserDocuments(userId);
+        return allDocs.filter(doc => subjects.includes(doc.subject));
+    } catch (error) {
+        console.error('Error getting documents by subjects:', error);
+        return [];
+    }
+};
+
+/**
+ * Get recent documents
+ */
+export const getRecentDocuments = async (userId, limitCount = 10) => {
+    return getUserDocuments(userId, {
+        limitCount,
+        orderByField: 'lastStudiedAt',
+        orderDirection: 'desc'
+    });
+};
+
+/**
+ * Get favorite documents
+ */
+export const getFavoriteDocuments = async (userId) => {
+    try {
+        const allDocs = await getUserDocuments(userId);
+        return allDocs.filter(doc => doc.isFavorite === true);
+    } catch (error) {
+        console.error('Error getting favorite documents:', error);
+        return [];
+    }
+};
+
+// ==================== 📊 ADVANCED ANALYTICS ====================
+
+/**
+ * Get document statistics
+ */
+export const getDocumentStats = async (userId) => {
+    try {
+        const docs = await getUserDocuments(userId, { limitCount: 1000 });
+
+        const stats = {
+            total: docs.length,
+            bySubject: {},
+            totalWords: 0,
+            totalPages: 0,
+            totalStudyTime: 0,
+            averageQuality: 0,
+            favoriteCount: 0,
+            recentlyStudied: 0
+        };
+
+        const now = Date.now();
+        const weekAgo = now - (7 * 24 * 60 * 60 * 1000);
+
+        docs.forEach(doc => {
+            // By subject
+            stats.bySubject[doc.subject] = (stats.bySubject[doc.subject] || 0) + 1;
+
+            // Totals
+            stats.totalWords += doc.totalWords || 0;
+            stats.totalPages += doc.pages || 0;
+            stats.totalStudyTime += doc.totalStudyTime || 0;
+            stats.averageQuality += doc.quality || 0;
+
+            // Favorites
+            if (doc.isFavorite) stats.favoriteCount++;
+
+            // Recently studied
+            if (doc.lastStudiedAt && doc.lastStudiedAt.toMillis() > weekAgo) {
+                stats.recentlyStudied++;
+            }
+        });
+
+        stats.averageQuality = docs.length > 0
+            ? Math.round(stats.averageQuality / docs.length)
+            : 0;
+
+        return stats;
+    } catch (error) {
+        console.error('Error getting document stats:', error);
+        return null;
+    }
+};
+
+// ==================== 🔄 UPDATE OPERATIONS ====================
+
+/**
+ * Update document with validation
  */
 export const updateDocument = async (documentId, updates) => {
     try {
         const docRef = doc(db, 'documents', documentId);
+
         await updateDoc(docRef, {
             ...updates,
             updatedAt: serverTimestamp()
         });
+
+        // Clear cache
+        documentCache.delete(documentId);
+
         console.log('✅ Document updated:', documentId);
     } catch (error) {
         console.error('Error updating document:', error);
@@ -720,11 +1238,84 @@ export const updateDocument = async (documentId, updates) => {
     }
 };
 
-// ==================== 📊 STATISTICS & TRACKING ====================
+/**
+ * Batch update documents
+ */
+export const batchUpdateDocuments = async (documentIds, updates) => {
+    try {
+        const chunks = [];
+        for (let i = 0; i < documentIds.length; i += CONFIG.BATCH_SIZE) {
+            chunks.push(documentIds.slice(i, i + CONFIG.BATCH_SIZE));
+        }
+
+        for (const chunk of chunks) {
+            const batch = writeBatch(db);
+
+            chunk.forEach(docId => {
+                const docRef = doc(db, 'documents', docId);
+                batch.update(docRef, {
+                    ...updates,
+                    updatedAt: serverTimestamp()
+                });
+                documentCache.delete(docId);
+            });
+
+            await batch.commit();
+        }
+
+        console.log(`✅ Batch updated ${documentIds.length} documents`);
+    } catch (error) {
+        console.error('Error in batch update:', error);
+        throw error;
+    }
+};
+
+/**
+ * Toggle favorite status
+ */
+export const toggleFavorite = async (documentId) => {
+    try {
+        const doc = await getDocument(documentId);
+        await updateDocument(documentId, {
+            isFavorite: !doc.isFavorite
+        });
+        return !doc.isFavorite;
+    } catch (error) {
+        console.error('Error toggling favorite:', error);
+        throw error;
+    }
+};
+
+/**
+ * Update document rating
+ */
+export const updateRating = async (documentId, rating) => {
+    if (rating < 0 || rating > 5) {
+        throw new Error('Rating must be between 0 and 5');
+    }
+    await updateDocument(documentId, { rating });
+};
+
+/**
+ * Add tags to document
+ */
+export const addTags = async (documentId, newTags) => {
+    try {
+        const doc = await getDocument(documentId);
+        const existingTags = doc.tags || [];
+        const uniqueTags = [...new Set([...existingTags, ...newTags])];
+
+        await updateDocument(documentId, { tags: uniqueTags });
+    } catch (error) {
+        console.error('Error adding tags:', error);
+        throw error;
+    }
+};
+
+// ==================== 📈 TRACKING & METRICS ====================
 
 /**
  * Increment view count
- * @param {string} documentId - Document ID
  */
 export const incrementViewCount = async (documentId) => {
     try {
@@ -733,6 +1324,7 @@ export const incrementViewCount = async (documentId) => {
             viewCount: increment(1),
             lastViewedAt: serverTimestamp()
         });
+        documentCache.delete(documentId);
     } catch (error) {
         console.warn('Failed to update view count:', error);
     }
@@ -740,16 +1332,16 @@ export const incrementViewCount = async (documentId) => {
 
 /**
  * Update study time
- * @param {string} documentId - Document ID
- * @param {number} seconds - Study time in seconds
  */
 export const updateStudyTime = async (documentId, seconds) => {
     try {
         const docRef = doc(db, 'documents', documentId);
         await updateDoc(docRef, {
             totalStudyTime: increment(seconds),
-            lastStudiedAt: serverTimestamp()
+            lastStudiedAt: serverTimestamp(),
+            studySessions: increment(1)
         });
+        documentCache.delete(documentId);
     } catch (error) {
         console.warn('Failed to update study time:', error);
     }
@@ -757,53 +1349,69 @@ export const updateStudyTime = async (documentId, seconds) => {
 
 /**
  * Update reading progress
- * @param {string} documentId - Document ID
- * @param {number} progress - Progress percentage (0-100)
  */
 export const updateReadingProgress = async (documentId, progress) => {
     try {
+        const validProgress = Math.min(100, Math.max(0, progress));
         const docRef = doc(db, 'documents', documentId);
         await updateDoc(docRef, {
-            readingProgress: Math.min(100, Math.max(0, progress)),
+            readingProgress: validProgress,
             updatedAt: serverTimestamp()
         });
+        documentCache.delete(documentId);
     } catch (error) {
         console.warn('Failed to update reading progress:', error);
     }
 };
 
-// ==================== 🔄 RE-DETECT SUBJECT (NEW UTILITY) ====================
+/**
+ * Increment content counter
+ */
+export const incrementContentCounter = async (documentId, type) => {
+    const field = `${type}Count`;
+    try {
+        const docRef = doc(db, 'documents', documentId);
+        await updateDoc(docRef, {
+            [field]: increment(1)
+        });
+        documentCache.delete(documentId);
+    } catch (error) {
+        console.warn(`Failed to update ${type} count:`, error);
+    }
+};
+
+// ==================== 🔧 UTILITY FUNCTIONS ====================
 
 /**
- * Re-detect subject for existing document using AI
- * @param {string} documentId - Document ID
- * @returns {Promise<Object>} Updated subject info
+ * Re-detect subject for document
  */
 export const redetectDocumentSubject = async (documentId) => {
     try {
-        console.log('🔄 Re-detecting subject for:', documentId);
-        
-        const docData = await getDocument(documentId);
-        
-        if (!docData.extractedText || docData.extractedText.length < 50) {
+        console.log('🔄 Re-detecting subject:', documentId);
+
+        const docData = await getDocument(documentId, false);
+
+        if (!docData.extractedText || docData.extractedText.length < CONFIG.MIN_TEXT_LENGTH) {
             throw new Error('Insufficient text for detection');
         }
-        
+
         const detection = await detectSubjectHybrid({
             title: docData.title || docData.fileName,
             content: docData.extractedText,
-            fileName: docData.fileName
+            fileName: docData.fileName,
+            keywords: docData.keywords
         });
-        
+
         if (detection && detection.subject) {
             await updateDocument(documentId, {
                 subject: detection.subject,
                 subjectConfidence: detection.confidence,
-                detectionMethod: detection.method
+                detectionMethod: detection.method,
+                alternativeSubjects: detection.alternatives || []
             });
-            
+
             console.log(`✅ Re-detected: ${detection.subject} (${detection.confidence}%)`);
-            
+
             return {
                 success: true,
                 subject: detection.subject,
@@ -811,46 +1419,71 @@ export const redetectDocumentSubject = async (documentId) => {
                 method: detection.method
             };
         }
-        
+
         throw new Error('Detection failed');
-        
+
     } catch (error) {
         console.error('❌ Re-detection error:', error);
         throw error;
     }
 };
 
-// ==================== 🎯 LEGACY COMPATIBILITY ====================
+/**
+ * Get document storage info
+ */
+export const getDocumentStorageInfo = async (documentId) => {
+    try {
+        const docData = await getDocument(documentId);
+
+        if (!docData.storagePath) {
+            throw new Error('Storage path not found');
+        }
+
+        const storageRef = ref(storage, docData.storagePath);
+        const metadata = await getMetadata(storageRef);
+
+        return {
+            size: metadata.size,
+            contentType: metadata.contentType,
+            created: metadata.timeCreated,
+            updated: metadata.updated,
+            md5Hash: metadata.md5Hash
+        };
+    } catch (error) {
+        console.error('Error getting storage info:', error);
+        throw error;
+    }
+};
 
 /**
- * Legacy upload function (wrapper for new implementation)
- * @deprecated Use initiateDocumentUpload + createDocumentRecord instead
+ * Clear cache
  */
-export const uploadDocument = async (file, userId, metadata = {}) => {
-    console.warn('⚠️ Using deprecated uploadDocument function');
-    
-    const { uploadTask, storagePath } = initiateDocumentUpload(file, userId);
+export const clearDocumentCache = () => {
+    documentCache.clear();
+    console.log('🗑️ Document cache cleared');
+};
 
-    // Wait for upload
-    await new Promise((resolve, reject) => {
-        uploadTask.on('state_changed', null, reject, resolve);
-    });
+/**
+ * Export document data
+ */
+export const exportDocumentData = async (documentId) => {
+    try {
+        const docData = await getDocument(documentId, false);
 
-    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+        // Get pages
+        const pagesRef = collection(db, 'documents', documentId, 'pages');
+        const pagesSnap = await getDocs(pagesRef);
+        const pages = pagesSnap.docs.map(doc => doc.data());
 
-    // Extract text
-    const extraction = await extractTextFromPDF(file);
-
-    // Create record (now with AI detection)
-    return createDocumentRecord(userId, file, {
-        downloadURL,
-        storagePath,
-        extractedText: extraction.fullText,
-        pageTexts: extraction.pageTexts,
-        numPages: extraction.numPages,
-        totalWords: extraction.totalWords,
-        context: { subject: metadata.subject }
-    });
+        return {
+            document: docData,
+            pages,
+            exportedAt: new Date().toISOString()
+        };
+    } catch (error) {
+        console.error('Error exporting document:', error);
+        throw error;
+    }
 };
 
 // ==================== 📦 EXPORTS ====================
@@ -859,27 +1492,40 @@ export default {
     // Upload
     initiateDocumentUpload,
     createDocumentRecord,
-    uploadDocument, // deprecated
-    
+
     // Delete
     deleteDocument,
-    
+
     // Retrieval
     getDocument,
     getUserDocuments,
-    getDocumentsBySubject,
+    getDocumentsBySubjects,
     searchDocuments,
-    
+    getRecentDocuments,
+    getFavoriteDocuments,
+
     // Update
     updateDocument,
-    redetectDocumentSubject, // ✅ NEW
-    
+    batchUpdateDocuments,
+    toggleFavorite,
+    updateRating,
+    addTags,
+    redetectDocumentSubject,
+
     // Tracking
     incrementViewCount,
     updateStudyTime,
     updateReadingProgress,
-    
+    incrementContentCounter,
+
+    // Analytics
+    getDocumentStats,
+
     // Utilities
     extractTextFromPDF,
-    extractKeywords
+    extractKeywords,
+    generateSummary,
+    getDocumentStorageInfo,
+    exportDocumentData,
+    clearDocumentCache
 };

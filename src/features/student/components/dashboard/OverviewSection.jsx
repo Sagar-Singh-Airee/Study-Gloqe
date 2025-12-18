@@ -1,5 +1,4 @@
-// src/components/features/OverviewSection.jsx
-// REFINED: Fixed Redirection, Permanent Guide, Bigger Upload UI
+// src/components/features/OverviewSection.jsx - ✅ WITH GLOWING TUTORIAL
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -14,20 +13,19 @@ const OverviewSection = ({
     stats = {},
     recentDocuments = [],
     activeRooms = [],
-    quickActions = [], // We'll merge this with our default actions
+    quickActions = [],
     handleTabChange,
-    handleUploadClick, // ✅ We will use this explicitly
+    handleUploadClick,
     handleTakeQuiz,
     handleJoinRoom,
-    navigate: propNavigate, // Accept navigate from props if provided
-    userName = "Scholar"
+    navigate: propNavigate,
+    userName = "Scholar",
+    tutorialActive = false // Accept from parent
 }) => {
-    // 1. Unified Navigation Handler
     const hookNavigate = useNavigate();
     const doNavigate = propNavigate || hookNavigate;
 
-    // 2. State & Safe Defaults
-    const [showGuide, setShowGuide] = useState(true); // Always starts open, user can toggle
+    const [showGuide, setShowGuide] = useState(true);
     const safeStats = {
         totalDocuments: stats?.totalDocuments ?? 0,
         currentStreak: stats?.streak ?? stats?.currentStreak ?? 0,
@@ -38,7 +36,6 @@ const OverviewSection = ({
     const safeRecentDocs = Array.isArray(recentDocuments) ? recentDocuments : [];
     const safeActiveRooms = Array.isArray(activeRooms) ? activeRooms : [];
 
-    // 3. Animation Variants
     const containerVariants = { show: { transition: { staggerChildren: 0.1 } } };
     const itemVariants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } };
 
@@ -60,49 +57,192 @@ const OverviewSection = ({
                     </p>
                 </div>
 
-                <button
+                {/* ✨ GLOWING TUTORIAL BUTTON */}
+                <motion.button
                     onClick={() => setShowGuide(!showGuide)}
-                    className="flex items-center gap-2 px-4 py-2 bg-teal-50 text-teal-700 rounded-full font-bold text-sm hover:bg-teal-100 transition-colors"
+                    animate={tutorialActive ? {
+                        boxShadow: [
+                            '0 0 0px rgba(20, 184, 166, 0)',
+                            '0 0 20px rgba(20, 184, 166, 0.6)',
+                            '0 0 40px rgba(20, 184, 166, 0.4)',
+                            '0 0 20px rgba(20, 184, 166, 0.6)',
+                            '0 0 0px rgba(20, 184, 166, 0)'
+                        ],
+                        scale: [1, 1.05, 1]
+                    } : {}}
+                    transition={tutorialActive ? {
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                    } : {}}
+                    className={`relative flex items-center gap-2 px-4 py-2 ${tutorialActive
+                            ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white'
+                            : 'bg-teal-50 text-teal-700'
+                        } rounded-full font-bold text-sm hover:bg-teal-100 transition-colors overflow-hidden`}
                 >
-                    <Sparkles size={16} />
-                    {showGuide ? "Hide Guide" : "How it Works"}
-                    {showGuide ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
+                    {tutorialActive && (
+                        <>
+                            {/* Animated shimmer overlay */}
+                            <motion.div
+                                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                                animate={{
+                                    x: ['-100%', '200%']
+                                }}
+                                transition={{
+                                    duration: 2,
+                                    repeat: Infinity,
+                                    ease: "linear"
+                                }}
+                            />
+
+                            {/* Pulsing background glow */}
+                            <div className="absolute inset-0 bg-white/20 animate-pulse" />
+                        </>
+                    )}
+
+                    <motion.div
+                        animate={tutorialActive ? {
+                            rotate: [0, 360]
+                        } : {}}
+                        transition={{
+                            duration: 3,
+                            repeat: Infinity,
+                            ease: "linear"
+                        }}
+                    >
+                        <Sparkles size={16} className="relative z-10" />
+                    </motion.div>
+                    <span className="relative z-10">
+                        {showGuide ? "Hide Guide" : "How it Works"}
+                    </span>
+                    {showGuide ? <ChevronUp size={16} className="relative z-10" /> : <ChevronDown size={16} className="relative z-10" />}
+                </motion.button>
             </div>
 
-            {/* 1. PERMANENT "HOW TO USE" GUIDE (Collapsible) */}
+            {/* ✨ GLOWING TUTORIAL GUIDE */}
             <AnimatePresence>
                 {showGuide && (
                     <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: "auto" }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="overflow-hidden"
+                        className="overflow-hidden relative"
                     >
-                        <div className="bg-gradient-to-r from-gray-900 to-blue-900 rounded-[24px] p-6 text-white shadow-xl relative">
+                        {/* ✨ OUTER GLOW EFFECT */}
+                        {tutorialActive && (
+                            <motion.div
+                                className="absolute -inset-4 rounded-[32px] opacity-60 blur-2xl"
+                                animate={{
+                                    background: [
+                                        'linear-gradient(135deg, rgba(20, 184, 166, 0.3), rgba(6, 182, 212, 0.3))',
+                                        'linear-gradient(135deg, rgba(6, 182, 212, 0.4), rgba(20, 184, 166, 0.4))',
+                                        'linear-gradient(135deg, rgba(20, 184, 166, 0.3), rgba(6, 182, 212, 0.3))'
+                                    ]
+                                }}
+                                transition={{
+                                    duration: 3,
+                                    repeat: Infinity,
+                                    ease: "easeInOut"
+                                }}
+                            />
+                        )}
+
+                        <motion.div
+                            animate={tutorialActive ? {
+                                boxShadow: [
+                                    '0 10px 40px rgba(20, 184, 166, 0.2)',
+                                    '0 15px 60px rgba(20, 184, 166, 0.4)',
+                                    '0 10px 40px rgba(20, 184, 166, 0.2)'
+                                ]
+                            } : {}}
+                            transition={{
+                                duration: 2,
+                                repeat: Infinity,
+                                ease: "easeInOut"
+                            }}
+                            className="relative bg-gradient-to-r from-gray-900 to-blue-900 rounded-[24px] p-6 text-white shadow-xl overflow-hidden"
+                        >
+                            {/* ✨ ANIMATED GRADIENT OVERLAY */}
+                            {tutorialActive && (
+                                <>
+                                    <motion.div
+                                        className="absolute inset-0 opacity-30"
+                                        animate={{
+                                            background: [
+                                                'linear-gradient(45deg, transparent 30%, rgba(20, 184, 166, 0.3) 50%, transparent 70%)',
+                                                'linear-gradient(45deg, transparent 30%, rgba(6, 182, 212, 0.3) 50%, transparent 70%)'
+                                            ],
+                                            backgroundPosition: ['0% 0%', '100% 100%']
+                                        }}
+                                        transition={{
+                                            duration: 3,
+                                            repeat: Infinity,
+                                            ease: "linear"
+                                        }}
+                                        style={{
+                                            backgroundSize: '200% 200%'
+                                        }}
+                                    />
+
+                                    {/* Sparkle effects */}
+                                    <motion.div
+                                        className="absolute top-4 right-4"
+                                        animate={{
+                                            scale: [1, 1.5, 1],
+                                            opacity: [0.3, 1, 0.3]
+                                        }}
+                                        transition={{
+                                            duration: 2,
+                                            repeat: Infinity,
+                                            ease: "easeInOut"
+                                        }}
+                                    >
+                                        <Sparkles size={24} className="text-teal-300" />
+                                    </motion.div>
+
+                                    <motion.div
+                                        className="absolute bottom-4 left-4"
+                                        animate={{
+                                            scale: [1, 1.3, 1],
+                                            opacity: [0.5, 1, 0.5]
+                                        }}
+                                        transition={{
+                                            duration: 1.5,
+                                            repeat: Infinity,
+                                            ease: "easeInOut",
+                                            delay: 0.5
+                                        }}
+                                    >
+                                        <Sparkles size={20} className="text-cyan-300" />
+                                    </motion.div>
+                                </>
+                            )}
+
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 relative z-10">
                                 <GuideStep
                                     step="1" title="Upload" icon={Upload} color="blue"
                                     desc="Upload PDFs or images. AI parses them instantly."
                                     action={() => handleUploadClick ? handleUploadClick() : doNavigate('/upload')}
+                                    tutorialActive={tutorialActive}
                                 />
                                 <GuideStep
                                     step="2" title="Study" icon={BookOpen} color="teal"
                                     desc="Read and ask 'Gloqe' questions about your text."
-                                // No direct action, just info
+                                    tutorialActive={tutorialActive}
                                 />
                                 <GuideStep
                                     step="3" title="Quiz" icon={Zap} color="purple"
                                     desc="Take AI-generated quizzes to test mastery."
                                     action={() => handleTakeQuiz ? handleTakeQuiz() : doNavigate('/quiz')}
+                                    tutorialActive={tutorialActive}
                                 />
                                 <GuideStep
                                     step="4" title="Rank Up" icon={Trophy} color="orange"
                                     desc="Earn XP and climb the global leaderboard."
-                                // No direct action
+                                    tutorialActive={tutorialActive}
                                 />
                             </div>
-                        </div>
+                        </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -124,12 +264,12 @@ const OverviewSection = ({
                         <span className="text-sm font-bold text-gray-300">Streak</span>
                     </div>
                     <div className="text-4xl font-black">{safeStats.currentStreak} <span className="text-lg text-gray-500">days</span></div>
+                    <p className="text-xs text-gray-500 mt-2">Login daily to increase</p>
                 </motion.div>
             </div>
 
             {/* 3. MAIN ACTION AREA */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
                 {/* LEFT: PRIMARY ACTIONS */}
                 <motion.div variants={itemVariants} className="lg:col-span-1 space-y-6">
                     <div className="bg-white rounded-[24px] p-1 shadow-sm border border-gray-100 h-full">
@@ -233,27 +373,58 @@ const OverviewSection = ({
 
 // --- SUB-COMPONENTS ---
 
-const GuideStep = ({ step, title, icon: Icon, color, desc, action }) => (
-    <div className={`relative p-4 rounded-2xl bg-white/5 border border-white/10 ${action ? 'cursor-pointer hover:bg-white/10' : ''} transition-colors`} onClick={action}>
-        <div className={`w-10 h-10 rounded-full bg-${color}-500/20 text-${color}-300 flex items-center justify-center mb-3 font-bold`}>
+const GuideStep = ({ step, title, icon: Icon, color, desc, action, tutorialActive }) => (
+    <motion.div
+        animate={tutorialActive && action ? {
+            scale: [1, 1.05, 1],
+            borderColor: [
+                'rgba(255, 255, 255, 0.1)',
+                'rgba(20, 184, 166, 0.5)',
+                'rgba(255, 255, 255, 0.1)'
+            ]
+        } : {}}
+        transition={{
+            duration: 2,
+            repeat: Infinity,
+            ease: "easeInOut"
+        }}
+        className={`relative p-4 rounded-2xl bg-white/5 border border-white/10 ${action ? 'cursor-pointer hover:bg-white/10' : ''} transition-colors overflow-hidden`}
+        onClick={action}
+    >
+        {tutorialActive && action && (
+            <motion.div
+                className="absolute inset-0 bg-gradient-to-br from-teal-500/10 to-cyan-500/10"
+                animate={{
+                    opacity: [0.3, 0.6, 0.3]
+                }}
+                transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                }}
+            />
+        )}
+
+        <div className={`relative z-10 w-10 h-10 rounded-full bg-${color}-500/20 text-${color}-300 flex items-center justify-center mb-3 font-bold`}>
             {step}
         </div>
-        <h3 className="text-lg font-bold mb-1 flex items-center gap-2">
+        <h3 className="relative z-10 text-lg font-bold mb-1 flex items-center gap-2">
             {title} <Icon size={16} className={`text-${color}-400`} />
         </h3>
-        <p className="text-xs text-gray-300 leading-relaxed">{desc}</p>
+        <p className="relative z-10 text-xs text-gray-300 leading-relaxed">{desc}</p>
         {action && (
-            <div className="mt-3 flex items-center gap-1 text-xs font-bold text-teal-300">
+            <div className="relative z-10 mt-3 flex items-center gap-1 text-xs font-bold text-teal-300">
                 Try Now <ArrowRight size={12} />
             </div>
         )}
-    </div>
+    </motion.div>
 );
 
 const StatCard = ({ title, value, icon: Icon, color, onClick }) => (
     <motion.div
         whileHover={onClick ? { y: -5 } : {}}
         onClick={onClick}
+        variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
         className={`bg-white rounded-3xl p-5 shadow-lg border border-gray-100 ${onClick ? 'cursor-pointer' : ''}`}
     >
         <div className={`w-10 h-10 rounded-xl bg-${color}-50 text-${color}-600 flex items-center justify-center mb-4`}>

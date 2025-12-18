@@ -166,7 +166,7 @@ const FlashcardsSection = () => {
 
     // Calculate optimal card count automatically
     const optimalCardCount = calculateOptimalCardCount(document);
-    
+
     setGeneratingDeck(document.id);
     const toastId = toast.loading(`🧠 AI is generating ${optimalCardCount} flashcards...`);
 
@@ -325,11 +325,10 @@ const FlashcardsSection = () => {
       <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300">
         <button
           onClick={() => setSelectedSubject('all')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap transition-all shadow-sm ${
-            selectedSubject === 'all'
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap transition-all shadow-sm ${selectedSubject === 'all'
               ? 'bg-gradient-to-r from-gray-800 to-gray-700 text-white'
               : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-gray-400'
-          }`}
+            }`}
         >
           All ({decks.length})
         </button>
@@ -341,11 +340,10 @@ const FlashcardsSection = () => {
             <button
               key={subject}
               onClick={() => setSelectedSubject(subject)}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap transition-all shadow-sm ${
-                selectedSubject === subject
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap transition-all shadow-sm ${selectedSubject === subject
                   ? `${config.bg} ${config.color} border-2 ${config.border}`
                   : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-gray-400'
-              }`}
+                }`}
             >
               {subject} ({subjectDecks.length})
             </button>
@@ -363,7 +361,7 @@ const FlashcardsSection = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {documents.slice(0, 6).map((doc) => {
               const optimalCount = calculateOptimalCardCount(doc);
-              
+
               return (
                 <motion.div
                   key={doc.id}
@@ -423,8 +421,8 @@ const FlashcardsSection = () => {
             {filteredDecks.map((deck) => {
               const subject = deck.subject || 'General Studies';
               const config = subjectConfig[subject] || subjectConfig['General Studies'];
-              const masteryPercentage = deck.cardCount > 0 
-                ? Math.round((deck.masteredCount / deck.cardCount) * 100) 
+              const masteryPercentage = deck.cardCount > 0
+                ? Math.round((deck.masteredCount / deck.cardCount) * 100)
                 : 0;
 
               return (
@@ -475,7 +473,7 @@ const FlashcardsSection = () => {
 
                   <div className="flex gap-2">
                     <button
-                      onClick={() => navigate(`/flashcards/${deckId}`)}
+                      onClick={() => navigate(`/flashcards/${deck.id}`)}
                       className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-bold hover:scale-105 transition-all"
                     >
                       <Play size={14} />

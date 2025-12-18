@@ -1,4 +1,4 @@
-// src/pages/Dashboard.jsx - FINAL VERSION: NO ARROW + GLOWING TUTORIAL BUTTON
+// src/features/student/pages/Dashboard.jsx - ✅ PROFESSIONAL & OPTIMIZED 2025 + STREAK TRACKING
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -16,6 +16,7 @@ import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/f
 import { db } from '@shared/config/firebase';
 import { awardDailyXP, DAILY_ACTIONS } from '@gamification/services/gamificationService';
 import { useGamification } from '@gamification/hooks/useGamification';
+import { updateDailyStreak } from '@shared/services/streakService';
 import toast from 'react-hot-toast';
 import logoImage from '@assets/logo/logo.svg';
 
@@ -31,10 +32,12 @@ import QuizzesSection from '@student/components/dashboard/QuizzesSection';
 import FlashcardsSection from '@student/components/dashboard/FlashcardsSection';
 import NotesSection from '@student/components/dashboard/NotesSection';
 import RoomsSection from '@student/components/dashboard/RoomsSection';
-import LeaderboardSection from '@analytics/components/LeaderboardSection';
 import SessionHistorySection from '@student/components/dashboard/SessionHistorySection';
 import AchievementsSection from '@student/components/dashboard/AchievementsSection';
-import Analytics from '@analytics/pages/Analytics';
+
+// Analytics Components
+import StudentAnalytics from '@analytics/components/StudentAnalytics';
+import LeaderboardSection from '@analytics/components/LeaderboardSection';
 
 // ============================================
 // CONSTANTS
@@ -61,7 +64,6 @@ const SIDEBAR_ITEMS = [
     { icon: Clock, label: 'History', tab: 'history', badge: null },
 ];
 
-// ✨ TUTORIAL STEPS CONFIGURATION
 const TUTORIAL_STEPS = [
     {
         id: 'welcome',
@@ -124,7 +126,7 @@ const TUTORIAL_STEPS = [
 ];
 
 // ============================================
-// ANIMATED COMPONENTS
+// ANIMATED COMPONENTS - OPTIMIZED
 // ============================================
 
 const AnimatedCounter = ({ value, duration = 1000 }) => {
@@ -132,30 +134,38 @@ const AnimatedCounter = ({ value, duration = 1000 }) => {
     const prevValueRef = useRef(0);
 
     useEffect(() => {
+        let animationFrame;
         let startTime;
         const startValue = prevValueRef.current;
 
         const animate = (currentTime) => {
             if (!startTime) startTime = currentTime;
             const progress = Math.min((currentTime - startTime) / duration, 1);
-            setDisplayValue(Math.floor(startValue + (value - startValue) * progress));
+            const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+            setDisplayValue(Math.floor(startValue + (value - startValue) * easeOutQuart));
 
             if (progress < 1) {
-                requestAnimationFrame(animate);
+                animationFrame = requestAnimationFrame(animate);
             } else {
                 prevValueRef.current = value;
             }
         };
 
         if (value !== prevValueRef.current) {
-            requestAnimationFrame(animate);
+            animationFrame = requestAnimationFrame(animate);
         }
+
+        return () => {
+            if (animationFrame) cancelAnimationFrame(animationFrame);
+        };
     }, [value, duration]);
 
     return <span>{displayValue.toLocaleString()}</span>;
 };
 
-const XPProgressRing = ({ progress, size = 120, strokeWidth = 8 }) => {
+// ✨ COMPACT XP PROGRESS RING
+const CompactXPRing = ({ progress, size = 56 }) => {
+    const strokeWidth = 4;
     const radius = (size - strokeWidth) / 2;
     const circumference = 2 * Math.PI * radius;
     const offset = circumference - (progress / 100) * circumference;
@@ -176,7 +186,7 @@ const XPProgressRing = ({ progress, size = 120, strokeWidth = 8 }) => {
                     cy={size / 2}
                     r={radius}
                     fill="none"
-                    stroke="url(#xpGradient)"
+                    stroke="url(#compactGradient)"
                     strokeWidth={strokeWidth}
                     strokeDasharray={circumference}
                     initial={{ strokeDashoffset: circumference }}
@@ -185,33 +195,24 @@ const XPProgressRing = ({ progress, size = 120, strokeWidth = 8 }) => {
                     strokeLinecap="round"
                 />
                 <defs>
-                    <linearGradient id="xpGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#fbbf24" />
-                        <stop offset="50%" stopColor="#f97316" />
-                        <stop offset="100%" stopColor="#ef4444" />
+                    <linearGradient id="compactGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#14b8a6" />
+                        <stop offset="100%" stopColor="#06b6d4" />
                     </linearGradient>
                 </defs>
             </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-white text-xs font-black">{Math.round(progress)}%</span>
+            </div>
         </div>
     );
 };
 
 // ============================================
-// ✨ TUTORIAL OVERLAY (NO ARROW)
+// TUTORIAL OVERLAY
 // ============================================
 
 const TutorialOverlay = ({ step, onNext, onPrev, onSkip, currentStepIndex, totalSteps }) => {
-    useEffect(() => {
-        // Allow scrolling during tutorial
-        if (step) {
-            document.body.style.overflow = 'auto';
-        }
-        return () => {
-            document.body.style.overflow = 'auto';
-        };
-    }, [step]);
-
-    // Auto-scroll to target element
     useEffect(() => {
         if (step?.scrollTo) {
             setTimeout(() => {
@@ -233,121 +234,137 @@ const TutorialOverlay = ({ step, onNext, onPrev, onSkip, currentStepIndex, total
 
     return (
         <>
-            {/* Semi-transparent Overlay - Allows scrolling */}
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/60 backdrop-blur-md z-[60]"
+                className="fixed inset-0 bg-gradient-to-br from-black/75 via-gray-900/70 to-black/75 backdrop-blur-2xl z-[60]"
                 style={{ pointerEvents: 'none' }}
             />
 
-            {/* Tutorial Card - Fixed position, always visible */}
             <AnimatePresence mode="wait">
                 <motion.div
                     key={step.id}
-                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                    initial={{ opacity: 0, scale: 0.9, y: 32 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9, y: -20 }}
+                    exit={{ opacity: 0, scale: 0.9, y: -32 }}
+                    transition={{ duration: 0.4, ease: [0.34, 1.56, 0.64, 1] }}
                     className={`fixed z-[70] ${isCenter
-                            ? 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2'
-                            : 'bottom-8 left-1/2 -translate-x-1/2'
-                        } bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 border-2 border-teal-500`}
+                        ? 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2'
+                        : 'bottom-8 left-1/2 -translate-x-1/2'
+                        } max-w-lg w-full mx-4`}
                     style={{ pointerEvents: 'auto' }}
                 >
-                    {/* Animated Teal Glow Border */}
-                    <div className="absolute -inset-1 rounded-2xl">
-                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-teal-500 via-cyan-500 to-teal-500 opacity-60 blur-2xl animate-pulse" />
-                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-teal-500/50 via-cyan-500/50 to-teal-500/50 animate-border-flow" />
-                    </div>
+                    <div className="relative">
+                        <div className="absolute -inset-4 bg-gradient-to-r from-teal-500/30 via-cyan-500/30 to-teal-500/30 blur-3xl opacity-60 rounded-3xl" />
 
-                    {/* Content */}
-                    <div className="relative bg-white rounded-2xl p-6">
-                        {/* Header */}
-                        <div className="flex items-start gap-4 mb-5">
-                            <motion.div
-                                animate={{
-                                    scale: [1, 1.15, 1],
-                                    rotate: [0, 8, -8, 0]
-                                }}
-                                transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-                                className="w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-500 via-cyan-500 to-teal-600 flex items-center justify-center shadow-lg shrink-0"
-                            >
-                                <Sparkles size={26} className="text-white" strokeWidth={2.5} />
-                            </motion.div>
-                            <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <h3 className="text-xl font-black text-gray-900">
-                                        {step.title}
-                                    </h3>
-                                    <span className="px-2 py-0.5 bg-teal-100 text-teal-700 text-xs font-black rounded-full">
-                                        {currentStepIndex + 1}/{totalSteps}
-                                    </span>
+                        <div className="relative bg-white/95 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
+                            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-teal-500 via-cyan-500 to-teal-600" />
+
+                            <div className="p-8">
+                                <div className="flex items-start gap-5 mb-6">
+                                    <motion.div
+                                        animate={{
+                                            scale: [1, 1.1, 1],
+                                            rotate: [0, 8, -8, 0]
+                                        }}
+                                        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                                        className="relative shrink-0"
+                                    >
+                                        <div className="absolute inset-0 bg-gradient-to-br from-teal-500 via-cyan-500 to-teal-600 blur-xl opacity-40 rounded-2xl" />
+                                        <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-500 via-cyan-500 to-teal-600 flex items-center justify-center shadow-lg shadow-teal-500/30">
+                                            <Sparkles size={28} className="text-white drop-shadow-lg" strokeWidth={2.5} />
+                                        </div>
+                                    </motion.div>
+
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-3 mb-2.5">
+                                            <h3 className="text-xl font-black text-gray-900 tracking-tight">
+                                                {step.title}
+                                            </h3>
+                                            <span className="px-3 py-1.5 bg-gradient-to-r from-teal-50 to-cyan-50 text-teal-600 text-xs font-bold rounded-full border border-teal-200/50 shadow-sm">
+                                                {currentStepIndex + 1}/{totalSteps}
+                                            </span>
+                                        </div>
+                                        <p className="text-sm text-gray-600 leading-relaxed font-medium">
+                                            {step.description}
+                                        </p>
+                                    </div>
+
+                                    <motion.button
+                                        onClick={onSkip}
+                                        whileHover={{ scale: 1.1, rotate: 90 }}
+                                        whileTap={{ scale: 0.9 }}
+                                        className="text-gray-400 hover:text-gray-700 transition-all p-2 hover:bg-gray-100 rounded-xl shrink-0 group"
+                                    >
+                                        <X size={18} className="transition-transform duration-300" />
+                                    </motion.button>
                                 </div>
-                                <p className="text-sm text-gray-600 leading-relaxed font-medium">
-                                    {step.description}
-                                </p>
-                            </div>
-                            <button
-                                onClick={onSkip}
-                                className="text-gray-400 hover:text-gray-600 transition-colors p-1 hover:bg-gray-100 rounded-lg"
-                            >
-                                <X size={20} />
-                            </button>
-                        </div>
 
-                        {/* Progress Bar */}
-                        <div className="mb-6">
-                            <div className="flex items-center justify-between text-xs text-gray-500 mb-2 font-bold">
-                                <span>Progress</span>
-                                <span className="text-teal-600">{Math.round(((currentStepIndex + 1) / totalSteps) * 100)}% Complete</span>
-                            </div>
-                            <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden shadow-inner">
-                                <motion.div
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${((currentStepIndex + 1) / totalSteps) * 100}%` }}
-                                    className="h-full bg-gradient-to-r from-teal-500 via-cyan-500 to-teal-600 rounded-full shadow-sm"
-                                    transition={{ duration: 0.6, ease: "easeOut" }}
-                                />
-                            </div>
-                        </div>
+                                <div className="mb-7">
+                                    <div className="flex items-center justify-between text-xs font-semibold mb-3">
+                                        <span className="text-gray-500">Progress</span>
+                                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-600">
+                                            {Math.round(((currentStepIndex + 1) / totalSteps) * 100)}% Complete
+                                        </span>
+                                    </div>
+                                    <div className="h-2.5 bg-gradient-to-r from-gray-100 to-gray-50 rounded-full overflow-hidden shadow-inner relative">
+                                        <motion.div
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${((currentStepIndex + 1) / totalSteps) * 100}%` }}
+                                            className="h-full bg-gradient-to-r from-teal-500 via-cyan-500 to-teal-600 rounded-full shadow-lg"
+                                            transition={{ duration: 0.8, ease: [0.65, 0, 0.35, 1] }}
+                                        >
+                                            <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/30 to-white/0 animate-shimmer" />
+                                        </motion.div>
+                                    </div>
+                                </div>
 
-                        {/* Actions */}
-                        <div className="flex items-center gap-3">
-                            {currentStepIndex > 0 && (
-                                <button
-                                    onClick={onPrev}
-                                    className="px-5 py-3 rounded-xl border-2 border-gray-300 hover:border-gray-400 text-gray-700 font-bold transition-all hover:bg-gray-50 hover:shadow-md"
+                                <div className="flex items-center gap-3">
+                                    {currentStepIndex > 0 && (
+                                        <motion.button
+                                            whileHover={{ scale: 1.03, x: -2 }}
+                                            whileTap={{ scale: 0.97 }}
+                                            onClick={onPrev}
+                                            className="px-6 py-3.5 rounded-xl border-2 border-gray-200 hover:border-gray-300 hover:bg-gradient-to-r hover:from-gray-50 hover:to-white text-gray-700 font-bold transition-all shadow-sm hover:shadow-md"
+                                        >
+                                            ← Previous
+                                        </motion.button>
+                                    )}
+                                    <motion.button
+                                        whileHover={{ scale: 1.03 }}
+                                        whileTap={{ scale: 0.97 }}
+                                        onClick={onNext}
+                                        className="relative flex-1 px-6 py-3.5 rounded-xl overflow-hidden font-bold transition-all shadow-xl hover:shadow-2xl flex items-center justify-center gap-2.5 group"
+                                    >
+                                        <div className="absolute inset-0 bg-gradient-to-r from-teal-500 via-cyan-500 to-teal-600 transition-transform group-hover:scale-105" />
+                                        <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        <span className="relative text-white flex items-center gap-2.5">
+                                            {step.action === 'complete' ? (
+                                                <>
+                                                    <CheckCircle2 size={20} strokeWidth={2.5} />
+                                                    Get Started
+                                                    <Sparkles size={18} strokeWidth={2.5} />
+                                                </>
+                                            ) : (
+                                                <>
+                                                    Next Step
+                                                    <ChevronRight size={20} strokeWidth={3} className="group-hover:translate-x-1 transition-transform" />
+                                                </>
+                                            )}
+                                        </span>
+                                    </motion.button>
+                                </div>
+
+                                <motion.button
+                                    onClick={onSkip}
+                                    whileHover={{ y: -1 }}
+                                    className="w-full mt-5 text-sm text-gray-500 hover:text-gray-700 font-semibold transition-all hover:bg-gray-50 py-3 rounded-xl"
                                 >
-                                    ← Previous
-                                </button>
-                            )}
-                            <button
-                                onClick={onNext}
-                                className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-teal-500 via-cyan-500 to-teal-600 hover:from-teal-600 hover:via-cyan-600 hover:to-teal-700 text-white font-black transition-all shadow-lg hover:shadow-xl transform hover:scale-[1.02] flex items-center justify-center gap-2"
-                            >
-                                {step.action === 'complete' ? (
-                                    <>
-                                        <CheckCircle2 size={20} strokeWidth={2.5} />
-                                        Get Started
-                                        <Sparkles size={18} />
-                                    </>
-                                ) : (
-                                    <>
-                                        Next Step
-                                        <ChevronRight size={20} strokeWidth={3} />
-                                    </>
-                                )}
-                            </button>
+                                    Skip Tutorial →
+                                </motion.button>
+                            </div>
                         </div>
-
-                        {/* Skip Link */}
-                        <button
-                            onClick={onSkip}
-                            className="w-full mt-4 text-sm text-gray-500 hover:text-gray-700 font-bold transition-colors hover:bg-gray-50 py-2 rounded-lg"
-                        >
-                            Skip Tutorial →
-                        </button>
                     </div>
                 </motion.div>
             </AnimatePresence>
@@ -356,7 +373,7 @@ const TutorialOverlay = ({ step, onNext, onPrev, onSkip, currentStepIndex, total
 };
 
 // ============================================
-// COMMAND PALETTE & MOBILE SIDEBAR
+// COMMAND PALETTE
 // ============================================
 
 const CommandPalette = ({ isOpen, onClose, onNavigate, quickActions }) => {
@@ -401,85 +418,109 @@ const CommandPalette = ({ isOpen, onClose, onNavigate, quickActions }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-start justify-center pt-[20vh]"
+            className="fixed inset-0 bg-black/70 backdrop-blur-xl z-50 flex items-start justify-center pt-[18vh]"
             onClick={onClose}
         >
             <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: -20 }}
+                initial={{ opacity: 0, scale: 0.94, y: -20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: -20 }}
-                className="w-full max-w-xl bg-white rounded-2xl shadow-2xl overflow-hidden"
+                exit={{ opacity: 0, scale: 0.94, y: -20 }}
+                transition={{ duration: 0.3, ease: [0.34, 1.56, 0.64, 1] }}
+                className="w-full max-w-2xl relative"
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="flex items-center gap-3 p-4 border-b border-gray-100">
-                    <Search size={20} className="text-gray-400" />
-                    <input
-                        ref={inputRef}
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search pages, actions, or type a command..."
-                        className="flex-1 bg-transparent text-gray-900 placeholder-gray-400 focus:outline-none text-lg"
-                    />
-                    <kbd className="px-2 py-1 bg-gray-100 text-gray-500 text-xs font-mono rounded">ESC</kbd>
-                </div>
+                <div className="absolute -inset-6 bg-gradient-to-r from-teal-500/20 via-cyan-500/20 to-teal-500/20 blur-3xl opacity-40 rounded-3xl" />
 
-                <div className="max-h-80 overflow-y-auto p-2">
-                    {filteredItems.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500">
-                            No results found
+                <div className="relative bg-white/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
+                    <div className="flex items-center gap-4 px-6 py-5 border-b border-gray-100/50 bg-gradient-to-r from-gray-50/50 to-transparent">
+                        <div className="p-2 bg-gradient-to-br from-gray-100 to-gray-50 rounded-xl">
+                            <Search size={20} className="text-gray-600" strokeWidth={2} />
                         </div>
-                    ) : (
-                        filteredItems.map((item, idx) => (
-                            <button
-                                key={idx}
-                                onClick={() => {
-                                    if (item.type === 'page') {
-                                        onNavigate(item.tab);
-                                    } else if (item.action) {
-                                        item.action();
-                                    } else if (item.path) {
-                                        window.location.href = item.path;
-                                    }
-                                    onClose();
-                                }}
-                                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors group"
-                            >
-                                <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-gray-200 transition-colors">
-                                    {item.icon && <item.icon size={18} className="text-gray-600" />}
-                                </div>
-                                <div className="flex-1 text-left">
-                                    <p className="font-semibold text-gray-900">{item.label}</p>
-                                    {item.desc && <p className="text-xs text-gray-500">{item.desc}</p>}
-                                </div>
-                                {item.type === 'page' && (
-                                    <span className="text-xs text-gray-400 font-medium">Navigate</span>
-                                )}
-                                {item.type === 'action' && (
-                                    <span className="text-xs text-gray-400 font-medium">Action</span>
-                                )}
-                            </button>
-                        ))
-                    )}
-                </div>
+                        <input
+                            ref={inputRef}
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Search pages, actions, or type a command..."
+                            className="flex-1 bg-transparent text-gray-900 placeholder-gray-400 focus:outline-none text-base font-medium"
+                        />
+                        <kbd className="px-3 py-1.5 bg-white text-gray-500 text-xs font-semibold rounded-lg border border-gray-200 shadow-sm">ESC</kbd>
+                    </div>
 
-                <div className="p-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between text-xs text-gray-500">
-                    <div className="flex items-center gap-4">
-                        <span className="flex items-center gap-1">
-                            <kbd className="px-1.5 py-0.5 bg-gray-200 rounded text-xs">↑↓</kbd>
-                            Navigate
-                        </span>
-                        <span className="flex items-center gap-1">
-                            <kbd className="px-1.5 py-0.5 bg-gray-200 rounded text-xs">↵</kbd>
-                            Select
+                    <div className="max-h-96 overflow-y-auto p-3 custom-scrollbar">
+                        {filteredItems.length === 0 ? (
+                            <div className="text-center py-16 text-gray-500">
+                                <motion.div
+                                    animate={{ scale: [1, 1.1, 1] }}
+                                    transition={{ duration: 2, repeat: Infinity }}
+                                >
+                                    <Search size={40} className="mx-auto mb-4 opacity-30" />
+                                </motion.div>
+                                <p className="font-semibold">No results found</p>
+                                <p className="text-sm mt-1">Try a different search term</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-1">
+                                {filteredItems.map((item, idx) => (
+                                    <motion.button
+                                        key={idx}
+                                        onClick={() => {
+                                            if (item.type === 'page') {
+                                                onNavigate(item.tab);
+                                            } else if (item.action) {
+                                                item.action();
+                                            } else if (item.path) {
+                                                window.location.href = item.path;
+                                            }
+                                            onClose();
+                                        }}
+                                        whileHover={{ scale: 1.01, x: 2 }}
+                                        whileTap={{ scale: 0.99 }}
+                                        className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-gradient-to-r hover:from-gray-50 hover:to-transparent transition-all group border border-transparent hover:border-gray-100"
+                                    >
+                                        <div className="p-3 bg-gradient-to-br from-gray-100 to-gray-50 rounded-xl group-hover:from-teal-50 group-hover:to-cyan-50 transition-all shadow-sm group-hover:shadow shrink-0">
+                                            {item.icon && <item.icon size={20} className="text-gray-700 group-hover:text-teal-600 transition-colors" strokeWidth={2} />}
+                                        </div>
+                                        <div className="flex-1 text-left min-w-0">
+                                            <p className="font-bold text-gray-900 truncate group-hover:text-teal-600 transition-colors">{item.label}</p>
+                                            {item.desc && <p className="text-xs text-gray-500 truncate mt-1">{item.desc}</p>}
+                                        </div>
+                                        <motion.span
+                                            className="text-xs text-gray-400 font-medium shrink-0 px-3 py-1.5 bg-gray-50 rounded-lg group-hover:bg-teal-50 group-hover:text-teal-600 transition-all"
+                                            whileHover={{ scale: 1.05 }}
+                                        >
+                                            {item.type === 'page' ? 'Navigate' : 'Action'}
+                                        </motion.span>
+                                    </motion.button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="px-5 py-4 border-t border-gray-100/50 bg-gradient-to-r from-gray-50/80 to-transparent backdrop-blur-sm flex items-center justify-between text-xs text-gray-500 font-medium">
+                        <div className="flex items-center gap-5">
+                            <span className="flex items-center gap-2">
+                                <kbd className="px-2.5 py-1.5 bg-white rounded-lg text-xs border border-gray-200 shadow-sm">↑↓</kbd>
+                                Navigate
+                            </span>
+                            <span className="flex items-center gap-2">
+                                <kbd className="px-2.5 py-1.5 bg-white rounded-lg text-xs border border-gray-200 shadow-sm">↵</kbd>
+                                Select
+                            </span>
+                        </div>
+                        <span className="flex items-center gap-1.5">
+                            Press <kbd className="px-2.5 py-1.5 bg-white rounded-lg border border-gray-200 mx-1 shadow-sm">⌘K</kbd> anytime
                         </span>
                     </div>
-                    <span>Tip: Press <kbd className="px-1.5 py-0.5 bg-gray-200 rounded">⌘K</kbd> anytime</span>
                 </div>
             </motion.div>
         </motion.div>
     );
 };
+
+// ============================================
+// MOBILE SIDEBAR
+// ============================================
 
 const MobileSidebar = ({ isOpen, onClose, activeTab, onTabChange, onLogout }) => (
     <AnimatePresence>
@@ -489,56 +530,81 @@ const MobileSidebar = ({ isOpen, onClose, activeTab, onTabChange, onLogout }) =>
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 lg:hidden"
+                    className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 lg:hidden"
                     onClick={onClose}
                 />
                 <motion.div
-                    initial={{ x: -300 }}
+                    initial={{ x: -350 }}
                     animate={{ x: 0 }}
-                    exit={{ x: -300 }}
-                    transition={{ type: 'spring', damping: 25 }}
-                    className="fixed left-0 top-0 h-full w-80 bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 z-50 lg:hidden overflow-y-auto"
+                    exit={{ x: -350 }}
+                    transition={{ type: 'spring', damping: 32, stiffness: 320 }}
+                    className="fixed left-0 top-0 h-full w-80 bg-gradient-to-b from-gray-900 via-gray-850 to-gray-900 z-50 lg:hidden overflow-y-auto shadow-2xl custom-scrollbar"
                 >
-                    <div className="p-4 flex items-center justify-between border-b border-gray-700">
+                    <div className="p-6 flex items-center justify-between border-b border-gray-800/50 bg-gradient-to-r from-white/5 to-transparent">
                         <div className="flex items-center gap-3">
-                            <img src={logoImage} alt="Logo" className="h-10 w-10" />
-                            <span className="text-xl font-black text-white">StudyGloqe</span>
+                            <div className="relative">
+                                <div className="absolute inset-0 bg-teal-500/30 blur-lg rounded-xl" />
+                                <img src={logoImage} alt="Logo" className="relative h-11 w-11 rounded-xl shadow-lg" />
+                            </div>
+                            <div>
+                                <span className="text-lg font-black text-white block tracking-tight">StudyGloqe</span>
+                                <span className="text-xs text-gray-400 font-semibold">AI Learning</span>
+                            </div>
                         </div>
-                        <button onClick={onClose} className="p-2 text-gray-400 hover:text-white">
-                            <X size={24} />
-                        </button>
+                        <motion.button
+                            whileHover={{ scale: 1.1, rotate: 90 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={onClose}
+                            className="p-2.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-xl transition-all"
+                        >
+                            <X size={20} />
+                        </motion.button>
                     </div>
 
-                    <nav className="p-4 space-y-1">
+                    <nav className="p-4 space-y-2">
                         {SIDEBAR_ITEMS.map((item) => (
-                            <button
+                            <motion.button
                                 key={item.tab}
                                 onClick={() => { onTabChange(item.tab); onClose(); }}
-                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${activeTab === item.tab
-                                    ? 'bg-gray-700 text-white'
-                                    : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                                whileHover={{ x: 6, scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl font-semibold transition-all relative overflow-hidden group ${activeTab === item.tab
+                                    ? 'bg-gradient-to-r from-white/15 to-white/5 text-white shadow-xl border border-white/10'
+                                    : 'text-gray-400 hover:bg-white/5 hover:text-white'
                                     }`}
                             >
-                                <item.icon size={20} />
-                                <span>{item.label}</span>
+                                {activeTab === item.tab && (
+                                    <motion.div
+                                        layoutId="activeSidebarItem"
+                                        className="absolute inset-0 bg-gradient-to-r from-teal-500/20 to-cyan-500/20"
+                                        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                                    />
+                                )}
+                                <item.icon size={20} strokeWidth={2} className="relative z-10" />
+                                <span className="flex-1 text-left relative z-10">{item.label}</span>
                                 {item.badge && (
-                                    <span className={`ml-auto px-2 py-0.5 text-xs font-bold rounded-full ${item.badge === 'LIVE' ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-600 text-gray-300'
+                                    <span className={`relative z-10 px-2.5 py-1 text-xs font-bold rounded-full shadow-lg ${item.badge === 'LIVE' ? 'bg-red-500 text-white animate-pulse' :
+                                        item.badge === 'NEW' ? 'bg-teal-500 text-white' :
+                                            'bg-gray-700 text-gray-300'
                                         }`}>
                                         {item.badge}
                                     </span>
                                 )}
-                            </button>
+                            </motion.button>
                         ))}
                     </nav>
 
-                    <div className="p-4 border-t border-gray-700 mt-auto">
-                        <button
+                    <div className="p-4 border-t border-gray-800/50 mt-auto">
+                        <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
                             onClick={onLogout}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/20 font-bold transition-all"
+                            className="w-full flex items-center justify-center gap-2.5 px-4 py-3.5 rounded-xl text-red-400 hover:bg-red-500/20 font-semibold transition-all border-2 border-red-500/20 hover:border-red-500/50 shadow-lg shadow-red-500/10 relative overflow-hidden group"
                         >
-                            <LogOut size={18} />
-                            Logout
-                        </button>
+                            <div className="absolute inset-0 bg-gradient-to-r from-red-500/0 via-red-500/10 to-red-500/0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <LogOut size={18} className="relative z-10" />
+                            <span className="relative z-10">Logout</span>
+                        </motion.button>
                     </div>
                 </motion.div>
             </>
@@ -581,10 +647,8 @@ const Dashboard = () => {
     const [xpGained, setXpGained] = useState(0);
     const [levelModalOpen, setLevelModalOpen] = useState(false);
 
-    // ✨ TUTORIAL STATE
     const [tutorialActive, setTutorialActive] = useState(false);
     const [currentTutorialStep, setCurrentTutorialStep] = useState(0);
-    const [showTutorialGlow, setShowTutorialGlow] = useState(false);
 
     const initialTab = searchParams.get('tab') || 'overview';
     const [activeTab, setActiveTab] = useState(initialTab);
@@ -592,29 +656,12 @@ const Dashboard = () => {
     const isMountedRef = useRef(true);
     const listenersRef = useRef([]);
 
-    // ✨ AUTO-START TUTORIAL + 30-SECOND GLOW
-    useEffect(() => {
+    const shouldShowTutorialButton = useMemo(() => {
         const hasSeenTutorial = localStorage.getItem('hasSeenDashboardTutorial');
-        if (!hasSeenTutorial && realtimeStats.totalDocuments === 0) {
-            // Show tutorial button glow for 30 seconds
-            setShowTutorialGlow(true);
-            const glowTimer = setTimeout(() => {
-                setShowTutorialGlow(false);
-            }, 30000); // 30 seconds
+        return !hasSeenTutorial && activeTab === 'overview';
+    }, [activeTab]);
 
-            // Start tutorial after 2 seconds
-            const tutorialTimer = setTimeout(() => {
-                setTutorialActive(true);
-            }, 2000);
-
-            return () => {
-                clearTimeout(glowTimer);
-                clearTimeout(tutorialTimer);
-            };
-        }
-    }, [realtimeStats.totalDocuments]);
-
-    // ✨ TUTORIAL NAVIGATION
+    // Tutorial navigation
     const handleNextTutorialStep = () => {
         if (currentTutorialStep < TUTORIAL_STEPS.length - 1) {
             setCurrentTutorialStep(prev => prev + 1);
@@ -632,7 +679,6 @@ const Dashboard = () => {
     const completeTutorial = () => {
         setTutorialActive(false);
         setCurrentTutorialStep(0);
-        setShowTutorialGlow(false);
         localStorage.setItem('hasSeenDashboardTutorial', 'true');
         toast.success('🎉 Tutorial completed! Ready to supercharge your learning!', {
             duration: 4000,
@@ -649,14 +695,12 @@ const Dashboard = () => {
     const skipTutorial = () => {
         setTutorialActive(false);
         setCurrentTutorialStep(0);
-        setShowTutorialGlow(false);
         localStorage.setItem('hasSeenDashboardTutorial', 'true');
     };
 
     const startTutorial = () => {
         setTutorialActive(true);
         setCurrentTutorialStep(0);
-        setShowTutorialGlow(false);
     };
 
     // Keyboard shortcuts
@@ -706,6 +750,7 @@ const Dashboard = () => {
         });
     }, [notifications, dismissNotification]);
 
+    // Real-time documents listener
     useEffect(() => {
         if (!user?.uid) return;
 
@@ -741,6 +786,7 @@ const Dashboard = () => {
         return () => unsubscribe();
     }, [user?.uid]);
 
+    // Real-time sessions listener
     useEffect(() => {
         if (!user?.uid) return;
 
@@ -777,31 +823,91 @@ const Dashboard = () => {
         return () => unsubscribe();
     }, [user?.uid]);
 
+    // ✅ UPDATED: Daily login bonus + Streak tracking
     useEffect(() => {
         if (!user?.uid) return;
 
-        const lastLogin = localStorage.getItem(`lastLogin_${user.uid}`);
-        const today = new Date().toDateString();
+        const handleDailyLogin = async () => {
+            const today = new Date().toDateString();
+            const lastLoginKey = `lastLogin_${user.uid}`;
+            const lastLogin = localStorage.getItem(lastLoginKey);
 
-        if (lastLogin !== today) {
-            awardDailyXP(user.uid, DAILY_ACTIONS.DAILY_LOGIN, 'Daily Login Bonus')
-                .then(result => {
-                    if (result.success && isMountedRef.current) {
-                        localStorage.setItem(`lastLogin_${user.uid}`, today);
-                        toast.success(`🎁 Daily bonus: +${result.xpGained} XP!`, {
-                            duration: 3000,
+            if (lastLogin === today) {
+                console.log('✅ Already logged in today');
+                return;
+            }
+
+            try {
+                console.log('🔄 Processing daily login and streak...');
+
+                // 1️⃣ UPDATE STREAK FIRST
+                const streakResult = await updateDailyStreak(user.uid);
+
+                if (streakResult.success) {
+                    console.log('📊 Streak result:', streakResult);
+
+                    if (streakResult.isIncremented) {
+                        toast.success(`🔥 ${streakResult.streak} day streak!`, {
+                            duration: 4000,
                             style: {
-                                background: 'linear-gradient(135deg, #1f2937 0%, #111827 100%)',
+                                background: 'linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%)',
                                 color: '#fff',
                                 fontWeight: 'bold',
                                 borderRadius: '16px',
                                 padding: '16px 24px',
                             },
                         });
+                    } else if (streakResult.wasReset) {
+                        toast(`Streak reset! You missed ${streakResult.daysMissed} day(s). Start fresh! 💪`, {
+                            duration: 4000,
+                            style: {
+                                background: 'linear-gradient(135deg, #64748b 0%, #475569 100%)',
+                                color: '#fff',
+                                fontWeight: 'bold',
+                                borderRadius: '16px',
+                                padding: '16px 24px',
+                            },
+                        });
+                    } else if (streakResult.isNewStreak) {
+                        toast.success('🎉 Streak started! Come back tomorrow to keep it going', {
+                            duration: 3500,
+                            style: {
+                                background: 'linear-gradient(135deg, #14b8a6 0%, #06b6d4 100%)',
+                                color: '#fff',
+                                fontWeight: 'bold',
+                                borderRadius: '16px',
+                                padding: '16px 24px',
+                            }
+                        });
                     }
-                })
-                .catch(err => console.error('Daily bonus error:', err));
-        }
+                }
+
+                // 2️⃣ AWARD DAILY XP
+                const xpResult = await awardDailyXP(user.uid, DAILY_ACTIONS.DAILY_LOGIN, 'Daily Login Bonus');
+
+                if (xpResult.success && isMountedRef.current) {
+                    toast.success(`🎁 Daily bonus: +${xpResult.xpGained} XP!`, {
+                        duration: 3000,
+                        style: {
+                            background: 'linear-gradient(135deg, #14b8a6 0%, #06b6d4 100%)',
+                            color: '#fff',
+                            fontWeight: 'bold',
+                            borderRadius: '16px',
+                            padding: '16px 24px',
+                        },
+                    });
+                }
+
+                // 3️⃣ Mark today as logged in
+                localStorage.setItem(lastLoginKey, today);
+
+            } catch (error) {
+                console.error('❌ Daily login/streak error:', error);
+                toast.error('Failed to process daily login');
+            }
+        };
+
+        handleDailyLogin();
     }, [user?.uid]);
 
     useEffect(() => {
@@ -809,7 +915,7 @@ const Dashboard = () => {
         if (tab && tab !== activeTab) {
             setActiveTab(tab);
         }
-    }, [searchParams]);
+    }, [searchParams, activeTab]);
 
     const handleTabChange = useCallback((tabId) => {
         if (tabId !== activeTab) {
@@ -893,7 +999,7 @@ const Dashboard = () => {
                     />
                 );
             case 'analytics':
-                return <Analytics />;
+                return <StudentAnalytics />;
             case 'classes':
                 return <ClassesSection />;
             case 'documents':
@@ -928,13 +1034,20 @@ const Dashboard = () => {
         return (
             <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex items-center justify-center">
                 <div className="text-center">
-                    <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-                        className="w-16 h-16 border-4 border-gray-200 border-t-gray-800 rounded-full mx-auto mb-6"
-                    />
-                    <p className="text-gray-700 font-bold text-lg">Loading your dashboard...</p>
-                    <p className="text-gray-500 text-sm mt-2">Syncing real-time data</p>
+                    <div className="relative w-16 h-16 mx-auto mb-6">
+                        <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
+                            className="absolute inset-0 rounded-full border-4 border-gray-100 border-t-teal-500 shadow-lg"
+                        />
+                        <motion.div
+                            animate={{ rotate: -360 }}
+                            transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                            className="absolute inset-2 rounded-full border-4 border-gray-50 border-t-cyan-500"
+                        />
+                    </div>
+                    <p className="text-gray-900 font-bold text-lg mb-2">Loading your dashboard...</p>
+                    <p className="text-gray-500 text-sm font-medium">Syncing real-time data</p>
                 </div>
             </div>
         );
@@ -944,26 +1057,63 @@ const Dashboard = () => {
     const currentStep = TUTORIAL_STEPS[currentTutorialStep];
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
             {/* XP GAIN ANIMATION */}
             <AnimatePresence>
                 {showXPAnimation && xpGained > 0 && (
                     <motion.div
-                        initial={{ opacity: 0, y: 50, scale: 0.5 }}
-                        animate={{ opacity: 1, y: -30, scale: 1 }}
-                        exit={{ opacity: 0, y: -80, scale: 0.5 }}
+                        initial={{ opacity: 0, y: 80, scale: 0.3 }}
+                        animate={{ opacity: 1, y: -50, scale: 1 }}
+                        exit={{ opacity: 0, y: -120, scale: 0.3 }}
+                        transition={{ duration: 0.6, ease: [0.34, 1.56, 0.64, 1] }}
                         className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[100] pointer-events-none"
                     >
-                        <div className="bg-gradient-to-br from-gray-900 to-black text-white px-8 py-4 rounded-2xl font-black text-2xl shadow-2xl border border-gray-700 flex items-center gap-3">
-                            <Zap size={28} className="text-yellow-400" fill="currentColor" />
-                            +{xpGained} XP
+                        <div className="relative">
+                            <div className="absolute -inset-8 bg-gradient-to-r from-yellow-400/40 via-yellow-300/40 to-yellow-400/40 blur-3xl" />
+
+                            <div className="relative bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white px-12 py-6 rounded-2xl font-black text-4xl shadow-2xl border border-yellow-400/30 flex items-center gap-5">
+                                <motion.div
+                                    animate={{
+                                        rotate: [0, 10, -10, 10, 0],
+                                        scale: [1, 1.2, 1, 1.2, 1]
+                                    }}
+                                    transition={{ duration: 0.6 }}
+                                >
+                                    <Zap size={40} className="text-yellow-400 drop-shadow-lg" fill="currentColor" />
+                                </motion.div>
+                                <span className="drop-shadow-lg">+{xpGained} XP</span>
+                                <motion.div
+                                    animate={{ scale: [0, 1.5, 1] }}
+                                    transition={{ duration: 0.4, times: [0, 0.6, 1] }}
+                                >
+                                    <Sparkles size={32} className="text-yellow-300" />
+                                </motion.div>
+                            </div>
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            {/* ✨ TUTORIAL OVERLAY */}
+            {/* ACHIEVEMENT NOTIFICATIONS */}
+            <AnimatePresence>
+                {notifications && notifications.length > 0 && notifications.map((notif) => (
+                    <AchievementToast
+                        key={notif.id}
+                        notification={notif}
+                        onDismiss={() => dismissNotification(notif.id)}
+                    />
+                ))}
+            </AnimatePresence>
+
+            {/* LEVEL UP MODAL */}
+            <LevelModal
+                isOpen={levelModalOpen}
+                onClose={() => setLevelModalOpen(false)}
+                level={currentLevel}
+                xp={currentXP}
+            />
+
+            {/* TUTORIAL OVERLAY */}
             <AnimatePresence>
                 {tutorialActive && (
                     <TutorialOverlay
@@ -998,396 +1148,211 @@ const Dashboard = () => {
                 onLogout={handleLogout}
             />
 
-            {/* DESKTOP SIDEBAR */}
-            <aside className="hidden lg:flex w-72 bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 fixed h-screen flex-col border-r border-gray-700 z-40">
-                <div className="p-5 border-b border-gray-700/50">
-                    <Link to="/dashboard" className="flex items-center gap-3 group">
-                        <img
-                            src={logoImage}
-                            alt="StudyGloqe"
-                            className="h-10 w-10 drop-shadow-lg transition-transform group-hover:scale-110"
-                        />
-                        <div>
-                            <div className="text-xl font-black text-white">StudyGloqe</div>
-                            <div className="text-xs text-gray-500 flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                                Real-time Learning
-                            </div>
+            {/* COMPACT SIDEBAR (Desktop) */}
+            <motion.aside
+                initial={{ x: -240 }}
+                animate={{ x: 0 }}
+                transition={{ duration: 0.5, ease: [0.65, 0, 0.35, 1] }}
+                className="fixed left-0 top-0 h-full w-60 bg-gradient-to-b from-gray-900 via-gray-850 to-gray-900 border-r border-gray-800/50 hidden lg:block overflow-y-auto z-40 shadow-2xl custom-scrollbar"
+            >
+                {/* Logo */}
+                <div className="p-4 border-b border-gray-800/50">
+                    <div className="flex items-center gap-3">
+                        <div className="relative shrink-0">
+                            <div className="absolute inset-0 bg-gradient-to-br from-teal-500/30 to-cyan-500/30 blur-lg rounded-lg" />
+                            <img src={logoImage} alt="StudyGloqe" className="relative h-9 w-9 rounded-lg shadow-lg" />
                         </div>
-                    </Link>
+                        <div className="min-w-0">
+                            <h1 className="text-base font-black text-white tracking-tight truncate">StudyGloqe</h1>
+                            <p className="text-[10px] text-gray-400 font-semibold truncate">AI Learning Platform</p>
+                        </div>
+                    </div>
                 </div>
 
-                {/* ✨ XP CARD WITH TUTORIAL HIGHLIGHT */}
-                <button
-                    id="xp-card"
-                    onClick={() => setLevelModalOpen(true)}
-                    className={`mx-4 mt-4 p-4 bg-gradient-to-br from-gray-700/80 to-gray-800/80 hover:from-gray-600/80 hover:to-gray-700/80 rounded-2xl border transition-all group cursor-pointer relative overflow-hidden ${tutorialActive && currentStep?.target === 'xp-card'
-                            ? 'border-teal-500 ring-4 ring-teal-500/50 shadow-[0_0_30px_rgba(20,184,166,0.6)]'
-                            : 'border-gray-600/50'
-                        }`}
-                >
-                    {tutorialActive && currentStep?.target === 'xp-card' && (
-                        <>
-                            <div className="absolute inset-0 bg-gradient-to-r from-teal-500/20 via-cyan-500/20 to-teal-500/20 animate-pulse" />
-                            <div className="absolute inset-0 bg-gradient-to-r from-teal-500/30 via-transparent to-cyan-500/30 animate-border-flow" />
-                        </>
-                    )}
-
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-
-                    <div className="relative flex items-center gap-4">
-                        <div className="relative">
-                            <XPProgressRing progress={xpProgress} size={56} strokeWidth={4} />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <span className="text-white font-black text-sm">{currentLevel}</span>
+                {/* XP CARD */}
+                <div id="xp-card" className="p-3">
+                    <motion.div
+                        whileHover={{ scale: 1.02, y: -2 }}
+                        transition={{ duration: 0.2 }}
+                        className="relative bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-xl p-4 border border-gray-700/50 shadow-xl"
+                    >
+                        <div className="flex items-center justify-between mb-3">
+                            <div>
+                                <p className="text-gray-400 text-[10px] font-bold uppercase tracking-wider mb-1">Level</p>
+                                <div className="flex items-baseline gap-1.5">
+                                    <motion.p
+                                        key={currentLevel}
+                                        initial={{ scale: 1.2, opacity: 0 }}
+                                        animate={{ scale: 1, opacity: 1 }}
+                                        className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-cyan-400"
+                                    >
+                                        {currentLevel}
+                                    </motion.p>
+                                    <Crown size={14} className="text-yellow-400 mb-1" fill="currentColor" />
+                                </div>
                             </div>
+                            <CompactXPRing progress={xpProgress} />
                         </div>
 
-                        <div className="flex-1 text-left">
-                            <div className="flex items-center gap-2 mb-1">
-                                <Sparkles size={14} className="text-yellow-400" />
-                                <span className="text-white font-black text-sm">
-                                    {currentXP.toLocaleString()} XP
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between py-2 px-2.5 bg-white/5 rounded-lg">
+                                <span className="text-gray-400 font-medium text-xs">XP</span>
+                                <span className="text-white font-bold text-xs">
+                                    <AnimatedCounter value={currentXP} /> / {xpForNextLevel}
                                 </span>
                             </div>
-                            <div className="text-xs text-gray-400">
-                                {(xpForNextLevel - currentXP).toLocaleString()} XP to Level {currentLevel + 1}
+                            <div className="flex items-center justify-between py-2 px-2.5 bg-white/5 rounded-lg">
+                                <span className="text-gray-400 font-medium text-xs">Streak</span>
+                                <span className="flex items-center gap-1.5">
+                                    <Flame size={14} className="text-orange-400" fill="currentColor" />
+                                    <span className="text-orange-400 font-bold text-xs">{streak}d</span>
+                                </span>
                             </div>
                         </div>
-
-                        <ChevronRight size={16} className="text-gray-500 group-hover:text-white group-hover:translate-x-1 transition-all" />
-                    </div>
-                </button>
-
-                <div className="mx-4 mt-3 grid grid-cols-2 gap-2">
-                    <div className="bg-gray-800/50 rounded-xl p-3 border border-gray-700/50">
-                        <div className="flex items-center gap-1.5 mb-1">
-                            <Flame size={14} className="text-orange-400" />
-                            <span className="text-xs text-gray-500 font-semibold">Streak</span>
-                        </div>
-                        <p className="text-xl font-black text-white">{streak}</p>
-                    </div>
-                    <div className="bg-gray-800/50 rounded-xl p-3 border border-gray-700/50">
-                        <div className="flex items-center gap-1.5 mb-1">
-                            <Clock size={14} className="text-blue-400" />
-                            <span className="text-xs text-gray-500 font-semibold">Today</span>
-                        </div>
-                        <p className="text-xl font-black text-white">{realtimeStats.totalStudyTime}m</p>
-                    </div>
+                    </motion.div>
                 </div>
 
-                {/* ✨ NAVIGATION WITH TUTORIAL HIGHLIGHT */}
-                <nav
-                    id="sidebar-nav"
-                    className={`flex-1 px-4 py-4 space-y-1 overflow-y-auto custom-scrollbar relative ${tutorialActive && currentStep?.target === 'sidebar-nav'
-                            ? 'ring-4 ring-teal-500/50 rounded-2xl shadow-[0_0_30px_rgba(20,184,166,0.6)] mx-2'
-                            : ''
-                        }`}
-                >
-                    {tutorialActive && currentStep?.target === 'sidebar-nav' && (
-                        <div className="absolute inset-0 bg-gradient-to-r from-teal-500/10 via-cyan-500/10 to-teal-500/10 rounded-2xl animate-pulse pointer-events-none" />
-                    )}
-
-                    {SIDEBAR_ITEMS.map((item, index) => (
-                        <Link
+                {/* NAVIGATION */}
+                <nav id="sidebar-nav" className="p-3 space-y-1">
+                    {SIDEBAR_ITEMS.map((item) => (
+                        <motion.button
                             key={item.tab}
-                            to={`/dashboard?tab=${item.tab}`}
                             onClick={() => handleTabChange(item.tab)}
-                            className={`group flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all relative ${activeTab === item.tab
-                                ? 'bg-white/10 text-white'
-                                : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                            whileHover={{ x: 4, scale: 1.01 }}
+                            whileTap={{ scale: 0.98 }}
+                            className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium text-sm transition-all ${activeTab === item.tab
+                                ? 'text-white shadow-lg'
+                                : 'text-gray-400 hover:text-white'
                                 }`}
                         >
                             {activeTab === item.tab && (
                                 <motion.div
-                                    layoutId="activeTab"
-                                    className="absolute left-0 w-1 h-8 bg-white rounded-r-full"
+                                    layoutId="activeNavItem"
+                                    className="absolute inset-0 bg-gradient-to-r from-white/15 to-white/5 backdrop-blur-sm border border-white/10 rounded-lg"
+                                    transition={{ type: 'spring', damping: 30, stiffness: 300 }}
                                 />
                             )}
-
-                            <item.icon size={20} strokeWidth={2.5} />
-                            <span className="flex-1">{item.label}</span>
-
+                            <item.icon size={18} strokeWidth={2} className="relative z-10 shrink-0" />
+                            <span className="flex-1 text-left relative z-10 truncate">{item.label}</span>
                             {item.badge && (
-                                <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${item.badge === 'LIVE'
-                                    ? 'bg-red-500/20 text-red-400 animate-pulse'
-                                    : 'bg-gray-600 text-gray-300'
+                                <span className={`relative z-10 px-2 py-0.5 text-[10px] font-bold rounded-full ${item.badge === 'LIVE' ? 'bg-red-500 text-white animate-pulse' :
+                                    item.badge === 'NEW' ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white' :
+                                        'bg-gray-700 text-gray-300'
                                     }`}>
                                     {item.badge}
                                 </span>
                             )}
-
-                            <span className="text-xs text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                                ⌥{index + 1}
-                            </span>
-                        </Link>
+                        </motion.button>
                     ))}
-
-                    {/* ✨ UPLOAD BUTTON WITH TEAL GLOW */}
-                    <button
-                        id="upload-button"
-                        onClick={handleUploadClick}
-                        className={`w-full mt-4 flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-white text-gray-900 font-black hover:shadow-xl hover:scale-[1.02] transition-all group relative overflow-hidden ${tutorialActive && currentStep?.target === 'upload-button'
-                                ? 'ring-4 ring-teal-500/70 shadow-[0_0_50px_rgba(20,184,166,0.7)] scale-105'
-                                : ''
-                            }`}
-                    >
-                        {tutorialActive && currentStep?.target === 'upload-button' && (
-                            <>
-                                <motion.div
-                                    animate={{
-                                        opacity: [0.3, 0.7, 0.3],
-                                        scale: [1, 1.05, 1]
-                                    }}
-                                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                                    className="absolute inset-0 bg-gradient-to-r from-teal-500/30 via-cyan-500/30 to-teal-500/30 rounded-xl"
-                                />
-                                <motion.div
-                                    animate={{
-                                        rotate: [0, 360]
-                                    }}
-                                    transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                                    className="absolute inset-0 bg-gradient-to-r from-transparent via-teal-500/40 to-transparent rounded-xl"
-                                />
-                            </>
-                        )}
-                        <Plus size={20} className="group-hover:rotate-90 transition-transform relative z-10" />
-                        <span className="relative z-10">Upload PDF</span>
-                    </button>
                 </nav>
 
-                {/* BOTTOM SECTION */}
-                <div className="p-4 border-t border-gray-700/50 space-y-2">
-                    {/* ✨ TUTORIAL TOGGLE WITH 30-SECOND TEAL GLOW - FIXED */}
-                    <button
-                        onClick={startTutorial}
-                        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all relative overflow-hidden ${tutorialActive || showTutorialGlow
-                                ? 'bg-gradient-to-r from-teal-500/30 to-cyan-500/30 text-teal-300 border-2 border-teal-400 shadow-[0_0_35px_rgba(20,184,166,0.7)]'
-                                : 'text-gray-500 hover:bg-gray-800 hover:text-gray-300 border-2 border-transparent'
-                            }`}
-                    >
-                        {/* ✨ POWERFUL 30-SECOND GLOW ANIMATION */}
-                        {(showTutorialGlow || tutorialActive) && (
-                            <>
-                                {/* Outer glow pulse */}
-                                <motion.div
-                                    animate={{
-                                        opacity: [0.5, 1, 0.5],
-                                        scale: [1, 1.05, 1]
-                                    }}
-                                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                                    className="absolute inset-0 bg-gradient-to-r from-teal-500/40 via-cyan-500/40 to-teal-500/40 rounded-xl blur-sm"
-                                />
-                                {/* Rotating gradient */}
-                                <motion.div
-                                    animate={{
-                                        rotate: [0, 360],
-                                        opacity: [0.6, 1, 0.6]
-                                    }}
-                                    transition={{
-                                        rotate: { duration: 4, repeat: Infinity, ease: "linear" },
-                                        opacity: { duration: 2, repeat: Infinity, ease: "easeInOut" }
-                                    }}
-                                    className="absolute inset-0 bg-gradient-to-r from-transparent via-teal-400/50 to-transparent rounded-xl"
-                                />
-                                {/* Inner shimmer */}
-                                <motion.div
-                                    animate={{
-                                        x: ['-100%', '100%']
-                                    }}
-                                    transition={{ duration: 2.5, repeat: Infinity, ease: "linear" }}
-                                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent rounded-xl"
-                                />
-                            </>
-                        )}
-
-                        <div className="flex items-center gap-2 relative z-10">
-                            <motion.div
-                                animate={showTutorialGlow && !tutorialActive ? {
-                                    rotate: [0, 12, -12, 0],
-                                    scale: [1, 1.1, 1]
-                                } : {}}
-                                transition={{ duration: 2, repeat: Infinity }}
-                            >
-                                <HelpCircle size={18} strokeWidth={3} />
-                            </motion.div>
-                            <span className="font-black">Tutorial</span>
-                        </div>
-
-                        {tutorialActive && (
-                            <motion.span
-                                animate={{ scale: [1, 1.15, 1] }}
-                                transition={{ duration: 1, repeat: Infinity }}
-                                className="text-xs text-teal-300 font-black relative z-10"
-                            >
-                                ACTIVE
-                            </motion.span>
-                        )}
-
-                        {showTutorialGlow && !tutorialActive && (
-                            <motion.span
-                                animate={{
-                                    scale: [1, 1.25, 1],
-                                    opacity: [0.8, 1, 0.8]
-                                }}
-                                transition={{ duration: 1.5, repeat: Infinity }}
-                                className="text-xs text-white font-black relative z-10 flex items-center gap-1.5"
-                            >
-                                <motion.div
-                                    animate={{ scale: [1, 1.3, 1] }}
-                                    transition={{ duration: 1, repeat: Infinity }}
-                                >
-                                    <MousePointerClick size={14} strokeWidth={3} />
-                                </motion.div>
-                                CLICK ME
-                            </motion.span>
-                        )}
-                    </button>
-
-                    {/* ✨ SEARCH BUTTON WITH TUTORIAL HIGHLIGHT */}
-                    <button
-                        id="search-button"
-                        onClick={() => setShowCommandPalette(true)}
-                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-sm transition-all relative ${tutorialActive && currentStep?.target === 'search-button'
-                                ? 'bg-gray-800 text-gray-300 ring-4 ring-teal-500/50 shadow-[0_0_30px_rgba(20,184,166,0.6)]'
-                                : 'text-gray-500 hover:bg-gray-800 hover:text-gray-300'
-                            }`}
-                    >
-                        {tutorialActive && currentStep?.target === 'search-button' && (
-                            <div className="absolute inset-0 bg-gradient-to-r from-teal-500/20 via-cyan-500/20 to-teal-500/20 rounded-xl animate-pulse" />
-                        )}
-                        <div className="flex items-center gap-2 relative z-10">
-                            <Search size={16} />
-                            <span>Search</span>
-                        </div>
-                        <kbd className="px-2 py-0.5 bg-gray-700 text-xs rounded relative z-10">⌘K</kbd>
-                    </button>
-
-                    <button
+                {/* Logout */}
+                <div className="p-3 border-t border-gray-800/50 mt-auto">
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={handleLogout}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-gray-500 hover:bg-red-500/10 hover:text-red-400 transition-all"
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-red-400 font-semibold text-sm border-2 border-red-500/30 hover:border-red-500/60 hover:bg-red-500/10 transition-all"
                     >
                         <LogOut size={16} />
-                        Logout
-                    </button>
+                        <span>Logout</span>
+                    </motion.button>
                 </div>
-            </aside>
+            </motion.aside>
 
             {/* MAIN CONTENT */}
-            <main className="lg:ml-72">
-                <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-gray-100">
-                    <div className="px-4 lg:px-8 py-4 flex items-center justify-between gap-4">
-                        <button
-                            onClick={() => setMobileSidebarOpen(true)}
-                            className="lg:hidden p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors"
-                        >
-                            <Menu size={24} className="text-gray-700" />
-                        </button>
-
-                        <button
-                            onClick={() => setShowCommandPalette(true)}
-                            className="hidden md:flex items-center gap-3 flex-1 max-w-md px-4 py-2.5 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors group"
-                        >
-                            <Search size={18} className="text-gray-400" />
-                            <span className="text-gray-500 text-sm">Search anything...</span>
-                            <kbd className="ml-auto px-2 py-0.5 bg-gray-200 text-gray-500 text-xs rounded font-mono">⌘K</kbd>
-                        </button>
-
-                        <div className="flex items-center gap-3">
-                            <button
-                                onClick={handleRefresh}
-                                disabled={isRefreshing}
-                                className="p-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors disabled:opacity-50"
+            <div className="lg:ml-60">
+                {/* TOP BAR */}
+                <motion.header
+                    initial={{ y: -60, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ duration: 0.4 }}
+                    className="sticky top-0 z-30 bg-white/80 backdrop-blur-2xl border-b border-gray-200/60 shadow-sm"
+                >
+                    <div className="flex items-center justify-between px-5 py-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => setMobileSidebarOpen(true)}
+                                className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-all"
                             >
-                                <RefreshCw size={18} className={`text-gray-600 ${isRefreshing ? 'animate-spin' : ''}`} />
-                            </button>
-
-                            <Link
-                                to="/profile"
-                                className="flex items-center gap-3 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-all group"
-                            >
-                                <div className="relative">
-                                    {userData?.profilePicture ? (
-                                        <img
-                                            src={userData.profilePicture}
-                                            alt={userData.name || 'User'}
-                                            className="w-9 h-9 rounded-lg object-cover"
-                                        />
-                                    ) : (
-                                        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-white font-bold text-sm">
-                                            {userData?.name?.charAt(0) || user?.email?.charAt(0).toUpperCase() || 'U'}
-                                        </div>
-                                    )}
-                                    <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
-                                </div>
-                                <div className="hidden sm:block text-left">
-                                    <p className="text-sm font-bold text-gray-900 truncate max-w-[120px]">
-                                        {userData?.name?.split(' ')[0] || 'User'}
-                                    </p>
-                                    <p className="text-xs text-gray-500">Level {currentLevel}</p>
-                                </div>
-                                <ChevronDown size={16} className="text-gray-400 hidden sm:block" />
-                            </Link>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="p-4 lg:p-8 space-y-6 max-w-[1600px] mx-auto">
-                    {activeTab !== 'analytics' && (
-                        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
-                            <div>
-                                <div className="text-sm text-gray-500 mb-1 flex items-center gap-2 font-medium">
-                                    <Calendar size={14} />
-                                    {new Date().toLocaleDateString('en-US', {
-                                        weekday: 'long',
-                                        month: 'long',
-                                        day: 'numeric'
-                                    })}
-                                </div>
-                                <h1 className="text-3xl lg:text-4xl font-black text-gray-900 mb-2">
-                                    {greeting.text}, {userData?.name?.split(' ')[0] || 'Student'} {greeting.emoji}
-                                </h1>
-                                <p className="text-gray-600 font-medium flex items-center gap-2">
-                                    {streak > 0 ? (
-                                        <>
-                                            <Flame size={18} className="text-orange-500" />
-                                            {streak} day streak! Keep it up!
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Rocket size={18} className="text-gray-400" />
-                                            Start studying to build your streak
-                                        </>
-                                    )}
+                                <Menu size={20} className="text-gray-700" />
+                            </motion.button>
+                            <div className="min-w-0">
+                                <h2 className="text-lg font-black text-gray-900 tracking-tight flex items-center gap-2">
+                                    <span>{greeting.emoji}</span>
+                                    <span className="truncate">
+                                        {greeting.text}, {userData?.displayName?.split(' ')[0] || 'Student'}!
+                                    </span>
+                                </h2>
+                                <p className="text-xs text-gray-600 font-medium truncate">
+                                    {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                                 </p>
                             </div>
-
-                            <div className="flex gap-3 overflow-x-auto pb-2 lg:pb-0">
-                                <div className="flex-shrink-0 px-4 py-3 bg-white rounded-xl border border-gray-100 shadow-sm">
-                                    <div className="flex items-center gap-2 text-gray-500 text-xs font-semibold mb-1">
-                                        <BookOpen size={14} />
-                                        Documents
-                                    </div>
-                                    <p className="text-2xl font-black text-gray-900">{realtimeStats.totalDocuments}</p>
-                                </div>
-                                <div className="flex-shrink-0 px-4 py-3 bg-white rounded-xl border border-gray-100 shadow-sm">
-                                    <div className="flex items-center gap-2 text-gray-500 text-xs font-semibold mb-1">
-                                        <Brain size={14} />
-                                        Sessions
-                                    </div>
-                                    <p className="text-2xl font-black text-gray-900">{realtimeStats.totalSessions}</p>
-                                </div>
-                                <div className="flex-shrink-0 px-4 py-3 bg-white rounded-xl border border-gray-100 shadow-sm">
-                                    <div className="flex items-center gap-2 text-gray-500 text-xs font-semibold mb-1">
-                                        <Clock size={14} />
-                                        Study Time
-                                    </div>
-                                    <p className="text-2xl font-black text-gray-900">{realtimeStats.totalStudyTime}m</p>
-                                </div>
-                            </div>
                         </div>
-                    )}
 
+                        <div className="flex items-center gap-2">
+                            <AnimatePresence>
+                                {shouldShowTutorialButton && (
+                                    <motion.button
+                                        initial={{ opacity: 0, scale: 0.8 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.8 }}
+                                        onClick={startTutorial}
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        className="px-4 py-2 bg-gradient-to-r from-teal-500 via-cyan-500 to-teal-600 rounded-lg font-bold text-sm text-white shadow-lg flex items-center gap-2"
+                                    >
+                                        <Sparkles size={16} />
+                                        <span className="hidden sm:inline">Tutorial</span>
+                                    </motion.button>
+                                )}
+                            </AnimatePresence>
+
+                            <motion.button
+                                id="search-button"
+                                onClick={() => setShowCommandPalette(true)}
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                className="hidden md:flex items-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-all border border-gray-200"
+                            >
+                                <Search size={16} className="text-gray-600" />
+                                <span className="text-sm text-gray-600 font-medium">Search</span>
+                                <kbd className="px-2 py-0.5 bg-white text-gray-500 text-xs font-semibold rounded border border-gray-200">⌘K</kbd>
+                            </motion.button>
+
+                            <motion.button
+                                id="upload-button"
+                                onClick={handleUploadClick}
+                                whileHover={{ scale: 1.03 }}
+                                whileTap={{ scale: 0.97 }}
+                                className="px-4 py-2 bg-gradient-to-r from-gray-900 to-gray-800 hover:from-black hover:to-gray-900 rounded-lg font-bold text-sm text-white shadow-lg flex items-center gap-2 transition-all"
+                            >
+                                <Upload size={16} />
+                                <span className="hidden sm:inline">Upload</span>
+                            </motion.button>
+
+                            <motion.button
+                                onClick={handleRefresh}
+                                disabled={isRefreshing}
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                className="p-2 hover:bg-gray-100 rounded-lg transition-all disabled:opacity-50"
+                            >
+                                <motion.div
+                                    animate={isRefreshing ? { rotate: 360 } : {}}
+                                    transition={{ duration: 1, repeat: isRefreshing ? Infinity : 0, ease: "linear" }}
+                                >
+                                    <RefreshCw size={16} className="text-gray-600" />
+                                </motion.div>
+                            </motion.button>
+                        </div>
+                    </div>
+                </motion.header>
+
+                {/* CONTENT AREA */}
+                <main className="p-5">
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={activeTab}
@@ -1399,50 +1364,40 @@ const Dashboard = () => {
                             {renderContent()}
                         </motion.div>
                     </AnimatePresence>
-                </div>
-            </main>
+                </main>
+            </div>
 
-            <LevelModal
-                isOpen={levelModalOpen}
-                onClose={() => setLevelModalOpen(false)}
-            />
-
-            <AchievementToast
-                achievement={notifications[0]?.data}
-                onClose={() => notifications[0] && dismissNotification(notifications[0].id)}
-            />
-
-            {/* ✨ CUSTOM STYLES FOR TEAL GLOW ANIMATIONS */}
-            <style>{`
-                .custom-scrollbar::-webkit-scrollbar {
-                    width: 4px;
+            {/* CUSTOM STYLES */}
+            <style jsx>{`
+                @keyframes shimmer {
+                    0% { transform: translateX(-100%); }
+                    100% { transform: translateX(100%); }
                 }
+                .animate-shimmer {
+                    animation: shimmer 2s infinite;
+                }
+
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 6px;
+                }
+
                 .custom-scrollbar::-webkit-scrollbar-track {
                     background: transparent;
                 }
+
                 .custom-scrollbar::-webkit-scrollbar-thumb {
-                    background: rgba(107, 114, 128, 0.3);
-                    border-radius: 4px;
+                    background: rgba(255, 255, 255, 0.1);
+                    border-radius: 10px;
+                    transition: background 0.3s ease;
                 }
+
                 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                    background: rgba(107, 114, 128, 0.5);
+                    background: rgba(255, 255, 255, 0.2);
                 }
 
-                @keyframes border-flow {
-                    0% {
-                        background-position: 0% 50%;
-                    }
-                    50% {
-                        background-position: 100% 50%;
-                    }
-                    100% {
-                        background-position: 0% 50%;
-                    }
-                }
-
-                .animate-border-flow {
-                    background-size: 200% 200%;
-                    animation: border-flow 3s ease infinite;
+                .custom-scrollbar {
+                    scrollbar-width: thin;
+                    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
                 }
             `}</style>
         </div>

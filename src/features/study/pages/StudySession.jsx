@@ -1,4 +1,4 @@
-// src/pages/StudySession.jsx - WITH BIGQUERY INTEGRATION
+// src/pages/StudySession.jsx - ✅ FINAL: Session only ends on back button
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -6,7 +6,8 @@ import {
     Clock, ArrowLeft, Maximize2, Minimize2, StickyNote,
     Copy, Download, ZoomIn, ZoomOut, Moon, Sun, BookOpen, Palette,
     Target, Award, TrendingUp, PlayCircle, PauseCircle, Settings,
-    MessageSquare, Mic, Sparkles, Save, CheckCircle2
+    MessageSquare, Mic, Sparkles, Save, CheckCircle2, AlertCircle,
+    RefreshCw, BookMarked, Zap
 } from 'lucide-react';
 import { useAuth } from '@auth/contexts/AuthContext';
 import { db, functions } from '@shared/config/firebase';
@@ -27,13 +28,17 @@ const StudySession = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
 
-    // Document State
+    // ==========================================
+    // DOCUMENT STATE
+    // ==========================================
     const [studyDocument, setStudyDocument] = useState(null);
     const [extractedText, setExtractedText] = useState('');
     const [loading, setLoading] = useState(true);
     const [detectedSubject, setDetectedSubject] = useState('');
 
-    // UI State
+    // ==========================================
+    // UI STATE
+    // ==========================================
     const [selectedText, setSelectedText] = useState('');
     const [pillPosition, setPillPosition] = useState({ x: 0, y: 0 });
     const [showPill, setShowPill] = useState(false);
@@ -47,23 +52,52 @@ const StudySession = () => {
     const [lastSaved, setLastSaved] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
 
-    // Reading Settings
-    const [fontSize, setFontSize] = useState(18);
-    const [readingMode, setReadingMode] = useState('light');
-    const [lineHeight, setLineHeight] = useState(1.8);
-    const [fontFamily, setFontFamily] = useState('serif');
+    // ==========================================
+    // READING SETTINGS (with localStorage persistence)
+    // ==========================================
+    const [fontSize, setFontSize] = useState(() => {
+        return parseInt(localStorage.getItem('study_fontSize')) || 18;
+    });
+    const [readingMode, setReadingMode] = useState(() => {
+        return localStorage.getItem('study_readingMode') || 'light';
+    });
+    const [lineHeight, setLineHeight] = useState(() => {
+        return parseFloat(localStorage.getItem('study_lineHeight')) || 1.8;
+    });
+    const [fontFamily, setFontFamily] = useState(() => {
+        return localStorage.getItem('study_fontFamily') || 'serif';
+    });
     const [readingProgress, setReadingProgress] = useState(0);
     const [autoScroll, setAutoScroll] = useState(false);
     const [scrollSpeed, setScrollSpeed] = useState(50);
+    const [readingGoal, setReadingGoal] = useState(() => {
+        return parseInt(localStorage.getItem('study_readingGoal')) || 30;
+    });
 
-    // Refs
+    // ==========================================
+    // REFS
+    // ==========================================
     const textViewerRef = useRef(null);
     const scrollIntervalRef = useRef(null);
     const saveTimeoutRef = useRef(null);
     const lastSaveProgressRef = useRef(0);
+    const retryCountRef = useRef(0);
+    const MAX_SAVE_RETRIES = 3;
 
-    // Session Management Hook
-    const { isSessionActive, currentSessionId, sessionStartTime } = useStudySessionManager(
+    // ==========================================
+    // SESSION MANAGEMENT
+    // ==========================================
+    const {
+        isSessionActive,
+        currentSessionId,
+        sessionStartTime,
+        elapsedTime,
+        elapsedMinutes,
+        elapsedSeconds,
+        isPaused,
+        togglePause,
+        endSession
+    } = useStudySessionManager(
         user?.uid,
         docId,
         studyDocument
@@ -83,6 +117,10 @@ const StudySession = () => {
         return extractedText.split(/\s+/).filter(w => w.length > 0).length;
     }, [extractedText]);
 
+    const readingGoalProgress = useMemo(() => {
+        return Math.min((elapsedMinutes / readingGoal) * 100, 100);
+    }, [elapsedMinutes, readingGoal]);
+
     const modeStyles = useMemo(() => {
         switch (readingMode) {
             case 'dark':
@@ -92,7 +130,8 @@ const StudySession = () => {
                     icon: 'text-gray-300',
                     secondary: 'text-gray-400',
                     border: 'border-gray-800',
-                    topBg: 'bg-gray-900/90'
+                    topBg: 'bg-gray-900/90',
+                    cardBg: 'bg-gray-800/50'
                 };
             case 'sepia':
                 return {
@@ -101,7 +140,8 @@ const StudySession = () => {
                     icon: 'text-[#5c4b37]',
                     secondary: 'text-[#6d5d4f]',
                     border: 'border-[#e0d5bb]',
-                    topBg: 'bg-[#f4ecd8]/90'
+                    topBg: 'bg-[#f4ecd8]/90',
+                    cardBg: 'bg-[#e8dfc8]/50'
                 };
             case 'focus':
                 return {
@@ -110,7 +150,8 @@ const StudySession = () => {
                     icon: 'text-gray-400',
                     secondary: 'text-gray-500',
                     border: 'border-gray-900',
-                    topBg: 'bg-black/90'
+                    topBg: 'bg-black/90',
+                    cardBg: 'bg-gray-900/50'
                 };
             default:
                 return {
@@ -119,39 +160,36 @@ const StudySession = () => {
                     icon: 'text-gray-700',
                     secondary: 'text-gray-600',
                     border: 'border-gray-200',
-                    topBg: 'bg-white/90'
+                    topBg: 'bg-white/90',
+                    cardBg: 'bg-gray-50/50'
                 };
         }
     }, [readingMode]);
 
     // ==========================================
-    // 🆕 SYNC TO BIGQUERY
+    // SYNC TO BIGQUERY
     // ==========================================
     const syncToBigQuery = useCallback(async () => {
         if (!user?.uid || !currentSessionId || !sessionStartTime) {
             console.log('⚠️ Missing data for BigQuery sync');
-            return;
+            return false;
         }
 
         try {
             const endTime = new Date().toISOString();
             const startTime = new Date(sessionStartTime).toISOString();
-            const totalMinutes = Math.floor((Date.now() - sessionStartTime) / 1000 / 60);
-
-            // Only sync if session is at least 1 minute
-            if (totalMinutes < 1) {
-                console.log('⚠️ Session too short to sync (<1 min)');
-                return;
-            }
+            const totalMinutes = Math.floor(elapsedTime / 60);
+            const totalSeconds = elapsedTime;
 
             console.log('📊 Syncing to BigQuery...', {
                 sessionId: currentSessionId,
                 totalMinutes,
+                totalSeconds,
                 subject: detectedSubject
             });
 
             const syncStudySession = httpsCallable(functions, 'syncStudySessionToBigQuery');
-            
+
             const result = await syncStudySession({
                 userId: user.uid,
                 sessionId: currentSessionId,
@@ -161,31 +199,31 @@ const StudySession = () => {
                 startTime,
                 endTime,
                 totalMinutes,
+                totalSeconds: totalSeconds,
+                wordCount,
+                readingProgress: Math.round(readingProgress),
                 status: 'completed'
             });
 
             console.log('✅ BigQuery sync successful:', result.data);
-            
             return true;
+
         } catch (error) {
             console.error('❌ BigQuery sync error:', error);
-            // Don't show error to user - fail silently
             return false;
         }
-    }, [user?.uid, currentSessionId, sessionStartTime, docId, studyDocument, detectedSubject]);
+    }, [user?.uid, currentSessionId, sessionStartTime, elapsedTime, docId, studyDocument, detectedSubject, wordCount, readingProgress]);
 
     // ==========================================
-    // SAVE PROGRESS WITH DEBOUNCE
+    // SAVE PROGRESS (Only reading progress)
     // ==========================================
     const saveProgress = useCallback(async (immediate = false) => {
         if (!user?.uid || !docId || !currentSessionId) return;
 
-        // Only save if progress changed significantly (more than 5%)
         if (!immediate && Math.abs(readingProgress - lastSaveProgressRef.current) < 5) {
             return;
         }
 
-        // Clear existing timeout
         if (saveTimeoutRef.current) {
             clearTimeout(saveTimeoutRef.current);
         }
@@ -193,26 +231,25 @@ const StudySession = () => {
         const doSave = async () => {
             try {
                 setIsSaving(true);
+                const durationMinutes = Math.floor(elapsedTime / 60);
 
-                // Calculate session duration in minutes
-                const durationMinutes = sessionStartTime
-                    ? Math.floor((Date.now() - sessionStartTime) / 1000 / 60)
-                    : 0;
-
-                // Update document
-                await updateDoc(doc(db, 'documents', docId), {
+                const docUpdate = updateDoc(doc(db, 'documents', docId), {
                     lastStudiedAt: Timestamp.now(),
                     readingProgress: Math.round(readingProgress),
-                    subject: detectedSubject || 'General Studies'
+                    subject: detectedSubject || 'General Studies',
+                    totalStudyTime: increment(durationMinutes)
                 });
 
-                // Update user stats
-                await updateDoc(doc(db, 'users', user.uid), {
-                    lastActivityAt: Timestamp.now()
+                const userUpdate = updateDoc(doc(db, 'users', user.uid), {
+                    lastActivityAt: Timestamp.now(),
+                    totalStudyMinutes: increment(durationMinutes)
                 });
+
+                await Promise.all([docUpdate, userUpdate]);
 
                 lastSaveProgressRef.current = readingProgress;
                 setLastSaved(new Date());
+                retryCountRef.current = 0;
 
                 if (immediate) {
                     toast.success('Progress saved!', {
@@ -226,9 +263,19 @@ const StudySession = () => {
                         }
                     });
                 }
+
             } catch (error) {
                 console.error('Error saving progress:', error);
-                toast.error('Failed to save progress');
+
+                if (retryCountRef.current < MAX_SAVE_RETRIES) {
+                    retryCountRef.current += 1;
+                    console.log(`⚠️ Retrying save (${retryCountRef.current}/${MAX_SAVE_RETRIES})...`);
+                    setTimeout(() => saveProgress(immediate), 2000 * retryCountRef.current);
+                } else {
+                    toast.error('Failed to save progress. Check connection.', {
+                        duration: 4000
+                    });
+                }
             } finally {
                 setIsSaving(false);
             }
@@ -239,7 +286,7 @@ const StudySession = () => {
         } else {
             saveTimeoutRef.current = setTimeout(doSave, 2000);
         }
-    }, [user?.uid, docId, currentSessionId, readingProgress, detectedSubject, sessionStartTime]);
+    }, [user?.uid, docId, currentSessionId, readingProgress, detectedSubject, elapsedTime]);
 
     // ==========================================
     // LOAD DOCUMENT
@@ -267,9 +314,19 @@ const StudySession = () => {
                         setDetectedSubject(subject);
                     }
 
-                    // Restore reading progress
                     if (docData.readingProgress) {
                         setReadingProgress(docData.readingProgress);
+                        setTimeout(() => {
+                            if (textViewerRef.current) {
+                                const scrollPosition = (docData.readingProgress / 100) *
+                                    textViewerRef.current.scrollHeight;
+                                textViewerRef.current.scrollTop = scrollPosition;
+                                toast.success(`Restored to ${Math.round(docData.readingProgress)}%`, {
+                                    duration: 2000,
+                                    icon: '📖'
+                                });
+                            }
+                        }, 100);
                     }
                 } else {
                     toast.error('Document not found');
@@ -288,33 +345,32 @@ const StudySession = () => {
     }, [docId, navigate]);
 
     // ==========================================
-    // AUTO-SAVE EVERY 60 SECONDS
+    // PERSIST READING SETTINGS
     // ==========================================
     useEffect(() => {
-        if (!isSessionActive) return;
-
-        const interval = setInterval(() => {
-            saveProgress(false);
-        }, 60000); // 60 seconds
-
-        return () => clearInterval(interval);
-    }, [isSessionActive, saveProgress]);
+        localStorage.setItem('study_fontSize', fontSize);
+        localStorage.setItem('study_readingMode', readingMode);
+        localStorage.setItem('study_lineHeight', lineHeight);
+        localStorage.setItem('study_fontFamily', fontFamily);
+        localStorage.setItem('study_readingGoal', readingGoal);
+    }, [fontSize, readingMode, lineHeight, fontFamily, readingGoal]);
 
     // ==========================================
-    // 🆕 SAVE & SYNC ON UNMOUNT
+    // READING GOAL CELEBRATION
     // ==========================================
     useEffect(() => {
-        return () => {
-            if (saveTimeoutRef.current) {
-                clearTimeout(saveTimeoutRef.current);
-            }
-            // Save and sync on unmount
-            (async () => {
-                await saveProgress(true);
-                await syncToBigQuery();
-            })();
-        };
-    }, [saveProgress, syncToBigQuery]);
+        if (readingGoalProgress >= 100 && elapsedMinutes === readingGoal) {
+            toast.success('🎉 Reading goal achieved!', {
+                duration: 5000,
+                style: {
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    color: '#fff',
+                    fontWeight: 'bold',
+                    borderRadius: '12px',
+                }
+            });
+        }
+    }, [readingGoalProgress, elapsedMinutes, readingGoal]);
 
     // ==========================================
     // AUTO SCROLL
@@ -344,7 +400,6 @@ const StudySession = () => {
     // ==========================================
     useEffect(() => {
         const handleKeyDown = (e) => {
-            // ESC: Close modals
             if (e.key === 'Escape') {
                 if (showVoiceAssistant) setShowVoiceAssistant(false);
                 else if (showAssistantMenu) setShowAssistantMenu(false);
@@ -355,19 +410,30 @@ const StudySession = () => {
                 else if (showNotes) setShowNotes(false);
             }
 
-            // Ctrl/Cmd + S: Save
             if ((e.ctrlKey || e.metaKey) && e.key === 's') {
                 e.preventDefault();
                 saveProgress(true);
             }
 
-            // Ctrl/Cmd + N: Toggle Notes
             if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
                 e.preventDefault();
                 setShowNotes(prev => !prev);
             }
 
-            // F: Focus Mode
+            if ((e.ctrlKey || e.metaKey) && e.key === ' ') {
+                e.preventDefault();
+                togglePause();
+            }
+
+            if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowUp') {
+                e.preventDefault();
+                handleZoomIn();
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowDown') {
+                e.preventDefault();
+                handleZoomOut();
+            }
+
             if (e.key === 'f' && !e.ctrlKey && !e.metaKey) {
                 const selection = window.getSelection();
                 if (!selection || selection.toString().trim() === '') {
@@ -378,7 +444,7 @@ const StudySession = () => {
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [showVoiceAssistant, showAssistantMenu, focusMode, showPill, showSettings, showStats, showNotes, saveProgress]);
+    }, [showVoiceAssistant, showAssistantMenu, focusMode, showPill, showSettings, showStats, showNotes, saveProgress, togglePause]);
 
     // ==========================================
     // FULLSCREEN DETECTION
@@ -487,7 +553,9 @@ const StudySession = () => {
         });
     }, [extractedText, studyDocument]);
 
-    // 🆕 UPDATED: Handle Back with BigQuery Sync
+    // ==========================================
+    // HANDLE BACK - ONLY way to end session
+    // ==========================================
     const handleBackToDashboard = useCallback(async () => {
         const loadingToast = toast.loading('Saving session...', {
             style: {
@@ -499,35 +567,50 @@ const StudySession = () => {
         });
 
         try {
-            // Save progress first
-            await saveProgress(true);
-            
-            // Sync to BigQuery
-            await syncToBigQuery();
-            
-            toast.success('Session saved successfully!', {
-                id: loadingToast,
-                icon: '✅',
-                duration: 2000,
-                style: {
-                    background: '#10b981',
-                    color: '#fff',
-                    fontWeight: 'bold',
-                    borderRadius: '12px',
-                }
-            });
+            console.log('👋 Student exiting - ending session now...');
 
-            // Small delay to show success message
+            // End session and get final data
+            const sessionData = await endSession();
+
+            // Save reading progress
+            await saveProgress(true);
+
+            // Sync to BigQuery/Analytics
+            if (sessionData && sessionData.totalSeconds > 0) {
+                await syncToBigQuery();
+
+                const mins = sessionData.totalMinutes;
+                const secs = sessionData.totalSeconds % 60;
+
+                toast.success(`Session complete! You studied for ${mins}m ${secs}s`, {
+                    id: loadingToast,
+                    icon: '🎉',
+                    duration: 3000,
+                    style: {
+                        background: '#10b981',
+                        color: '#fff',
+                        fontWeight: 'bold',
+                        borderRadius: '12px',
+                    }
+                });
+            } else {
+                toast.success('Session saved!', {
+                    id: loadingToast,
+                    icon: '✅',
+                    duration: 2000
+                });
+            }
+
             setTimeout(() => {
                 navigate('/dashboard');
-            }, 500);
+            }, 1000);
+
         } catch (error) {
             console.error('Error saving session:', error);
             toast.error('Failed to save session', { id: loadingToast });
-            // Navigate anyway
             navigate('/dashboard');
         }
-    }, [saveProgress, syncToBigQuery, navigate]);
+    }, [endSession, saveProgress, syncToBigQuery, navigate]);
 
     // ==========================================
     // LOADING STATE
@@ -550,9 +633,7 @@ const StudySession = () => {
 
     return (
         <div className={`min-h-screen flex flex-col transition-colors duration-300 ${modeStyles.bg}`}>
-            {/* ==========================================
-                TOP BAR
-                ========================================== */}
+            {/* TOP BAR */}
             {!focusMode && (
                 <div className={`backdrop-blur-2xl ${modeStyles.topBg} border-b ${modeStyles.border} px-6 py-3.5 sticky top-0 z-50 shadow-lg`}>
                     <div className="max-w-[1800px] mx-auto flex items-center justify-between gap-4">
@@ -592,12 +673,15 @@ const StudySession = () => {
 
                         {/* Center - Timer */}
                         <div className="flex-shrink-0">
-                            <StudyTimer startTime={sessionStartTime} />
+                            <StudyTimer
+                                elapsedTime={elapsedTime}
+                                isPaused={isPaused}
+                                onTogglePause={togglePause}
+                            />
                         </div>
 
                         {/* Right - Controls */}
                         <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
-                            {/* Save Button */}
                             <button
                                 onClick={() => saveProgress(true)}
                                 disabled={isSaving}
@@ -607,7 +691,6 @@ const StudySession = () => {
                                 <Save size={18} className={`${modeStyles.icon} ${isSaving ? 'animate-pulse' : ''}`} />
                             </button>
 
-                            {/* Auto Scroll */}
                             <button
                                 onClick={() => setAutoScroll(!autoScroll)}
                                 className={`p-2.5 rounded-xl transition-all ${autoScroll ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg' : `${readingMode === 'light' ? 'hover:bg-gray-100' : 'hover:bg-white/10'} ${modeStyles.icon}`}`}
@@ -616,12 +699,11 @@ const StudySession = () => {
                                 {autoScroll ? <PauseCircle size={18} /> : <PlayCircle size={18} />}
                             </button>
 
-                            {/* Zoom Controls */}
                             <div className="flex items-center gap-0.5 px-0.5">
                                 <button
                                     onClick={handleZoomOut}
                                     className={`p-2.5 ${readingMode === 'light' ? 'hover:bg-gray-100' : 'hover:bg-white/10'} rounded-lg transition-all`}
-                                    title="Zoom Out"
+                                    title="Zoom Out (Ctrl+↓)"
                                 >
                                     <ZoomOut size={18} className={modeStyles.icon} />
                                 </button>
@@ -631,7 +713,7 @@ const StudySession = () => {
                                 <button
                                     onClick={handleZoomIn}
                                     className={`p-2.5 ${readingMode === 'light' ? 'hover:bg-gray-100' : 'hover:bg-white/10'} rounded-lg transition-all`}
-                                    title="Zoom In"
+                                    title="Zoom In (Ctrl+↑)"
                                 >
                                     <ZoomIn size={18} className={modeStyles.icon} />
                                 </button>
@@ -639,7 +721,6 @@ const StudySession = () => {
 
                             <div className={`w-px h-7 ${modeStyles.border}`}></div>
 
-                            {/* Settings & Stats */}
                             <button
                                 onClick={() => setShowStats(!showStats)}
                                 className={`p-2.5 rounded-xl transition-all ${showStats ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg' : `${readingMode === 'light' ? 'hover:bg-gray-100' : 'hover:bg-white/10'} ${modeStyles.icon}`}`}
@@ -658,7 +739,6 @@ const StudySession = () => {
 
                             <div className={`w-px h-7 ${modeStyles.border}`}></div>
 
-                            {/* Tools */}
                             <button
                                 onClick={handleCopyText}
                                 className={`p-2.5 ${readingMode === 'light' ? 'hover:bg-gray-100' : 'hover:bg-white/10'} rounded-xl transition-all`}
@@ -779,7 +859,7 @@ const StudySession = () => {
                             </div>
 
                             {autoScroll && (
-                                <div>
+                                <div className="mb-4">
                                     <label className={`text-xs font-bold mb-3 block ${modeStyles.secondary}`}>
                                         Scroll Speed
                                     </label>
@@ -798,6 +878,21 @@ const StudySession = () => {
                                     </div>
                                 </div>
                             )}
+
+                            <div>
+                                <label className={`text-xs font-bold mb-3 block ${modeStyles.secondary}`}>
+                                    Daily Reading Goal (minutes)
+                                </label>
+                                <input
+                                    type="number"
+                                    min="5"
+                                    max="180"
+                                    step="5"
+                                    value={readingGoal}
+                                    onChange={(e) => setReadingGoal(parseInt(e.target.value))}
+                                    className={`w-full p-2.5 rounded-lg ${readingMode === 'light' ? 'bg-gray-100' : 'bg-white/5'} ${modeStyles.text} font-bold text-center`}
+                                />
+                            </div>
                         </div>
                     )}
 
@@ -809,23 +904,54 @@ const StudySession = () => {
                                 Reading Statistics
                             </h3>
                             <div className="space-y-3">
-                                <div className={`flex justify-between items-center p-3.5 rounded-xl ${readingMode === 'light' ? 'bg-gray-50' : readingMode === 'sepia' ? 'bg-[#e8dfc8]' : 'bg-white/5'}`}>
+                                <div className={`flex justify-between items-center p-3.5 rounded-xl ${modeStyles.cardBg}`}>
                                     <span className={`text-xs font-bold ${modeStyles.secondary}`}>Subject</span>
                                     <span className={`text-sm font-black ${modeStyles.text}`}>{detectedSubject}</span>
                                 </div>
-                                <div className={`flex justify-between items-center p-3.5 rounded-xl ${readingMode === 'light' ? 'bg-gray-50' : readingMode === 'sepia' ? 'bg-[#e8dfc8]' : 'bg-white/5'}`}>
+                                <div className={`flex justify-between items-center p-3.5 rounded-xl ${modeStyles.cardBg}`}>
                                     <span className={`text-xs font-bold ${modeStyles.secondary}`}>Words</span>
                                     <span className={`text-base font-black ${modeStyles.text}`}>{wordCount.toLocaleString()}</span>
                                 </div>
-                                <div className={`flex justify-between items-center p-3.5 rounded-xl ${readingMode === 'light' ? 'bg-gray-50' : readingMode === 'sepia' ? 'bg-[#e8dfc8]' : 'bg-white/5'}`}>
-                                    <span className={`text-xs font-bold ${modeStyles.secondary}`}>Time</span>
+                                <div className={`flex justify-between items-center p-3.5 rounded-xl ${modeStyles.cardBg}`}>
+                                    <span className={`text-xs font-bold ${modeStyles.secondary}`}>Study Time</span>
                                     <span className={`text-base font-black ${modeStyles.text}`}>
-                                        {sessionStartTime ? Math.floor((Date.now() - sessionStartTime) / 60000) : 0} min
+                                        {elapsedMinutes}:{elapsedSeconds.toString().padStart(2, '0')}
                                     </span>
                                 </div>
-                                <div className={`flex justify-between items-center p-3.5 rounded-xl ${readingMode === 'light' ? 'bg-gray-50' : readingMode === 'sepia' ? 'bg-[#e8dfc8]' : 'bg-white/5'}`}>
+                                <div className={`flex justify-between items-center p-3.5 rounded-xl ${modeStyles.cardBg}`}>
                                     <span className={`text-xs font-bold ${modeStyles.secondary}`}>Progress</span>
-                                    <span className="text-base font-black text-blue-600">{Math.round(readingProgress)}%</span>
+                                    <span className={`text-base font-black ${modeStyles.text}`}>{Math.round(readingProgress)}%</span>
+                                </div>
+
+                                <div className={`p-4 rounded-xl ${modeStyles.cardBg} border-2 ${readingGoalProgress >= 100 ? 'border-green-500' : 'border-blue-500'}`}>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className={`text-xs font-bold ${modeStyles.secondary} flex items-center gap-1`}>
+                                            <Zap size={14} className={readingGoalProgress >= 100 ? 'text-green-500' : 'text-blue-500'} />
+                                            Daily Goal
+                                        </span>
+                                        <span className={`text-lg font-black ${readingGoalProgress >= 100 ? 'text-green-600' : 'text-blue-600'}`}>
+                                            {Math.round(readingGoalProgress)}%
+                                        </span>
+                                    </div>
+                                    <div className="relative h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                        <motion.div
+                                            className={`h-full ${readingGoalProgress >= 100 ? 'bg-gradient-to-r from-green-500 to-green-600' : 'bg-gradient-to-r from-blue-500 to-blue-600'}`}
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${Math.min(readingGoalProgress, 100)}%` }}
+                                            transition={{ duration: 0.5 }}
+                                        />
+                                    </div>
+                                    <div className="flex justify-between text-[10px] font-bold text-gray-500 mt-2">
+                                        <span>{elapsedMinutes} min</span>
+                                        <span>{readingGoal} min goal</span>
+                                    </div>
+                                </div>
+
+                                <div className={`flex justify-between items-center p-3.5 rounded-xl ${modeStyles.cardBg}`}>
+                                    <span className={`text-xs font-bold ${modeStyles.secondary}`}>Est. Time Left</span>
+                                    <span className={`text-base font-black ${modeStyles.text}`}>
+                                        {Math.max(0, estimatedReadTime - elapsedMinutes)} min
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -833,214 +959,72 @@ const StudySession = () => {
                 </div>
             )}
 
-            {/* ==========================================
-                READING AREA
-                ========================================== */}
-            <div className="flex-1 flex overflow-hidden relative">
-                <div
-                    ref={textViewerRef}
-                    className={`flex-1 overflow-y-auto transition-all duration-300 ${showNotes && !focusMode ? 'lg:pr-80' : ''}`}
-                    onScroll={handleScroll}
-                >
+            {/* MAIN CONTENT */}
+            <div className="flex-1 flex overflow-hidden">
+                <div className="flex-1 overflow-hidden">
                     <TextViewer
+                        ref={textViewerRef}
                         text={extractedText}
                         fontSize={fontSize}
                         lineHeight={lineHeight}
                         fontFamily={fontFamily}
                         readingMode={readingMode}
-                        onTextSelect={handleTextSelection}
+                        onTextSelection={handleTextSelection}
+                        onScroll={handleScroll}
+                        readingProgress={readingProgress}
                     />
                 </div>
 
-                {/* NOTES PANEL */}
-                {showNotes && !focusMode && (
-                    <div className={`fixed right-0 top-[69px] bottom-0 w-80 border-l-2 ${modeStyles.border} ${readingMode === 'light' ? 'bg-white' : readingMode === 'sepia' ? 'bg-[#f4ecd8]' : 'bg-gray-950'} overflow-hidden shadow-2xl`}>
+                <AnimatePresence>
+                    {showNotes && (
                         <NotesPanel
                             documentId={docId}
                             onClose={() => setShowNotes(false)}
+                            readingMode={readingMode}
                         />
-                    </div>
-                )}
+                    )}
+                </AnimatePresence>
             </div>
 
-            {/* ==========================================
-                ASK GLOQE BUTTON
-                ========================================== */}
-            {!showPill && !focusMode && !showAssistantMenu && !showVoiceAssistant && (
-                <motion.button
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setShowAssistantMenu(true)}
-                    className="fixed bottom-8 left-8 z-40"
-                    title="Ask Gloqe AI"
-                >
-                    <img
-                        src={logoImage}
-                        alt="Ask Gloqe"
-                        className="w-25 h-20 drop-shadow-2xl hover:drop-shadow-[0_0_20px_rgba(59,130,246,0.5)] transition-all duration-300"
-                    />
-                </motion.button>
-            )}
-
-            {/* ASSISTANT MENU */}
             <AnimatePresence>
-                {showAssistantMenu && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/40 backdrop-blur-xl z-50 flex items-center justify-center p-4"
-                        onClick={() => setShowAssistantMenu(false)}
-                    >
-                        <motion.div
-                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
-                            animate={{ scale: 1, opacity: 1, y: 0 }}
-                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                            className="relative w-full max-w-md"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="relative overflow-hidden rounded-3xl">
-                                <div className="backdrop-blur-2xl bg-gradient-to-br from-white/20 via-gray-200/15 to-gray-300/10 border-2 border-white/30 shadow-2xl">
-
-                                    <div className="absolute inset-0 opacity-10">
-                                        <div className="absolute top-0 left-0 w-32 h-32 bg-white rounded-full blur-xl"></div>
-                                        <div className="absolute bottom-0 right-0 w-40 h-40 bg-gray-300 rounded-full blur-xl"></div>
-                                    </div>
-
-                                    {/* Header */}
-                                    <div className="relative px-8 pt-8 pb-6 text-center border-b border-white/20">
-                                        <motion.div
-                                            initial={{ scale: 0, rotate: -180 }}
-                                            animate={{ scale: 1, rotate: 0 }}
-                                            transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                                            className="inline-block mb-4"
-                                        >
-                                            <img
-                                                src={logoImage}
-                                                alt="Gloqe AI"
-                                                className="w-24 h-24 drop-shadow-2xl"
-                                            />
-                                        </motion.div>
-
-                                        <h2 className="text-2xl font-black bg-gradient-to-r from-gray-800 via-gray-700 to-gray-800 bg-clip-text text-transparent mb-2">
-                                            Choose Assistant
-                                        </h2>
-                                        <p className="text-sm text-gray-600 font-medium">
-                                            How would you like to interact with AI?
-                                        </p>
-                                    </div>
-
-                                    {/* Assistant Options */}
-                                    <div className="p-6 space-y-4">
-                                        <motion.button
-                                            whileHover={{ scale: 1.02, y: -2 }}
-                                            whileTap={{ scale: 0.98 }}
-                                            onClick={() => {
-                                                setShowAssistantMenu(false);
-                                                setSelectedText('');
-                                                setPillPosition({ x: window.innerWidth / 2, y: 100 });
-                                                setShowPill(true);
-                                            }}
-                                            className="w-full p-5 rounded-2xl backdrop-blur-xl bg-gradient-to-r from-white/40 to-gray-200/30 border-2 border-white/40 hover:border-blue-400/50 transition-all duration-300 group relative overflow-hidden"
-                                        >
-                                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
-
-                                            <div className="relative flex items-center gap-4">
-                                                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
-                                                    <MessageSquare size={24} className="text-white" />
-                                                </div>
-                                                <div className="text-left flex-1">
-                                                    <h3 className="text-lg font-black text-gray-800 mb-1">Text Chat</h3>
-                                                    <p className="text-sm text-gray-600 font-medium">Type and chat with AI assistant</p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <div className="px-3 py-1 bg-blue-500/10 rounded-full">
-                                                        <span className="text-xs font-black text-blue-700">+5 XP</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </motion.button>
-
-                                        <motion.button
-                                            whileHover={{ scale: 1.02, y: -2 }}
-                                            whileTap={{ scale: 0.98 }}
-                                            onClick={() => {
-                                                setShowAssistantMenu(false);
-                                                setShowVoiceAssistant(true);
-                                            }}
-                                            className="w-full p-5 rounded-2xl backdrop-blur-xl bg-gradient-to-r from-white/40 to-gray-200/30 border-2 border-white/40 hover:border-purple-400/50 transition-all duration-300 group relative overflow-hidden"
-                                        >
-                                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
-
-                                            <div className="relative flex items-center gap-4">
-                                                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg">
-                                                    <Mic size={24} className="text-white" />
-                                                </div>
-                                                <div className="text-left flex-1">
-                                                    <h3 className="text-lg font-black text-gray-800 mb-1">Voice Assistant</h3>
-                                                    <p className="text-sm text-gray-600 font-medium">Speak naturally with AI</p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <div className="px-3 py-1 bg-purple-500/10 rounded-full">
-                                                        <span className="text-xs font-black text-purple-700">+5 XP</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </motion.button>
-                                    </div>
-
-                                    <div className="px-6 pb-6">
-                                        <motion.button
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
-                                            onClick={() => setShowAssistantMenu(false)}
-                                            className="w-full py-3.5 rounded-xl backdrop-blur-xl bg-white/30 hover:bg-white/40 border-2 border-white/40 text-gray-700 font-bold transition-all duration-300"
-                                        >
-                                            Cancel
-                                        </motion.button>
-                                    </div>
-                                </div>
-
-                                <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-blue-500/10 blur-xl -z-10"></div>
-                            </div>
-                        </motion.div>
-                    </motion.div>
+                {showPill && (
+                    <AskGloqePill
+                        selectedText={selectedText}
+                        position={pillPosition}
+                        onClose={() => setShowPill(false)}
+                        readingMode={readingMode}
+                    />
                 )}
             </AnimatePresence>
 
-            {/* ASK GLOQE PILL */}
-            {showPill && (
-                <AskGloqePill
-                    selectedText={selectedText}
-                    position={pillPosition}
-                    onClose={() => setShowPill(false)}
-                    documentId={docId}
-                />
-            )}
+            <AnimatePresence>
+                {showVoiceAssistant && (
+                    <VoiceAssistant
+                        documentContext={extractedText}
+                        subject={detectedSubject}
+                        onClose={() => setShowVoiceAssistant(false)}
+                        readingMode={readingMode}
+                    />
+                )}
+            </AnimatePresence>
 
-            {/* VOICE ASSISTANT */}
-            {showVoiceAssistant && (
-                <VoiceAssistant
-                    onClose={() => setShowVoiceAssistant(false)}
-                    documentContext={extractedText}
-                    documentId={docId}
-                />
-            )}
-
-            {/* FOCUS MODE HINT */}
             {focusMode && (
-                <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 backdrop-blur-2xl ${readingMode === 'light' ? 'bg-white/95 border-gray-300' : 'bg-black/80 border-white/20'} border-2 rounded-2xl text-sm ${modeStyles.text} shadow-2xl font-semibold`}>
-                    Press <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded-lg text-xs font-mono mx-1">ESC</kbd> or <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded-lg text-xs font-mono mx-1">F</kbd> to exit Focus Mode
-                </div>
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-black/90 backdrop-blur-xl px-6 py-3 rounded-full shadow-2xl z-50"
+                >
+                    <p className="text-white text-sm font-bold flex items-center gap-2">
+                        <Target size={16} className="text-blue-400" />
+                        Focus Mode • Press F or ESC to exit
+                    </p>
+                </motion.div>
             )}
 
-            {/* PROGRESS BAR */}
-            <div className={`fixed bottom-0 left-0 right-0 h-1 bg-gray-200 dark:bg-gray-800 z-50 ${focusMode ? 'hidden' : ''}`}>
+            <div className="fixed bottom-0 left-0 right-0 h-1 bg-gray-200 dark:bg-gray-800 z-50">
                 <motion.div
-                    className="h-full bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700"
+                    className="h-full bg-gradient-to-r from-blue-500 to-blue-600"
+                    style={{ width: `${readingProgress}%` }}
                     initial={{ width: 0 }}
                     animate={{ width: `${readingProgress}%` }}
                     transition={{ duration: 0.3 }}

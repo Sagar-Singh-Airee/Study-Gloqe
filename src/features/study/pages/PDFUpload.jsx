@@ -1,453 +1,1212 @@
-// src/pages/PDFUpload.jsx - STANDARD UPLOAD
-import { useState, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, X, CheckCircle2, AlertCircle, Zap, Shield, Cloud, Award, BookOpen, Play, Sparkles } from 'lucide-react';
-import { useAuth } from '@auth/contexts/AuthContext';
-import { uploadDocument } from '@study/services/documentService';
-import { awardDailyXP, DAILY_ACTIONS, XP_REWARDS } from '@gamification/services/gamificationService';
+// src/services/documentService.js - 🏆 ULTIMATE ENTERPRISE EDITION 2025 (FIXED)
+import {
+  collection,
+  addDoc,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  limit,
+  updateDoc,
+  deleteDoc,
+  serverTimestamp,
+  increment,
+  writeBatch,
+  Timestamp,
+  startAfter,
+  setDoc
+} from 'firebase/firestore';
+import {
+  ref,
+  uploadBytesResumable,
+  getDownloadURL,
+  deleteObject,
+  listAll,
+  getMetadata
+} from 'firebase/storage';
+import { db, storage, COLLECTIONS } from '@shared/config/firebase';
+import { detectSubjectHybrid } from '@shared/utils/subjectDetection';
+import * as pdfjsLib from 'pdfjs-dist';
 import toast from 'react-hot-toast';
 
-// Premium Toast Component
-const CustomToast = ({ message, type, icon: Icon }) => (
-  <div className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl backdrop-blur-2xl border ${type === 'success'
-    ? 'bg-white/90 border-gray-300'
-    : type === 'error'
-      ? 'bg-red-50/90 border-red-300'
-      : 'bg-white/90 border-gray-300'
-    }`}>
-    <div className={`p-2 rounded-xl ${type === 'success' ? 'bg-gray-100' : type === 'error' ? 'bg-red-100' : 'bg-gray-100'
-      }`}>
-      <Icon size={18} className={`${type === 'success' ? 'text-gray-700' : type === 'error' ? 'text-red-600' : 'text-gray-600'
-        }`} />
-    </div>
-    <p className={`text-sm font-semibold ${type === 'success' ? 'text-gray-900' : type === 'error' ? 'text-red-900' : 'text-gray-800'
-      }`}>{message}</p>
-  </div>
-);
+// ==================== 🔧 CONFIGURATION ====================
 
-const PDFUpload = () => {
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const [files, setFiles] = useState([]);
-  const [uploading, setUploading] = useState(false);
-  const [xpEarnedToday, setXpEarnedToday] = useState(false);
-
-  const showToast = useCallback((message, type = 'default', icon = Sparkles) => {
-    toast.custom(() => <CustomToast message={message} type={type} icon={icon} />, {
-      duration: 3000,
-      position: 'top-center',
-    });
-  }, []);
-
-  // Check daily XP status
-  useEffect(() => {
-    const checkDailyXP = async () => {
-      if (!user?.uid) return;
-      try {
-        const { doc, getDoc } = await import('firebase/firestore');
-        const { db } = await import('@shared/config/firebase');
-        const today = new Date().toISOString().split('T')[0];
-        const userRef = doc(db, 'users', user.uid);
-        const userDoc = await getDoc(userRef);
-        const lastUploadDate = userDoc.data()?.lastUploadXPDate;
-        setXpEarnedToday(lastUploadDate === today);
-      } catch (error) {
-        console.error('Error checking daily XP:', error);
-      }
-    };
-    checkDailyXP();
-  }, [user?.uid]);
-
-  const onDrop = useCallback((acceptedFiles, rejectedFiles) => {
-    if (rejectedFiles.length > 0) {
-      rejectedFiles.forEach(rejection => {
-        const errors = rejection.errors.map(e => e.message).join(', ');
-        showToast(`${rejection.file.name}: ${errors}`, 'error', AlertCircle);
-      });
-    }
-    const newFiles = acceptedFiles.map(file => ({
-      file,
-      id: Math.random().toString(36).substring(2, 11),
-      status: 'pending',
-      docId: null,
-      error: null,
-      subject: null
-    }));
-    setFiles(prev => [...prev, ...newFiles]);
-  }, [showToast]);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { 'application/pdf': ['.pdf'] },
-    maxSize: 50 * 1024 * 1024,
-    multiple: true
-  });
-
-  const removeFile = useCallback((fileId) => {
-    setFiles(prev => prev.filter(f => f.id !== fileId));
-  }, []);
-
-  const handleUpload = async () => {
-    if (files.length === 0) {
-      showToast('Please select at least one file', 'error', AlertCircle);
-      return;
-    }
-
-    if (!user?.uid) {
-      showToast('Please log in to upload files', 'error', AlertCircle);
-      return;
-    }
-
-    setUploading(true);
-    let uploadCount = 0;
-    let xpAwarded = false;
-
-    for (const fileObj of files) {
-      if (fileObj.status !== 'pending') continue;
-
-      try {
-        setFiles(prev => prev.map(f =>
-          f.id === fileObj.id ? { ...f, status: 'uploading' } : f
-        ));
-
-        // Use standard uploadDocument service
-        const result = await uploadDocument(fileObj.file, user.uid);
-
-        uploadCount++;
-
-        setFiles(prev => prev.map(f =>
-          f.id === fileObj.id ? {
-            ...f,
-            status: 'completed',
-            docId: result.docId,
-            subject: result.subject || 'General Studies'
-          } : f
-        ));
-
-        // Award XP (once per day)
-        if (!xpAwarded && !xpEarnedToday) {
-          try {
-            const xpResult = await awardDailyXP(
-              user.uid,
-              DAILY_ACTIONS.UPLOAD_DOCUMENT,
-              'Uploaded PDF Document'
-            );
-
-            if (xpResult.success) {
-              xpAwarded = true;
-              setXpEarnedToday(true);
-              showToast(`+${xpResult.xpGained} XP earned!`, 'success', Zap);
-            }
-          } catch (error) {
-            console.error('XP award error:', error);
-          }
-        }
-
-      } catch (error) {
-        console.error('❌ Upload error:', error);
-        setFiles(prev => prev.map(f =>
-          f.id === fileObj.id ? { ...f, status: 'error', error: error.message } : f
-        ));
-        showToast(`Failed: ${error.message}`, 'error', AlertCircle);
-      }
-    }
-
-    setUploading(false);
-
-    if (uploadCount > 0) {
-      showToast(`${uploadCount} file(s) uploaded successfully!`, 'success', CheckCircle2);
-    }
-  };
-
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'completed':
-        return <CheckCircle2 className="text-gray-700" size={16} />;
-      case 'error':
-        return <AlertCircle className="text-red-600" size={16} />;
-      case 'uploading':
-        return <div className="w-4 h-4 border-2 border-gray-700 border-t-transparent rounded-full animate-spin"></div>;
-      default:
-        return <FileText className="text-gray-500" size={16} />;
-    }
-  };
-
-  const pendingFilesCount = files.filter(f => f.status === 'pending').length;
-  const completedFilesCount = files.filter(f => f.status === 'completed').length;
-  const completedFiles = files.filter(f => f.status === 'completed');
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 relative overflow-hidden">
-
-      {/* Subtle glassmorphic background */}
-      <div className="absolute top-20 left-20 w-96 h-96 bg-gradient-to-br from-gray-200/30 to-transparent rounded-full blur-3xl" />
-      <div className="absolute bottom-20 right-20 w-96 h-96 bg-gradient-to-br from-gray-300/20 to-transparent rounded-full blur-3xl" />
-
-      {/* Main Container */}
-      <div className="relative z-10 max-w-7xl mx-auto px-6 py-10 md:py-12">
-
-        {/* Premium Header */}
-        <div className="text-center mb-12 space-y-4">
-          {/* Trust Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/80 backdrop-blur-2xl border border-gray-200 shadow-lg">
-            <Shield size={14} className="text-gray-700" />
-            <span className="text-[10px] text-gray-700 font-bold tracking-[0.15em] uppercase">AI-Powered • Secure</span>
-          </div>
-
-          {/* Main Heading */}
-          <div className="space-y-2">
-            <h1 className="text-4xl md:text-5xl font-black tracking-tight text-gray-900">
-              Upload Documents
-            </h1>
-            <p className="text-gray-600 text-sm md:text-base max-w-xl mx-auto leading-relaxed font-medium">
-              AI automatically categorizes your PDFs by subject
-            </p>
-          </div>
-
-          {/* XP Banner */}
-          {!xpEarnedToday && (
-            <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-gray-100 to-white backdrop-blur-2xl border border-gray-300 shadow-lg">
-              <Zap size={16} className="text-gray-700" fill="currentColor" />
-              <span className="text-sm font-bold text-gray-900">
-                Earn +{XP_REWARDS.UPLOAD_DOCUMENT} XP for your first upload today
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Main Content Grid */}
-        <div className="grid lg:grid-cols-12 gap-6 lg:gap-8 items-start">
-
-          {/* LEFT: Upload Zone */}
-          <div className="lg:col-span-7">
-            <div
-              {...getRootProps()}
-              className={`relative cursor-pointer group rounded-3xl p-10 md:p-12
-                border-2 border-dashed transition-all duration-500 backdrop-blur-2xl
-                ${isDragActive
-                  ? 'border-gray-400 bg-white/90 shadow-2xl'
-                  : 'border-gray-300 bg-white/70 hover:bg-white/90 hover:border-gray-400 hover:shadow-xl'
-                }`}
-            >
-              <input {...getInputProps()} />
-
-              <div className="w-24 h-24 mx-auto mb-8 rounded-2xl bg-gradient-to-br from-gray-700 via-gray-600 to-gray-800 flex items-center justify-center shadow-2xl relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-t from-transparent via-white/5 to-white/10"></div>
-                <Cloud size={48} className="text-white relative z-10" strokeWidth={1.5} />
-              </div>
-
-              <div className="text-center space-y-3">
-                <h2 className="text-2xl md:text-3xl font-black text-gray-900">
-                  {isDragActive ? 'Drop Your Files' : 'Upload Documents'}
-                </h2>
-                <p className="text-gray-600 text-sm md:text-base font-medium">
-                  Drag & drop PDFs here, or{' '}
-                  <span className="text-gray-900 font-bold cursor-pointer hover:text-gray-700 transition-colors">
-                    browse files
-                  </span>
-                </p>
-                <div className="flex items-center justify-center gap-2 text-xs text-gray-500 font-medium">
-                  <span>PDF up to 50MB</span>
-                  <span className="text-gray-400">•</span>
-                  <span>Multiple files</span>
-                </div>
-              </div>
-
-              <div className="mt-8 flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-gray-100 to-white border border-gray-300 backdrop-blur-2xl mx-auto w-fit shadow-md">
-                <Sparkles size={14} className="text-gray-700" />
-                <span className="text-xs text-gray-800 font-bold">AI Auto-Categorization</span>
-              </div>
-            </div>
-
-            {/* Feature Stats */}
-            <div className="grid grid-cols-4 gap-3 mt-6">
-              {[
-                { icon: Award, label: '99%', sublabel: 'Accurate' },
-                { icon: Zap, label: '<3s', sublabel: 'Fast' },
-                { icon: Shield, label: 'Secure', sublabel: 'Enterprise' },
-                { icon: Sparkles, label: 'AI', sublabel: 'Powered' },
-              ].map((stat, i) => (
-                <div
-                  key={i}
-                  className="p-4 rounded-2xl bg-white/70 backdrop-blur-2xl border border-gray-200 hover:bg-white/90 hover:border-gray-300 hover:shadow-lg transition-all text-center"
-                >
-                  <stat.icon size={20} className="text-gray-700 mx-auto mb-2" />
-                  <p className="text-sm font-bold text-gray-900 mb-0.5">{stat.label}</p>
-                  <p className="text-[10px] text-gray-600 uppercase tracking-wider font-semibold">{stat.sublabel}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* RIGHT: File Queue */}
-          <div className="lg:col-span-5 flex flex-col h-full">
-            {files.length > 0 ? (
-              <div className="flex flex-col h-full rounded-3xl bg-white/80 backdrop-blur-2xl border border-gray-200 p-6 shadow-xl">
-                <div className="flex items-center justify-between mb-5 pb-5 border-b border-gray-200">
-                  <div>
-                    <h3 className="text-xl font-black text-gray-900 mb-0.5">Upload Queue</h3>
-                    <p className="text-xs text-gray-600 font-semibold">
-                      {files.length} file{files.length !== 1 ? 's' : ''}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setFiles([])}
-                    className="px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 hover:text-gray-900 transition-all text-xs font-bold"
-                  >
-                    Clear
-                  </button>
-                </div>
-
-                <div className="flex-1 space-y-2.5 overflow-y-auto pr-2 mb-5 custom-scrollbar">
-                  {files.map((fileObj) => (
-                    <div
-                      key={fileObj.id}
-                      className="group relative rounded-xl p-3.5 bg-gradient-to-br from-white/90 to-gray-50/90 border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all"
-                    >
-                      {fileObj.status === 'uploading' && (
-                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-200 rounded-b-xl overflow-hidden">
-                          <div className="h-full bg-gradient-to-r from-gray-600 via-gray-700 to-gray-600 w-full animate-pulse"></div>
-                        </div>
-                      )}
-
-                      <div className="flex items-center gap-3">
-                        <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-gray-100 border border-gray-300 flex items-center justify-center">
-                          {getStatusIcon(fileObj.status)}
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-gray-900 text-sm truncate mb-0.5">{fileObj.file.name}</p>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-[10px] text-gray-600 font-semibold">
-                              {(fileObj.file.size / (1024 * 1024)).toFixed(2)} MB
-                            </span>
-
-                            {fileObj.subject && (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-gray-200 text-gray-800 border border-gray-300">
-                                📚 {fileObj.subject}
-                              </span>
-                            )}
-
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg ${fileObj.status === 'completed' ? 'bg-gray-200 text-gray-900 border border-gray-300' : ''
-                              }${fileObj.status === 'error' ? 'bg-red-100 text-red-700 border border-red-300' : ''
-                              }${fileObj.status === 'uploading' ? 'bg-gray-100 text-gray-700 border border-gray-300' : ''
-                              }${fileObj.status === 'pending' ? 'bg-gray-50 text-gray-500 border border-gray-200' : ''
-                              }`}>
-                              {fileObj.status === 'uploading' && '⚡ Processing'}
-                              {fileObj.status === 'completed' && '✓ Uploaded'}
-                              {fileObj.status === 'error' && '✕ Failed'}
-                              {fileObj.status === 'pending' && '◦ Pending'}
-                            </span>
-                          </div>
-                        </div>
-
-                        {fileObj.status === 'pending' && (
-                          <button
-                            onClick={() => removeFile(fileObj.id)}
-                            className="p-1.5 rounded-lg hover:bg-red-100 text-red-600 hover:text-red-700 transition-all opacity-0 group-hover:opacity-100"
-                          >
-                            <X size={16} />
-                          </button>
-                        )}
-
-                        {fileObj.status === 'completed' && fileObj.docId && (
-                          <button
-                            onClick={() => navigate(`/study/${fileObj.docId}`)}
-                            className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-gray-800 to-gray-700 hover:from-gray-900 hover:to-gray-800 text-white text-xs font-bold shadow-lg transition-all flex items-center gap-1"
-                          >
-                            <Play size={12} />
-                            Study
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Action Buttons */}
-                <div className="space-y-3">
-                  <button
-                    onClick={handleUpload}
-                    disabled={uploading || pendingFilesCount === 0}
-                    className="w-full px-6 py-4 rounded-2xl bg-gradient-to-r from-gray-800 via-gray-700 to-gray-800 hover:from-gray-900 hover:via-gray-800 hover:to-gray-900 text-white font-bold text-base shadow-2xl transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2.5"
-                  >
-                    {uploading ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        <span>Processing Files...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Upload size={18} />
-                        <span>Upload {pendingFilesCount} File{pendingFilesCount !== 1 ? 's' : ''}</span>
-                      </>
-                    )}
-                  </button>
-
-                  {/* Quick Actions after upload */}
-                  {completedFilesCount > 0 && !uploading && (
-                    <div className="space-y-2">
-                      <button
-                        onClick={() => navigate(`/study/${completedFiles[0].docId}`)}
-                        className="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-gray-800 to-gray-700 hover:from-gray-900 hover:to-gray-800 text-white font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-lg"
-                      >
-                        <Play size={16} />
-                        <span>Start Study Session</span>
-                      </button>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          onClick={() => navigate('/documents')}
-                          className="px-4 py-3 rounded-xl bg-white/80 hover:bg-white border border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-900 font-bold text-sm transition-all flex items-center justify-center gap-2"
-                        >
-                          <BookOpen size={16} />
-                          <span>Library</span>
-                        </button>
-                        <button
-                          onClick={() => navigate('/quiz')}
-                          className="px-4 py-3 rounded-xl bg-white/80 hover:bg-white border border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-900 font-bold text-sm transition-all flex items-center justify-center gap-2"
-                        >
-                          <Sparkles size={16} />
-                          <span>Quiz</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="flex-1 flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-gray-300 bg-white/70 backdrop-blur-2xl p-10 text-center">
-                <div className="w-16 h-16 rounded-2xl bg-gray-100 border border-gray-300 flex items-center justify-center mb-5 shadow-lg">
-                  <Upload size={28} className="text-gray-500" />
-                </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-1.5">No Files Selected</h3>
-                <p className="text-xs text-gray-600 leading-relaxed font-medium">
-                  Upload PDFs • AI categorizes automatically
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <style>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 5px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: rgba(229, 231, 235, 0.5);
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(107, 114, 128, 0.5);
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(107, 114, 128, 0.7);
-        }
-      `}</style>
-    </div>
-  );
+const CONFIG = {
+  MAX_FILE_SIZE: 100 * 1024 * 1024, // 100MB
+  MAX_PAGES: 1000,
+  BATCH_SIZE: 500,
+  RETRY_ATTEMPTS: 3,
+  RETRY_DELAY: 1000,
+  CACHE_TTL: 5 * 60 * 1000,
+  CHUNK_SIZE: 50,
+  MIN_TEXT_LENGTH: 30,
+  KEYWORD_COUNT: 50,
+  CONCURRENT_OPERATIONS: 5
 };
 
-export default PDFUpload;
+// PDF.js worker setup
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
+
+// ==================== 💾 IN-MEMORY CACHE ====================
+
+class DocumentCache {
+  constructor(ttl = CONFIG.CACHE_TTL) {
+    this.cache = new Map();
+    this.ttl = ttl;
+  }
+
+  set(key, value) {
+    this.cache.set(key, {
+      value,
+      timestamp: Date.now()
+    });
+  }
+
+  get(key) {
+    const item = this.cache.get(key);
+    if (!item) return null;
+
+    if (Date.now() - item.timestamp > this.ttl) {
+      this.cache.delete(key);
+      return null;
+    }
+
+    return item.value;
+  }
+
+  delete(key) {
+    this.cache.delete(key);
+  }
+
+  clear() {
+    this.cache.clear();
+  }
+
+  has(key) {
+    return this.cache.has(key) && this.get(key) !== null;
+  }
+}
+
+const documentCache = new DocumentCache();
+
+// ==================== 🔄 RETRY MECHANISM ====================
+
+const retryOperation = async (operation, attempts = CONFIG.RETRY_ATTEMPTS, delay = CONFIG.RETRY_DELAY) => {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (i === attempts - 1) throw error;
+
+      console.warn(`⚠️ Attempt ${i + 1} failed, retrying in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
+    }
+  }
+};
+
+// ==================== 📝 ADVANCED TEXT EXTRACTION ====================
+
+export const extractTextFromPDF = async (file, onProgress = null) => {
+  try {
+    console.log('📝 Starting advanced PDF extraction...');
+
+    if (!file || file.size === 0) {
+      throw new Error('Invalid or empty file');
+    }
+
+    if (file.size > CONFIG.MAX_FILE_SIZE) {
+      throw new Error(`File size exceeds ${CONFIG.MAX_FILE_SIZE / 1024 / 1024}MB limit`);
+    }
+
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({
+      data: arrayBuffer,
+      useWorkerFetch: false,
+      isEvalSupported: false,
+      useSystemFonts: true
+    }).promise;
+
+    const totalPages = Math.min(pdf.numPages, CONFIG.MAX_PAGES);
+    let fullText = '';
+    const pageTexts = [];
+    const metadata = {
+      hasImages: false,
+      hasTables: false,
+      languages: new Set(),
+      fonts: new Set(),
+      averageWordsPerPage: 0
+    };
+
+    console.log(`📖 Processing ${totalPages} pages...`);
+
+    for (let i = 1; i <= totalPages; i++) {
+      try {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+          .map(item => {
+            if (item.fontName) {
+              metadata.fonts.add(item.fontName);
+            }
+            return item.str;
+          })
+          .join(' ')
+          .trim()
+          .replace(/\s+/g, ' ');
+
+        if (pageText) {
+          const wordCount = pageText.split(/\s+/).length;
+
+          pageTexts.push({
+            pageNum: i,
+            text: pageText,
+            wordCount,
+            hasContent: wordCount > 10
+          });
+
+          fullText += pageText + '\n\n';
+        }
+
+        const operatorList = await page.getOperatorList();
+        if (operatorList.fnArray.includes(pdfjsLib.OPS.paintImageXObject)) {
+          metadata.hasImages = true;
+        }
+
+        if (onProgress) {
+          onProgress({
+            current: i,
+            total: totalPages,
+            percentage: Math.round((i / totalPages) * 100)
+          });
+        }
+
+      } catch (pageError) {
+        console.warn(`⚠️ Page ${i} extraction failed:`, pageError.message);
+        pageTexts.push({
+          pageNum: i,
+          text: '',
+          wordCount: 0,
+          hasContent: false,
+          error: pageError.message
+        });
+      }
+    }
+
+    const totalWords = fullText.split(/\s+/).filter(w => w.length > 0).length;
+    metadata.averageWordsPerPage = Math.round(totalWords / pageTexts.length);
+
+    const sampleText = fullText.substring(0, 1000).toLowerCase();
+    if (/[а-яё]/.test(sampleText)) metadata.languages.add('Russian');
+    if (/[一-龯]/.test(sampleText)) metadata.languages.add('Chinese');
+    if (/[ぁ-ゔ]|[ァ-ヴー]/.test(sampleText)) metadata.languages.add('Japanese');
+    if (/[가-힣]/.test(sampleText)) metadata.languages.add('Korean');
+    if (/[a-z]/.test(sampleText)) metadata.languages.add('English');
+
+    const result = {
+      fullText: fullText.trim(),
+      pageTexts: pageTexts.filter(p => p.hasContent),
+      numPages: pdf.numPages,
+      extractedPages: pageTexts.filter(p => p.hasContent).length,
+      totalWords,
+      metadata: {
+        ...metadata,
+        languages: Array.from(metadata.languages),
+        fonts: Array.from(metadata.fonts)
+      },
+      quality: calculateExtractionQuality(pageTexts, totalWords),
+      success: true
+    };
+
+    console.log(`✅ Extracted ${result.totalWords} words from ${result.extractedPages} pages`);
+    console.log(`📊 Quality score: ${result.quality}%`);
+
+    return result;
+
+  } catch (error) {
+    console.error('❌ PDF extraction error:', error);
+    return {
+      fullText: '',
+      pageTexts: [],
+      numPages: 0,
+      extractedPages: 0,
+      totalWords: 0,
+      metadata: {},
+      quality: 0,
+      success: false,
+      error: error.message
+    };
+  }
+};
+
+const calculateExtractionQuality = (pageTexts, totalWords) => {
+  if (pageTexts.length === 0) return 0;
+
+  const pagesWithContent = pageTexts.filter(p => p.hasContent).length;
+  const coverageScore = (pagesWithContent / pageTexts.length) * 50;
+  const densityScore = Math.min((totalWords / pageTexts.length / 100), 1) * 50;
+
+  return Math.round(coverageScore + densityScore);
+};
+
+export const extractKeywords = (text, maxKeywords = CONFIG.KEYWORD_COUNT) => {
+  if (!text || text.length < 10) return [];
+
+  const stopWords = new Set([
+    'the', 'is', 'at', 'which', 'on', 'a', 'an', 'and', 'or', 'but', 'in',
+    'with', 'to', 'for', 'of', 'as', 'by', 'this', 'that', 'from', 'are',
+    'was', 'were', 'been', 'be', 'have', 'has', 'had', 'do', 'does', 'did',
+    'will', 'would', 'could', 'should', 'can', 'may', 'might', 'must',
+    'it', 'its', 'they', 'them', 'their', 'we', 'our', 'you', 'your',
+    'when', 'where', 'who', 'what', 'why', 'how', 'there', 'here',
+    'then', 'than', 'these', 'those', 'such', 'some', 'more', 'most',
+    'all', 'both', 'each', 'few', 'many', 'other', 'another', 'any'
+  ]);
+
+  const words = text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, ' ')
+    .split(/\s+/)
+    .filter(word =>
+      word.length > 3 &&
+      word.length < 20 &&
+      !stopWords.has(word) &&
+      !/^\d+$/.test(word) &&
+      !/^[^a-z0-9]+$/.test(word)
+    );
+
+  const wordFreq = {};
+  const totalWords = words.length;
+
+  words.forEach(word => {
+    wordFreq[word] = (wordFreq[word] || 0) + 1;
+  });
+
+  const scored = Object.entries(wordFreq).map(([word, freq]) => {
+    const tf = freq / totalWords;
+    const idf = Math.log(totalWords / freq);
+    return {
+      word,
+      score: tf * idf,
+      frequency: freq
+    };
+  });
+
+  return scored
+    .sort((a, b) => b.score - a.score)
+    .slice(0, maxKeywords)
+    .map(item => item.word);
+};
+
+export const generateSummary = (text, maxSentences = 5) => {
+  if (!text || text.length < 100) return '';
+
+  const sentences = text
+    .split(/[.!?]+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 20);
+
+  if (sentences.length <= maxSentences) return text;
+
+  const keywords = extractKeywords(text, 20);
+  const keywordSet = new Set(keywords);
+
+  const scored = sentences.map(sentence => {
+    const words = sentence.toLowerCase().split(/\s+/);
+    const score = words.filter(w => keywordSet.has(w)).length;
+    return { sentence, score };
+  });
+
+  const topSentences = scored
+    .sort((a, b) => b.score - a.score)
+    .slice(0, maxSentences)
+    .map(s => s.sentence);
+
+  return topSentences.join('. ') + '.';
+};
+
+// ==================== 📤 ADVANCED UPLOAD SYSTEM ====================
+
+export const initiateDocumentUpload = (file, userId, options = {}) => {
+  if (!file) {
+    throw new Error('No file provided');
+  }
+
+  if (!file.type.includes('pdf')) {
+    throw new Error('Only PDF files are supported');
+  }
+
+  if (file.size === 0) {
+    throw new Error('File is empty');
+  }
+
+  if (file.size > CONFIG.MAX_FILE_SIZE) {
+    throw new Error(`File size must be less than ${CONFIG.MAX_FILE_SIZE / 1024 / 1024}MB`);
+  }
+
+  if (!userId) {
+    throw new Error('User ID is required');
+  }
+
+  const timestamp = Date.now();
+  const sanitizedFileName = file.name
+    .replace(/[^a-zA-Z0-9.-]/g, '_')
+    .replace(/_{2,}/g, '_')
+    .substring(0, 100);
+
+  const fileHash = generateFileHash(file.name, file.size, timestamp);
+  const storagePath = `documents/${userId}/${fileHash}/${sanitizedFileName}`;
+  const storageRef = ref(storage, storagePath);
+
+  const uploadTask = uploadBytesResumable(storageRef, file, {
+    contentType: 'application/pdf',
+    customMetadata: {
+      userId: userId,
+      originalName: file.name,
+      uploadTimestamp: timestamp.toString(),
+      fileSize: file.size.toString(),
+      version: '2.0'
+    }
+  });
+
+  console.log('📤 Upload initiated:', storagePath);
+
+  return {
+    uploadTask,
+    storageRef,
+    storagePath,
+    fileHash
+  };
+};
+
+const generateFileHash = (fileName, fileSize, timestamp) => {
+  const str = `${fileName}-${fileSize}-${timestamp}`;
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(36);
+};
+
+export const createDocumentRecord = async (userId, file, data) => {
+  try {
+    console.log('💾 Creating advanced document record...');
+
+    const {
+      downloadURL,
+      storagePath,
+      extractedText,
+      pageTexts,
+      numPages,
+      totalWords,
+      metadata = {},
+      quality = 0,
+      context = {}
+    } = data;
+
+    const keywords = extractedText ? extractKeywords(extractedText, 50) : [];
+    const summary = extractedText ? generateSummary(extractedText, 5) : '';
+
+    let subject = 'General Studies';
+    let subjectConfidence = 0;
+    let detectionMethod = 'default';
+    let alternativeSubjects = [];
+
+    if (extractedText && extractedText.length >= CONFIG.MIN_TEXT_LENGTH) {
+      try {
+        console.log('🤖 Running AI subject detection...');
+
+        const detection = await retryOperation(async () => {
+          return await detectSubjectHybrid({
+            title: file.name.replace('.pdf', ''),
+            content: extractedText,
+            fileName: file.name,
+            keywords: keywords.slice(0, 10)
+          });
+        });
+
+        if (detection && detection.subject) {
+          subject = detection.subject;
+          subjectConfidence = detection.confidence || 0;
+          detectionMethod = detection.method || 'ai';
+          alternativeSubjects = detection.alternatives || [];
+
+          console.log(`✅ AI detected: ${subject} (${subjectConfidence}% via ${detectionMethod})`);
+        } else {
+          console.warn('⚠️ AI detection returned null');
+          subject = await fallbackSubjectDetection(file.name, keywords);
+          detectionMethod = 'fallback';
+        }
+      } catch (aiError) {
+        console.error('❌ AI detection failed:', aiError);
+        subject = await fallbackSubjectDetection(file.name, keywords);
+        detectionMethod = 'fallback';
+      }
+    }
+
+    if (context.subject && context.subject !== 'General Studies') {
+      console.log(`✏️ User override: ${context.subject}`);
+      subject = context.subject;
+      subjectConfidence = 100;
+      detectionMethod = 'user_provided';
+    }
+
+    const docData = {
+      title: file.name.replace('.pdf', ''),
+      fileName: file.name,
+      userId: userId,
+      fileSize: file.size,
+      downloadURL,
+      storagePath,
+      status: 'completed',
+      pages: numPages || 0,
+      totalWords: totalWords || 0,
+      quality: quality || 0,
+      subject: subject,
+      subjectConfidence: subjectConfidence,
+      detectionMethod: detectionMethod,
+      alternativeSubjects: alternativeSubjects,
+      purpose: context.purpose || '',
+      folderId: context.folderId || null,
+      keywords,
+      summary,
+      extractedText: extractedText || '',
+      metadata: metadata,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      totalStudyTime: 0,
+      lastStudiedAt: null,
+      readingProgress: 0,
+      viewCount: 0,
+      studySessions: 0,
+      quizCount: 0,
+      flashcardCount: 0,
+      summaryCount: 0,
+      notesCount: 0,
+      isArchived: false,
+      isFavorite: false,
+      rating: 0,
+      tags: context.tags || [],
+      analytics: {
+        uploadDuration: context.uploadDuration || 0,
+        processingDuration: context.processingDuration || 0,
+        extractionQuality: quality || 0,
+        version: '2.0'
+      }
+    };
+
+    const docRef = await retryOperation(async () => {
+      return await addDoc(collection(db, 'documents'), docData);
+    });
+
+    console.log('✅ Document record created:', docRef.id);
+
+    Promise.all([
+      savePages(docRef.id, pageTexts),
+      updateStatistics(userId, context.folderId, { subject }),
+      createDocumentIndex(docRef.id, docData)
+    ]).catch(err => console.warn('⚠️ Async operation warning:', err.message));
+
+    documentCache.delete(`user_docs_${userId}`);
+
+    return {
+      docId: docRef.id,
+      subject,
+      subjectConfidence,
+      detectionMethod,
+      alternativeSubjects,
+      folderId: context.folderId,
+      quality,
+      success: true
+    };
+
+  } catch (error) {
+    console.error('❌ Document creation failed:', error);
+    throw new Error(`Failed to create document: ${error.message}`);
+  }
+};
+
+const fallbackSubjectDetection = async (fileName, keywords) => {
+  const subjectKeywords = {
+    'Mathematics': ['math', 'calculus', 'algebra', 'geometry', 'equation', 'theorem', 'integral'],
+    'Physics': ['physics', 'force', 'energy', 'motion', 'quantum', 'wave', 'particle'],
+    'Chemistry': ['chemistry', 'molecule', 'atom', 'reaction', 'element', 'compound'],
+    'Biology': ['biology', 'cell', 'organism', 'dna', 'protein', 'evolution'],
+    'Computer Science': ['programming', 'algorithm', 'code', 'software', 'computer', 'data'],
+    'History': ['history', 'war', 'century', 'civilization', 'empire', 'revolution'],
+    'Literature': ['literature', 'novel', 'poetry', 'author', 'story', 'character']
+  };
+
+  const text = (fileName + ' ' + keywords.join(' ')).toLowerCase();
+  let bestMatch = 'General Studies';
+  let maxScore = 0;
+
+  for (const [subject, subjectWords] of Object.entries(subjectKeywords)) {
+    const score = subjectWords.filter(word => text.includes(word)).length;
+    if (score > maxScore) {
+      maxScore = score;
+      bestMatch = subject;
+    }
+  }
+
+  return bestMatch;
+};
+
+const savePages = async (docId, pageTexts) => {
+  if (!pageTexts || pageTexts.length === 0) return;
+
+  try {
+    const pages = pageTexts.slice(0, 100);
+    const chunks = [];
+
+    for (let i = 0; i < pages.length; i += CONFIG.BATCH_SIZE) {
+      chunks.push(pages.slice(i, i + CONFIG.BATCH_SIZE));
+    }
+
+    for (let i = 0; i < chunks.length; i += CONFIG.CONCURRENT_OPERATIONS) {
+      const chunkBatch = chunks.slice(i, i + CONFIG.CONCURRENT_OPERATIONS);
+
+      await Promise.all(chunkBatch.map(async (chunk) => {
+        const batch = writeBatch(db);
+
+        chunk.forEach(pageData => {
+          const pageRef = doc(collection(db, 'documents', docId, 'pages'));
+          batch.set(pageRef, {
+            ...pageData,
+            createdAt: serverTimestamp()
+          });
+        });
+
+        await batch.commit();
+      }));
+    }
+
+    console.log(`✅ Saved ${pages.length} pages in ${chunks.length} batches`);
+  } catch (error) {
+    console.error('❌ Page save error:', error);
+    throw error;
+  }
+};
+
+const createDocumentIndex = async (docId, docData) => {
+  try {
+    const indexRef = doc(db, 'documentIndex', docId);
+    await setDoc(indexRef, {
+      docId,
+      userId: docData.userId,
+      title: docData.title,
+      subject: docData.subject,
+      keywords: docData.keywords,
+      summary: docData.summary,
+      createdAt: serverTimestamp()
+    });
+    console.log('✅ Search index created');
+  } catch (error) {
+    console.warn('⚠️ Index creation failed:', error);
+  }
+};
+
+const updateStatistics = async (userId, folderId, extras = {}) => {
+  try {
+    const batch = writeBatch(db);
+
+    const userRef = doc(db, 'users', userId);
+    batch.update(userRef, {
+      totalDocuments: increment(1),
+      lastUploadAt: serverTimestamp(),
+      [`subjectCounts.${extras.subject || 'General Studies'}`]: increment(1)
+    });
+
+    if (folderId) {
+      const folderRef = doc(db, COLLECTIONS.FOLDERS, folderId);
+      batch.update(folderRef, {
+        docCount: increment(1),
+        updatedAt: serverTimestamp()
+      });
+    }
+
+    await batch.commit();
+    console.log('✅ Statistics updated');
+  } catch (error) {
+    console.warn('⚠️ Stats update failed:', error);
+  }
+};
+
+// ==================== 🔄 LEGACY COMPATIBILITY ====================
+
+/**
+ * ✅ LEGACY UPLOAD FUNCTION - For backward compatibility with PDFUpload.jsx
+ * This wraps the new API to maintain compatibility
+ */
+export const uploadDocument = async (file, userId, metadata = {}) => {
+  console.log('📤 Using legacy uploadDocument wrapper');
+
+  try {
+    const startTime = Date.now();
+
+    // 1. Initiate upload
+    const { uploadTask, storagePath } = initiateDocumentUpload(file, userId);
+
+    // 2. Wait for upload to complete
+    await new Promise((resolve, reject) => {
+      uploadTask.on('state_changed', null, reject, resolve);
+    });
+
+    const uploadDuration = Date.now() - startTime;
+
+    // 3. Get download URL
+    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+
+    // 4. Extract text
+    const extractionStart = Date.now();
+    const extraction = await extractTextFromPDF(file);
+    const processingDuration = Date.now() - extractionStart;
+
+    // 5. Create record with AI detection
+    const result = await createDocumentRecord(userId, file, {
+      downloadURL,
+      storagePath,
+      extractedText: extraction.fullText,
+      pageTexts: extraction.pageTexts,
+      numPages: extraction.numPages,
+      totalWords: extraction.totalWords,
+      metadata: extraction.metadata,
+      quality: extraction.quality,
+      context: {
+        subject: metadata.subject,
+        purpose: metadata.purpose,
+        tags: metadata.tags,
+        folderId: metadata.folderId,
+        uploadDuration,
+        processingDuration
+      }
+    });
+
+    console.log('✅ Legacy upload complete:', result.docId);
+
+    return {
+      success: true,
+      docId: result.docId,
+      subject: result.subject,
+      subjectConfidence: result.subjectConfidence,
+      detectionMethod: result.detectionMethod,
+      downloadURL,
+      ...result
+    };
+
+  } catch (error) {
+    console.error('❌ Legacy upload error:', error);
+    throw error;
+  }
+};
+
+// ==================== 🗑️ ADVANCED DELETE SYSTEM ====================
+
+export const deleteDocument = async (documentId) => {
+  try {
+    console.log('🗑️ Starting enhanced deletion:', documentId);
+
+    if (!documentId) {
+      throw new Error('Document ID is required');
+    }
+
+    const docRef = doc(db, 'documents', documentId);
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      console.warn('⚠️ Document not found');
+      documentCache.delete(documentId);
+      return { success: true, alreadyDeleted: true };
+    }
+
+    const docData = docSnap.data();
+    console.log('📄 Document found:', documentId);
+
+    const deletionResults = await Promise.allSettled([
+      deleteStorageFiles(docData.storagePath),
+      deleteSubcollections(documentId),
+      deleteSearchIndex(documentId),
+      deleteRelatedContent(documentId)
+    ]);
+
+    deletionResults.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        console.warn(`⚠️ Deletion step ${index} failed:`, result.reason);
+      }
+    });
+
+    await deleteDoc(docRef);
+    console.log('✅ Firestore document deleted');
+
+    await updateStatisticsAfterDeletion(docData.userId, docData.folderId, docData.subject);
+
+    documentCache.delete(documentId);
+    documentCache.delete(`user_docs_${docData.userId}`);
+
+    console.log('🎉 Deletion complete!');
+    return {
+      success: true,
+      documentId,
+      storageDeleted: deletionResults[0].status === 'fulfilled'
+    };
+
+  } catch (error) {
+    console.error('❌ DELETE ERROR:', error);
+
+    let errorMessage = 'Failed to delete document';
+
+    if (error.code === 'permission-denied') {
+      errorMessage = 'Permission denied. You do not own this document.';
+    } else if (error.code === 'not-found') {
+      errorMessage = 'Document not found';
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+
+    throw new Error(errorMessage);
+  }
+};
+
+const deleteStorageFiles = async (storagePath) => {
+  if (!storagePath) return false;
+
+  try {
+    console.log('🗂️ Deleting storage files:', storagePath);
+
+    const storageRef = ref(storage, storagePath);
+    await retryOperation(() => deleteObject(storageRef));
+
+    const folderPath = storagePath.substring(0, storagePath.lastIndexOf('/'));
+    const folderRef = ref(storage, folderPath);
+
+    try {
+      const filesList = await listAll(folderRef);
+
+      if (filesList.items.length > 0) {
+        console.log(`📂 Deleting ${filesList.items.length} files`);
+
+        const chunks = [];
+        for (let i = 0; i < filesList.items.length; i += CONFIG.CONCURRENT_OPERATIONS) {
+          chunks.push(filesList.items.slice(i, i + CONFIG.CONCURRENT_OPERATIONS));
+        }
+
+        for (const chunk of chunks) {
+          await Promise.allSettled(
+            chunk.map(item => deleteObject(item))
+          );
+        }
+      }
+    } catch (folderError) {
+      console.warn('⚠️ Folder cleanup warning:', folderError.message);
+    }
+
+    console.log('✅ Storage files deleted');
+    return true;
+
+  } catch (error) {
+    if (error.code === 'storage/object-not-found') {
+      console.warn('⚠️ File not found in storage');
+      return true;
+    }
+    console.error('❌ Storage deletion error:', error);
+    return false;
+  }
+};
+
+const deleteSubcollections = async (documentId) => {
+  const subcollections = ['pages', 'notes', 'annotations', 'highlights'];
+
+  for (const subCol of subcollections) {
+    try {
+      const colRef = collection(db, 'documents', documentId, subCol);
+      const snapshot = await getDocs(colRef);
+
+      if (!snapshot.empty) {
+        console.log(`📑 Deleting ${snapshot.size} ${subCol}...`);
+
+        const chunks = [];
+        const docs = snapshot.docs;
+
+        for (let i = 0; i < docs.length; i += CONFIG.BATCH_SIZE) {
+          chunks.push(docs.slice(i, i + CONFIG.BATCH_SIZE));
+        }
+
+        for (const chunk of chunks) {
+          const batch = writeBatch(db);
+          chunk.forEach(docSnap => {
+            batch.delete(doc(db, 'documents', documentId, subCol, docSnap.id));
+          });
+          await batch.commit();
+        }
+      }
+    } catch (error) {
+      console.warn(`⚠️ ${subCol} deletion warning:`, error.message);
+    }
+  }
+};
+
+const deleteSearchIndex = async (documentId) => {
+  try {
+    const indexRef = doc(db, 'documentIndex', documentId);
+    await deleteDoc(indexRef);
+    console.log('✅ Search index deleted');
+  } catch (error) {
+    console.warn('⚠️ Index deletion warning:', error);
+  }
+};
+
+const deleteRelatedContent = async (documentId) => {
+  const relatedCollections = [
+    { name: 'quizzes', field: 'documentId' },
+    { name: 'flashcards', field: 'documentId' },
+    { name: 'summaries', field: 'documentId' }
+  ];
+
+  for (const { name, field } of relatedCollections) {
+    try {
+      const q = query(
+        collection(db, name),
+        where(field, '==', documentId),
+        limit(100)
+      );
+
+      const snapshot = await getDocs(q);
+
+      if (!snapshot.empty) {
+        console.log(`🗑️ Deleting ${snapshot.size} related ${name}...`);
+
+        const batch = writeBatch(db);
+        snapshot.docs.forEach(docSnap => {
+          batch.delete(doc(db, name, docSnap.id));
+        });
+
+        await batch.commit();
+      }
+    } catch (error) {
+      console.warn(`⚠️ ${name} cleanup warning:`, error);
+    }
+  }
+};
+
+const updateStatisticsAfterDeletion = async (userId, folderId, subject) => {
+  try {
+    const batch = writeBatch(db);
+
+    if (userId) {
+      const userRef = doc(db, 'users', userId);
+      const userSnap = await getDoc(userRef);
+
+      if (userSnap.exists()) {
+        const updates = {
+          totalDocuments: increment(-1)
+        };
+
+        if (subject) {
+          updates[`subjectCounts.${subject}`] = increment(-1);
+        }
+
+        batch.update(userRef, updates);
+      }
+    }
+
+    if (folderId) {
+      const folderRef = doc(db, COLLECTIONS.FOLDERS, folderId);
+      const folderSnap = await getDoc(folderRef);
+
+      if (folderSnap.exists()) {
+        batch.update(folderRef, {
+          docCount: increment(-1),
+          updatedAt: serverTimestamp()
+        });
+      }
+    }
+
+    await batch.commit();
+    console.log('✅ Statistics updated after deletion');
+
+  } catch (error) {
+    console.warn('⚠️ Stats update warning:', error);
+  }
+};
+
+// ==================== 📖 RETRIEVAL FUNCTIONS ====================
+
+export const getDocument = async (documentId, useCache = true) => {
+  try {
+    if (useCache && documentCache.has(documentId)) {
+      console.log('💾 Cache hit:', documentId);
+      return documentCache.get(documentId);
+    }
+
+    const docRef = doc(db, 'documents', documentId);
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      throw new Error('Document not found');
+    }
+
+    const docData = {
+      id: docSnap.id,
+      ...docSnap.data()
+    };
+
+    documentCache.set(documentId, docData);
+
+    return docData;
+  } catch (error) {
+    console.error('Error getting document:', error);
+    throw error;
+  }
+};
+
+export const getUserDocuments = async (userId, options = {}) => {
+  try {
+    const {
+      limitCount = 100,
+      orderByField = 'createdAt',
+      orderDirection = 'desc',
+      subject = null,
+      folderId = null,
+      useCache = true,
+      startAfterDoc = null
+    } = options;
+
+    const cacheKey = `user_docs_${userId}_${subject || 'all'}_${folderId || 'all'}`;
+
+    if (useCache && !startAfterDoc && documentCache.has(cacheKey)) {
+      console.log('💾 Cache hit for user documents');
+      return documentCache.get(cacheKey);
+    }
+
+    let q = query(
+      collection(db, 'documents'),
+      where('userId', '==', userId)
+    );
+
+    if (subject) {
+      q = query(q, where('subject', '==', subject));
+    }
+
+    if (folderId) {
+      q = query(q, where('folderId', '==', folderId));
+    }
+
+    q = query(q, orderBy(orderByField, orderDirection));
+
+    if (startAfterDoc) {
+      q = query(q, startAfter(startAfterDoc));
+    }
+
+    q = query(q, limit(limitCount));
+
+    const snapshot = await getDocs(q);
+    const documents = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    if (!startAfterDoc) {
+      documentCache.set(cacheKey, documents);
+    }
+
+    return documents;
+  } catch (error) {
+    console.error('Error getting user documents:', error);
+    return [];
+  }
+};
+
+export const searchDocuments = async (userId, searchTerm, filters = {}) => {
+  try {
+    const allDocs = await getUserDocuments(userId, { useCache: true });
+    const searchLower = searchTerm.toLowerCase().trim();
+
+    if (!searchLower) return allDocs;
+
+    let results = allDocs.filter(doc => {
+      const title = (doc.title || '').toLowerCase();
+      const fileName = (doc.fileName || '').toLowerCase();
+      const subject = (doc.subject || '').toLowerCase();
+      const keywords = (doc.keywords || []).join(' ').toLowerCase();
+      const summary = (doc.summary || '').toLowerCase();
+
+      return (
+        title.includes(searchLower) ||
+        fileName.includes(searchLower) ||
+        subject.includes(searchLower) ||
+        keywords.includes(searchLower) ||
+        summary.includes(searchLower)
+      );
+    });
+
+    if (filters.subject) {
+      results = results.filter(doc => doc.subject === filters.subject);
+    }
+
+    if (filters.minQuality) {
+      results = results.filter(doc => (doc.quality || 0) >= filters.minQuality);
+    }
+
+    if (filters.isFavorite) {
+      results = results.filter(doc => doc.isFavorite === true);
+    }
+
+    if (filters.minRating) {
+      results = results.filter(doc => (doc.rating || 0) >= filters.minRating);
+    }
+
+    return results;
+  } catch (error) {
+    console.error('Error searching documents:', error);
+    return [];
+  }
+};
+
+export const getDocumentsBySubject = async (userId, subject) => {
+  return getUserDocuments(userId, { subject });
+};
+
+// ==================== 📊 UPDATE & TRACKING ====================
+
+export const updateDocument = async (documentId, updates) => {
+  try {
+    const docRef = doc(db, 'documents', documentId);
+
+    await updateDoc(docRef, {
+      ...updates,
+      updatedAt: serverTimestamp()
+    });
+
+    documentCache.delete(documentId);
+
+    console.log('✅ Document updated:', documentId);
+  } catch (error) {
+    console.error('Error updating document:', error);
+    throw error;
+  }
+};
+
+export const incrementViewCount = async (documentId) => {
+  try {
+    const docRef = doc(db, 'documents', documentId);
+    await updateDoc(docRef, {
+      viewCount: increment(1),
+      lastViewedAt: serverTimestamp()
+    });
+    documentCache.delete(documentId);
+  } catch (error) {
+    console.warn('Failed to update view count:', error);
+  }
+};
+
+export const updateStudyTime = async (documentId, seconds) => {
+  try {
+    const docRef = doc(db, 'documents', documentId);
+    await updateDoc(docRef, {
+      totalStudyTime: increment(seconds),
+      lastStudiedAt: serverTimestamp(),
+      studySessions: increment(1)
+    });
+    documentCache.delete(documentId);
+  } catch (error) {
+    console.warn('Failed to update study time:', error);
+  }
+};
+
+export const updateReadingProgress = async (documentId, progress) => {
+  try {
+    const validProgress = Math.min(100, Math.max(0, progress));
+    const docRef = doc(db, 'documents', documentId);
+    await updateDoc(docRef, {
+      readingProgress: validProgress,
+      updatedAt: serverTimestamp()
+    });
+    documentCache.delete(documentId);
+  } catch (error) {
+    console.warn('Failed to update reading progress:', error);
+  }
+};
+
+export const redetectDocumentSubject = async (documentId) => {
+  try {
+    console.log('🔄 Re-detecting subject:', documentId);
+
+    const docData = await getDocument(documentId, false);
+
+    if (!docData.extractedText || docData.extractedText.length < CONFIG.MIN_TEXT_LENGTH) {
+      throw new Error('Insufficient text for detection');
+    }
+
+    const detection = await detectSubjectHybrid({
+      title: docData.title || docData.fileName,
+      content: docData.extractedText,
+      fileName: docData.fileName,
+      keywords: docData.keywords
+    });
+
+    if (detection && detection.subject) {
+      await updateDocument(documentId, {
+        subject: detection.subject,
+        subjectConfidence: detection.confidence,
+        detectionMethod: detection.method,
+        alternativeSubjects: detection.alternatives || []
+      });
+
+      console.log(`✅ Re-detected: ${detection.subject} (${detection.confidence}%)`);
+
+      return {
+        success: true,
+        subject: detection.subject,
+        confidence: detection.confidence,
+        method: detection.method
+      };
+    }
+
+    throw new Error('Detection failed');
+
+  } catch (error) {
+    console.error('❌ Re-detection error:', error);
+    throw error;
+  }
+};
+
+export const clearDocumentCache = () => {
+  documentCache.clear();
+  console.log('🗑️ Document cache cleared');
+};
+
+// ==================== 📦 EXPORTS ====================
+
+export default {
+  // Upload
+  initiateDocumentUpload,
+  createDocumentRecord,
+  uploadDocument, // ✅ LEGACY COMPATIBILITY
+
+  // Delete
+  deleteDocument,
+
+  // Retrieval
+  getDocument,
+  getUserDocuments,
+  getDocumentsBySubject,
+  searchDocuments,
+
+  // Update
+  updateDocument,
+  redetectDocumentSubject,
+
+  // Tracking
+  incrementViewCount,
+  updateStudyTime,
+  updateReadingProgress,
+
+  // Utilities
+  extractTextFromPDF,
+  extractKeywords,
+  generateSummary,
+  clearDocumentCache
+};
