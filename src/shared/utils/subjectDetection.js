@@ -11,11 +11,11 @@ const SUBJECT_DATABASE = {
     'Mathematics': {
         weight: 1.0,
         core: [
-            'mathematics', 'mathematical', 'math', 'maths', 'calculus', 'algebra', 
+            'mathematics', 'mathematical', 'math', 'maths', 'calculus', 'algebra',
             'geometry', 'trigonometry', 'arithmetic', 'theorem', 'proof', 'lemma'
         ],
         technical: [
-            'derivative', 'derivatives', 'differentiation', 'differential', 'integral', 
+            'derivative', 'derivatives', 'differentiation', 'differential', 'integral',
             'integrals', 'integration', 'limit', 'limits', 'continuity', 'convergence',
             'divergence', 'taylor series', 'maclaurin', 'gradient', 'laplacian',
             'polynomial', 'polynomials', 'equation', 'equations', 'quadratic', 'cubic',
@@ -44,7 +44,7 @@ const SUBJECT_DATABASE = {
             /\b(?:sin|cos|tan|log|ln)\s*\(/gi
         ]
     },
-    
+
     'Physics': {
         weight: 1.0,
         core: ['physics', 'physical', 'physicist'],
@@ -75,7 +75,7 @@ const SUBJECT_DATABASE = {
             /v\s*=\s*u\s*\+\s*a\s*t/gi
         ]
     },
-    
+
     'Chemistry': {
         weight: 1.0,
         core: ['chemistry', 'chemical', 'chemist'],
@@ -110,7 +110,7 @@ const SUBJECT_DATABASE = {
             /\[[\w\s()]+\]/g
         ]
     },
-    
+
     'Biology': {
         weight: 1.0,
         core: ['biology', 'biological', 'biologist', 'life science'],
@@ -153,7 +153,7 @@ const SUBJECT_DATABASE = {
             /\b[ATGCU]-?[ATGCU]\b/g
         ]
     },
-    
+
     'Computer Science': {
         weight: 1.0,
         core: ['computer science', 'computing', 'computer', 'cs', 'software'],
@@ -197,7 +197,7 @@ const SUBJECT_DATABASE = {
             /\bif\s*\([^)]*\)/gi
         ]
     },
-    
+
     'History': {
         weight: 1.0,
         core: ['history', 'historical', 'historian'],
@@ -228,7 +228,7 @@ const SUBJECT_DATABASE = {
             /\b(?:1[5-9]|20)\d{2}\b/g
         ]
     },
-    
+
     'Economics': {
         weight: 1.0,
         core: ['economics', 'economic', 'economy', 'economist'],
@@ -262,7 +262,7 @@ const SUBJECT_DATABASE = {
             /\d+(?:\.\d+)?%/g
         ]
     },
-    
+
     'Literature': {
         weight: 1.0,
         core: ['literature', 'literary', 'english', 'language arts'],
@@ -291,7 +291,7 @@ const SUBJECT_DATABASE = {
             /"[^"]{20,}"/g
         ]
     },
-    
+
     'Psychology': {
         weight: 1.0,
         core: ['psychology', 'psychological', 'psychologist', 'mental', 'mind'],
@@ -326,7 +326,7 @@ const SUBJECT_DATABASE = {
         symbols: [],
         patterns: []
     },
-    
+
     'Engineering': {
         weight: 1.0,
         core: ['engineering', 'engineer', 'technical', 'technology'],
@@ -366,29 +366,29 @@ const SUBJECT_DATABASE = {
  */
 export const detectSubjectWithAI = async (documentData) => {
     const { title = '', content = '', fileName = '' } = documentData;
-    
+
     // Prepare text sample (limit to 4000 chars to optimize API usage)
     const textSample = `
 Title: ${title}
 Filename: ${fileName}
 Content: ${content.substring(0, 4000)}
     `.trim();
-    
+
     if (textSample.length < 50) {
         return null; // Signal to use fallback
     }
-    
+
     try {
         console.log('🤖 Using Gemini AI for subject detection...');
-        
-        const model = genAI.getGenerativeModel({ 
-            model: 'gemini-1.5-flash',
+
+        const model = genAI.getGenerativeModel({
+            model: 'gemini-2.5-flash',
             generationConfig: {
                 temperature: 0.1, // Low temperature for consistent results
                 maxOutputTokens: 50,
             }
         });
-        
+
         const prompt = `Analyze this educational document and classify it into ONE subject category.
 
 Document:
@@ -417,20 +417,20 @@ Subject:`;
 
         const result = await model.generateContent(prompt);
         const response = result.response.text().trim();
-        
+
         console.log('🤖 AI response:', response);
-        
+
         // Validate response against known subjects
         const validSubjects = [
-            'Mathematics', 'Physics', 'Chemistry', 'Biology', 
+            'Mathematics', 'Physics', 'Chemistry', 'Biology',
             'Computer Science', 'History', 'Economics', 'Literature',
             'Psychology', 'Engineering', 'General Studies'
         ];
-        
-        const detectedSubject = validSubjects.find(s => 
+
+        const detectedSubject = validSubjects.find(s =>
             response.toLowerCase().includes(s.toLowerCase())
         );
-        
+
         if (detectedSubject) {
             console.log('✅ AI detected:', detectedSubject);
             return {
@@ -440,10 +440,10 @@ Subject:`;
                 aiResponse: response
             };
         }
-        
+
         console.warn('⚠️ AI returned invalid response:', response);
         return null; // Fallback to keyword
-        
+
     } catch (error) {
         console.error('❌ AI detection failed:', error.message);
         return null; // Fallback to keyword
@@ -455,22 +455,22 @@ Subject:`;
 const analyzeKeywordFrequency = (text) => {
     const textLower = text.toLowerCase();
     const scores = {};
-    
+
     Object.entries(SUBJECT_DATABASE).forEach(([subject, data]) => {
         let score = 0;
-        
+
         data.core.forEach(keyword => {
             const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const count = (textLower.match(new RegExp(`\\b${escapedKeyword}\\b`, 'gi')) || []).length;
             score += count * 1;
         });
-        
+
         data.technical.forEach(keyword => {
             const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const count = (textLower.match(new RegExp(`\\b${escapedKeyword}\\b`, 'gi')) || []).length;
             score += count * 3;
         });
-        
+
         if (data.symbols) {
             data.symbols.forEach(symbol => {
                 const escapedSymbol = symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -478,7 +478,7 @@ const analyzeKeywordFrequency = (text) => {
                 score += count * 5;
             });
         }
-        
+
         if (data.patterns) {
             data.patterns.forEach(pattern => {
                 try {
@@ -489,54 +489,54 @@ const analyzeKeywordFrequency = (text) => {
                 }
             });
         }
-        
+
         scores[subject] = score * data.weight;
     });
-    
+
     return scores;
 };
 
 const analyzeTitle = (title) => {
     if (!title) return {};
-    
+
     const titleLower = title.toLowerCase();
     const scores = {};
-    
+
     Object.entries(SUBJECT_DATABASE).forEach(([subject, data]) => {
         let score = 0;
-        
+
         data.core.forEach(keyword => {
             if (titleLower.includes(keyword.toLowerCase())) {
                 score += 10;
             }
         });
-        
+
         data.technical.forEach(keyword => {
             if (titleLower.includes(keyword.toLowerCase())) {
                 score += 5;
             }
         });
-        
+
         scores[subject] = score;
     });
-    
+
     return scores;
 };
 
 const extractKeywords = (text) => {
     if (!text || text.length < 10) return [];
-    
+
     const stopWords = new Set([
         'the', 'is', 'at', 'which', 'on', 'a', 'an', 'and', 'or', 'but', 'in',
         'with', 'to', 'for', 'of', 'as', 'by', 'this', 'that', 'from', 'are'
     ]);
-    
+
     const words = text
         .toLowerCase()
         .replace(/[^\w\s]/g, ' ')
         .split(/\s+/)
         .filter(word => word.length > 3 && !stopWords.has(word));
-    
+
     return [...new Set(words)];
 };
 
@@ -545,9 +545,9 @@ const extractKeywords = (text) => {
  */
 export const detectSubjectAccurately = (documentData) => {
     const { title = '', content = '', fileName = '' } = documentData;
-    
+
     const fullText = `${title} ${fileName} ${content}`;
-    
+
     if (!fullText || fullText.trim().length < 50) {
         return {
             subject: 'General Studies',
@@ -556,38 +556,38 @@ export const detectSubjectAccurately = (documentData) => {
             scores: {}
         };
     }
-    
+
     console.log('🔤 Using keyword-based detection...');
-    
+
     const signal1 = analyzeKeywordFrequency(fullText);
     const signal2 = analyzeTitle(title);
-    
+
     const combinedScores = {};
     Object.keys(SUBJECT_DATABASE).forEach(subject => {
-        combinedScores[subject] = 
+        combinedScores[subject] =
             (signal1[subject] || 0) * 0.70 +
             (signal2[subject] || 0) * 0.30;
     });
-    
+
     let bestSubject = 'General Studies';
     let bestScore = 0;
-    
+
     Object.entries(combinedScores).forEach(([subject, score]) => {
         if (score > bestScore) {
             bestScore = score;
             bestSubject = subject;
         }
     });
-    
+
     const totalScore = Object.values(combinedScores).reduce((a, b) => a + b, 0);
     const confidence = totalScore > 0 ? Math.min((bestScore / totalScore) * 100, 85) : 0;
-    
+
     if (confidence < 30) {
         bestSubject = 'General Studies';
     }
-    
+
     console.log('✅ Keyword detection:', bestSubject, `(${Math.round(confidence)}%)`);
-    
+
     return {
         subject: bestSubject,
         confidence: Math.round(confidence),
@@ -604,11 +604,11 @@ export const detectSubjectAccurately = (documentData) => {
 export const detectSubjectHybrid = async (documentData) => {
     // Try AI first
     const aiResult = await detectSubjectWithAI(documentData);
-    
+
     if (aiResult && aiResult.confidence >= 80) {
         return aiResult;
     }
-    
+
     // Fallback to keyword detection
     console.log('⚠️ AI unavailable/low confidence, using keyword fallback...');
     return detectSubjectAccurately(documentData);
@@ -630,21 +630,21 @@ export const detectSubjectFromContent = (content) => {
 
 export const categorizeQuizSession = (quizData) => {
     const { questions = [], title = '', subject = '' } = quizData;
-    
+
     if (subject && subject !== 'General Studies') {
         return subject;
     }
-    
+
     const content = questions
         .map(q => `${q.question || ''} ${q.options?.join(' ') || ''}`)
         .join(' ');
-    
+
     const detection = detectSubjectAccurately({
         title: title,
         content: content,
         fileName: ''
     });
-    
+
     return detection.subject;
 };
 

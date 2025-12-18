@@ -4,7 +4,7 @@ import { Camera, Mail, User, Award, Trophy, Calendar, Edit2, Save } from 'lucide
 import { useAuth } from '@auth/contexts/AuthContext';
 import toast from 'react-hot-toast';
 
-const Profile = () => {
+const Profile = ({ embedded = false }) => {
   const { user, userData } = useAuth();
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({
@@ -49,18 +49,21 @@ const Profile = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <h1 className="text-4xl font-display font-bold mb-2">
-          <span className="gradient-text">Profile</span>
-        </h1>
-        <p className="text-primary-300">Manage your account and view your achievements</p>
-      </motion.div>
+    <div className={embedded ? "w-full" : "max-w-6xl mx-auto space-y-8"}>
+      {/* Header - Only show if not embedded (Dashboard has its own header) */}
+      {!embedded && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="mb-8"
+        >
+          <h1 className="text-4xl font-display font-bold mb-2">
+            <span className="gradient-text">Profile</span>
+          </h1>
+          <p className="text-primary-300">Manage your account and view your achievements</p>
+        </motion.div>
+      )}
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Left Column - Profile Info */}
@@ -70,36 +73,36 @@ const Profile = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="card text-center"
+            className={`text-center ${embedded ? 'bg-white border border-gray-200 shadow-sm rounded-2xl p-6' : 'card'}`}
           >
             {/* Avatar */}
             <div className="relative inline-block mb-4">
-              <div className="w-32 h-32 rounded-full bg-gradient-to-r from-accent to-blue-600 flex items-center justify-center text-4xl font-bold">
+              <div className="w-32 h-32 rounded-full bg-gradient-to-r from-teal-500 to-cyan-600 flex items-center justify-center text-4xl font-bold text-white shadow-lg">
                 {userData?.name?.[0]?.toUpperCase() || 'U'}
               </div>
-              <button className="absolute bottom-0 right-0 w-10 h-10 rounded-full bg-accent flex items-center justify-center hover:bg-accent-dark transition-colors">
+              <button className="absolute bottom-0 right-0 w-10 h-10 rounded-full bg-teal-500 flex items-center justify-center hover:bg-teal-600 transition-colors text-white shadow-md border-2 border-white">
                 <Camera size={18} />
               </button>
             </div>
 
-            <h2 className="text-2xl font-bold mb-1">{userData?.name || 'User'}</h2>
-            <p className="text-primary-400 mb-4">{user?.email}</p>
+            <h2 className={`text-2xl font-bold mb-1 ${embedded ? 'text-gray-900' : 'text-white'}`}>{userData?.name || 'User'}</h2>
+            <p className={`mb-4 ${embedded ? 'text-gray-500' : 'text-primary-400'}`}>{user?.email}</p>
 
             {/* Level Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 mb-6">
-              <Trophy size={20} className="text-yellow-400" />
-              <span className="font-semibold">Level {userData?.level || 1}</span>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/20 mb-6">
+              <Trophy size={20} className="text-yellow-500" />
+              <span className={`font-semibold ${embedded ? 'text-gray-800' : 'text-white'}`}>Level {userData?.level || 1}</span>
             </div>
 
             {/* XP Progress */}
-            <div className="space-y-2">
+            <div className="space-y-2 text-left">
               <div className="flex justify-between text-sm">
-                <span className="text-primary-400">Progress to Level {(userData?.level || 1) + 1}</span>
-                <span className="font-semibold">{userData?.xp || 0}/500 XP</span>
+                <span className={embedded ? 'text-gray-500' : 'text-primary-400'}>Progress to Level {(userData?.level || 1) + 1}</span>
+                <span className={`font-semibold ${embedded ? 'text-gray-700' : 'text-white'}`}>{userData?.xp || 0}/500 XP</span>
               </div>
-              <div className="h-2 bg-primary-800 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-accent to-blue-600 transition-all duration-500"
+              <div className={`h-2 rounded-full overflow-hidden ${embedded ? 'bg-gray-100' : 'bg-primary-800'}`}>
+                <div
+                  className="h-full bg-gradient-to-r from-teal-500 to-cyan-600 transition-all duration-500"
                   style={{ width: `${((userData?.xp || 0) / 500) * 100}%` }}
                 ></div>
               </div>
@@ -111,14 +114,14 @@ const Profile = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="card"
+            className={embedded ? 'bg-white border border-gray-200 shadow-sm rounded-2xl p-6' : 'card'}
           >
-            <h3 className="text-xl font-display font-semibold mb-4">Statistics</h3>
+            <h3 className={`text-xl font-display font-semibold mb-4 ${embedded ? 'text-gray-900' : 'text-white'}`}>Statistics</h3>
             <div className="space-y-4">
               {stats.map((stat, index) => (
                 <div key={index} className="flex justify-between items-center">
-                  <span className="text-primary-400">{stat.label}</span>
-                  <span className="font-bold text-lg">{stat.value}</span>
+                  <span className={embedded ? 'text-gray-500' : 'text-primary-400'}>{stat.label}</span>
+                  <span className={`font-bold text-lg ${embedded ? 'text-gray-900' : 'text-white'}`}>{stat.value}</span>
                 </div>
               ))}
             </div>
@@ -132,13 +135,16 @@ const Profile = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
-            className="card"
+            className={embedded ? 'bg-white border border-gray-200 shadow-sm rounded-2xl p-6' : 'card'}
           >
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-display font-semibold">Account Details</h3>
+              <h3 className={`text-xl font-display font-semibold ${embedded ? 'text-gray-900' : 'text-white'}`}>Account Details</h3>
               <button
                 onClick={() => editing ? handleSave() : setEditing(true)}
-                className="btn-secondary flex items-center gap-2"
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${embedded
+                    ? 'bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-gray-900'
+                    : 'btn-secondary'
+                  }`}
               >
                 {editing ? (
                   <>
@@ -156,63 +162,78 @@ const Profile = () => {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Full Name</label>
+                <label className={`block text-sm font-medium mb-2 ${embedded ? 'text-gray-700' : 'text-primary-200'}`}>Full Name</label>
                 <input
                   type="text"
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
                   disabled={!editing}
-                  className="input"
+                  className={embedded
+                    ? "w-full px-4 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all disabled:bg-gray-50 disabled:text-gray-500"
+                    : "input"
+                  }
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Email</label>
+                <label className={`block text-sm font-medium mb-2 ${embedded ? 'text-gray-700' : 'text-primary-200'}`}>Email</label>
                 <input
                   type="email"
                   value={user?.email}
                   disabled
-                  className="input opacity-50 cursor-not-allowed"
+                  className={embedded
+                    ? "w-full px-4 py-2 rounded-xl border border-gray-300 bg-gray-50 text-gray-500 cursor-not-allowed outline-none"
+                    : "input opacity-50 cursor-not-allowed"
+                  }
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Bio</label>
+                <label className={`block text-sm font-medium mb-2 ${embedded ? 'text-gray-700' : 'text-primary-200'}`}>Bio</label>
                 <textarea
                   name="bio"
                   value={formData.bio}
                   onChange={handleChange}
                   disabled={!editing}
                   rows={3}
-                  className="input"
+                  className={embedded
+                    ? "w-full px-4 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all disabled:bg-gray-50 disabled:text-gray-500"
+                    : "input"
+                  }
                   placeholder="Tell us about yourself..."
                 />
               </div>
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">School</label>
+                  <label className={`block text-sm font-medium mb-2 ${embedded ? 'text-gray-700' : 'text-primary-200'}`}>School</label>
                   <input
                     type="text"
                     name="school"
                     value={formData.school}
                     onChange={handleChange}
                     disabled={!editing}
-                    className="input"
+                    className={embedded
+                      ? "w-full px-4 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all disabled:bg-gray-50 disabled:text-gray-500"
+                      : "input"
+                    }
                     placeholder="Your school name"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-2">Grade</label>
+                  <label className={`block text-sm font-medium mb-2 ${embedded ? 'text-gray-700' : 'text-primary-200'}`}>Grade</label>
                   <input
                     type="text"
                     name="grade"
                     value={formData.grade}
                     onChange={handleChange}
                     disabled={!editing}
-                    className="input"
+                    className={embedded
+                      ? "w-full px-4 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all disabled:bg-gray-50 disabled:text-gray-500"
+                      : "input"
+                    }
                     placeholder="Grade level"
                   />
                 </div>
@@ -225,32 +246,36 @@ const Profile = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.4 }}
-            className="card"
+            className={embedded ? 'bg-white border border-gray-200 shadow-sm rounded-2xl p-6' : 'card'}
           >
-            <h3 className="text-xl font-display font-semibold mb-6">Achievements</h3>
+            <h3 className={`text-xl font-display font-semibold mb-6 ${embedded ? 'text-gray-900' : 'text-white'}`}>Achievements</h3>
             <div className="grid md:grid-cols-2 gap-4">
               {achievements.map((achievement) => (
                 <div
                   key={achievement.id}
-                  className={`p-4 rounded-xl border-2 transition-all ${
-                    achievement.earned
-                      ? 'border-accent/30 bg-accent/5'
-                      : 'border-white/10 bg-white/5 opacity-50'
-                  }`}
+                  className={`p-4 rounded-xl border transition-all ${achievement.earned
+                      ? embedded
+                        ? 'border-yellow-200 bg-yellow-50/50'
+                        : 'border-accent/30 bg-accent/5'
+                      : embedded
+                        ? 'border-gray-100 bg-gray-50 opacity-60'
+                        : 'border-white/10 bg-white/5 opacity-50'
+                    }`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                      achievement.earned
-                        ? 'bg-gradient-to-r from-yellow-400 to-orange-500'
-                        : 'bg-primary-800'
-                    }`}>
-                      <Award size={24} className={achievement.earned ? 'text-white' : 'text-primary-600'} />
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${achievement.earned
+                        ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white shadow-sm'
+                        : embedded
+                          ? 'bg-gray-200 text-gray-400'
+                          : 'bg-primary-800 text-primary-600'
+                      }`}>
+                      <Award size={24} />
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-semibold mb-1">{achievement.title}</h4>
-                      <p className="text-sm text-primary-400 mb-2">{achievement.description}</p>
+                      <h4 className={`font-semibold mb-1 ${embedded ? 'text-gray-900' : 'text-white'}`}>{achievement.title}</h4>
+                      <p className={`text-sm mb-2 ${embedded ? 'text-gray-500' : 'text-primary-400'}`}>{achievement.description}</p>
                       {achievement.earned && achievement.date && (
-                        <div className="text-xs text-success flex items-center gap-1">
+                        <div className="text-xs text-green-600 flex items-center gap-1 font-medium">
                           <Calendar size={12} />
                           Earned {achievement.date}
                         </div>

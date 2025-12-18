@@ -1,4 +1,4 @@
-// src/components/features/QuizzesSection.jsx - COMPLETE WITH AI ORGANIZATION
+// src/components/features/QuizzesSection.jsx - WITH ACHIEVEMENT TRACKING READY
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -19,11 +19,12 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@auth/contexts/AuthContext';
-import { collection, query, where, onSnapshot, orderBy, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import { db } from '@shared/config/firebase';
 import { getUserQuizzes, deleteQuiz, generateQuizWithGemini, createQuiz } from '@teacher/services/quizService';
+// ✅ Achievement tracking will be used in the quiz completion page
+// import { trackAction } from '@gamification/services/achievementTracker';
 import toast from 'react-hot-toast';
-
 
 const QuizzesSection = () => {
     const { user } = useAuth();
@@ -36,7 +37,6 @@ const QuizzesSection = () => {
     const [generatingQuiz, setGeneratingQuiz] = useState(null);
     const [showGenerateModal, setShowGenerateModal] = useState(false);
     const [selectedDocument, setSelectedDocument] = useState(null);
-
 
     // Subject config
     const subjectConfig = {
@@ -53,49 +53,53 @@ const QuizzesSection = () => {
         'General Studies': { color: 'text-gray-600', bg: 'bg-gray-50', border: 'border-gray-200' }
     };
 
-
-    // Real-time quizzes listener
+    // Real-time quizzes listener with session tracking
     useEffect(() => {
         if (!user?.uid) {
             setLoading(false);
             return;
         }
 
-
         const q = query(
             collection(db, 'quizzes'),
             where('userId', '==', user.uid)
         );
 
-
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const quizzesData = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-                createdAt: doc.data().createdAt?.toDate?.() || new Date()
-            })).sort((a, b) => b.createdAt - a.createdAt);
+            const quizzesData = snapshot.docs.map(doc => {
+                const data = doc.data();
 
+                // ✅ Calculate completion stats for achievements
+                const completionCount = data.completionCount || 0;
+                const averageScore = data.averageScore || 0;
+                const bestScore = data.bestScore || 0;
+
+                return {
+                    id: doc.id,
+                    ...data,
+                    completionCount,
+                    averageScore,
+                    bestScore,
+                    createdAt: data.createdAt?.toDate?.() || new Date()
+                };
+            }).sort((a, b) => b.createdAt - a.createdAt);
 
             setQuizzes(quizzesData);
             setLoading(false);
         });
 
-
         return () => unsubscribe();
     }, [user?.uid]);
-
 
     // Real-time documents listener
     useEffect(() => {
         if (!user?.uid) return;
-
 
         const q = query(
             collection(db, 'documents'),
             where('userId', '==', user.uid),
             orderBy('createdAt', 'desc')
         );
-
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const docsData = snapshot.docs.map(doc => ({
@@ -104,14 +108,11 @@ const QuizzesSection = () => {
                 createdAt: doc.data().createdAt?.toDate?.() || new Date()
             }));
 
-
             setDocuments(docsData);
         });
 
-
         return () => unsubscribe();
     }, [user?.uid]);
-
 
     // Group quizzes by subject
     const quizzesBySubject = useMemo(() => {
@@ -126,18 +127,15 @@ const QuizzesSection = () => {
         return grouped;
     }, [quizzes]);
 
-
     // Filter quizzes
     const filteredQuizzes = useMemo(() => {
         let filtered = quizzes;
 
-
         if (selectedSubject !== 'all') {
-            filtered = filtered.filter(quiz => 
+            filtered = filtered.filter(quiz =>
                 (quiz.subject || 'General Studies') === selectedSubject
             );
         }
-
 
         if (searchTerm) {
             filtered = filtered.filter(quiz =>
@@ -146,12 +144,25 @@ const QuizzesSection = () => {
             );
         }
 
-
         return filtered;
     }, [quizzes, selectedSubject, searchTerm]);
 
+    // ✅ Calculate achievement-worthy stats
+    const quizStats = useMemo(() => {
+        const totalCompleted = quizzes.reduce((sum, quiz) => sum + (quiz.completionCount || 0), 0);
+        const perfectScores = quizzes.filter(quiz => (quiz.bestScore || 0) === 100).length;
+        const avgScore = quizzes.length > 0
+            ? Math.round(quizzes.reduce((sum, quiz) => sum + (quiz.averageScore || 0), 0) / quizzes.length)
+            : 0;
 
-    // Generate quiz handler - UPDATED WITH PROPER NAVIGATION
+        return {
+            totalCompleted,
+            perfectScores,
+            avgScore
+        };
+    }, [quizzes]);
+
+    // Generate quiz handler
     const handleGenerateQuiz = async (document, difficulty, questionCount) => {
         if (!document?.id || !user?.uid) {
             toast.error('Invalid document or user');
@@ -160,7 +171,6 @@ const QuizzesSection = () => {
 
         setGeneratingQuiz(document.id);
         const toastId = toast.loading(`🤖 AI is generating your ${difficulty} quiz...`);
-
 
         try {
             console.log('Starting quiz generation for:', document.id, difficulty);
@@ -185,7 +195,11 @@ const QuizzesSection = () => {
                 shuffleChoices: true,
                 showResults: true,
                 allowRetake: true,
-                showHints: true
+                showHints: true,
+                // ✅ Initialize tracking fields
+                completionCount: 0,
+                averageScore: 0,
+                bestScore: 0
             });
 
             console.log('Quiz created with ID:', quizId);
@@ -197,24 +211,23 @@ const QuizzesSection = () => {
             // Show success message
             toast.success('✨ Quiz generated successfully!', { id: toastId });
 
-            // Navigate to quiz page with proper state
+            // Navigate to quiz page
             setTimeout(() => {
-                navigate(`/quiz/${quizId}`, { 
+                navigate(`/quiz/${quizId}`, {
                     replace: false,
-                    state: { 
+                    state: {
                         fromGeneration: true,
                         difficulty: difficulty,
                         documentTitle: document.title
-                    } 
+                    }
                 });
             }, 500);
 
-
         } catch (error) {
             console.error('Quiz generation error:', error);
-            
+
             let errorMessage = 'Failed to generate quiz';
-            
+
             if (error.message.includes('API key')) {
                 errorMessage = 'AI service configuration error. Please contact support.';
             } else if (error.message.includes('too short')) {
@@ -224,13 +237,12 @@ const QuizzesSection = () => {
             } else if (error.message) {
                 errorMessage = error.message;
             }
-            
+
             toast.error(errorMessage, { id: toastId });
         } finally {
             setGeneratingQuiz(null);
         }
     };
-
 
     // Delete quiz handler
     const handleDeleteQuiz = async (quizId, quizTitle) => {
@@ -239,7 +251,7 @@ const QuizzesSection = () => {
         }
 
         const toastId = toast.loading('Deleting quiz...');
-        
+
         try {
             await deleteQuiz(quizId);
             toast.success('Quiz deleted successfully', { id: toastId });
@@ -248,7 +260,6 @@ const QuizzesSection = () => {
             toast.error('Failed to delete quiz', { id: toastId });
         }
     };
-
 
     if (loading) {
         return (
@@ -260,7 +271,6 @@ const QuizzesSection = () => {
             </div>
         );
     }
-
 
     return (
         <div className="space-y-6">
@@ -277,9 +287,8 @@ const QuizzesSection = () => {
                 </div>
             </div>
 
-
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* ✅ Enhanced Stats Cards with Achievement Data */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-gradient-to-br from-white to-gray-50 border-2 border-gray-200 rounded-2xl p-5 hover:border-gray-300 hover:shadow-lg transition-all">
                     <div className="flex items-center gap-3 mb-2">
                         <div className="p-2 bg-gray-100 rounded-lg">
@@ -290,29 +299,36 @@ const QuizzesSection = () => {
                     <p className="text-3xl font-black text-gray-900">{quizzes.length}</p>
                 </div>
 
-
                 <div className="bg-gradient-to-br from-white to-gray-50 border-2 border-gray-200 rounded-2xl p-5 hover:border-gray-300 hover:shadow-lg transition-all">
                     <div className="flex items-center gap-3 mb-2">
-                        <div className="p-2 bg-gray-100 rounded-lg">
-                            <BookOpen size={20} className="text-gray-700" />
+                        <div className="p-2 bg-green-100 rounded-lg">
+                            <Target size={20} className="text-green-700" />
                         </div>
-                        <span className="text-sm font-bold text-gray-600">Subjects</span>
+                        <span className="text-sm font-bold text-gray-600">Completed</span>
                     </div>
-                    <p className="text-3xl font-black text-gray-900">{Object.keys(quizzesBySubject).length}</p>
+                    <p className="text-3xl font-black text-gray-900">{quizStats.totalCompleted}</p>
                 </div>
 
+                <div className="bg-gradient-to-br from-white to-gray-50 border-2 border-gray-200 rounded-2xl p-5 hover:border-gray-300 hover:shadow-lg transition-all">
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className="p-2 bg-yellow-100 rounded-lg">
+                            <Award size={20} className="text-yellow-700" />
+                        </div>
+                        <span className="text-sm font-bold text-gray-600">Perfect Scores</span>
+                    </div>
+                    <p className="text-3xl font-black text-gray-900">{quizStats.perfectScores}</p>
+                </div>
 
                 <div className="bg-gradient-to-br from-white to-gray-50 border-2 border-gray-200 rounded-2xl p-5 hover:border-gray-300 hover:shadow-lg transition-all">
                     <div className="flex items-center gap-3 mb-2">
-                        <div className="p-2 bg-gray-100 rounded-lg">
-                            <Target size={20} className="text-gray-700" />
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                            <TrendingUp size={20} className="text-blue-700" />
                         </div>
-                        <span className="text-sm font-bold text-gray-600">Documents</span>
+                        <span className="text-sm font-bold text-gray-600">Avg Score</span>
                     </div>
-                    <p className="text-3xl font-black text-gray-900">{documents.length}</p>
+                    <p className="text-3xl font-black text-gray-900">{quizStats.avgScore}%</p>
                 </div>
             </div>
-
 
             {/* Search & Filter */}
             <div className="flex flex-col md:flex-row gap-4">
@@ -328,41 +344,35 @@ const QuizzesSection = () => {
                 </div>
             </div>
 
-
             {/* Subject Filter Tabs */}
             <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300">
                 <button
                     onClick={() => setSelectedSubject('all')}
-                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap transition-all shadow-sm ${
-                        selectedSubject === 'all'
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap transition-all shadow-sm ${selectedSubject === 'all'
                             ? 'bg-gradient-to-r from-gray-800 to-gray-700 text-white'
                             : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-gray-400'
-                    }`}
+                        }`}
                 >
                     All ({quizzes.length})
                 </button>
 
-
                 {Object.entries(quizzesBySubject).map(([subject, subjectQuizzes]) => {
                     const config = subjectConfig[subject] || subjectConfig['General Studies'];
-
 
                     return (
                         <button
                             key={subject}
                             onClick={() => setSelectedSubject(subject)}
-                            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap transition-all shadow-sm ${
-                                selectedSubject === subject
+                            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap transition-all shadow-sm ${selectedSubject === subject
                                     ? `${config.bg} ${config.color} border-2 ${config.border}`
                                     : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-gray-400'
-                            }`}
+                                }`}
                         >
                             {subject} ({subjectQuizzes.length})
                         </button>
                     );
                 })}
             </div>
-
 
             {/* Documents with Generate Quiz Button */}
             {documents.length > 0 && (
@@ -418,7 +428,6 @@ const QuizzesSection = () => {
                 </div>
             )}
 
-
             {/* Quizzes List */}
             {filteredQuizzes.length > 0 ? (
                 <div>
@@ -427,7 +436,6 @@ const QuizzesSection = () => {
                         {filteredQuizzes.map((quiz) => {
                             const subject = quiz.subject || 'General Studies';
                             const config = subjectConfig[subject] || subjectConfig['General Studies'];
-
 
                             return (
                                 <motion.div
@@ -448,7 +456,7 @@ const QuizzesSection = () => {
                                         </div>
                                     </div>
 
-
+                                    {/* ✅ Enhanced stats with achievement tracking data */}
                                     <div className="space-y-2 mb-4 text-xs text-gray-600 font-semibold">
                                         <div className="flex items-center gap-2">
                                             <Target size={12} />
@@ -462,8 +470,13 @@ const QuizzesSection = () => {
                                             <TrendingUp size={12} />
                                             {quiz.difficulty?.charAt(0).toUpperCase() + quiz.difficulty?.slice(1)} Level
                                         </div>
+                                        {quiz.completionCount > 0 && (
+                                            <div className="flex items-center gap-2 text-green-600">
+                                                <Award size={12} />
+                                                Completed {quiz.completionCount}x • Best: {quiz.bestScore}%
+                                            </div>
+                                        )}
                                     </div>
-
 
                                     <div className="flex gap-2">
                                         <button
@@ -471,7 +484,7 @@ const QuizzesSection = () => {
                                             className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-bold hover:scale-105 transition-all"
                                         >
                                             <Play size={14} />
-                                            Start Quiz
+                                            {quiz.completionCount > 0 ? 'Retake' : 'Start Quiz'}
                                         </button>
                                         <button
                                             onClick={() => handleDeleteQuiz(quiz.id, quiz.title)}
@@ -498,7 +511,6 @@ const QuizzesSection = () => {
                     <p className="text-gray-600 mb-6 font-semibold">Generate your first AI quiz from a document!</p>
                 </motion.div>
             )}
-
 
             {/* Generate Quiz Modal */}
             <AnimatePresence>
@@ -529,11 +541,9 @@ const QuizzesSection = () => {
                                 <h3 className="text-2xl font-black text-gray-900">Generate Quiz</h3>
                             </div>
 
-
                             <p className="text-gray-600 mb-6 font-semibold">
                                 Creating quiz for: <span className="font-black text-gray-900">{selectedDocument.title}</span>
                             </p>
-
 
                             <div className="space-y-4">
                                 <button
@@ -545,7 +555,6 @@ const QuizzesSection = () => {
                                     <div className="text-sm text-green-700 font-semibold">10 questions • Beginner level</div>
                                 </button>
 
-
                                 <button
                                     onClick={() => handleGenerateQuiz(selectedDocument, 'medium', 15)}
                                     disabled={!!generatingQuiz}
@@ -554,7 +563,6 @@ const QuizzesSection = () => {
                                     <div className="font-black text-yellow-900 mb-1">Medium</div>
                                     <div className="text-sm text-yellow-700 font-semibold">15 questions • Intermediate level</div>
                                 </button>
-
 
                                 <button
                                     onClick={() => handleGenerateQuiz(selectedDocument, 'hard', 20)}
@@ -565,7 +573,6 @@ const QuizzesSection = () => {
                                     <div className="text-sm text-red-700 font-semibold">20 questions • Advanced level</div>
                                 </button>
                             </div>
-
 
                             {!generatingQuiz && (
                                 <button
@@ -578,7 +585,6 @@ const QuizzesSection = () => {
                                     Cancel
                                 </button>
                             )}
-
 
                             {generatingQuiz && (
                                 <div className="mt-4 flex items-center justify-center gap-2 text-gray-600">
@@ -593,6 +599,5 @@ const QuizzesSection = () => {
         </div>
     );
 };
-
 
 export default QuizzesSection;

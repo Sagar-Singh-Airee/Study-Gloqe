@@ -1,38 +1,49 @@
-// src/App.jsx - CLEAN FINAL VERSION
+// src/App.jsx - FIXED VERSION
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { AuthProvider, useAuth } from '@auth/contexts/AuthContext';
-import { ClassProvider } from '@classroom/contexts/ClassContext';
+import { AuthProvider, useAuth } from './features/auth/contexts/AuthContext';
+import { ClassProvider } from './features/classroom/contexts/ClassContext';
 
 // Auth & Landing
-import AuthPage from '@auth/pages/AuthPage';
-import LandingPage from '@landing/pages/LandingPage';
+import AuthPage from './features/auth/pages/AuthPage';
+import LandingPage from './features/landing/pages/LandingPage';
 
 // Student Pages
-import Dashboard from '@student/pages/Dashboard';
-import ClassDetails from '@student/pages/ClassDetails';
-import Profile from '@student/pages/Profile';
-import Settings from '@student/pages/Settings';
+import Dashboard from './features/student/pages/Dashboard';
+import ClassDetails from './features/student/pages/ClassDetails';
+import Profile from './features/student/pages/Profile';
+import Settings from './features/student/pages/Settings';
 
 // Study Pages
-import PDFUpload from '@study/pages/PDFUpload';
-import PDFReader from '@study/pages/PDFReader';
-import StudySession from '@study/pages/StudySession';
-import QuizPage from '@study/pages/QuizPage';
-import QuizResults from '@study/pages/QuizResults';
-import Flashcard from '@study/pages/Flashcard';
-import StudyRoom from '@study/pages/StudyRoom';
+import PDFUpload from './features/study/pages/PDFUpload';
+import PDFReader from './features/study/pages/PDFReader';
+import StudySession from './features/study/pages/StudySession';
+import QuizPage from './features/study/pages/QuizPage';
+import QuizResults from './features/study/pages/QuizResults';
+import Flashcard from './features/study/pages/Flashcard';
+import StudyRoom from './features/study/pages/StudyRoom';
 
 // Analytics
-import Analytics from '@analytics/pages/Analytics';
+import Analytics from './features/analytics/pages/Analytics';
 
 // Teacher Pages
-import TeacherDashboard from '@teacher/pages/TeacherDashboard';
-import TeacherClassroom from '@teacher/pages/TeacherClassroom';
+import TeacherDashboard from './features/teacher/pages/TeacherDashboard';
+import TeacherClassroom from './features/teacher/pages/TeacherClassroom';
 
 // Shared Classroom
-import ClassroomPage from '@classroom/pages/ClassroomPage';
+import ClassroomPage from './features/classroom/pages/ClassroomPage';
 
+// ==========================================
+// LOADING COMPONENT
+// ==========================================
+const LoadingScreen = () => (
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
+        <div className="flex flex-col items-center gap-4">
+            <div className="w-16 h-16 border-4 border-gray-300 border-t-gray-700 rounded-full animate-spin" />
+            <p className="text-sm text-gray-600 font-semibold">Loading...</p>
+        </div>
+    </div>
+);
 
 // ==========================================
 // STUDENT ONLY ROUTE
@@ -41,14 +52,7 @@ const StudentRoute = ({ children }) => {
     const { user, userData, loading } = useAuth();
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="w-16 h-16 border-4 border-gray-300 border-t-gray-700 rounded-full animate-spin" />
-                    <p className="text-sm text-gray-600 font-semibold">Loading...</p>
-                </div>
-            </div>
-        );
+        return <LoadingScreen />;
     }
 
     if (!user) {
@@ -60,7 +64,7 @@ const StudentRoute = ({ children }) => {
         return <Navigate to="/teacher/dashboard" replace />;
     }
 
-    return children;
+    return <>{children}</>;
 };
 
 // ==========================================
@@ -70,14 +74,7 @@ const TeacherRoute = ({ children }) => {
     const { user, userData, loading } = useAuth();
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="w-16 h-16 border-4 border-gray-300 border-t-gray-700 rounded-full animate-spin" />
-                    <p className="text-sm text-gray-600 font-semibold">Loading...</p>
-                </div>
-            </div>
-        );
+        return <LoadingScreen />;
     }
 
     if (!user) {
@@ -89,7 +86,7 @@ const TeacherRoute = ({ children }) => {
         return <Navigate to="/dashboard" replace />;
     }
 
-    return children;
+    return <>{children}</>;
 };
 
 // ==========================================
@@ -99,21 +96,14 @@ const ProtectedRoute = ({ children }) => {
     const { user, loading } = useAuth();
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="w-16 h-16 border-4 border-gray-300 border-t-gray-700 rounded-full animate-spin" />
-                    <p className="text-sm text-gray-600 font-semibold">Loading...</p>
-                </div>
-            </div>
-        );
+        return <LoadingScreen />;
     }
 
     if (!user) {
         return <Navigate to="/auth" replace />;
     }
 
-    return children;
+    return <>{children}</>;
 };
 
 // ==========================================
@@ -123,14 +113,7 @@ const PublicRoute = ({ children }) => {
     const { user, userData, loading } = useAuth();
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="w-16 h-16 border-4 border-gray-300 border-t-gray-700 rounded-full animate-spin" />
-                    <p className="text-sm text-gray-600 font-semibold">Loading...</p>
-                </div>
-            </div>
-        );
+        return <LoadingScreen />;
     }
 
     if (user) {
@@ -140,29 +123,8 @@ const PublicRoute = ({ children }) => {
         return <Navigate to="/dashboard" replace />;
     }
 
-    return children;
+    return <>{children}</>;
 };
-
-// ==========================================
-// COMING SOON
-// ==========================================
-const ComingSoon = ({ page }) => (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex items-center justify-center p-4">
-        <div className="text-center max-w-md">
-            <div className="text-6xl mb-6">🚀</div>
-            <h1 className="text-4xl font-black text-gray-900 mb-4">{page}</h1>
-            <p className="text-gray-600 mb-8 font-medium">
-                This feature is under development and will be available soon!
-            </p>
-            <a
-                href="/dashboard"
-                className="inline-block px-6 py-3 bg-gradient-to-r from-gray-800 to-gray-700 text-white rounded-xl font-bold hover:scale-105 transition-all shadow-xl"
-            >
-                ← Back to Dashboard
-            </a>
-        </div>
-    </div>
-);
 
 // ==========================================
 // MAIN APP
@@ -193,38 +155,25 @@ function App() {
                     />
 
                     <Routes>
-                        {/* ========================================
-                            PUBLIC ROUTES
-                        ======================================== */}
+                        {/* PUBLIC ROUTES */}
                         <Route path="/" element={<LandingPage />} />
                         <Route path="/auth" element={<PublicRoute><AuthPage /></PublicRoute>} />
 
-                        {/* ========================================
-                            SHARED ROUTES (Both Teacher & Student)
-                        ======================================== */}
-
+                        {/* SHARED ROUTES */}
                         <Route
                             path="/classroom/:classId"
                             element={<ProtectedRoute><ClassroomPage /></ProtectedRoute>}
                         />
 
-                        {/* ========================================
-                            STUDENT ROUTES
-                        ======================================== */}
-
-                        {/* Main Dashboard (handles analytics tab internally) */}
+                        {/* STUDENT ROUTES */}
                         <Route
                             path="/dashboard"
                             element={<StudentRoute><Dashboard /></StudentRoute>}
                         />
-
-                        {/* Class Details */}
                         <Route
                             path="/classes/:classId"
                             element={<StudentRoute><ClassDetails /></StudentRoute>}
                         />
-
-                        {/* Document Management */}
                         <Route
                             path="/upload"
                             element={<StudentRoute><PDFUpload /></StudentRoute>}
@@ -233,20 +182,14 @@ function App() {
                             path="/documents/:docId"
                             element={<StudentRoute><PDFReader /></StudentRoute>}
                         />
-
-                        {/* Study Session */}
                         <Route
                             path="/study/:docId"
                             element={<StudentRoute><StudySession /></StudentRoute>}
                         />
-
-                        {/* Study Rooms (WebRTC) */}
                         <Route
                             path="/study-room/:roomId"
                             element={<StudentRoute><StudyRoom /></StudentRoute>}
                         />
-
-                        {/* Quizzes */}
                         <Route
                             path="/quiz/:quizId"
                             element={<StudentRoute><QuizPage /></StudentRoute>}
@@ -259,14 +202,10 @@ function App() {
                             path="/results/:sessionId"
                             element={<StudentRoute><QuizResults /></StudentRoute>}
                         />
-
-                        {/* Flashcards */}
                         <Route
                             path="/flashcards/:deckId"
                             element={<StudentRoute><Flashcard /></StudentRoute>}
                         />
-
-                        {/* User Pages */}
                         <Route
                             path="/profile"
                             element={<StudentRoute><Profile /></StudentRoute>}
@@ -275,62 +214,31 @@ function App() {
                             path="/settings"
                             element={<StudentRoute><Settings /></StudentRoute>}
                         />
-
-                        {/* ✅ Analytics - Standalone Route (Optional - mainly accessed via Dashboard tab) */}
                         <Route
                             path="/analytics"
                             element={<StudentRoute><Analytics /></StudentRoute>}
                         />
 
-                        {/* ========================================
-                            TEACHER ROUTES
-                        ======================================== */}
-
-                        {/* Main Teacher Dashboard */}
+                        {/* TEACHER ROUTES */}
                         <Route
                             path="/teacher/dashboard"
                             element={<TeacherRoute><TeacherDashboard /></TeacherRoute>}
                         />
-
-                        {/* Teacher's Classroom Page */}
                         <Route
                             path="/teacher/class/:classId"
                             element={<TeacherRoute><TeacherClassroom /></TeacherRoute>}
                         />
 
                         {/* Teacher Dashboard Tab Redirects */}
-                        <Route
-                            path="/teacher/classes"
-                            element={<Navigate to="/teacher/dashboard?tab=classes" replace />}
-                        />
-                        <Route
-                            path="/teacher/classes/:classId"
-                            element={<Navigate to="/teacher/dashboard?tab=classes" replace />}
-                        />
-                        <Route
-                            path="/teacher/assignments"
-                            element={<Navigate to="/teacher/dashboard?tab=assignments" replace />}
-                        />
-                        <Route
-                            path="/teacher/quizzes"
-                            element={<Navigate to="/teacher/dashboard?tab=quizzes" replace />}
-                        />
-                        <Route
-                            path="/teacher/students"
-                            element={<Navigate to="/teacher/dashboard?tab=students" replace />}
-                        />
-                        <Route
-                            path="/teacher/analytics"
-                            element={<Navigate to="/teacher/dashboard?tab=analytics" replace />}
-                        />
-                        <Route
-                            path="/teacher/settings"
-                            element={<Navigate to="/teacher/dashboard?tab=settings" replace />}
-                        />
+                        <Route path="/teacher/classes" element={<Navigate to="/teacher/dashboard?tab=classes" replace />} />
+                        <Route path="/teacher/classes/:classId" element={<Navigate to="/teacher/dashboard?tab=classes" replace />} />
+                        <Route path="/teacher/assignments" element={<Navigate to="/teacher/dashboard?tab=assignments" replace />} />
+                        <Route path="/teacher/quizzes" element={<Navigate to="/teacher/dashboard?tab=quizzes" replace />} />
+                        <Route path="/teacher/students" element={<Navigate to="/teacher/dashboard?tab=students" replace />} />
+                        <Route path="/teacher/analytics" element={<Navigate to="/teacher/dashboard?tab=analytics" replace />} />
+                        <Route path="/teacher/settings" element={<Navigate to="/teacher/dashboard?tab=settings" replace />} />
 
-                        {/* ========================================
-                            CATCH-ALL
-                        ======================================== */}
+                        {/* CATCH-ALL */}
                         <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                 </Router>

@@ -1,4 +1,4 @@
-// src/components/features/FlashcardsSection.jsx - AUTO-GENERATE VERSION
+// src/components/features/FlashcardsSection.jsx - WITH ACHIEVEMENT TRACKING
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -14,7 +14,8 @@ import {
   Trash2,
   Award,
   Clock,
-  Zap
+  Zap,
+  TrendingUp
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@auth/contexts/AuthContext';
@@ -29,6 +30,8 @@ import {
 } from 'firebase/firestore';
 import { db } from '@shared/config/firebase';
 import { generateFlashcardsWithGemini, createFlashcardDeck } from '@study/services/flashcardService';
+// ✅ Achievement tracking will be used in the flashcard review page
+// import { trackAction } from '@gamification/services/achievementTracker';
 import toast from 'react-hot-toast';
 
 const FlashcardsSection = () => {
@@ -58,9 +61,8 @@ const FlashcardsSection = () => {
 
   // Calculate optimal flashcard count based on document length
   const calculateOptimalCardCount = (document) => {
-    const content = document.content || document.text || '';
+    const content = document.content || document.text || document.extractedText || '';
     const wordCount = content.trim().split(/\s+/).length;
-    const charCount = content.length;
 
     // Research-based ratios: ~1 card per 50-100 words for optimal retention
     if (wordCount < 200) return 5;        // Very short: 5 cards
@@ -71,7 +73,7 @@ const FlashcardsSection = () => {
     return 30;                            // Extra long: 30 cards (max)
   };
 
-  // Real-time flashcard decks listener
+  // ✅ Real-time flashcard decks listener with achievement tracking
   useEffect(() => {
     if (!user?.uid) {
       setLoading(false);
@@ -85,11 +87,20 @@ const FlashcardsSection = () => {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const decksData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate?.() || new Date()
-      }));
+      const decksData = snapshot.docs.map(doc => {
+        const data = doc.data();
+
+        // ✅ Track achievement-worthy stats
+        return {
+          id: doc.id,
+          ...data,
+          cardCount: data.cardCount || 0,
+          masteredCount: data.masteredCount || 0,
+          reviewCount: data.reviewCount || 0,
+          createdAt: data.createdAt?.toDate?.() || new Date(),
+          lastStudied: data.lastStudied
+        };
+      });
 
       setDecks(decksData);
       setLoading(false);
@@ -157,6 +168,21 @@ const FlashcardsSection = () => {
     return filtered;
   }, [decks, selectedSubject, searchTerm]);
 
+  // ✅ Calculate achievement-worthy stats
+  const flashcardStats = useMemo(() => {
+    const totalCards = decks.reduce((sum, deck) => sum + (deck.cardCount || 0), 0);
+    const totalMastered = decks.reduce((sum, deck) => sum + (deck.masteredCount || 0), 0);
+    const totalReviewed = decks.reduce((sum, deck) => sum + (deck.reviewCount || 0), 0);
+    const masteryRate = totalCards > 0 ? Math.round((totalMastered / totalCards) * 100) : 0;
+
+    return {
+      totalCards,
+      totalMastered,
+      totalReviewed,
+      masteryRate
+    };
+  }, [decks]);
+
   // UPDATED: Auto-generate with optimal count
   const handleGenerateDeck = async (document) => {
     if (!document?.id || !user?.uid) {
@@ -182,13 +208,15 @@ const FlashcardsSection = () => {
 
       console.log(`Generated ${flashcards.length} flashcards`);
 
-      // Create deck in Firestore with subcollection
+      // ✅ Create deck with achievement tracking fields
       const deckId = await createFlashcardDeck(user.uid, document.id, flashcards, {
         title: `${document.title || 'Flashcards'}`,
         description: `AI-generated flashcard deck with ${flashcards.length} cards`,
         subject: document.subject || 'General Studies',
         cardCount: flashcards.length,
-        masteredCount: 0
+        masteredCount: 0,
+        reviewCount: 0,
+        lastStudied: null
       });
 
       console.log('Deck created with ID:', deckId);
@@ -272,38 +300,46 @@ const FlashcardsSection = () => {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* ✅ Enhanced Stats Cards with Achievement Data */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-gradient-to-br from-white to-gray-50 border-2 border-gray-200 rounded-2xl p-5 hover:border-gray-300 hover:shadow-lg transition-all">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-gray-100 rounded-lg">
               <CreditCard size={20} className="text-gray-700" />
             </div>
-            <span className="text-sm font-bold text-gray-600">Total Decks</span>
-          </div>
-          <p className="text-3xl font-black text-gray-900">{decks.length}</p>
-        </div>
-
-        <div className="bg-gradient-to-br from-white to-gray-50 border-2 border-gray-200 rounded-2xl p-5 hover:border-gray-300 hover:shadow-lg transition-all">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-gray-100 rounded-lg">
-              <BookOpen size={20} className="text-gray-700" />
-            </div>
-            <span className="text-sm font-bold text-gray-600">Subjects</span>
-          </div>
-          <p className="text-3xl font-black text-gray-900">{Object.keys(decksBySubject).length}</p>
-        </div>
-
-        <div className="bg-gradient-to-br from-white to-gray-50 border-2 border-gray-200 rounded-2xl p-5 hover:border-gray-300 hover:shadow-lg transition-all">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-gray-100 rounded-lg">
-              <Target size={20} className="text-gray-700" />
-            </div>
             <span className="text-sm font-bold text-gray-600">Total Cards</span>
           </div>
-          <p className="text-3xl font-black text-gray-900">
-            {decks.reduce((sum, deck) => sum + (deck.cardCount || 0), 0)}
-          </p>
+          <p className="text-3xl font-black text-gray-900">{flashcardStats.totalCards}</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-white to-gray-50 border-2 border-gray-200 rounded-2xl p-5 hover:border-gray-300 hover:shadow-lg transition-all">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-green-100 rounded-lg">
+              <Award size={20} className="text-green-700" />
+            </div>
+            <span className="text-sm font-bold text-gray-600">Mastered</span>
+          </div>
+          <p className="text-3xl font-black text-gray-900">{flashcardStats.totalMastered}</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-white to-gray-50 border-2 border-gray-200 rounded-2xl p-5 hover:border-gray-300 hover:shadow-lg transition-all">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Zap size={20} className="text-blue-700" />
+            </div>
+            <span className="text-sm font-bold text-gray-600">Reviewed</span>
+          </div>
+          <p className="text-3xl font-black text-gray-900">{flashcardStats.totalReviewed}</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-white to-gray-50 border-2 border-gray-200 rounded-2xl p-5 hover:border-gray-300 hover:shadow-lg transition-all">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <TrendingUp size={20} className="text-purple-700" />
+            </div>
+            <span className="text-sm font-bold text-gray-600">Mastery Rate</span>
+          </div>
+          <p className="text-3xl font-black text-gray-900">{flashcardStats.masteryRate}%</p>
         </div>
       </div>
 
@@ -326,8 +362,8 @@ const FlashcardsSection = () => {
         <button
           onClick={() => setSelectedSubject('all')}
           className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap transition-all shadow-sm ${selectedSubject === 'all'
-              ? 'bg-gradient-to-r from-gray-800 to-gray-700 text-white'
-              : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-gray-400'
+            ? 'bg-gradient-to-r from-gray-800 to-gray-700 text-white'
+            : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-gray-400'
             }`}
         >
           All ({decks.length})
@@ -341,8 +377,8 @@ const FlashcardsSection = () => {
               key={subject}
               onClick={() => setSelectedSubject(subject)}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap transition-all shadow-sm ${selectedSubject === subject
-                  ? `${config.bg} ${config.color} border-2 ${config.border}`
-                  : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-gray-400'
+                ? `${config.bg} ${config.color} border-2 ${config.border}`
+                : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-gray-400'
                 }`}
             >
               {subject} ({subjectDecks.length})
@@ -351,7 +387,7 @@ const FlashcardsSection = () => {
         })}
       </div>
 
-      {/* Documents with Generate Flashcards Button - SIMPLIFIED */}
+      {/* Documents with Generate Flashcards Button */}
       {documents.length > 0 && (
         <div>
           <h3 className="text-xl font-black text-gray-900 mb-4 flex items-center gap-2">
@@ -444,6 +480,7 @@ const FlashcardsSection = () => {
                     </div>
                   </div>
 
+                  {/* ✅ Enhanced stats with achievement tracking */}
                   <div className="space-y-2 mb-4 text-xs text-gray-600 font-semibold">
                     <div className="flex items-center gap-2">
                       <Target size={12} />
@@ -453,6 +490,12 @@ const FlashcardsSection = () => {
                       <Award size={12} />
                       {deck.masteredCount || 0} Mastered ({masteryPercentage}%)
                     </div>
+                    {deck.reviewCount > 0 && (
+                      <div className="flex items-center gap-2 text-blue-600">
+                        <Zap size={12} />
+                        {deck.reviewCount} Reviews
+                      </div>
+                    )}
                     {deck.lastStudied && (
                       <div className="flex items-center gap-2">
                         <Clock size={12} />
@@ -463,9 +506,16 @@ const FlashcardsSection = () => {
 
                   {/* Progress Bar */}
                   <div className="mb-4">
+                    <div className="flex justify-between text-xs font-bold text-gray-600 mb-1">
+                      <span>Mastery Progress</span>
+                      <span className={masteryPercentage === 100 ? 'text-green-600' : ''}>{masteryPercentage}%</span>
+                    </div>
                     <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-gradient-to-r from-gray-800 to-gray-700 transition-all duration-500"
+                        className={`h-full transition-all duration-500 ${masteryPercentage === 100
+                            ? 'bg-gradient-to-r from-green-500 to-green-600'
+                            : 'bg-gradient-to-r from-gray-800 to-gray-700'
+                          }`}
                         style={{ width: `${masteryPercentage}%` }}
                       />
                     </div>

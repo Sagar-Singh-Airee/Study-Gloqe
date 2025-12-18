@@ -113,7 +113,7 @@ const AchievementsSection = () => {
                     <div className="grid lg:grid-cols-[1fr_380px] gap-8 items-start">
                         {/* Left: User Info */}
                         <div>
-                            <motion.div 
+                            <motion.div
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 0.1 }}
@@ -128,7 +128,7 @@ const AchievementsSection = () => {
                                 </div>
                             </motion.div>
 
-                            <motion.h1 
+                            <motion.h1
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 0.2 }}
@@ -241,11 +241,10 @@ const AchievementsSection = () => {
                             onClick={() => setActiveTab(tab.key)}
                             whileHover={{ scale: 1.01 }}
                             whileTap={{ scale: 0.99 }}
-                            className={`flex-1 px-5 py-3 font-bold text-sm transition-all rounded-lg flex items-center justify-center gap-2 relative ${
-                                activeTab === tab.key
+                            className={`flex-1 px-5 py-3 font-bold text-sm transition-all rounded-lg flex items-center justify-center gap-2 relative ${activeTab === tab.key
                                     ? 'text-white bg-gray-900'
                                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                            }`}
+                                }`}
                         >
                             {activeTab === tab.key && (
                                 <motion.div
@@ -257,11 +256,10 @@ const AchievementsSection = () => {
                             <tab.icon size={18} className="relative z-10" />
                             <span className="relative z-10">{tab.label}</span>
                             {tab.count > 0 && (
-                                <span className={`relative z-10 px-1.5 py-0.5 rounded text-xs font-black ${
-                                    activeTab === tab.key
+                                <span className={`relative z-10 px-1.5 py-0.5 rounded text-xs font-black ${activeTab === tab.key
                                         ? 'bg-white/20 text-white'
                                         : 'bg-gray-200 text-gray-700'
-                                }`}>
+                                    }`}>
                                     {tab.count}
                                 </span>
                             )}
@@ -304,7 +302,7 @@ const AchievementsSection = () => {
                         >
                             {allBadges.length > 0 ? allBadges.map((badge, idx) => {
                                 const Icon = IconMap[badge.iconName] || Star;
-                                
+
                                 return (
                                     <motion.div
                                         key={badge.id}
@@ -312,19 +310,17 @@ const AchievementsSection = () => {
                                         animate={{ opacity: 1, scale: 1 }}
                                         transition={{ delay: idx * 0.02 }}
                                         whileHover={{ y: -4 }}
-                                        className={`relative p-5 rounded-2xl border transition-all ${
-                                            badge.unlocked
+                                        className={`relative p-5 rounded-2xl border transition-all ${badge.unlocked
                                                 ? 'bg-white border-gray-200 shadow-sm hover:shadow-md'
                                                 : 'bg-gray-50 border-gray-200 border-dashed opacity-60'
-                                        }`}
+                                            }`}
                                     >
                                         <div className="flex flex-col items-center text-center">
                                             <div
-                                                className={`w-16 h-16 rounded-xl flex items-center justify-center mb-3 ${
-                                                    badge.unlocked 
-                                                        ? 'bg-gray-900 text-white' 
+                                                className={`w-16 h-16 rounded-xl flex items-center justify-center mb-3 ${badge.unlocked
+                                                        ? 'bg-gray-900 text-white'
                                                         : 'bg-gray-200 text-gray-400'
-                                                }`}
+                                                    }`}
                                             >
                                                 {badge.unlocked ? (
                                                     <Icon size={28} strokeWidth={2.5} />
@@ -382,19 +378,17 @@ const AchievementsSection = () => {
                                         animate={{ opacity: 1, x: 0 }}
                                         transition={{ delay: idx * 0.03 }}
                                         whileHover={{ x: 4 }}
-                                        className={`flex items-center justify-between p-5 rounded-xl border transition-all ${
-                                            isUnlocked
+                                        className={`flex items-center justify-between p-5 rounded-xl border transition-all ${isUnlocked
                                                 ? 'bg-white border-gray-200 shadow-sm hover:shadow-md'
                                                 : 'bg-gray-50 border-gray-200 opacity-60'
-                                        } ${isEquipped ? 'ring-2 ring-gray-900 ring-offset-2' : ''}`}
+                                            } ${isEquipped ? 'ring-2 ring-gray-900 ring-offset-2' : ''}`}
                                     >
                                         <div className="flex items-center gap-4">
                                             <div
-                                                className={`w-14 h-14 rounded-xl flex items-center justify-center ${
-                                                    isUnlocked 
-                                                        ? 'bg-gray-900 text-white' 
+                                                className={`w-14 h-14 rounded-xl flex items-center justify-center ${isUnlocked
+                                                        ? 'bg-gray-900 text-white'
                                                         : 'bg-gray-200 text-gray-400'
-                                                }`}
+                                                    }`}
                                             >
                                                 {isUnlocked ? <Crown size={24} /> : <Lock size={20} />}
                                             </div>
@@ -404,8 +398,8 @@ const AchievementsSection = () => {
                                                 </h3>
                                                 <p className="text-xs text-gray-500 font-medium">
                                                     {isUnlocked
-                                                        ? isEquipped 
-                                                            ? '✨ Currently equipped' 
+                                                        ? isEquipped
+                                                            ? '✨ Currently equipped'
                                                             : 'Available to equip'
                                                         : `Unlocks at Level ${title.requiredLevel || 1}`}
                                                 </p>

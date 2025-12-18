@@ -31,6 +31,7 @@
         "framer-motion": "^11.18.2",
         "kafkajs": "^2.2.4",
         "lucide-react": "^0.263.1",
+        "mermaid": "^11.12.2",
         "openai": "^6.10.0",
         "pdfjs-dist": "^3.11.174",
         "react": "^18.3.1",

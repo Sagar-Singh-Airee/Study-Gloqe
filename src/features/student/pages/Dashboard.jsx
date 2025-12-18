@@ -6,10 +6,10 @@ import {
     BookOpen, Upload, Trophy, Clock, Users, Brain, Video, Bell,
     Layers, StickyNote, LayoutDashboard, LogOut, ChevronRight, Medal,
     Sparkles, TrendingUp, Zap, Flame, Target, Activity, Award,
-    Search, Command, Menu, X, ChevronDown, Settings, HelpCircle,
+    Search, Command, Menu, X, ChevronDown, HelpCircle,
     Calendar, BarChart3, Star, Gift, Rocket, Crown, Shield,
     CheckCircle2, ArrowUpRight, Plus, RefreshCw, Info,
-    MousePointerClick
+    MousePointerClick, User, Settings as SettingsIcon
 } from 'lucide-react';
 import { useAuth } from '@auth/contexts/AuthContext';
 import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
@@ -34,6 +34,8 @@ import NotesSection from '@student/components/dashboard/NotesSection';
 import RoomsSection from '@student/components/dashboard/RoomsSection';
 import SessionHistorySection from '@student/components/dashboard/SessionHistorySection';
 import AchievementsSection from '@student/components/dashboard/AchievementsSection';
+import Profile from '@student/pages/Profile';
+import Settings from '@student/pages/Settings';
 
 // Analytics Components
 import StudentAnalytics from '@analytics/components/StudentAnalytics';
@@ -62,6 +64,8 @@ const SIDEBAR_ITEMS = [
     { icon: Video, label: 'Study Rooms', tab: 'rooms', badge: 'LIVE' },
     { icon: Trophy, label: 'Leaderboard', tab: 'leaderboard', badge: null },
     { icon: Clock, label: 'History', tab: 'history', badge: null },
+    { icon: User, label: 'Profile', tab: 'profile', badge: null },
+    { icon: SettingsIcon, label: 'Settings', tab: 'settings', badge: null },
 ];
 
 const TUTORIAL_STEPS = [
@@ -1018,6 +1022,10 @@ const Dashboard = () => {
                 return <LeaderboardSection />;
             case 'history':
                 return <SessionHistorySection />;
+            case 'profile':
+                return <Profile embedded />;
+            case 'settings':
+                return <Settings embedded />;
             default:
                 return (
                     <OverviewSection
@@ -1368,7 +1376,7 @@ const Dashboard = () => {
             </div>
 
             {/* CUSTOM STYLES */}
-            <style jsx>{`
+            <style>{`
                 @keyframes shimmer {
                     0% { transform: translateX(-100%); }
                     100% { transform: translateX(100%); }
