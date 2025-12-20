@@ -1,14 +1,12 @@
 /* src/pages/AuthPage.css */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap');
 
-
 /* ==================== ROOT & RESET ==================== */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
-
 
 /* ==================== AUTH PAGE CONTAINER ==================== */
 .auth-page {
@@ -23,7 +21,6 @@
     padding: 20px;
 }
 
-
 /* ==================== AMBIENT GLOWS ==================== */
 .ambient-glow {
     position: absolute;
@@ -31,7 +28,6 @@
     pointer-events: none;
     z-index: 0;
 }
-
 
 .glow-1 {
     width: 500px;
@@ -43,7 +39,6 @@
     animation: float 8s ease-in-out infinite;
 }
 
-
 .glow-2 {
     width: 400px;
     height: 400px;
@@ -54,22 +49,23 @@
     animation: float 10s ease-in-out infinite reverse;
 }
 
-
 @keyframes float {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: translate(0, 0);
     }
+
     50% {
         transform: translate(30px, -30px);
     }
 }
 
-
 /* ==================== MAIN CONTAINER ==================== */
 .auth-container {
     background: linear-gradient(145deg, #1a1a1a, #0d0d0d);
     border-radius: 30px;
-    box-shadow: 
+    box-shadow:
         0 20px 60px rgba(0, 0, 0, 0.5),
         inset 0 1px 0 rgba(255, 255, 255, 0.05);
     position: relative;
@@ -81,7 +77,6 @@
     z-index: 1;
 }
 
-
 /* ==================== TYPOGRAPHY ==================== */
 .auth-container h1 {
     font-size: 2rem;
@@ -89,7 +84,6 @@
     color: #1a1a1a;
     margin: 0;
 }
-
 
 .auth-container p {
     font-size: 14px;
@@ -99,12 +93,10 @@
     color: rgba(255, 255, 255, 0.85);
 }
 
-
 .auth-container span {
     font-size: 12px;
     color: #666;
 }
-
 
 .auth-container a {
     color: #888;
@@ -114,11 +106,9 @@
     transition: color 0.3s ease;
 }
 
-
 .auth-container a:hover {
     color: #bbb;
 }
-
 
 /* ==================== FORM CONTAINERS ==================== */
 .form-container {
@@ -128,18 +118,15 @@
     transition: all 0.6s ease-in-out;
 }
 
-
 .sign-in {
     left: 0;
     width: 50%;
     z-index: 2;
 }
 
-
 .auth-container.active .sign-in {
     transform: translateX(100%);
 }
-
 
 .sign-up {
     left: 0;
@@ -148,7 +135,6 @@
     z-index: 1;
 }
 
-
 .auth-container.active .sign-up {
     transform: translateX(100%);
     opacity: 1;
@@ -156,76 +142,109 @@
     animation: fadeInSlide 0.6s;
 }
 
-
 @keyframes fadeInSlide {
-    0%, 49.99% {
+
+    0%,
+    49.99% {
         opacity: 0;
         z-index: 1;
     }
-    50%, 100% {
+
+    50%,
+    100% {
         opacity: 1;
         z-index: 5;
     }
 }
 
-
-/* ==================== FORM STYLING - COMPACT SPACING ==================== */
+/* ==================== FORM STYLING - WITH SCROLL FIX ==================== */
 .form-container form {
     background: linear-gradient(135deg, #f8f8f8, #f0f0f0);
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
+    /* Changed from center */
     flex-direction: column;
-    padding: 30px 50px; /* Reduced from 40px */
+    padding: 25px 45px;
+    /* Reduced padding */
     height: 100%;
     position: relative;
     box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
-    overflow: hidden; /* Changed from overflow-y: auto */
+    overflow-y: auto;
+    /* Enable vertical scroll */
+    overflow-x: hidden;
 }
 
+/* ✅ CUSTOM SCROLLBAR FOR FORM */
+.form-container form::-webkit-scrollbar {
+    width: 6px;
+}
+
+.form-container form::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.form-container form::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 3px;
+}
+
+.form-container form::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.25);
+}
+
+/* For Firefox */
+.form-container form {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+}
 
 /* ==================== FORM HEADER - COMPACT ==================== */
 .form-header {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 15px; /* Reduced from 25px */
+    margin-bottom: 12px;
+    /* Reduced */
+    flex-shrink: 0;
+    /* Prevent shrinking */
 }
 
-
 .form-header h1 {
-    font-size: 2rem; /* Reduced from 2.2rem */
+    font-size: 1.9rem;
+    /* Slightly reduced */
     font-weight: 800;
     color: #1a1a1a;
     margin: 0;
 }
-
 
 .sparkle-icon {
     color: #333;
     animation: sparkle 2s ease-in-out infinite;
 }
 
-
 @keyframes sparkle {
-    0%, 100% {
+
+    0%,
+    100% {
         opacity: 0.5;
         transform: rotate(0deg) scale(1);
     }
+
     50% {
         opacity: 1;
         transform: rotate(180deg) scale(1.1);
     }
 }
 
-
 /* ==================== INPUT GROUPS - COMPACT SPACING ==================== */
 .input-group {
     position: relative;
     width: 100%;
-    margin: 6px 0; /* Reduced from 10px */
+    margin: 5px 0;
+    /* Reduced spacing */
+    flex-shrink: 0;
 }
-
 
 .input-icon {
     position: absolute;
@@ -236,11 +255,11 @@
     z-index: 1;
 }
 
-
 .input-group input {
     width: 100%;
-    padding: 12px 15px 12px 45px; /* Reduced from 14px */
-    font-size: 13px; /* Reduced from 14px */
+    padding: 11px 15px 11px 45px;
+    /* Slightly reduced */
+    font-size: 13px;
     border: 1.5px solid #ddd;
     border-radius: 12px;
     background: #fff;
@@ -250,18 +269,15 @@
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
 }
 
-
 .input-group input:focus {
     border-color: #666;
     box-shadow: 0 0 0 4px rgba(100, 100, 100, 0.08);
     transform: translateY(-1px);
 }
 
-
 .input-group input::placeholder {
     color: #999;
 }
-
 
 .toggle-password {
     position: absolute;
@@ -279,46 +295,45 @@
     transition: color 0.3s ease;
 }
 
-
 .toggle-password:hover {
     color: #333;
 }
 
-
 /* ==================== ROLE SELECTION - COMPACT ==================== */
 .role-selection {
     display: flex;
-    gap: 12px;
+    gap: 10px;
     width: 100%;
-    margin: 10px 0; /* Reduced from 15px */
+    margin: 8px 0;
+    /* Reduced */
+    flex-shrink: 0;
 }
-
 
 .role-btn {
     flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px; /* Reduced from 10px */
-    padding: 14px 12px; /* Reduced from 20px */
+    gap: 5px;
+    padding: 12px 10px;
+    /* Reduced */
     border: 2px solid #ddd;
     border-radius: 14px;
     background: #fff;
     color: #666;
     cursor: pointer;
     transition: all 0.3s ease;
-    font-size: 13px; /* Reduced from 14px */
+    font-size: 12.5px;
+    /* Slightly reduced */
     font-weight: 700;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
 }
-
 
 .role-btn:hover {
     border-color: #666;
     transform: translateY(-3px);
     box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
 }
-
 
 .role-btn.active {
     border-color: #2a2a2a;
@@ -328,24 +343,25 @@
     transform: translateY(-2px);
 }
 
-
 .role-btn svg {
-    width: 20px; /* Reduced from 24px */
-    height: 20px;
+    width: 19px;
+    /* Slightly reduced */
+    height: 19px;
 }
-
 
 /* ==================== SOCIAL ICONS - COMPACT ==================== */
 .social-icons {
-    margin: 15px 0; /* Reduced from 25px */
+    margin: 12px 0;
+    /* Reduced */
     display: flex;
     gap: 12px;
+    flex-shrink: 0;
 }
 
-
 .social-icons .icon {
-    width: 45px; /* Reduced from 50px */
-    height: 45px;
+    width: 44px;
+    /* Slightly reduced */
+    height: 44px;
     border: 1.5px solid #ccc;
     border-radius: 12px;
     display: inline-flex;
@@ -358,7 +374,6 @@
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
-
 .social-icons .icon:hover {
     background: #f8f8f8;
     border-color: #666;
@@ -366,49 +381,51 @@
     box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
 }
 
-
 .social-icons .icon:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
 
-
 .social-icons .icon svg {
-    width: 18px; /* Reduced from 20px */
+    width: 18px;
     height: 18px;
 }
-
 
 /* ==================== DIVIDER TEXT - COMPACT ==================== */
 .divider-text {
     display: block;
-    margin: 12px 0; /* Reduced from 18px */
+    margin: 10px 0;
+    /* Reduced */
     color: #999;
-    font-size: 11px; /* Reduced from 12.5px */
+    font-size: 11px;
     text-align: center;
     font-weight: 500;
+    flex-shrink: 0;
 }
 
-
-/* ==================== SUBMIT BUTTON - ENHANCED & FIXED ==================== */
+/* ==================== SUBMIT BUTTON - ENHANCED ==================== */
 .submit-btn {
     background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
     color: #fff;
-    font-size: 13px; /* Reduced from 14px */
+    font-size: 13px;
     font-weight: 700;
-    padding: 12px 50px; /* Reduced from 14px 60px */
+    padding: 12px 45px;
+    /* Reduced */
     border: none;
     border-radius: 12px;
     letter-spacing: 1px;
     text-transform: uppercase;
-    margin-top: 12px; /* Reduced from 20px */
+    margin-top: 10px;
+    /* Reduced */
+    margin-bottom: 15px;
+    /* Added bottom margin for spacing */
     cursor: pointer;
     transition: all 0.3s ease;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
     position: relative;
     overflow: hidden;
+    flex-shrink: 0;
 }
-
 
 .submit-btn::before {
     content: '';
@@ -421,22 +438,18 @@
     transition: left 0.5s ease;
 }
 
-
 .submit-btn:hover::before {
     left: 100%;
 }
-
 
 .submit-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
-
 .submit-btn:active {
     transform: translateY(0);
 }
-
 
 .submit-btn:disabled {
     opacity: 0.6;
@@ -444,10 +457,9 @@
     transform: none;
 }
 
-
 /* ==================== SPINNER ==================== */
 .spinner {
-    width: 18px; /* Reduced from 20px */
+    width: 18px;
     height: 18px;
     border: 3px solid rgba(255, 255, 255, 0.3);
     border-top-color: #fff;
@@ -455,21 +467,20 @@
     animation: spin 0.8s linear infinite;
 }
 
-
 @keyframes spin {
     to {
         transform: rotate(360deg);
     }
 }
 
-
 /* ==================== FORGOT LINK ==================== */
 .forgot-link {
     align-self: flex-end;
     margin-top: 5px;
+    margin-bottom: 5px;
     font-size: 12px;
+    flex-shrink: 0;
 }
-
 
 /* ==================== TOGGLE CONTAINER ==================== */
 .toggle-container {
@@ -484,12 +495,10 @@
     z-index: 1000;
 }
 
-
 .auth-container.active .toggle-container {
     transform: translateX(-100%);
     border-radius: 30px 0 0 30px;
 }
-
 
 .toggle {
     background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 50%, #0d0d0d 100%);
@@ -502,11 +511,9 @@
     box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.3);
 }
 
-
 .auth-container.active .toggle {
     transform: translateX(50%);
 }
-
 
 /* ==================== TOGGLE PANELS ==================== */
 .toggle-panel {
@@ -525,34 +532,28 @@
     color: #fff;
 }
 
-
 .toggle-panel h1 {
     color: #fff;
     font-size: 2rem;
     margin: 20px 0 10px;
 }
 
-
 .toggle-left {
     transform: translateX(-200%);
 }
 
-
 .auth-container.active .toggle-left {
     transform: translateX(0);
 }
-
 
 .toggle-right {
     right: 0;
     transform: translateX(0);
 }
 
-
 .auth-container.active .toggle-right {
     transform: translateX(200%);
 }
-
 
 /* ==================== LOGO ==================== */
 .logo-container {
@@ -563,14 +564,12 @@
     margin-bottom: 20px;
 }
 
-
 .logo-image {
     width: 80px;
     height: 80px;
     filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
     object-fit: contain;
 }
-
 
 .logo-text {
     font-size: 1.8rem;
@@ -581,7 +580,6 @@
     background-clip: text;
     letter-spacing: 1px;
 }
-
 
 /* ==================== TOGGLE BUTTON ==================== */
 .toggle-btn {
@@ -599,18 +597,156 @@
     transition: all 0.3s ease;
 }
 
-
 .toggle-btn:hover {
     background: rgba(255, 255, 255, 0.1);
     border-color: #fff;
     transform: scale(1.05);
 }
 
-
 .toggle-btn:active {
     transform: scale(0.98);
 }
 
+/* ==================== USERNAME AVAILABILITY INDICATOR ==================== */
+.username-status {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+}
+
+.checking-spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(100, 100, 100, 0.3);
+    border-top-color: #666;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+.status-icon {
+    transition: all 0.3s ease;
+    animation: statusAppear 0.3s ease;
+}
+
+@keyframes statusAppear {
+    from {
+        opacity: 0;
+        transform: scale(0.5);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.status-icon.available {
+    color: #10b981;
+    filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.3));
+}
+
+.status-icon.taken {
+    color: #ef4444;
+    filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.3));
+}
+
+/* Username message below input */
+.username-message {
+    font-size: 11px;
+    font-weight: 600;
+    margin-top: -3px;
+    /* Reduced */
+    margin-bottom: 5px;
+    /* Reduced */
+    padding: 0 15px;
+    animation: slideDown 0.3s ease;
+    letter-spacing: 0.3px;
+}
+
+.username-message.available {
+    color: #10b981;
+}
+
+.username-message.taken {
+    color: #ef4444;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Adjust input padding when status icon is present */
+.input-group:has(.username-status) input {
+    padding-right: 45px;
+}
+
+/* Adjust toggle-password positioning when username-status exists */
+.input-group:has(.username-status) .toggle-password {
+    right: 45px;
+}
+
+/* ==================== ENHANCED BUTTON STATES ==================== */
+.submit-btn:disabled:not(:has(.spinner)) {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    background: linear-gradient(135deg, #4a4a4a, #3a3a3a);
+}
+
+.role-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.social-icons .icon:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* ==================== LOADING STATE ENHANCEMENTS ==================== */
+.input-group input:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    background: #f5f5f5;
+}
+
+.toggle-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ==================== SMOOTH TRANSITIONS ==================== */
+.input-group input,
+.role-btn,
+.social-icons .icon,
+.submit-btn {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ==================== FOCUS STATES ==================== */
+.input-group input:focus {
+    border-color: #666;
+    box-shadow: 0 0 0 4px rgba(100, 100, 100, 0.08);
+    transform: translateY(-1px);
+}
+
+.input-group input:focus+.username-status {
+    opacity: 1;
+}
 
 /* ==================== RESPONSIVE DESIGN ==================== */
 @media (max-width: 768px) {
@@ -619,100 +755,230 @@
         min-height: 600px;
     }
 
-
     .form-container {
         width: 100% !important;
         position: relative;
     }
-
 
     .auth-container.active .sign-in,
     .auth-container.active .sign-up {
         transform: translateX(0);
     }
 
-
     .sign-up {
         display: none;
     }
-
 
     .auth-container.active .sign-up {
         display: flex;
     }
 
-
     .auth-container.active .sign-in {
         display: none;
     }
-
 
     .toggle-container {
         display: none;
     }
 
-
     .form-container form {
-        padding: 30px;
+        padding: 25px;
     }
-
 
     .auth-container h1 {
         font-size: 1.8rem;
     }
 
-
     .role-selection {
         flex-direction: column;
     }
 
-
     .role-btn {
         width: 100%;
     }
-
 
     .logo-image {
         width: 60px;
         height: 60px;
     }
 
-
     .logo-text {
         font-size: 1.5rem;
     }
 }
-
 
 @media (max-width: 480px) {
     .auth-page {
         padding: 10px;
     }
 
-
     .form-container form {
         padding: 20px;
     }
-
 
     .auth-container h1 {
         font-size: 1.5rem;
     }
 
-
     .submit-btn {
-        padding: 10px 40px;
+        padding: 10px 35px;
         font-size: 12px;
     }
-
 
     .logo-image {
         width: 50px;
         height: 50px;
     }
 
-
     .logo-text {
         font-size: 1.3rem;
+    }
+
+    .username-message {
+        font-size: 10px;
+        padding: 0 10px;
+    }
+
+    .status-icon {
+        width: 16px;
+        height: 16px;
+    }
+
+    .checking-spinner {
+        width: 16px;
+        height: 16px;
+    }
+}
+
+/* ==================== SIGN-IN SPECIFIC COMPACT SPACING ==================== */
+.sign-in form {
+    padding: 35px 45px !important;
+    /* More compact for sign-in */
+    justify-content: center !important;
+    /* Center vertically */
+}
+
+.sign-in .form-header {
+    margin-bottom: 18px;
+    /* Reduced gap after header */
+}
+
+.sign-in .social-icons {
+    margin: 18px 0;
+    /* Reduced from 25px */
+}
+
+.sign-in .divider-text {
+    margin: 14px 0;
+    /* Reduced gap */
+}
+
+.sign-in .input-group {
+    margin: 8px 0;
+    /* Tighter spacing between inputs */
+}
+
+.sign-in .forgot-link {
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+
+.sign-in .submit-btn {
+    margin-top: 16px;
+    margin-bottom: 0;
+}
+
+/* ==================== SIGN-UP KEEPS SCROLL ==================== */
+.sign-up form {
+    padding: 25px 45px;
+    justify-content: flex-start !important;
+    /* Keep top-aligned for scrolling */
+}
+
+/* ==================== BETTER VERTICAL CENTERING FOR SIGN-IN ==================== */
+.sign-in form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ==================== OPTIMIZED INPUT SPACING ==================== */
+.sign-in .input-group input {
+    padding: 13px 15px 13px 45px;
+    /* Slightly larger for better UX */
+}
+
+/* ==================== REMOVE EXCESSIVE PARAGRAPH MARGINS ==================== */
+.sign-in p {
+    margin: 12px 0;
+    /* Reduced from 20px */
+}
+
+/* ==================== BETTER BUTTON SIZING ==================== */
+.sign-in .submit-btn {
+    padding: 13px 55px;
+    /* Slightly larger button */
+    font-size: 14px;
+    margin-top: 20px;
+}
+
+/* ==================== TIGHTER SOCIAL ICON ==================== */
+.sign-in .social-icons .icon {
+    width: 48px;
+    height: 48px;
+}
+
+/* ==================== OPTIMIZE FORM HEADER ==================== */
+.sign-in .form-header h1 {
+    font-size: 2.1rem;
+    /* Slightly larger for impact */
+    margin-bottom: 0;
+}
+
+/* ==================== BETTER VISUAL BALANCE ==================== */
+.sign-in .sparkle-icon {
+    animation: sparkle 3s ease-in-out infinite;
+}
+
+/* ==================== POLISH FORGOT LINK ==================== */
+.sign-in .forgot-link {
+    font-size: 12.5px;
+    color: #888;
+    transition: color 0.3s ease;
+}
+
+.sign-in .forgot-link:hover {
+    color: #555;
+    text-decoration: underline;
+}
+
+/* ==================== RESPONSIVE ADJUSTMENTS FOR SIGN-IN ==================== */
+@media (max-width: 768px) {
+    .sign-in form {
+        padding: 30px !important;
+    }
+
+    .sign-in .form-header {
+        margin-bottom: 15px;
+    }
+
+    .sign-in .submit-btn {
+        padding: 12px 45px;
+    }
+}
+
+@media (max-width: 480px) {
+    .sign-in form {
+        padding: 25px !important;
+    }
+
+    .sign-in .form-header h1 {
+        font-size: 1.7rem;
+    }
+
+    .sign-in .social-icons .icon {
+        width: 44px;
+        height: 44px;
     }
 }

@@ -367,19 +367,27 @@ const SUBJECT_DATABASE = {
 export const detectSubjectWithAI = async (documentData) => {
     const { title = '', content = '', fileName = '' } = documentData;
 
-    // Prepare text sample (limit to 4000 chars to optimize API usage)
+    // ✅ VALIDATE API KEY FIRST
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey || apiKey === 'undefined' || apiKey.length < 10) {
+        console.error('❌ GEMINI API KEY NOT CONFIGURED! Check .env file for VITE_GEMINI_API_KEY');
+        return null; // Signal to use fallback
+    }
+
+    // Prepare text sample (limit to 6000 chars for better context)
     const textSample = `
 Title: ${title}
 Filename: ${fileName}
-Content: ${content.substring(0, 4000)}
+Content: ${content.substring(0, 6000)}
     `.trim();
 
     if (textSample.length < 50) {
+        console.warn('⚠️ Insufficient text for AI detection (< 50 chars)');
         return null; // Signal to use fallback
     }
 
     try {
-        console.log('🤖 Using Gemini AI for subject detection...');
+        console.log('🤖 Using Gemini AI for subject detection...', { titleLength: title.length, contentLength: content.length });
 
         const model = genAI.getGenerativeModel({
             model: 'gemini-2.5-flash',
@@ -389,31 +397,30 @@ Content: ${content.substring(0, 4000)}
             }
         });
 
-        const prompt = `Analyze this educational document and classify it into ONE subject category.
+        const prompt = `You are an expert educational content classifier. Analyze this document and determine its PRIMARY subject.
 
-Document:
+Document Content:
 ${textSample}
 
-Available subjects (choose ONLY ONE):
-- Mathematics
-- Physics
-- Chemistry
-- Biology
-- Computer Science
-- History
-- Economics
-- Literature
-- Psychology
-- Engineering
-- General Studies (only if none above fit)
+POSSIBLE SUBJECTS (respond with EXACTLY one of these):
+Mathematics, Physics, Chemistry, Biology, Computer Science, History, Economics, Literature, Psychology, Engineering
 
-Instructions:
-- Analyze the terminology, concepts, formulas, and context
-- Return ONLY the exact subject name from the list
-- Be precise - if truly ambiguous or multi-disciplinary, return "General Studies"
-- Do not explain, just return the subject name
+CLASSIFICATION RULES:
+1. Look for subject-specific terminology, formulas, concepts, and topics
+2. Mathematics: equations, calculus, algebra, geometry, statistics
+3. Physics: forces, motion, energy, waves, electromagnetism, quantum
+4. Chemistry: elements, reactions, compounds, molecules, organic/inorganic
+5. Biology: cells, genetics, organisms, ecology, anatomy, evolution
+6. Computer Science: programming, algorithms, data structures, software, AI/ML
+7. History: dates, events, civilizations, wars, historical figures
+8. Economics: markets, finance, GDP, supply/demand, trade
+9. Literature: novels, poetry, literary analysis, authors, themes
+10. Psychology: behavior, cognition, mental health, therapy, development
+11. Engineering: design, systems, mechanical, electrical, civil
 
-Subject:`;
+IMPORTANT: Only respond with "General Studies" if the content is truly multi-disciplinary or cannot be classified.
+
+Your response (one word only):`;
 
         const result = await model.generateContent(prompt);
         const response = result.response.text().trim();
@@ -432,20 +439,28 @@ Subject:`;
         );
 
         if (detectedSubject) {
-            console.log('✅ AI detected:', detectedSubject);
+            // ✅ IMPROVED: Calculate confidence based on response quality
+            const confidence = detectedSubject === 'General Studies' ? 70 : 95;
+            console.log('✅ AI detected:', detectedSubject, `(${confidence}% confidence)`);
             return {
                 subject: detectedSubject,
-                confidence: 95,
+                confidence: confidence,
                 method: 'ai_gemini',
                 aiResponse: response
             };
         }
 
         console.warn('⚠️ AI returned invalid response:', response);
+        console.warn('   Expected one of:', validSubjects.join(', '));
         return null; // Fallback to keyword
 
     } catch (error) {
+        // ✅ IMPROVED: Detailed error logging
         console.error('❌ AI detection failed:', error.message);
+        console.error('   Error details:', error);
+        if (error.message?.includes('API key')) {
+            console.error('   💡 FIX: Check VITE_GEMINI_API_KEY in your .env file');
+        }
         return null; // Fallback to keyword
     }
 };
@@ -602,16 +617,32 @@ export const detectSubjectAccurately = (documentData) => {
  * 🚀 HYBRID: Try AI first, fallback to keywords (RECOMMENDED)
  */
 export const detectSubjectHybrid = async (documentData) => {
+    console.log('🔍 Starting hybrid subject detection...');
+
     // Try AI first
     const aiResult = await detectSubjectWithAI(documentData);
 
-    if (aiResult && aiResult.confidence >= 80) {
+    // ✅ LOWERED threshold from 80% to 70% for better AI acceptance
+    if (aiResult && aiResult.confidence >= 70) {
+        console.log('✅ AI detection accepted:', aiResult.subject);
         return aiResult;
     }
 
     // Fallback to keyword detection
-    console.log('⚠️ AI unavailable/low confidence, using keyword fallback...');
-    return detectSubjectAccurately(documentData);
+    console.log('⚠️ AI unavailable or low confidence, using keyword fallback...');
+    const keywordResult = detectSubjectAccurately(documentData);
+
+    // ✅ NEW: If keyword also low confidence, try to boost with AI partial result
+    if (aiResult && aiResult.subject !== 'General Studies' && keywordResult.subject === 'General Studies') {
+        console.log('🔄 Using AI result despite lower confidence:', aiResult.subject);
+        return {
+            ...aiResult,
+            confidence: Math.max(aiResult.confidence, 60),
+            method: 'ai_gemini_boosted'
+        };
+    }
+
+    return keywordResult;
 };
 
 // ==================== EXPORTS ====================

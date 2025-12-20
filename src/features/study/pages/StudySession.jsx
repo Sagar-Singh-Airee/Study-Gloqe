@@ -1,5 +1,5 @@
 // src/features/study/pages/StudySession.jsx - COMPLETE REPLACEMENT
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -7,10 +7,13 @@ import {
     Save, Download, Share2, Clock, Target
 } from 'lucide-react';
 import { useAuth } from '../../auth/contexts/AuthContext';
-import { getDocument } from '../services/documentService';
+import { getDocument, updateStudyTime } from '../services/documentService';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../../../shared/config/firebase';
 import ConceptFlowchart from '../components/visual/ConceptFlowchart';
 import QuestionBank from '../components/visual/QuestionBank';
 import { saveFlashcardsFromVisual, saveQuizFromVisual } from '../services/visualAnalysisService';
+import { trackAction } from '../../gamification/services/achievementTracker';
 import toast from 'react-hot-toast';
 
 const StudySession = () => {
@@ -26,6 +29,10 @@ const StudySession = () => {
     const [sessionStartTime] = useState(Date.now());
     const [studyTime, setStudyTime] = useState(0);
 
+    // Ref to track if session was saved
+    const sessionSavedRef = useRef(false);
+    const studyTimeRef = useRef(0);
+
     // Current page data
     const currentPage = visualPages[currentPageIndex];
 
@@ -37,11 +44,59 @@ const StudySession = () => {
     // Study timer
     useEffect(() => {
         const timer = setInterval(() => {
-            setStudyTime(Math.floor((Date.now() - sessionStartTime) / 1000));
+            const elapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
+            setStudyTime(elapsed);
+            studyTimeRef.current = elapsed;
         }, 1000);
 
         return () => clearInterval(timer);
     }, [sessionStartTime]);
+
+    // Save session on unmount or navigation
+    useEffect(() => {
+        const saveSession = async () => {
+            if (sessionSavedRef.current || studyTimeRef.current < 10 || !user?.uid || !docId) {
+                return;
+            }
+
+            sessionSavedRef.current = true;
+
+            try {
+                // Update document study time
+                await updateStudyTime(docId, studyTimeRef.current, user.uid);
+
+                // Create study session record for analytics
+                await addDoc(collection(db, 'studySessions'), {
+                    userId: user.uid,
+                    documentId: docId,
+                    documentTitle: document?.title || 'Unknown',
+                    subject: document?.subject || 'General',
+                    startTime: serverTimestamp(),
+                    endTime: serverTimestamp(),
+                    totalTime: studyTimeRef.current,
+                    pagesViewed: currentPageIndex + 1,
+                    totalPages: visualPages.length,
+                    createdAt: serverTimestamp()
+                });
+
+                // Track achievement
+                await trackAction(user.uid, 'STUDY_TIME', { seconds: studyTimeRef.current });
+
+                console.log(`✅ Study session saved: ${studyTimeRef.current} seconds`);
+            } catch (error) {
+                console.error('❌ Error saving study session:', error);
+            }
+        };
+
+        // Save on page unload
+        const handleUnload = () => saveSession();
+        window.addEventListener('beforeunload', handleUnload);
+
+        return () => {
+            window.removeEventListener('beforeunload', handleUnload);
+            saveSession();
+        };
+    }, [user?.uid, docId, document, currentPageIndex, visualPages.length]);
 
     const loadDocument = async () => {
         try {

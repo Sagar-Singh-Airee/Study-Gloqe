@@ -9,7 +9,7 @@ import {
     Search, Command, Menu, X, ChevronDown, HelpCircle,
     Calendar, BarChart3, Star, Gift, Rocket, Crown, Shield,
     CheckCircle2, ArrowUpRight, Plus, RefreshCw, Info,
-    MousePointerClick, User, Settings as SettingsIcon
+    MousePointerClick, User
 } from 'lucide-react';
 import { useAuth } from '@auth/contexts/AuthContext';
 import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
@@ -35,7 +35,6 @@ import RoomsSection from '@student/components/dashboard/RoomsSection';
 import SessionHistorySection from '@student/components/dashboard/SessionHistorySection';
 import AchievementsSection from '@student/components/dashboard/AchievementsSection';
 import Profile from '@student/pages/Profile';
-import Settings from '@student/pages/Settings';
 
 // Analytics Components
 import StudentAnalytics from '@analytics/components/StudentAnalytics';
@@ -64,8 +63,6 @@ const SIDEBAR_ITEMS = [
     { icon: Video, label: 'Study Rooms', tab: 'rooms', badge: 'LIVE' },
     { icon: Trophy, label: 'Leaderboard', tab: 'leaderboard', badge: null },
     { icon: Clock, label: 'History', tab: 'history', badge: null },
-    { icon: User, label: 'Profile', tab: 'profile', badge: null },
-    { icon: SettingsIcon, label: 'Settings', tab: 'settings', badge: null },
 ];
 
 const TUTORIAL_STEPS = [
@@ -1024,8 +1021,6 @@ const Dashboard = () => {
                 return <SessionHistorySection />;
             case 'profile':
                 return <Profile embedded />;
-            case 'settings':
-                return <Settings embedded />;
             default:
                 return (
                     <OverviewSection
@@ -1254,18 +1249,7 @@ const Dashboard = () => {
                     ))}
                 </nav>
 
-                {/* Logout */}
-                <div className="p-3 border-t border-gray-800/50 mt-auto">
-                    <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={handleLogout}
-                        className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-red-400 font-semibold text-sm border-2 border-red-500/30 hover:border-red-500/60 hover:bg-red-500/10 transition-all"
-                    >
-                        <LogOut size={16} />
-                        <span>Logout</span>
-                    </motion.button>
-                </div>
+                <div className="p-3 mt-auto"></div>
             </motion.aside>
 
             {/* MAIN CONTENT */}
@@ -1335,10 +1319,30 @@ const Dashboard = () => {
                                 onClick={handleUploadClick}
                                 whileHover={{ scale: 1.03 }}
                                 whileTap={{ scale: 0.97 }}
-                                className="px-4 py-2 bg-gradient-to-r from-gray-900 to-gray-800 hover:from-black hover:to-gray-900 rounded-lg font-bold text-sm text-white shadow-lg flex items-center gap-2 transition-all"
+                                className="px-4 py-2 bg-gradient-to-r from-gray-900 to-gray-800 hover:from-black hover:to-gray-900 rounded-lg font-bold text-sm text-white shadow-[0_0_15px_rgba(20,184,166,0.5)] border border-teal-500/30 flex items-center gap-2 transition-all"
                             >
                                 <Upload size={16} />
                                 <span className="hidden sm:inline">Upload</span>
+                            </motion.button>
+
+                            <motion.button
+                                onClick={() => handleTabChange('profile')}
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                className="p-2 hover:bg-gray-100 rounded-lg transition-all text-gray-700 hover:text-teal-600"
+                                title="Profile"
+                            >
+                                <User size={20} />
+                            </motion.button>
+
+                            <motion.button
+                                onClick={handleLogout}
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-lg transition-all"
+                                title="Logout"
+                            >
+                                <LogOut size={20} />
                             </motion.button>
 
                             <motion.button

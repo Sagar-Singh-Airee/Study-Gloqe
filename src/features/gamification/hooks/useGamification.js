@@ -1,6 +1,6 @@
 // src/features/gamification/hooks/useGamification.js - 🚀 ULTIMATE REALTIME VERSION
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { doc, onSnapshot, getDoc } from 'firebase/firestore';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { doc, onSnapshot, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../../shared/config/firebase';
 import { useAuth } from '../../auth/contexts/AuthContext';
 import { BADGE_DEFINITIONS, TITLE_DEFINITIONS } from '../config/achievements';
@@ -42,8 +42,9 @@ export const useGamification = () => {
     const [notifications, setNotifications] = useState([]);
 
     // Store previous values for animations
-    const [previousXP, setPreviousXP] = useState(0);
-    const [previousLevel, setPreviousLevel] = useState(1);
+    // ✅ FIXED: Use refs to track previous values without re-triggering listener
+    const prevXPRef = useRef(null);
+    const prevLevelRef = useRef(null);
 
     // Main gamification data
     const [gamificationData, setGamificationData] = useState({
@@ -97,6 +98,9 @@ export const useGamification = () => {
         const unsubscribe = onSnapshot(
             gamificationRef,
             (snapshot) => {
+                // ✅ Check if component is still mounted logic handled by closure? No, need ref if heavy async.
+                // But onSnapshot handles unsubscribe.
+
                 if (snapshot.exists()) {
                     const data = snapshot.data();
 
@@ -105,18 +109,23 @@ export const useGamification = () => {
                     const nextLevelXp = LEVEL_THRESHOLDS[level] || LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1];
                     const levelProgress = calculateLevelProgress(xp, level);
 
-                    // 🎉 Detect XP gain
-                    if (previousXP > 0 && xp > previousXP) {
+                    // 🎉 Detect XP gain (Only if prev exists)
+                    const previousXP = prevXPRef.current;
+                    if (previousXP !== null && xp > previousXP) {
                         const gained = xp - previousXP;
+                        // Debounce small updates or only show significant ones?
+                        // For now show all
                         toast.success(`+${gained} XP!`, {
                             icon: '⚡',
                             duration: 2000,
-                            position: 'top-right'
+                            position: 'top-right',
+                            id: 'xp-toast' // Prevent duplicates
                         });
                     }
 
-                    // 🎊 Detect level up
-                    if (previousLevel > 0 && level > previousLevel) {
+                    // 🎊 Detect level up (Only if prev exists)
+                    const previousLevel = prevLevelRef.current;
+                    if (previousLevel !== null && level > previousLevel) {
                         confetti({
                             particleCount: 200,
                             spread: 100,
@@ -126,20 +135,22 @@ export const useGamification = () => {
 
                         toast.success(`🎉 Level ${level} Unlocked!`, {
                             duration: 4000,
-                            position: 'top-center'
+                            position: 'top-center',
+                            icon: '👑'
                         });
 
                         // Add level up notification
                         setNotifications(prev => [...prev, {
                             type: 'levelUp',
-                            data: { newLevel: level, xpGained: xp - previousXP },
+                            data: { newLevel: level, xpGained: xp - (previousXP || 0) },
                             id: `levelup-${Date.now()}`,
                             timestamp: Date.now()
                         }]);
                     }
 
-                    setPreviousXP(xp);
-                    setPreviousLevel(level);
+                    // Update refs
+                    prevXPRef.current = xp;
+                    prevLevelRef.current = level;
 
                     setGamificationData({
                         xp,
@@ -173,17 +184,11 @@ export const useGamification = () => {
                         classesJoined: data.classesJoined || 0
                     });
 
-                    console.log('✅ Gamification data loaded:', {
-                        xp,
-                        level,
-                        badges: (data.unlockedBadges || []).length,
-                        streak: data.streakData?.currentStreak || 0
-                    });
-
                     setError(null);
                 } else {
                     console.warn('⚠️ No gamification data found');
-                    setError('Gamification data not initialized');
+                    // Don't set error on first load to prevent UI flicker, just set loading false
+                    if (loading) setError('Gamification data not initialized');
                 }
 
                 setLoading(false);
@@ -201,7 +206,7 @@ export const useGamification = () => {
             console.log('🔴 Cleaning up gamification listener');
             unsubscribe();
         };
-    }, [user?.uid, previousXP, previousLevel]);
+    }, [user?.uid]); // ✅ Removed previousXP/previousLevel deps to prevent re-subscribing loop
 
     // Process all badges with unlock status
     const allBadges = useMemo(() => {

@@ -1,11 +1,25 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Camera, Mail, User, Award, Trophy, Calendar, Edit2, Save } from 'lucide-react';
+import { Camera, Mail, User, Award, Trophy, Calendar, Edit2, Save, Flame, Zap } from 'lucide-react';
 import { useAuth } from '@auth/contexts/AuthContext';
+import { useGamification } from '@gamification/hooks/useGamification';
 import toast from 'react-hot-toast';
 
 const Profile = ({ embedded = false }) => {
   const { user, userData } = useAuth();
+  const {
+    xp,
+    level,
+    levelProgress,
+    nextLevelXp,
+    streak,
+    totalBadges,
+    allBadges,
+    quizzesCompleted,
+    flashcardsReviewed,
+    loading: gamificationLoading
+  } = useGamification();
+
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: userData?.name || '',
@@ -14,21 +28,24 @@ const Profile = ({ embedded = false }) => {
     grade: userData?.grade || ''
   });
 
-  const achievements = [
-    { id: 1, title: 'First Quiz', description: 'Complete your first quiz', earned: true, date: '2024-01-15' },
-    { id: 2, title: '7 Day Streak', description: 'Study for 7 days in a row', earned: true, date: '2024-01-20' },
-    { id: 3, title: 'Perfect Score', description: 'Get 100% on a quiz', earned: true, date: '2024-01-25' },
-    { id: 4, title: 'Top 10', description: 'Reach top 10 in leaderboard', earned: false },
-    { id: 5, title: 'Quiz Master', description: 'Complete 50 quizzes', earned: false },
-    { id: 6, title: 'Note Taker', description: 'Create 100 notes', earned: false }
-  ];
+  // Transform real badges to achievements format
+  const achievements = useMemo(() => {
+    return allBadges.slice(0, 6).map((badge, index) => ({
+      id: badge.id || index,
+      title: badge.name,
+      description: badge.description || badge.desc,
+      earned: badge.unlocked,
+      date: badge.unlockedAt ? new Date(badge.unlockedAt).toLocaleDateString() : null
+    }));
+  }, [allBadges]);
 
-  const stats = [
-    { label: 'Quizzes Completed', value: 47 },
-    { label: 'Total XP', value: userData?.xp || 0 },
-    { label: 'Current Streak', value: '12 days' },
-    { label: 'Badges Earned', value: 8 }
-  ];
+  // Real-time stats from gamification
+  const stats = useMemo(() => [
+    { label: 'Quizzes Completed', value: quizzesCompleted || 0 },
+    { label: 'Total XP', value: xp || 0 },
+    { label: 'Current Streak', value: `${streak || 0} days` },
+    { label: 'Badges Earned', value: totalBadges || 0 }
+  ], [quizzesCompleted, xp, streak, totalBadges]);
 
   const handleChange = (e) => {
     setFormData({
@@ -91,19 +108,19 @@ const Profile = ({ embedded = false }) => {
             {/* Level Badge */}
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/20 mb-6">
               <Trophy size={20} className="text-yellow-500" />
-              <span className={`font-semibold ${embedded ? 'text-gray-800' : 'text-white'}`}>Level {userData?.level || 1}</span>
+              <span className={`font-semibold ${embedded ? 'text-gray-800' : 'text-white'}`}>Level {level || 1}</span>
             </div>
 
             {/* XP Progress */}
             <div className="space-y-2 text-left">
               <div className="flex justify-between text-sm">
-                <span className={embedded ? 'text-gray-500' : 'text-primary-400'}>Progress to Level {(userData?.level || 1) + 1}</span>
-                <span className={`font-semibold ${embedded ? 'text-gray-700' : 'text-white'}`}>{userData?.xp || 0}/500 XP</span>
+                <span className={embedded ? 'text-gray-500' : 'text-primary-400'}>Progress to Level {(level || 1) + 1}</span>
+                <span className={`font-semibold ${embedded ? 'text-gray-700' : 'text-white'}`}>{xp || 0}/{nextLevelXp || 500} XP</span>
               </div>
               <div className={`h-2 rounded-full overflow-hidden ${embedded ? 'bg-gray-100' : 'bg-primary-800'}`}>
                 <div
                   className="h-full bg-gradient-to-r from-teal-500 to-cyan-600 transition-all duration-500"
-                  style={{ width: `${((userData?.xp || 0) / 500) * 100}%` }}
+                  style={{ width: `${levelProgress || 0}%` }}
                 ></div>
               </div>
             </div>
@@ -142,8 +159,8 @@ const Profile = ({ embedded = false }) => {
               <button
                 onClick={() => editing ? handleSave() : setEditing(true)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${embedded
-                    ? 'bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-gray-900'
-                    : 'btn-secondary'
+                  ? 'bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-gray-900'
+                  : 'btn-secondary'
                   }`}
               >
                 {editing ? (
@@ -254,20 +271,20 @@ const Profile = ({ embedded = false }) => {
                 <div
                   key={achievement.id}
                   className={`p-4 rounded-xl border transition-all ${achievement.earned
-                      ? embedded
-                        ? 'border-yellow-200 bg-yellow-50/50'
-                        : 'border-accent/30 bg-accent/5'
-                      : embedded
-                        ? 'border-gray-100 bg-gray-50 opacity-60'
-                        : 'border-white/10 bg-white/5 opacity-50'
+                    ? embedded
+                      ? 'border-yellow-200 bg-yellow-50/50'
+                      : 'border-accent/30 bg-accent/5'
+                    : embedded
+                      ? 'border-gray-100 bg-gray-50 opacity-60'
+                      : 'border-white/10 bg-white/5 opacity-50'
                     }`}
                 >
                   <div className="flex items-start gap-3">
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${achievement.earned
-                        ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white shadow-sm'
-                        : embedded
-                          ? 'bg-gray-200 text-gray-400'
-                          : 'bg-primary-800 text-primary-600'
+                      ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white shadow-sm'
+                      : embedded
+                        ? 'bg-gray-200 text-gray-400'
+                        : 'bg-primary-800 text-primary-600'
                       }`}>
                       <Award size={24} />
                     </div>

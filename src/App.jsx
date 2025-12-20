@@ -12,7 +12,7 @@ import LandingPage from './features/landing/pages/LandingPage';
 import Dashboard from './features/student/pages/Dashboard';
 import ClassDetails from './features/student/pages/ClassDetails';
 import Profile from './features/student/pages/Profile';
-import Settings from './features/student/pages/Settings';
+// Settings import removed
 
 // Study Pages
 import PDFUpload from './features/study/pages/PDFUpload';
@@ -210,10 +210,7 @@ function App() {
                             path="/profile"
                             element={<StudentRoute><Profile /></StudentRoute>}
                         />
-                        <Route
-                            path="/settings"
-                            element={<StudentRoute><Settings /></StudentRoute>}
-                        />
+                        {/* Settings route was here - removed */}
                         <Route
                             path="/analytics"
                             element={<StudentRoute><Analytics /></StudentRoute>}

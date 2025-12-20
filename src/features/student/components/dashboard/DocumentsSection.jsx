@@ -1,9 +1,9 @@
 // src/pages/DocumentsSection.jsx - AI-POWERED DOCUMENT MANAGER
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
+import {
     FileText, Upload, Search, Trash2, Eye, Clock, HardDrive,
-    BookOpen, Atom, FlaskConical, Dna, Code, Landmark, TrendingUp, 
+    BookOpen, Atom, FlaskConical, Dna, Code, Landmark, TrendingUp,
     BookMarked, Brain, Hammer, GraduationCap, X,
     LayoutGrid, List, ChevronRight, Folder, ArrowLeft,
     Star, Calendar, Check, Grid, Rows, Target, Sparkles  // ✅ Added Sparkles icon
@@ -32,7 +32,7 @@ const DocumentsSection = () => {
 
     // Enhanced subject configuration - TEAL, ROYAL BLUE, BLACK, GRAY, WHITE ONLY
     const subjectConfig = {
-        'Mathematics': { 
+        'Mathematics': {
             icon: BookOpen,
             color: 'from-blue-600 via-blue-500 to-teal-600',
             lightColor: 'from-blue-50 via-teal-50 to-blue-100',
@@ -40,7 +40,7 @@ const DocumentsSection = () => {
             gradient: 'bg-gradient-to-br from-blue-600 to-teal-600',
             emoji: '📐'
         },
-        'Physics': { 
+        'Physics': {
             icon: Atom,
             color: 'from-teal-600 via-blue-500 to-teal-700',
             lightColor: 'from-teal-50 via-blue-50 to-teal-100',
@@ -48,7 +48,7 @@ const DocumentsSection = () => {
             gradient: 'bg-gradient-to-br from-teal-600 to-blue-600',
             emoji: '⚛️'
         },
-        'Chemistry': { 
+        'Chemistry': {
             icon: FlaskConical,
             color: 'from-teal-600 via-teal-500 to-blue-600',
             lightColor: 'from-teal-50 via-blue-50 to-teal-100',
@@ -56,7 +56,7 @@ const DocumentsSection = () => {
             gradient: 'bg-gradient-to-br from-teal-600 to-blue-500',
             emoji: '🧪'
         },
-        'Biology': { 
+        'Biology': {
             icon: Dna,
             color: 'from-teal-700 via-teal-500 to-blue-600',
             lightColor: 'from-teal-50 via-blue-50 to-teal-100',
@@ -64,7 +64,7 @@ const DocumentsSection = () => {
             gradient: 'bg-gradient-to-br from-teal-700 to-blue-500',
             emoji: '🧬'
         },
-        'Computer Science': { 
+        'Computer Science': {
             icon: Code,
             color: 'from-blue-700 via-blue-500 to-teal-600',
             lightColor: 'from-blue-50 via-teal-50 to-blue-100',
@@ -72,7 +72,7 @@ const DocumentsSection = () => {
             gradient: 'bg-gradient-to-br from-blue-700 to-teal-600',
             emoji: '💻'
         },
-        'History': { 
+        'History': {
             icon: Landmark,
             color: 'from-gray-700 via-gray-600 to-gray-800',
             lightColor: 'from-gray-50 via-gray-100 to-gray-200',
@@ -80,7 +80,7 @@ const DocumentsSection = () => {
             gradient: 'bg-gradient-to-br from-gray-700 to-gray-900',
             emoji: '🏛️'
         },
-        'Economics': { 
+        'Economics': {
             icon: TrendingUp,
             color: 'from-blue-600 via-teal-500 to-blue-700',
             lightColor: 'from-blue-50 via-teal-50 to-blue-100',
@@ -88,7 +88,7 @@ const DocumentsSection = () => {
             gradient: 'bg-gradient-to-br from-blue-600 to-teal-600',
             emoji: '📈'
         },
-        'Literature': { 
+        'Literature': {
             icon: BookMarked,
             color: 'from-gray-800 via-gray-700 to-black',
             lightColor: 'from-gray-50 via-gray-100 to-gray-200',
@@ -96,7 +96,7 @@ const DocumentsSection = () => {
             gradient: 'bg-gradient-to-br from-gray-800 to-black',
             emoji: '📚'
         },
-        'Psychology': { 
+        'Psychology': {
             icon: Brain,
             color: 'from-blue-700 via-teal-600 to-blue-800',
             lightColor: 'from-blue-50 via-teal-50 to-blue-100',
@@ -104,7 +104,7 @@ const DocumentsSection = () => {
             gradient: 'bg-gradient-to-br from-blue-700 to-teal-700',
             emoji: '🧠'
         },
-        'Engineering': { 
+        'Engineering': {
             icon: Hammer,
             color: 'from-gray-700 via-gray-600 to-gray-800',
             lightColor: 'from-gray-50 via-gray-100 to-gray-200',
@@ -112,7 +112,7 @@ const DocumentsSection = () => {
             gradient: 'bg-gradient-to-br from-gray-700 to-gray-900',
             emoji: '🔧'
         },
-        'General Studies': { 
+        'General Studies': {
             icon: GraduationCap,
             color: 'from-gray-600 via-gray-500 to-gray-700',
             lightColor: 'from-gray-50 via-gray-100 to-gray-200',
@@ -125,7 +125,7 @@ const DocumentsSection = () => {
     // ✅ NEW: Re-detect subject using AI
     const handleRedetectSubject = useCallback(async (docId, docTitle) => {
         setRedetecting(prev => new Set(prev).add(docId));
-        
+
         try {
             const result = await redetectDocumentSubject(docId);
             toast.success(`Updated: ${result.subject} (${result.confidence}% ${result.method})`);
@@ -141,10 +141,64 @@ const DocumentsSection = () => {
         }
     }, []);
 
+    // ✅ NEW: Batch re-detect all documents in a folder (especially General Studies)
+    const [batchRedetecting, setBatchRedetecting] = useState(false);
+
+    const handleBatchRedetect = useCallback(async (folderSubject) => {
+        const docsToRedetect = documents.filter(doc => doc.subject === folderSubject);
+
+        if (docsToRedetect.length === 0) {
+            toast.error('No documents to re-detect');
+            return;
+        }
+
+        setBatchRedetecting(true);
+        let successCount = 0;
+        let failCount = 0;
+
+        const toastId = toast.loading(`Re-detecting ${docsToRedetect.length} documents with AI...`);
+
+        for (const doc of docsToRedetect) {
+            try {
+                setRedetecting(prev => new Set(prev).add(doc.id));
+                const result = await redetectDocumentSubject(doc.id);
+
+                if (result.subject !== folderSubject) {
+                    successCount++;
+                }
+
+                // Update toast progress
+                toast.loading(`Re-detected ${successCount + failCount}/${docsToRedetect.length}...`, { id: toastId });
+
+            } catch (error) {
+                console.error(`Re-detection failed for ${doc.id}:`, error);
+                failCount++;
+            } finally {
+                setRedetecting(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(doc.id);
+                    return newSet;
+                });
+            }
+
+            // Small delay to prevent rate limiting
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        setBatchRedetecting(false);
+
+        if (successCount > 0) {
+            toast.success(`✅ Re-categorized ${successCount} document(s)! ${failCount > 0 ? `(${failCount} unchanged)` : ''}`, { id: toastId });
+        } else {
+            toast.error(`No documents were re-categorized. They may already be correctly classified.`, { id: toastId });
+        }
+    }, [documents]);
+
+
     // PERMANENT DELETE ALL FUNCTION - NO RECOVERY
     const handleDeleteAllInFolder = useCallback(async (folderSubject) => {
         const docsToDelete = documents.filter(doc => doc.subject === folderSubject);
-        
+
         if (docsToDelete.length === 0) {
             toast.error('No documents to delete in this folder');
             return;
@@ -268,11 +322,11 @@ const DocumentsSection = () => {
             where('userId', '==', user.uid)
         );
 
-        const unsubscribe = onSnapshot(q, 
+        const unsubscribe = onSnapshot(q,
             (snapshot) => {
                 const docs = snapshot.docs.map(doc => {
                     const data = doc.data();
-                    
+
                     return {
                         id: doc.id,
                         ...data,
@@ -283,10 +337,10 @@ const DocumentsSection = () => {
                         updatedAt: data.updatedAt?.toDate?.() || new Date()
                     };
                 }).sort((a, b) => b.createdAt - a.createdAt);
-                
+
                 setDocuments(docs);
                 setLoading(false);
-                
+
                 const stats = {
                     totalSize: docs.reduce((sum, d) => sum + (d.fileSize || 0), 0),
                     totalDocs: docs.length
@@ -331,24 +385,24 @@ const DocumentsSection = () => {
             stats[subject].count++;
             stats[subject].documents.push(doc);
             stats[subject].totalSize += (doc.fileSize || 0);
-            
+
             if (doc.createdAt > stats[subject].lastUpdated) {
                 stats[subject].lastUpdated = doc.createdAt;
             }
         });
-        
+
         return stats;
     }, [documents]);
 
     // Filter documents
     const filteredDocuments = useMemo(() => {
-        let filtered = selectedFolder 
+        let filtered = selectedFolder
             ? folderStats[selectedFolder]?.documents || []
             : documents;
 
         if (searchTerm) {
             const searchLower = searchTerm.toLowerCase();
-            filtered = filtered.filter(doc => 
+            filtered = filtered.filter(doc =>
                 doc.title?.toLowerCase().includes(searchLower) ||
                 doc.fileName?.toLowerCase().includes(searchLower) ||
                 doc.subject?.toLowerCase().includes(searchLower)
@@ -357,15 +411,15 @@ const DocumentsSection = () => {
 
         filtered.sort((a, b) => {
             switch (sortBy) {
-                case 'newest': 
+                case 'newest':
                     return b.createdAt - a.createdAt;
-                case 'oldest': 
+                case 'oldest':
                     return a.createdAt - b.createdAt;
-                case 'name': 
+                case 'name':
                     return (a.title || a.fileName || '').localeCompare(b.title || b.fileName || '');
-                case 'size': 
+                case 'size':
                     return (b.fileSize || 0) - (a.fileSize || 0);
-                default: 
+                default:
                     return 0;
             }
         });
@@ -392,10 +446,10 @@ const DocumentsSection = () => {
     // Bulk delete
     const handleBulkDelete = useCallback(async () => {
         if (selectedDocs.size === 0) return;
-        
+
         if (window.confirm(`Permanently delete ${selectedDocs.size} document(s)? This cannot be undone.`)) {
             const deletePromises = [...selectedDocs].map(docId => deleteDocument(docId));
-            
+
             toast.promise(
                 Promise.all(deletePromises),
                 {
@@ -404,7 +458,7 @@ const DocumentsSection = () => {
                     error: 'Failed to delete some documents',
                 }
             );
-            
+
             setSelectedDocs(new Set());
         }
     }, [selectedDocs]);
@@ -436,14 +490,14 @@ const DocumentsSection = () => {
         const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
         const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
         const diffMinutes = Math.floor(diffMs / (1000 * 60));
-        
+
         if (diffMinutes < 1) return 'Just now';
         if (diffMinutes < 60) return `${diffMinutes}m ago`;
         if (diffHours < 24) return `${diffHours}h ago`;
         if (diffDays === 0) return 'Today';
         if (diffDays === 1) return 'Yesterday';
         if (diffDays < 7) return `${diffDays}d ago`;
-        
+
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     };
 
@@ -460,7 +514,7 @@ const DocumentsSection = () => {
                 transition={{ delay: idx * 0.05, type: "spring", stiffness: 120 }}
                 className="group relative"
             >
-                <div 
+                <div
                     onClick={() => setSelectedFolder(subject)}
                     className="relative bg-white rounded-3xl p-6 border-2 border-gray-200
                              hover:border-teal-500 hover:shadow-2xl hover:shadow-teal-100
@@ -468,9 +522,9 @@ const DocumentsSection = () => {
                 >
                     <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${config.color} rounded-t-3xl
                                    group-hover:h-2.5 transition-all duration-300`} />
-                    
+
                     <div className="flex items-center justify-between mb-5">
-                        <motion.div 
+                        <motion.div
                             whileHover={{ rotate: [0, -5, 5, 0], scale: 1.1 }}
                             transition={{ duration: 0.5 }}
                             className={`w-20 h-20 ${config.gradient} rounded-2xl flex items-center justify-center shadow-xl`}
@@ -483,7 +537,7 @@ const DocumentsSection = () => {
                     <h3 className="text-xl font-black text-gray-900 mb-3 line-clamp-1">
                         {config.emoji} {subject}
                     </h3>
-                    
+
                     <div className="space-y-2.5">
                         <div className="flex items-center justify-between">
                             <span className="text-sm font-bold text-gray-700">
@@ -495,24 +549,55 @@ const DocumentsSection = () => {
                         </div>
                     </div>
 
-                    <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+                    <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between gap-2">
                         <span className="text-xs text-gray-500 font-medium">
                             {formatDate(stats.lastUpdated)}
                         </span>
-                        
-                        <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteAllInFolder(subject);
-                            }}
-                            className="px-3 py-1.5 bg-gray-100 hover:bg-red-50 text-gray-600 hover:text-red-600 
-                                     rounded-lg text-xs font-bold transition-all border border-gray-200 hover:border-red-300"
-                        >
-                            <Trash2 size={14} className="inline mr-1" strokeWidth={2} />
-                            Delete All
-                        </motion.button>
+
+                        <div className="flex items-center gap-2">
+                            {/* ✅ NEW: Re-detect All button - especially for General Studies */}
+                            <motion.button
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleBatchRedetect(subject);
+                                }}
+                                disabled={batchRedetecting}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border flex items-center gap-1
+                                          ${batchRedetecting
+                                        ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                                        : 'bg-gradient-to-r from-teal-50 to-blue-50 text-teal-700 hover:from-teal-100 hover:to-blue-100 border-teal-200 hover:border-teal-400'
+                                    }`}
+                                title="Re-detect all documents with AI"
+                            >
+                                {batchRedetecting ? (
+                                    <motion.div
+                                        animate={{ rotate: 360 }}
+                                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                    >
+                                        <Sparkles size={14} strokeWidth={2} />
+                                    </motion.div>
+                                ) : (
+                                    <Sparkles size={14} strokeWidth={2} />
+                                )}
+                                Re-detect All
+                            </motion.button>
+
+                            <motion.button
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteAllInFolder(subject);
+                                }}
+                                className="px-3 py-1.5 bg-gray-100 hover:bg-red-50 text-gray-600 hover:text-red-600 
+                                         rounded-lg text-xs font-bold transition-all border border-gray-200 hover:border-red-300"
+                            >
+                                <Trash2 size={14} className="inline mr-1" strokeWidth={2} />
+                                Delete All
+                            </motion.button>
+                        </div>
                     </div>
                 </div>
             </motion.div>
@@ -532,7 +617,7 @@ const DocumentsSection = () => {
         // ✅ Determine badge colors based on method and confidence
         const getBadgeStyle = () => {
             if (method === 'ai_gemini') {
-                return confidence >= 90 
+                return confidence >= 90
                     ? 'bg-gradient-to-r from-teal-500 to-blue-600 text-white border-teal-400'
                     : 'bg-gradient-to-r from-blue-500 to-teal-500 text-white border-blue-400';
             } else if (method === 'keyword') {
@@ -550,10 +635,10 @@ const DocumentsSection = () => {
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ delay: idx * 0.02, type: "spring" }}
                 className={`group relative bg-white rounded-2xl p-5 border-2 transition-all cursor-pointer
-                          ${isSelected 
-                            ? 'border-blue-500 shadow-xl shadow-blue-100' 
-                            : 'border-gray-200 hover:border-teal-400 hover:shadow-xl hover:shadow-teal-50'
-                          }`}
+                          ${isSelected
+                        ? 'border-blue-500 shadow-xl shadow-blue-100'
+                        : 'border-gray-200 hover:border-teal-400 hover:shadow-xl hover:shadow-teal-50'
+                    }`}
                 onClick={() => navigate(`/study/${doc.id}`)}
             >
                 <div className="absolute top-4 left-4 z-10">
@@ -579,14 +664,14 @@ const DocumentsSection = () => {
 
                 <div className="flex items-start gap-4 ml-9">
                     <div className="relative shrink-0">
-                        <motion.div 
+                        <motion.div
                             whileHover={{ scale: 1.08 }}
                             className={`w-16 h-16 ${config.gradient} rounded-xl flex items-center justify-center shadow-lg`}
                         >
                             <FileText className="text-white" size={28} strokeWidth={2.2} />
                         </motion.div>
                         {isFavorite && (
-                            <motion.div 
+                            <motion.div
                                 initial={{ scale: 0 }}
                                 animate={{ scale: 1 }}
                                 className="absolute -top-1.5 -right-1.5 bg-gradient-to-br from-teal-400 to-blue-500 rounded-full p-1.5 shadow-lg"
@@ -601,7 +686,7 @@ const DocumentsSection = () => {
                             <h4 className="text-base font-black text-gray-900 group-hover:text-teal-700 leading-snug line-clamp-2">
                                 {doc.title || doc.fileName || 'Untitled'}
                             </h4>
-                            
+
                             <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                                 {/* ✅ NEW: Re-detect button */}
                                 <motion.button
@@ -612,11 +697,10 @@ const DocumentsSection = () => {
                                         handleRedetectSubject(doc.id, doc.title);
                                     }}
                                     disabled={isRedetecting}
-                                    className={`p-2 rounded-lg transition-all border ${
-                                        isRedetecting
-                                            ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                                            : 'bg-gradient-to-r from-teal-50 to-blue-50 text-teal-700 hover:from-teal-100 hover:to-blue-100 border-teal-200'
-                                    }`}
+                                    className={`p-2 rounded-lg transition-all border ${isRedetecting
+                                        ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                                        : 'bg-gradient-to-r from-teal-50 to-blue-50 text-teal-700 hover:from-teal-100 hover:to-blue-100 border-teal-200'
+                                        }`}
                                     title="Re-detect subject with AI"
                                 >
                                     {isRedetecting ? (
@@ -638,11 +722,10 @@ const DocumentsSection = () => {
                                         e.stopPropagation();
                                         toggleFavorite(doc.id);
                                     }}
-                                    className={`p-2 rounded-lg transition-all border ${
-                                        isFavorite 
-                                            ? 'bg-teal-50 text-teal-700 border-teal-200' 
-                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-200'
-                                    }`}
+                                    className={`p-2 rounded-lg transition-all border ${isFavorite
+                                        ? 'bg-teal-50 text-teal-700 border-teal-200'
+                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-200'
+                                        }`}
                                 >
                                     {isFavorite ? <Star size={16} fill="currentColor" strokeWidth={0} /> : <Star size={16} strokeWidth={2} />}
                                 </motion.button>
@@ -686,7 +769,7 @@ const DocumentsSection = () => {
                             <span className={`px-2.5 py-1 rounded-lg text-xs font-bold bg-gradient-to-r ${config.lightColor} border border-gray-200`}>
                                 {subject}
                             </span>
-                            
+
                             {/* 🎯 ENHANCED: Detection badge with method indicator */}
                             {confidence > 0 && (
                                 <div className="relative group/tooltip">
@@ -700,7 +783,7 @@ const DocumentsSection = () => {
                                         <Target size={12} strokeWidth={2.5} />
                                         {confidence}%
                                     </motion.span>
-                                    
+
                                     {/* Enhanced Tooltip */}
                                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg 
                                                   opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl">
@@ -742,15 +825,15 @@ const DocumentsSection = () => {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-teal-50 relative overflow-hidden">
-            <motion.div 
+            <motion.div
                 animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
                 transition={{ duration: 8, repeat: Infinity }}
-                className="absolute top-20 left-20 w-96 h-96 bg-gradient-to-br from-blue-200/30 via-teal-200/30 to-transparent rounded-full blur-3xl" 
+                className="absolute top-20 left-20 w-96 h-96 bg-gradient-to-br from-blue-200/30 via-teal-200/30 to-transparent rounded-full blur-3xl"
             />
-            <motion.div 
+            <motion.div
                 animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.4, 0.2] }}
                 transition={{ duration: 10, repeat: Infinity, delay: 1 }}
-                className="absolute bottom-20 right-20 w-96 h-96 bg-gradient-to-br from-teal-200/30 via-blue-200/30 to-transparent rounded-full blur-3xl" 
+                className="absolute bottom-20 right-20 w-96 h-96 bg-gradient-to-br from-teal-200/30 via-blue-200/30 to-transparent rounded-full blur-3xl"
             />
 
             <div className="relative z-10 max-w-7xl mx-auto px-6 py-8">
@@ -772,7 +855,7 @@ const DocumentsSection = () => {
                                     {selectedFolder || 'My Library'}
                                 </h1>
                                 <p className="text-gray-600 font-semibold flex items-center gap-2">
-                                    {selectedFolder 
+                                    {selectedFolder
                                         ? `${filteredDocuments.length} document${filteredDocuments.length !== 1 ? 's' : ''}`
                                         : `${Object.keys(folderStats).length} folders • ${documents.length} documents • ${formatSize(documentStats.totalSize)}`
                                     }
@@ -826,22 +909,20 @@ const DocumentsSection = () => {
                                 <motion.button
                                     whileTap={{ scale: 0.95 }}
                                     onClick={() => setViewMode('grid')}
-                                    className={`p-3 rounded-xl transition-all ${
-                                        viewMode === 'grid' 
-                                            ? 'bg-gradient-to-br from-blue-600 to-teal-600 text-white shadow-lg' 
-                                            : 'text-gray-600 hover:bg-gray-100'
-                                    }`}
+                                    className={`p-3 rounded-xl transition-all ${viewMode === 'grid'
+                                        ? 'bg-gradient-to-br from-blue-600 to-teal-600 text-white shadow-lg'
+                                        : 'text-gray-600 hover:bg-gray-100'
+                                        }`}
                                 >
                                     <LayoutGrid size={18} strokeWidth={2.5} />
                                 </motion.button>
                                 <motion.button
                                     whileTap={{ scale: 0.95 }}
                                     onClick={() => setViewMode('list')}
-                                    className={`p-3 rounded-xl transition-all ${
-                                        viewMode === 'list' 
-                                            ? 'bg-gradient-to-br from-blue-600 to-teal-600 text-white shadow-lg' 
-                                            : 'text-gray-600 hover:bg-gray-100'
-                                    }`}
+                                    className={`p-3 rounded-xl transition-all ${viewMode === 'list'
+                                        ? 'bg-gradient-to-br from-blue-600 to-teal-600 text-white shadow-lg'
+                                        : 'text-gray-600 hover:bg-gray-100'
+                                        }`}
                                 >
                                     <List size={18} strokeWidth={2.5} />
                                 </motion.button>
@@ -914,7 +995,7 @@ const DocumentsSection = () => {
                             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
                         >
                             {Object.entries(folderStats).length > 0 ? (
-                                Object.entries(folderStats).map(([subject, stats], idx) => 
+                                Object.entries(folderStats).map(([subject, stats], idx) =>
                                     renderFolderCard(subject, stats, idx)
                                 )
                             ) : (

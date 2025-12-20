@@ -19,6 +19,8 @@ import { ref, uploadBytesResumable, getDownloadURL, deleteObject, listAll } from
 import { db, storage, COLLECTIONS } from '@shared/config/firebase';
 import { detectSubjectHybrid } from '@shared/utils/subjectDetection';
 import { trackAction } from '@gamification/services/achievementTracker'; // ✅ NEW: Achievement tracking
+import { generateQuizWithGemini, createQuiz } from '../../teacher/services/quizService'; // ✅ Auto-Quiz
+import { generateFlashcardsWithGemini, createFlashcardDeck } from './flashcardService'; // ✅ Auto-Flashcards
 import * as pdfjsLib from 'pdfjs-dist';
 import toast from 'react-hot-toast';
 
@@ -323,6 +325,40 @@ export const createDocumentRecord = async (userId, file, data) => {
         updateStatistics(userId, context.folderId).catch(err =>
             console.warn('⚠️ Stats update warning:', err.message)
         );
+
+        // ✅ AUTO-GENERATE CONTENT (QUIZ & FLASHCARDS)
+        // Fire-and-forget background process
+        if (extractedText && extractedText.length > 500) {
+            (async () => {
+                try {
+                    console.log('🤖 Starting auto-generation for:', docRef.id);
+                    // 1. Quiz Generation
+                    toast.loading('Generating AI Quiz...', { id: 'gen-quiz' });
+                    const questions = await generateQuizWithGemini(docRef.id, 'medium', 5);
+                    await createQuiz(userId, docRef.id, questions, {
+                        title: `Quiz: ${file.name.replace('.pdf', '')}`,
+                        subject: subject,
+                        difficulty: 'medium',
+                        description: 'Auto-generated from upload'
+                    });
+                    toast.success('✨ AI Quiz Ready!', { id: 'gen-quiz' });
+
+                    // 2. Flashcard Generation
+                    toast.loading('Generating Flashcards...', { id: 'gen-flash' });
+                    const cards = await generateFlashcardsWithGemini(docRef.id, 10);
+                    await createFlashcardDeck(userId, docRef.id, cards, {
+                        title: `Deck: ${file.name.replace('.pdf', '')}`,
+                        subject: subject,
+                        description: 'Auto-generated from upload'
+                    });
+                    toast.success('✨ Flashcards Ready!', { id: 'gen-flash' });
+
+                } catch (genError) {
+                    console.error('❌ Auto-generation failed:', genError);
+                    // Don't show error toast to keep UI clean, just log it
+                }
+            })();
+        }
 
         return {
             docId: docRef.id,
