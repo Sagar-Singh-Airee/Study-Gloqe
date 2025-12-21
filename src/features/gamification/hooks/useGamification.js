@@ -83,24 +83,21 @@ export const useGamification = () => {
         classesJoined: 0
     });
 
-    // 🔥 MAIN REALTIME LISTENER - Gamification Collection
+    // 🔥 MAIN REALTIME LISTENER - Users Collection (Unified Source of Truth)
     useEffect(() => {
         if (!user?.uid) {
             setLoading(false);
             return;
         }
 
-        console.log('🔄 Setting up realtime gamification listener');
+        console.log('🔄 Setting up realtime gamification listener (Users Collection)');
         setLoading(true);
 
-        const gamificationRef = doc(db, 'gamification', user.uid);
+        const userRef = doc(db, 'users', user.uid);
 
         const unsubscribe = onSnapshot(
-            gamificationRef,
+            userRef,
             (snapshot) => {
-                // ✅ Check if component is still mounted logic handled by closure? No, need ref if heavy async.
-                // But onSnapshot handles unsubscribe.
-
                 if (snapshot.exists()) {
                     const data = snapshot.data();
 
@@ -113,14 +110,16 @@ export const useGamification = () => {
                     const previousXP = prevXPRef.current;
                     if (previousXP !== null && xp > previousXP) {
                         const gained = xp - previousXP;
-                        // Debounce small updates or only show significant ones?
-                        // For now show all
-                        toast.success(`+${gained} XP!`, {
-                            icon: '⚡',
-                            duration: 2000,
-                            position: 'top-right',
-                            id: 'xp-toast' // Prevent duplicates
-                        });
+
+                        // Prevent toast spam on initial load or large updates
+                        if (gained < 1000) {
+                            toast.success(`+${gained} XP!`, {
+                                icon: '⚡',
+                                duration: 2000,
+                                position: 'top-right',
+                                id: 'xp-toast' // Prevent duplicates
+                            });
+                        }
                     }
 
                     // 🎊 Detect level up (Only if prev exists)
@@ -158,7 +157,7 @@ export const useGamification = () => {
                         nextLevelXp,
                         levelProgress,
                         globalRank: data.globalRank || 999,
-                        streak: data.streakData?.currentStreak || 0,
+                        streak: data.streak || 0, // ✅ Correctly reading from users collection
 
                         unlockedBadges: data.unlockedBadges || [],
                         badgesUnlocked: (data.unlockedBadges || []).length,
@@ -167,27 +166,27 @@ export const useGamification = () => {
                         equippedTitle: data.equippedTitle || 'Newbie Scholar',
                         equippedTitleId: data.equippedTitleId || 'title_newbie',
 
+                        // Map legacy streakData structure for compatibility
                         streakData: {
-                            currentStreak: data.streakData?.currentStreak || 0,
-                            longestStreak: data.streakData?.longestStreak || 0,
-                            lastCheckIn: data.streakData?.lastCheckIn || null,
-                            activeDays: data.streakData?.activeDays || [],
-                            streakFreeze: data.streakData?.streakFreeze || 0
+                            currentStreak: data.streak || 0,
+                            longestStreak: data.longestStreak || data.streak || 0,
+                            lastCheckIn: data.lastLoginDate || null,
+                            activeDays: [], // Can be populated if needed, but not strictly required for basic display
+                            streakFreeze: 0
                         },
 
                         totalStudyTime: data.totalStudyTime || 0,
-                        quizzesCompleted: data.quizzesCompleted || 0,
+                        quizzesCompleted: data.totalQuizzes || 0,
                         perfectQuizzes: data.perfectQuizzes || 0,
                         flashcardsReviewed: data.flashcardsReviewed || 0,
                         flashcardsMastered: data.flashcardsMastered || 0,
-                        documentsUploaded: data.documentsUploaded || 0,
-                        classesJoined: data.classesJoined || 0
+                        documentsUploaded: data.totalDocuments || 0,
+                        classesJoined: data.totalRoomsJoined || 0
                     });
 
                     setError(null);
                 } else {
-                    console.warn('⚠️ No gamification data found');
-                    // Don't set error on first load to prevent UI flicker, just set loading false
+                    console.warn('⚠️ No user gamification data found');
                     if (loading) setError('Gamification data not initialized');
                 }
 
