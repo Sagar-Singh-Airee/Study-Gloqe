@@ -1,275 +1,565 @@
-// src/features/study/services/visualAnalysisService.js
+// src/features/study/services/visualAnalysisService.js - 🛡️ BULLETPROOF MERMAID EDITION
+// Guaranteed valid Mermaid diagrams + Strict validation + Debug mode
+
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as pdfjsLib from 'pdfjs-dist';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../../shared/config/firebase';
 
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+// ==================== 🔧 CONFIGURATION ====================
 
+const CONFIG = {
+    MODEL_NAME: 'gemini-2.0-flash-exp',
+    MAX_RETRIES: 3,
+    RETRY_DELAY: 2000,
+    RATE_LIMIT_DELAY: 1500,
+    REQUEST_TIMEOUT: 30000,
+    MAX_PAGES: 50,
+    IMAGE_SCALE: 2.5,
+    IMAGE_FORMAT: 'image/png',
+    IMAGE_QUALITY: 0.95,
+    MIN_TEXT_LENGTH: 30,
+    MAX_TEXT_LENGTH: 15000,
+    DEBUG_MERMAID: true // Set to false in production
+};
+
+// ==================== 🚀 INITIALIZATION ====================
+
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+if (!apiKey || apiKey === 'undefined' || apiKey.length < 10) {
+    console.error('❌ GEMINI_API_KEY not configured!');
+}
+
+const genAI = new GoogleGenerativeAI(apiKey);
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
 
+// ==================== 🛠️ UTILITIES ====================
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const retryWithBackoff = async (fn, retries = CONFIG.MAX_RETRIES) => {
+    for (let i = 0; i < retries; i++) {
+        try {
+            return await fn();
+        } catch (error) {
+            if (i === retries - 1) throw error;
+            const delay = CONFIG.RETRY_DELAY * Math.pow(2, i);
+            console.warn(`⚠️ Retry ${i + 1}/${retries} after ${delay}ms`);
+            await sleep(delay);
+        }
+    }
+};
+
+const parseAIResponse = (text) => {
+    try {
+        return JSON.parse(text);
+    } catch (e) {
+        try {
+            const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+            return JSON.parse(cleaned);
+        } catch (e) {
+            try {
+                const jsonMatch = text.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    return JSON.parse(jsonMatch[0]);
+                }
+            } catch (e) {
+                throw new Error('Failed to parse AI response');
+            }
+        }
+    }
+    throw new Error('Could not extract valid JSON');
+};
+
 /**
- * Convert PDF page to image
+ * Sanitize text for Mermaid node labels
+ * Removes special characters that break Mermaid
+ */
+const sanitizeLabel = (text) => {
+    if (!text) return 'Item';
+
+    return text
+        .toString()
+        .replace(/[\[\]{}()#<>|]/g, '') // Remove special chars
+        .replace(/["'`]/g, '') // Remove quotes
+        .replace(/\n/g, ' ') // Replace newlines with space
+        .replace(/\s+/g, ' ') // Normalize spaces
+        .trim()
+        .substring(0, 25); // Max 25 chars for clean display
+};
+
+/**
+ * Generate SIMPLE, GUARANTEED-VALID Mermaid flowchart
+ */
+const generateSimpleMermaid = (pageNumber, keyTopics = []) => {
+    // Start with basic structure
+    let diagram = 'graph TD\n';
+
+    // Filter and limit topics
+    const validTopics = keyTopics
+        .filter(t => t && t.length > 0)
+        .slice(0, 3) // Max 3 topics for simplicity
+        .map(t => sanitizeLabel(t));
+
+    if (validTopics.length === 0) {
+        // Ultra-simple fallback
+        diagram += '    A[Page ' + pageNumber + '] --> B[Study Content]\n';
+        diagram += '    B --> C[Practice]';
+    } else if (validTopics.length === 1) {
+        diagram += '    A[Page ' + pageNumber + '] --> B[' + validTopics[0] + ']\n';
+        diagram += '    B --> C[Review]';
+    } else if (validTopics.length === 2) {
+        diagram += '    A[' + validTopics[0] + '] --> B[' + validTopics[1] + ']\n';
+        diagram += '    B --> C[Complete]';
+    } else {
+        // 3 topics - linear flow
+        diagram += '    A[' + validTopics[0] + '] --> B[' + validTopics[1] + ']\n';
+        diagram += '    B --> C[' + validTopics[2] + ']';
+    }
+
+    return diagram;
+};
+
+/**
+ * Validate Mermaid syntax with STRICT rules
+ */
+const validateMermaidSyntax = (flowchart, pageNumber = 1, keyTopics = []) => {
+    if (!flowchart || typeof flowchart !== 'string') {
+        console.warn('⚠️ Invalid flowchart input, using fallback');
+        return generateSimpleMermaid(pageNumber, keyTopics);
+    }
+
+    try {
+        // Remove markdown blocks
+        let cleaned = flowchart
+            .replace(/```mermaid/g, '')
+            .replace(/```/g, '')
+            .trim();
+
+        if (CONFIG.DEBUG_MERMAID) {
+            console.log('🔍 Original Mermaid:', cleaned);
+        }
+
+        // Check for valid start
+        if (!cleaned.match(/^(graph|flowchart)\s+(TD|TB|BT|RL|LR)/i)) {
+            console.warn('⚠️ Invalid graph declaration, using fallback');
+            return generateSimpleMermaid(pageNumber, keyTopics);
+        }
+
+        // Check for essential elements
+        const hasNodes = cleaned.includes('[') && cleaned.includes(']');
+        const hasArrows = cleaned.includes('-->') || cleaned.includes('---');
+
+        if (!hasNodes || !hasArrows) {
+            console.warn('⚠️ Missing nodes/arrows, using fallback');
+            return generateSimpleMermaid(pageNumber, keyTopics);
+        }
+
+        // Count nodes - if too many, simplify
+        const nodeCount = (cleaned.match(/\[/g) || []).length;
+        if (nodeCount > 6) {
+            console.warn('⚠️ Too many nodes, using fallback');
+            return generateSimpleMermaid(pageNumber, keyTopics);
+        }
+
+        // Check for problematic characters in labels
+        const lines = cleaned.split('\n');
+        let hasProblems = false;
+
+        for (const line of lines) {
+            // Check for unescaped quotes or special chars in labels
+            if (line.includes('[')) {
+                const labelMatch = line.match(/\[([^\]]+)\]/);
+                if (labelMatch) {
+                    const label = labelMatch[1];
+                    // Check for problematic characters
+                    if (label.includes('"') || label.includes("'") || label.includes('`') ||
+                        label.includes('{') || label.includes('}') || label.includes('|')) {
+                        hasProblems = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (hasProblems) {
+            console.warn('⚠️ Problematic characters in labels, using fallback');
+            return generateSimpleMermaid(pageNumber, keyTopics);
+        }
+
+        if (CONFIG.DEBUG_MERMAID) {
+            console.log('✅ Mermaid validated:', cleaned);
+        }
+
+        return cleaned;
+
+    } catch (error) {
+        console.error('❌ Validation error:', error);
+        return generateSimpleMermaid(pageNumber, keyTopics);
+    }
+};
+
+// ==================== 🎨 CORE FUNCTIONS ====================
+
+/**
+ * Convert PDF page to base64 image
  */
 export const convertPageToImage = async (pdfFile, pageNumber) => {
     try {
         const arrayBuffer = await pdfFile.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        const page = await pdf.getPage(pageNumber);
 
-        const viewport = page.getViewport({ scale: 2 });
+        if (pageNumber < 1 || pageNumber > pdf.numPages) {
+            throw new Error(`Invalid page number: ${pageNumber}`);
+        }
+
+        const page = await pdf.getPage(pageNumber);
+        const viewport = page.getViewport({ scale: CONFIG.IMAGE_SCALE });
+
         const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
+        const context = canvas.getContext('2d', { alpha: false });
 
         canvas.height = viewport.height;
         canvas.width = viewport.width;
 
-        await page.render({ canvasContext: context, viewport }).promise;
+        context.fillStyle = 'white';
+        context.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Convert to base64
-        const imageData = canvas.toDataURL('image/png').split(',')[1];
+        await page.render({
+            canvasContext: context,
+            viewport,
+            intent: 'print'
+        }).promise;
+
+        const imageData = canvas.toDataURL(CONFIG.IMAGE_FORMAT, CONFIG.IMAGE_QUALITY).split(',')[1];
+
+        canvas.width = 0;
+        canvas.height = 0;
+
         return imageData;
 
     } catch (error) {
-        console.error('Error converting page to image:', error);
+        console.error(`❌ Error converting page ${pageNumber}:`, error);
         return null;
     }
 };
 
 /**
- * Analyze page with Gemini Vision and generate flowchart + questions
+ * Analyze page with AI (SIMPLIFIED PROMPT - focuses on simple diagrams)
  */
-export const analyzePageVisually = async (imageData, pageNumber, pageText) => {
+const analyzePageWithAI = async (imageData, pageNumber, pageText) => {
     try {
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        if (!imageData) {
+            throw new Error('No image data provided');
+        }
 
-        const prompt = `
-Analyze this educational page (Page ${pageNumber}) and provide:
+        if (!pageText || pageText.length < CONFIG.MIN_TEXT_LENGTH) {
+            throw new Error('Insufficient text content');
+        }
 
-1. **Core Concept**: One clear sentence summarizing the main idea
-2. **Key Topics**: List 3-5 main topics covered
-3. **Flowchart**: Mermaid.js flowchart showing concept relationships (use "graph TD" format)
-4. **Detailed Explanation**: 2-3 paragraphs explaining the content in simple terms
-5. **Question Bank**: Generate 5 questions (mix of MCQ and short answer) with answers
-6. **Flashcard Ideas**: 3-5 flashcard pairs (front/back)
-7. **Learning Path**: Step-by-step breakdown (3-5 steps)
+        const truncatedText = pageText.length > CONFIG.MAX_TEXT_LENGTH
+            ? pageText.substring(0, CONFIG.MAX_TEXT_LENGTH) + '...'
+            : pageText;
 
-Return ONLY valid JSON (no markdown):
+        const model = genAI.getGenerativeModel({
+            model: CONFIG.MODEL_NAME,
+            generationConfig: {
+                temperature: 0.3,
+                topK: 30,
+                topP: 0.8,
+                maxOutputTokens: 2048,
+            }
+        });
+
+        // ULTRA-SIMPLIFIED PROMPT for reliable diagrams
+        const prompt = `Analyze this educational page and create study content.
+
+Return ONLY valid JSON (no markdown, no code blocks):
 {
-  "coreConcept": "Main concept in one sentence",
+  "coreConcept": "Main idea in 5-8 words",
   "keyTopics": ["Topic 1", "Topic 2", "Topic 3"],
-  "flowchart": "graph TD\\nA[Start]-->B[Main Concept]\\nB-->C[Sub Concept 1]\\nB-->D[Sub Concept 2]",
-  "explanation": "Detailed explanation paragraphs",
-  "questionBank": [
-    {
-      "type": "mcq",
-      "question": "Question text?",
-      "options": ["A", "B", "C", "D"],
-      "correctAnswer": "B",
-      "explanation": "Why B is correct"
-    },
-    {
-      "type": "short",
-      "question": "Question text?",
-      "answer": "Expected answer",
-      "keyPoints": ["Point 1", "Point 2"]
-    }
-  ],
-  "flashcards": [
-    {"front": "Question/Term", "back": "Answer/Definition"},
-    {"front": "Question/Term", "back": "Answer/Definition"}
-  ],
+  "explanation": "2 paragraph explanation for students",
+  "flowchart": "graph TD\nA[First] --> B[Second]\nB --> C[Third]",
   "learningPath": [
-    {"step": 1, "title": "Step title", "description": "What to learn", "duration": "5 min"},
-    {"step": 2, "title": "Step title", "description": "What to learn", "duration": "3 min"}
+    {"step": 1, "title": "First step", "description": "What to learn", "duration": "5 min"}
   ],
-  "complexity": "beginner|intermediate|advanced",
-  "estimatedTime": 10
+  "complexity": "easy",
+  "estimatedTime": "10 min"
 }
 
-Page Text:
-${pageText}
-`;
+CRITICAL FLOWCHART RULES (MUST FOLLOW):
+1. Use EXACTLY this format: "graph TD\nA[Label] --> B[Label]\nB --> C[Label]"
+2. Use \n for line breaks (backslash + n, NOT actual newlines)
+3. Node IDs: Use only A, B, C, D (single letters)
+4. Labels: Max 20 characters, NO special characters: " ' \` { } | [ ]
+5. Keep it SIMPLE: Maximum 4 nodes
+6. Use only --> arrows (no other arrow types)
+7. Example: "graph TD\nA[Start] --> B[Learn]\nB --> C[Practice]\nC --> D[Master]"
 
-        const result = await model.generateContent([
-            prompt,
-            {
-                inlineData: {
-                    data: imageData,
-                    mimeType: 'image/png'
-                }
-            }
-        ]);
+Page content (first 1000 chars):
+${truncatedText.substring(0, 1000)}`;
+
+        const result = await retryWithBackoff(async () => {
+            return await Promise.race([
+                model.generateContent([
+                    prompt,
+                    {
+                        inlineData: {
+                            data: imageData,
+                            mimeType: CONFIG.IMAGE_FORMAT
+                        }
+                    }
+                ]),
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Request timeout')), CONFIG.REQUEST_TIMEOUT)
+                )
+            ]);
+        });
 
         const text = result.response.text();
 
-        // Remove markdown code blocks if present
-        const cleanedText = text.replace(/``````\n?/g, '').trim();
-
-        const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
-
-        if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0]);
-            return {
-                ...parsed,
-                pageNumber,
-                imageData, // Store for future reference
-                generatedAt: new Date().toISOString()
-            };
+        if (!text || text.length < 50) {
+            throw new Error('Response too short');
         }
 
-        throw new Error('Failed to parse AI response');
+        const parsed = parseAIResponse(text);
+
+        // ALWAYS validate and potentially replace the flowchart
+        const validatedFlowchart = validateMermaidSyntax(
+            parsed.flowchart,
+            pageNumber,
+            parsed.keyTopics
+        );
+
+        if (CONFIG.DEBUG_MERMAID) {
+            console.log('📊 Final Mermaid for page', pageNumber + ':', validatedFlowchart);
+        }
+
+        return {
+            pageNumber,
+            coreConcept: parsed.coreConcept || `Page ${pageNumber}`,
+            keyTopics: Array.isArray(parsed.keyTopics) ? parsed.keyTopics.slice(0, 5) : [],
+            explanation: parsed.explanation || '',
+            flowchart: validatedFlowchart, // ALWAYS valid
+            learningPath: Array.isArray(parsed.learningPath) ? parsed.learningPath.slice(0, 4) : [],
+            complexity: parsed.complexity || 'medium',
+            estimatedTime: parsed.estimatedTime || '10 min',
+            generatedAt: new Date().toISOString(),
+            success: true
+        };
 
     } catch (error) {
-        console.error('Visual analysis error:', error);
-        return null;
+        console.error(`❌ AI analysis error for page ${pageNumber}:`, error.message);
+        throw error;
     }
 };
 
 /**
- * Process all pages of PDF and generate visual analysis
+ * Analyze a single page (main public function)
  */
-export const processDocumentVisually = async (pdfFile, maxPages = 50, onProgress) => {
+export const analyzePageVisually = async (pdfFile, pageNumber, pageText) => {
     try {
+        console.log(`🎨 Analyzing page ${pageNumber}...`);
+
+        const imageData = await convertPageToImage(pdfFile, pageNumber);
+
+        if (!imageData) {
+            throw new Error('Image conversion failed');
+        }
+
+        const analysis = await analyzePageWithAI(imageData, pageNumber, pageText);
+
+        console.log(`✅ Page ${pageNumber} analyzed successfully`);
+        return analysis;
+
+    } catch (error) {
+        console.error(`❌ Page ${pageNumber} analysis failed:`, error.message);
+
+        // Create safe fallback with guaranteed-valid Mermaid
+        const safeMermaid = generateSimpleMermaid(pageNumber, []);
+
+        return {
+            pageNumber,
+            success: false,
+            error: error.message,
+            coreConcept: `Page ${pageNumber} Content`,
+            keyTopics: ['Review this page'],
+            explanation: pageText?.substring(0, 300) || 'Please review the original document for this page.',
+            flowchart: safeMermaid,
+            learningPath: [
+                {
+                    step: 1,
+                    title: 'Review Content',
+                    description: 'Study this page from the original PDF',
+                    duration: '10 min'
+                }
+            ],
+            complexity: 'medium',
+            estimatedTime: '10 min',
+            generatedAt: new Date().toISOString()
+        };
+    }
+};
+
+/**
+ * Process multiple pages (batch mode)
+ */
+export const processDocumentVisually = async (pdfFile, maxPages = CONFIG.MAX_PAGES, onProgress = null, startPage = 1) => {
+    const startTime = Date.now();
+
+    try {
+        console.log(`🎨 Batch processing from page ${startPage}...`);
+
+        if (!pdfFile || pdfFile.type !== 'application/pdf') {
+            throw new Error('Invalid PDF file');
+        }
+
         const arrayBuffer = await pdfFile.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        const totalPages = Math.min(pdf.numPages, maxPages);
+        const endPage = Math.min(pdf.numPages, maxPages);
+
+        console.log(`📄 Processing ${endPage - startPage + 1} pages...`);
 
         const visualPages = [];
 
-        for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+        for (let pageNum = startPage; pageNum <= endPage; pageNum++) {
             try {
                 if (onProgress) {
                     onProgress({
                         current: pageNum,
-                        total: totalPages,
-                        status: `Analyzing page ${pageNum}...`
+                        total: endPage,
+                        status: `Analyzing page ${pageNum}/${endPage}...`,
+                        phase: 'visual-analysis',
+                        progress: Math.round(((pageNum - startPage + 1) / (endPage - startPage + 1)) * 100)
                     });
                 }
 
-                // Get page text
                 const page = await pdf.getPage(pageNum);
                 const textContent = await page.getTextContent();
-                const pageText = textContent.items.map(item => item.str).join(' ');
+                const pageText = textContent.items
+                    .map(item => item.str)
+                    .join(' ')
+                    .trim()
+                    .replace(/\s+/g, ' ');
 
-                // Convert to image
-                const imageData = await convertPageToImage(pdfFile, pageNum);
-
-                if (!imageData) {
-                    console.warn(`Failed to convert page ${pageNum} to image`);
+                if (pageText.length < CONFIG.MIN_TEXT_LENGTH) {
+                    console.warn(`⚠️ Page ${pageNum}: Insufficient text`);
                     continue;
                 }
 
-                // Analyze with AI
-                const analysis = await analyzePageVisually(imageData, pageNum, pageText);
+                const analysis = await analyzePageVisually(pdfFile, pageNum, pageText);
 
                 if (analysis) {
                     visualPages.push(analysis);
+                    console.log(`✅ Page ${pageNum}: Complete`);
                 }
 
-                // Rate limit: wait 1 second between pages
-                if (pageNum < totalPages) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                if (pageNum < endPage) {
+                    await sleep(CONFIG.RATE_LIMIT_DELAY);
                 }
 
             } catch (pageError) {
-                console.error(`Error processing page ${pageNum}:`, pageError);
+                console.error(`❌ Page ${pageNum}:`, pageError.message);
             }
         }
 
-        return {
-            visualPages,
-            totalProcessed: visualPages.length,
-            totalPages: pdf.numPages
-        };
+        const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.log(`✅ Batch complete: ${visualPages.length} pages in ${duration}s`);
+
+        if (visualPages.length === 0) {
+            throw new Error('No pages analyzed');
+        }
+
+        return visualPages;
 
     } catch (error) {
-        console.error('Error processing document:', error);
+        console.error('❌ Batch error:', error);
         throw error;
     }
 };
 
 /**
- * Save flashcards from visual analysis
+ * Save to Firestore
  */
-export const saveFlashcardsFromVisual = async (userId, docId, flashcards, subject, topic) => {
+export const saveVisualAnalysis = async (userId, documentId, pages, documentTitle, subject) => {
     try {
-        const deckData = {
+        if (!pages || pages.length === 0) {
+            throw new Error('No pages to save');
+        }
+
+        const analysisData = {
             userId,
-            documentId: docId,
-            subject,
-            topic,
-            title: `${topic} - Flashcards`,
-            cards: flashcards.map((card, index) => ({
-                id: `card_${index}`,
-                front: card.front,
-                back: card.back,
-                mastery: 0,
-                lastReviewed: null,
-                reviewCount: 0
+            documentId,
+            documentTitle: documentTitle || 'Untitled',
+            subject: subject || 'General',
+            totalPages: pages.length,
+            visualPages: pages.map(page => ({
+                pageNumber: page.pageNumber,
+                coreConcept: page.coreConcept,
+                keyTopics: page.keyTopics,
+                explanation: page.explanation,
+                flowchart: page.flowchart,
+                learningPath: page.learningPath,
+                complexity: page.complexity,
+                estimatedTime: page.estimatedTime,
+                generatedAt: page.generatedAt,
+                success: page.success
             })),
-            totalCards: flashcards.length,
-            masteredCards: 0,
-            source: 'visual_analysis',
+            hasVisualAnalysis: true,
             createdAt: serverTimestamp(),
-            lastStudied: null
+            updatedAt: serverTimestamp()
         };
 
-        const docRef = await addDoc(collection(db, 'flashcards'), deckData);
-        console.log('✅ Flashcards saved:', docRef.id);
+        const docRef = await addDoc(collection(db, 'visualAnalysis'), analysisData);
+        console.log('✅ Saved:', docRef.id);
 
-        return { success: true, deckId: docRef.id };
+        return { success: true, analysisId: docRef.id };
+
     } catch (error) {
-        console.error('Error saving flashcards:', error);
+        console.error('❌ Save error:', error);
         throw error;
     }
 };
 
 /**
- * Save quiz questions from visual analysis
+ * Utilities
  */
-export const saveQuizFromVisual = async (userId, docId, questions, subject, topic) => {
+export const getTotalConcepts = (pages) => {
+    const concepts = new Set();
+    pages.forEach(page => {
+        page.keyTopics?.forEach(topic => concepts.add(topic));
+    });
+    return Array.from(concepts);
+};
+
+export const getTotalLearningSteps = (pages) => {
+    return pages.reduce((total, page) => total + (page.learningPath?.length || 0), 0);
+};
+
+export const extractPageText = async (pdfFile, pageNumber) => {
     try {
-        const quizData = {
-            userId,
-            documentId: docId,
-            subject,
-            title: `${topic} - Quiz`,
-            description: `Auto-generated quiz from visual analysis`,
-            questions: questions.map((q, index) => ({
-                id: `q_${index}`,
-                type: q.type,
-                question: q.question,
-                options: q.options || [],
-                correctAnswer: q.correctAnswer || q.answer,
-                explanation: q.explanation || '',
-                keyPoints: q.keyPoints || [],
-                points: 10
-            })),
-            totalQuestions: questions.length,
-            totalPoints: questions.length * 10,
-            timeLimit: questions.length * 2, // 2 min per question
-            difficulty: 'medium',
-            source: 'visual_analysis',
-            attempts: 0,
-            highestScore: 0,
-            createdAt: serverTimestamp()
-        };
-
-        const docRef = await addDoc(collection(db, 'quizzes'), quizData);
-        console.log('✅ Quiz saved:', docRef.id);
-
-        return { success: true, quizId: docRef.id };
+        const arrayBuffer = await pdfFile.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const page = await pdf.getPage(pageNumber);
+        const textContent = await page.getTextContent();
+        return textContent.items.map(item => item.str).join(' ').trim();
     } catch (error) {
-        console.error('Error saving quiz:', error);
-        throw error;
+        console.error(`Error extracting page ${pageNumber}:`, error);
+        return '';
     }
 };
+
+// ==================== 📦 EXPORTS ====================
 
 export default {
     analyzePageVisually,
-    convertPageToImage,
     processDocumentVisually,
-    saveFlashcardsFromVisual,
-    saveQuizFromVisual
+    convertPageToImage,
+    extractPageText,
+    saveVisualAnalysis,
+    getTotalConcepts,
+    getTotalLearningSteps,
+    generateSimpleMermaid,
+    sanitizeLabel,
+    CONFIG
 };

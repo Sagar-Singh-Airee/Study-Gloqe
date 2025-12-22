@@ -213,7 +213,7 @@ function App() {
                         {/* Settings route was here - removed */}
                         <Route
                             path="/analytics"
-                            element={<StudentRoute><Analytics /></StudentRoute>}
+                            element={<Navigate to="/dashboard?tab=analytics" replace />}
                         />
 
                         {/* TEACHER ROUTES */}

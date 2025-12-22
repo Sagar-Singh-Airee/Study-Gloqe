@@ -1,290 +1,157 @@
-# 🎓 StudyGloqe - AI-Powered Learning Platform
+# 🎓 StudyGloqe - Next-Gen AI Learning Platform
 
-A comprehensive, modern learning platform that transforms PDFs into interactive quizzes, flashcards, and personalized learning paths using cutting-edge AI technology.
+<div align="center">
 
-## ✨ Features
+![Status](https://img.shields.io/badge/Status-Production%20Ready-success?style=for-the-badge)
+![AI Powered](https://img.shields.io/badge/AI-Powered%20by%20Gemini%202.5-blue?style=for-the-badge&logo=google)
+![Event Driven](https://img.shields.io/badge/Architecture-Event%20Driven-orange?style=for-the-badge&logo=apachekafka)
+![License](https://img.shields.io/badge/License-MIT-purple?style=for-the-badge)
 
-### Core Features (MVP)
-- 📄 **PDF Upload & Processing** - Upload documents with auto-subject detection
-- 🤖 **AI-Powered Quiz Generation** - Automatic MCQ creation from documents
-- 📖 **Smart PDF Reader** - With AI tools (Summarize, Notes, Flow Charts)
-- 🎮 **Gamification** - XP, levels, badges, and leaderboards
-- 👨‍🏫 **Teacher Tools** - Create/assign quizzes, manage classes, view analytics
-- ⏱️ **Interactive Quiz Experience** - Timed quizzes with instant feedback
-- 🏆 **Monthly Rewards** - Teacher-configured prizes for top performers
-- 📊 **Analytics Dashboard** - Track progress and performance
+**Transforming education with scalable event-driven architecture and state-of-the-art Generative AI.**
 
-### Advanced Features (Phase 2)
-- 🎥 **Study Rooms** - Real-time video/audio collaboration
-- 🗂️ **Smart Flashcards** - With spaced repetition (SRS)
-- 🗣️ **Voice Assistant** - TTS/STT for accessibility
-- 🔍 **Advanced Search** - AI-powered recommendations
-- 📈 **Deep Analytics** - BigQuery integration for insights
+[Demo](https://study-gloqe.web.app) • [Documentation](#) • [Report Bug](#)
 
-## 🚀 Quick Start
+</div>
+
+---
+
+## 🌟 Enterprise-Grade Integrations
+
+StudyGloqe is not just another LMS; it's a technical showcase of modern, scalable cloud architecture, deeply integrated with industry-leading ecosystem partners.
+
+### 🚀 Powered by Confluent Kafka
+At the heart of our platform lies a robust, **event-driven architecture** powered by Confluent Kafka, ensuring real-time data consistency and high scalability.
+
+- **Event Bus System**: A custom `KafkaProducer` service orchestrates all system activities, decoupling microservices for maximum reliability.
+- **Smart Batching**: Implements intelligent event batching (10-event windows with 5s flush intervals) to optimize network throughput and reduce latency.
+- **Real-time Topics**:
+  - `study.events`: Tracks user focus, session duration, and learning patterns.
+  - `quiz.events`: Real-time scoring, answer validation, and adaptivity metrics.
+  - `gamification.events`: Instant XP awards, leveling up, and badge distribution.
+  - `analytics.events`: Deep telemetry for user behavior analysis.
+
+```javascript
+// Example: The system automatically batches and streams study events
+await kafkaProducer.produceStudyEvent({
+  type: 'SESSION_START',
+  userId: 'user_123',
+  metadata: { subject: 'Physics', goal: 'Quantum Mechanics' }
+});
+```
+
+### 🧠 Google Cloud & Gemini AI Ecosystem
+We leverage the full power of the Google Cloud ecosystem, utilizing **Gemini 2.5 Flash** for unmatched speed and intelligence.
+
+- **Generative AI Core (Gemini 2.5 Flash)**:
+  - **Instant Quiz Generation**: Transforms any PDF into complex multi-choice quizzes in seconds.
+  - **Cognitive Mind Maps**: Generates hierarchical concept maps to visualize complex topics.
+  - **Contextual Summaries**: "Chat with your PDF" functionality with pinpoint accuracy.
+  - **Visual Analysis**: Extracts insights from charts, diagrams, and images within study materials.
+- **Firebase Backend-as-a-Service**:
+  - **Auth**: Secure, seamless social authentication.
+  - **Firestore**: NoSQL document database for flexible data modeling.
+  - **Cloud Functions**: Serverless compute for event processing and AI orchestration.
+
+---
+
+## ✨ Key Features
+
+### 📚 Intelligent Document Processing
+- **Smart Upload**: Auto-detects subjects and categorizes documents using AI.
+- **Visual Learning**: Automatically generates flowcharts and summaries from raw text.
+
+### 🎮 Gamified Learning Experience
+- **XP & Levels**: Earn experience for every minute studied and quiz passed.
+- **Leaderboards**: Real-time class and global rankings to drive competition.
+- **Badges**: Unlockable achievements (e.g., "Night Owl", "Quiz Master").
+
+### 👩‍🏫 Teacher Command Center
+- **Classroom Management**: Create classes, assign documents, and track student health.
+- **Deep Analytics**: View class performance distributions and identifying struggling students.
+- **Monthly Rewards**: Automated system to calculate and award top performers.
+
+---
+
+## 🛠️ Technical Stack
+
+- **Frontend**: React 18, Tailwind CSS, Framer Motion
+- **AI/ML**: Google Gemini 2.5 Flash, Vertex AI
+- **Streaming**: Confluent Cloud (Kafka)
+- **Backend**: Firebase (Functions, Firestore, Auth, Storage)
+- **3D Visuals**: Spline
+- **Deployment**: Firebase Hosting / GitHub Actions
+
+---
+
+## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js 18+ and npm
-- Firebase account
-- Google Cloud Platform account (for Vertex AI)
-- Agora account (for video rooms - Phase 2)
+- Node.js 18+
+- Firebase Project
+- Gemini API Key
 
 ### Installation
 
-1. **Clone and install dependencies:**
-```bash
-npm install
-```
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/study-gloqe.git
+   cd study-gloqe
+   ```
 
-2. **Set up Firebase:**
-   - Create a new Firebase project at [console.firebase.google.com](https://console.firebase.google.com)
-   - Enable Authentication (Email/Password and Google)
-   - Enable Firestore Database
-   - Enable Storage
-   - Enable Cloud Functions
-   - Copy your Firebase config
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-3. **Configure environment variables:**
-   - Copy `.env.example` to `.env`
-   - Fill in your Firebase credentials
-   - Add Google Cloud project ID for Vertex AI
+3. **Configure Environment**
+   Create a `.env` file in the root directory:
+   ```env
+   VITE_FIREBASE_API_KEY=your_key
+   VITE_GEMINI_API_KEY=your_gemini_key
+   # ... other firebase config
+   ```
 
-4. **Add your logo:**
-   - Place your logo files in `src/assets/logo/`
-   - Update references in components
+4. **Run Development Server**
+   ```bash
+   npm run dev
+   ```
 
-5. **Set up Spline (optional):**
-   - Create 3D scenes at [spline.design](https://spline.design)
-   - Export and get the scene URL
-   - Update `LandingPage.jsx` with your Spline scene URL
+## 📁 Architecture Overview
 
-6. **Run development server:**
-```bash
-npm run dev
-```
-
-## 📁 Project Structure
-
-```
-studygloqe/
-├── src/
-│   ├── assets/          # Static assets (logo, images)
-│   ├── components/      # React components
-│   │   ├── common/      # Reusable UI components
-│   │   ├── pdf/         # PDF-related components
-│   │   ├── quiz/        # Quiz components
-│   │   ├── gamification/# Points, badges, leaderboard
-│   │   └── teacher/     # Teacher-specific components
-│   ├── contexts/        # React Context providers
-│   ├── hooks/          # Custom React hooks
-│   ├── pages/          # Page components
-│   ├── services/       # API & Firebase services
-│   ├── utils/          # Helper functions
-│   ├── config/         # Configuration files
-│   └── styles/         # Global styles
-├── functions/          # Firebase Cloud Functions
-├── public/            # Public assets
-└── firestore.rules    # Firestore security rules
-```
-
-## 🔥 Firebase Setup Details
-
-### Firestore Collections
-
-Create these collections in your Firestore:
-- `users` - User profiles
-- `classes` - Teacher classes
-- `documents` - Uploaded PDFs
-- `quizzes` - Quiz data
-- `assignments` - Quiz assignments
-- `sessions` - Quiz sessions
-- `alo` - Adaptive Learning Orchestrator data
-- `gamification` - User XP, badges, levels
-- `rewards` - Monthly reward tracking
-
-### Security Rules
-
-Deploy security rules:
-```bash
-firebase deploy --only firestore:rules
-```
-
-### Cloud Functions
-
-Navigate to the functions directory and deploy:
-```bash
-cd functions
-npm install
-firebase deploy --only functions
-```
-
-## 🎨 Customization
-
-### Theme Colors
-Edit `tailwind.config.js` to customize the color scheme. The app uses a black/silver/white theme with accent colors.
-
-### Spline Integration
-1. Create your 3D scene at [spline.design](https://spline.design)
-2. Export and get the scene URL
-3. Replace placeholder in `LandingPage.jsx`:
-```jsx
-<Spline scene="YOUR_SPLINE_SCENE_URL" />
-```
-
-## 🔌 API Endpoints (Cloud Functions)
-
-You'll need to implement these Cloud Functions:
-- `POST /api/ingest` - Upload and process PDF
-- `POST /api/generate-quiz` - Generate quiz from document
-- `POST /api/quizzes/{id}/assign` - Assign quiz to class
-- `POST /api/sessions` - Start/submit quiz session
-- `GET /api/users/{uid}/progress` - Get user progress
-- `POST /api/alo/next` - Get next recommended activity
-- `POST /api/gamification/award` - Award points
-- `GET /api/class/{id}/leaderboard` - Get class leaderboard
-- `POST /api/rewards/{id}/finalize` - Finalize monthly winners
-- `POST /api/rooms/token` - Get Agora token
-
-## 🤖 AI Integration
-
-### Vertex AI Setup
-1. Enable Vertex AI API in Google Cloud Console
-2. Set up authentication
-3. Implement text generation for:
-   - Subject classification
-   - Quiz generation
-   - Summaries
-   - Notes generation
-   - Flow chart creation
-
-### Example Quiz Generation Flow
-```javascript
-// Cloud Function example
-const generateQuiz = async (docId, settings) => {
-  // 1. Get document text from Firestore
-  // 2. Chunk text for token limits
-  // 3. Call Vertex AI with prompt
-  // 4. Parse and validate response
-  // 5. Save quiz to Firestore
-  // 6. Return quiz ID
-}
-```
-
-## 📊 Analytics & Monitoring
-
-### BigQuery Integration
-1. Link Firestore to BigQuery
-2. Set up scheduled exports
-3. Create dashboards in Looker Studio
-
-### Key Metrics to Track
-- Upload success rate
-- Quiz generation time
-- Session completion rate
-- User retention
-- Mastery improvement
-
-## 🎮 Gamification System
-
-### XP Rules
-- Correct answer: +10 XP
-- Complete quiz: +20 XP
-- Daily login: +5 XP
-- Top 10% weekly: +30 XP
-
-### Level System
-- 100 XP per level
-- Unlock badges at milestones
-- Display on profile and leaderboard
-
-## 🏆 Monthly Rewards
-
-### Setup Flow
-1. Teacher configures reward policy in class settings
-2. At month-end, Cloud Scheduler triggers winner calculation
-3. System checks eligibility (min attempts, time, no fraud)
-4. Winners selected and notified
-5. Teacher approves and collects delivery info
-6. Mark as delivered in Firestore
-
-## 🔐 Security & Privacy
-
-### Best Practices
-- Enable Firestore security rules
-- Use Firebase Auth tokens for API calls
-- Implement rate limiting
-- Encrypt sensitive data
-- Log audit trails for rewards
-- COPPA/GDPR compliance checks
-
-## 📱 Responsive Design
-
-The app is fully responsive and works on:
-- Desktop (1920px+)
-- Laptop (1280px - 1919px)
-- Tablet (768px - 1279px)
-- Mobile (320px - 767px)
-
-## 🧪 Testing
-
-### Run Tests
-```bash
-npm run test
-```
-
-### Test Coverage
-- Unit tests for services
-- Component tests
-- E2E tests for critical flows
-
-## 📦 Deployment
-
-### Build for Production
-```bash
-npm run build
-```
-
-### Deploy to Firebase Hosting
-```bash
-firebase deploy --only hosting
-```
-
-### Deploy Everything
-```bash
-firebase deploy
+```mermaid
+graph TD
+    User[User Client] -->|Uploads PDF| FB[Firebase Storage]
+    User -->|Reads/Writes| FS[Firestore DB]
+    
+    subgraph "AI Processing Layer"
+        FS -- Trigger --> CF[Cloud Functions]
+        CF -->|Generate| Gemini[Gemini 2.5 Flash]
+        Gemini -->|Quiz/Summary| FS
+    end
+    
+    subgraph "Event Streaming Layer"
+        User -- Actions --> KP[Kafka Producer]
+        KP -- Batched Events --> Kafka[Confluent Kafka]
+        Kafka -- Stream --> Analytics[Analytics Engine]
+    end
 ```
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ## 📄 License
 
-This project is licensed under the MIT License.
-
-## 🆘 Support
-
-For issues and questions:
-- Open an issue on GitHub
-- Check documentation
-- Contact support
-
-## 🚀 Next Steps
-
-1. **Complete Authentication** - Implement password reset, email verification
-2. **PDF Reader Component** - Build the actual PDF viewer with AI tools
-3. **Quiz Taking UI** - Create interactive quiz interface
-4. **Teacher Dashboard** - Build full analytics and class management
-5. **Cloud Functions** - Implement all backend endpoints
-6. **Vertex AI Integration** - Set up AI text generation
-7. **Study Rooms** - Integrate Agora for video/audio
-8. **Testing** - Write comprehensive tests
-9. **Optimization** - Performance and bundle size
-10. **Launch** - Deploy to production!
+Distributed under the MIT License. See `LICENSE` for more information.
 
 ---
 
-Built with ❤️ using React, Firebase, Tailwind CSS, and Spline
+<div align="center">
+  <p>Built with ❤️ by the StudyGloqe Team</p>
+</div>

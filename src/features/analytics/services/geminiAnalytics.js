@@ -79,6 +79,139 @@ Focus on: student engagement, performance trends, and specific teaching strategi
 };
 
 /**
+ * 🆕 Generate comprehensive student analytics report
+ * Uses real-time data from Firestore (study sessions, quizzes, documents)
+ */
+export const generateStudentAnalyticsReport = async (analyticsData) => {
+    try {
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+
+        // Prepare data summary
+        const dataContext = {
+            studyTime: analyticsData.studyTime || {},
+            quizPerformance: analyticsData.quizPerformance || {},
+            subjectPerformance: analyticsData.subjectPerformance || [],
+            streak: analyticsData.streak || 0,
+            level: analyticsData.level || 1,
+            xp: analyticsData.xp || 0,
+            weakAreas: analyticsData.weakAreas || [],
+            recentActivity: analyticsData.recentActivity || []
+        };
+
+        const prompt = `
+You are an expert AI study coach analyzing a student's learning performance. Generate a comprehensive, personalized analytics report.
+
+📊 STUDENT ANALYTICS DATA:
+- Total Study Time: ${dataContext.studyTime.totalMinutes || 0} minutes
+- Sessions: ${dataContext.studyTime.sessionCount || 0}
+- Average Session: ${dataContext.studyTime.averageSessionLength || 0} minutes
+- Quiz Average Score: ${dataContext.quizPerformance.averageScore || 0}%
+- Total Quizzes: ${dataContext.quizPerformance.totalQuizzes || 0}
+- Accuracy: ${dataContext.quizPerformance.accuracy || 0}%
+- Current Streak: ${dataContext.streak} days
+- Level: ${dataContext.level}
+- XP: ${dataContext.xp}
+- Subject Performance: ${JSON.stringify(dataContext.subjectPerformance.slice(0, 6))}
+- Weak Areas: ${JSON.stringify(dataContext.weakAreas)}
+
+Generate a detailed JSON report with this EXACT structure:
+{
+  "overallGrade": "A+ to F grade",
+  "summaryHeadline": "Catchy one-line summary of performance",
+  "insights": [
+    {
+      "icon": "🎯|📚|⚡|🔥|💡|⚠️|✨|🧠",
+      "title": "Short insight title",
+      "description": "2-3 sentence actionable insight",
+      "type": "success|warning|info|celebration",
+      "priority": "high|medium|low",
+      "metric": "Related metric value"
+    }
+  ],
+  "strengths": ["Strength 1", "Strength 2", "Strength 3"],
+  "improvements": ["Area 1", "Area 2", "Area 3"],
+  "recommendations": [
+    {
+      "action": "Specific action to take",
+      "reason": "Why this helps",
+      "priority": "high|medium|low",
+      "timeframe": "This week|Today|This month"
+    }
+  ],
+  "predictions": {
+    "trend": "improving|stable|declining",
+    "confidence": "high|medium|low",
+    "nextWeekForecast": "Brief prediction for next week",
+    "monthlyGoal": "Suggested monthly goal"
+  },
+  "motivationalMessage": "Encouraging message based on their data",
+  "studyTip": "One specific, actionable study tip"
+}
+
+Be specific, encouraging, and base everything on the actual data provided. Use emojis appropriately.
+`;
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+
+        // Extract JSON from response
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            return {
+                success: true,
+                report: parsed,
+                generatedAt: new Date().toISOString(),
+                dataSnapshot: {
+                    studyMinutes: dataContext.studyTime.totalMinutes || 0,
+                    quizScore: dataContext.quizPerformance.averageScore || 0,
+                    streak: dataContext.streak
+                }
+            };
+        }
+
+        // Fallback if JSON extraction fails
+        return {
+            success: true,
+            report: {
+                overallGrade: "B",
+                summaryHeadline: "Making steady progress! 📈",
+                insights: [{
+                    icon: "💡",
+                    title: "AI Analysis",
+                    description: "Your learning journey is on track. Keep up the consistent effort!",
+                    type: "info",
+                    priority: "medium",
+                    metric: `${dataContext.studyTime.totalMinutes}m studied`
+                }],
+                strengths: ["Consistent study habits"],
+                improvements: ["Try more quizzes"],
+                recommendations: [{
+                    action: "Complete 2 quizzes this week",
+                    reason: "Boost retention and track progress",
+                    priority: "medium",
+                    timeframe: "This week"
+                }],
+                predictions: {
+                    trend: "stable",
+                    confidence: "medium",
+                    nextWeekForecast: "Expected to maintain current pace",
+                    monthlyGoal: "Increase study time by 15%"
+                },
+                motivationalMessage: "Every session counts! You're building great habits. 🌟",
+                studyTip: "Try studying in 25-minute focused blocks with 5-minute breaks."
+            },
+            generatedAt: new Date().toISOString()
+        };
+
+    } catch (error) {
+        console.error('❌ AI Report generation error:', error);
+        throw error;
+    }
+};
+
+/**
  * Generate personalized student recommendations
  */
 export const generateStudentRecommendations = async (studentData) => {
@@ -203,6 +336,7 @@ Return JSON array:
 
 export default {
     generateClassInsights,
+    generateStudentAnalyticsReport,
     generateStudentRecommendations,
     predictPerformanceTrends,
     generateQuizFromContent

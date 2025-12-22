@@ -14,7 +14,8 @@ import {
   Timestamp,
   writeBatch,
   increment,
-  setDoc
+  setDoc,
+  onSnapshot
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '@shared/config/firebase';
@@ -33,44 +34,163 @@ const CONFIG = {
   RETRY_ATTEMPTS: 3,
   RETRY_DELAY: 1000,
   CACHE_TTL: 5 * 60 * 1000, // 5 minutes
-  BATCH_SIZE: 500
+  BATCH_SIZE: 500,
+  MAX_ACTIVITY_LOG: 200, // Keep last 200 activities
+  PERFORMANCE_MONITORING: true,
+  OFFLINE_MODE: true,
+  SESSION_VERSION: '2.0' // For migration support
 };
 
-// ==================== 💾 SESSION CACHE ====================
+// ==================== 📊 PERFORMANCE MONITOR ====================
+
+class PerformanceMonitor {
+  constructor() {
+    this.metrics = new Map();
+  }
+
+  start(operation) {
+    if (!CONFIG.PERFORMANCE_MONITORING) return null;
+    const startTime = performance.now();
+    return {
+      operation,
+      startTime,
+      end: () => {
+        const duration = performance.now() - startTime;
+        this.recordMetric(operation, duration);
+        if (duration > 1000) {
+          console.warn(`⚠️ Slow operation: ${operation} took ${duration.toFixed(2)}ms`);
+        }
+        return duration;
+      }
+    };
+  }
+
+  recordMetric(operation, duration) {
+    if (!this.metrics.has(operation)) {
+      this.metrics.set(operation, {
+        count: 0,
+        totalTime: 0,
+        avgTime: 0,
+        maxTime: 0,
+        minTime: Infinity
+      });
+    }
+
+    const metric = this.metrics.get(operation);
+    metric.count++;
+    metric.totalTime += duration;
+    metric.avgTime = metric.totalTime / metric.count;
+    metric.maxTime = Math.max(metric.maxTime, duration);
+    metric.minTime = Math.min(metric.minTime, duration);
+  }
+
+  getMetrics(operation) {
+    return this.metrics.get(operation) || null;
+  }
+
+  getAllMetrics() {
+    return Object.fromEntries(this.metrics);
+  }
+
+  reset() {
+    this.metrics.clear();
+  }
+}
+
+const performanceMonitor = new PerformanceMonitor();
+
+// ==================== 🌐 NETWORK STATUS MONITOR ====================
+
+class NetworkMonitor {
+  constructor() {
+    this.isOnline = navigator.onLine;
+    this.listeners = new Set();
+    this.setupListeners();
+  }
+
+  setupListeners() {
+    window.addEventListener('online', () => {
+      this.isOnline = true;
+      console.log('🌐 Network: ONLINE');
+      this.notifyListeners(true);
+      toast.success('Back online! Syncing...', { icon: '🌐' });
+    });
+
+    window.addEventListener('offline', () => {
+      this.isOnline = false;
+      console.warn('📴 Network: OFFLINE');
+      this.notifyListeners(false);
+      toast.error('No internet connection', { icon: '📴' });
+    });
+  }
+
+  subscribe(callback) {
+    this.listeners.add(callback);
+    return () => this.listeners.delete(callback);
+  }
+
+  notifyListeners(status) {
+    this.listeners.forEach(callback => callback(status));
+  }
+
+  getStatus() {
+    return this.isOnline;
+  }
+}
+
+const networkMonitor = new NetworkMonitor();
+
+// ==================== 💾 ENHANCED SESSION CACHE ====================
 
 class SessionCache {
   constructor() {
     this.cache = new Map();
     this.listeners = new Map();
+    this.statistics = {
+      hits: 0,
+      misses: 0,
+      sets: 0,
+      deletes: 0
+    };
   }
 
   set(key, value) {
     this.cache.set(key, {
       value,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      hits: 0
     });
+    this.statistics.sets++;
     this.notifyListeners(key, value);
   }
 
   get(key) {
     const item = this.cache.get(key);
-    if (!item) return null;
-
-    if (Date.now() - item.timestamp > CONFIG.CACHE_TTL) {
-      this.cache.delete(key);
+    if (!item) {
+      this.statistics.misses++;
       return null;
     }
 
+    if (Date.now() - item.timestamp > CONFIG.CACHE_TTL) {
+      this.cache.delete(key);
+      this.statistics.misses++;
+      return null;
+    }
+
+    item.hits++;
+    this.statistics.hits++;
     return item.value;
   }
 
   delete(key) {
     this.cache.delete(key);
+    this.statistics.deletes++;
     this.notifyListeners(key, null);
   }
 
   clear() {
     this.cache.clear();
+    this.statistics = { hits: 0, misses: 0, sets: 0, deletes: 0 };
   }
 
   subscribe(key, callback) {
@@ -93,26 +213,60 @@ class SessionCache {
       listeners.forEach(callback => callback(value));
     }
   }
+
+  getStatistics() {
+    const hitRate = this.statistics.hits / (this.statistics.hits + this.statistics.misses) || 0;
+    return {
+      ...this.statistics,
+      hitRate: (hitRate * 100).toFixed(2) + '%',
+      cacheSize: this.cache.size
+    };
+  }
+
+  // Clean expired entries
+  cleanup() {
+    const now = Date.now();
+    for (const [key, item] of this.cache.entries()) {
+      if (now - item.timestamp > CONFIG.CACHE_TTL) {
+        this.cache.delete(key);
+      }
+    }
+  }
 }
 
 const sessionCache = new SessionCache();
 
-// ==================== 🔄 RETRY MECHANISM ====================
+// Auto-cleanup cache every 5 minutes
+setInterval(() => sessionCache.cleanup(), 5 * 60 * 1000);
 
-const retryOperation = async (operation, attempts = CONFIG.RETRY_ATTEMPTS, delay = CONFIG.RETRY_DELAY) => {
+// ==================== 🔄 ENHANCED RETRY MECHANISM ====================
+
+const retryOperation = async (
+  operation,
+  attempts = CONFIG.RETRY_ATTEMPTS,
+  delay = CONFIG.RETRY_DELAY,
+  operationName = 'Operation'
+) => {
   for (let i = 0; i < attempts; i++) {
     try {
-      return await operation();
+      const perf = performanceMonitor.start(operationName);
+      const result = await operation();
+      perf?.end();
+      return result;
     } catch (error) {
-      if (i === attempts - 1) throw error;
+      if (i === attempts - 1) {
+        console.error(`❌ ${operationName} failed after ${attempts} attempts:`, error);
+        throw error;
+      }
 
-      console.warn(`⚠️ Attempt ${i + 1} failed, retrying in ${delay}ms...`);
-      await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
+      const backoffDelay = delay * Math.pow(2, i);
+      console.warn(`⚠️ ${operationName} attempt ${i + 1} failed, retrying in ${backoffDelay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, backoffDelay));
     }
   }
 };
 
-// ==================== 📊 SESSION MANAGER CLASS ====================
+// ==================== 📊 ENHANCED SESSION MANAGER ====================
 
 class SessionManager {
   constructor() {
@@ -129,25 +283,119 @@ class SessionManager {
       quizzesGenerated: 0,
       flashcardsCreated: 0
     };
+    this.offlineQueue = [];
+    this.listeners = new Set();
+    this.setupVisibilityListener();
+    this.setupNetworkListener();
+    this.restoreFromLocalStorage();
+  }
+
+  // 🔄 Restore session from localStorage on reload
+  restoreFromLocalStorage() {
+    try {
+      const stored = localStorage.getItem('activeSession');
+      if (stored) {
+        const session = JSON.parse(stored);
+        if (Date.now() - session.timestamp < 30 * 60 * 1000) { // 30 minutes
+          this.activeSessionId = session.sessionId;
+          this.sessionMetrics = session.metrics || this.sessionMetrics;
+          console.log('🔄 Restored session from localStorage:', this.activeSessionId);
+        } else {
+          localStorage.removeItem('activeSession');
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ Failed to restore session:', error);
+    }
+  }
+
+  // 💾 Save to localStorage
+  saveToLocalStorage() {
+    try {
+      localStorage.setItem('activeSession', JSON.stringify({
+        sessionId: this.activeSessionId,
+        metrics: this.sessionMetrics,
+        timestamp: Date.now()
+      }));
+    } catch (error) {
+      console.warn('⚠️ Failed to save session to localStorage:', error);
+    }
+  }
+
+  // 👁️ Handle page visibility changes
+  setupVisibilityListener() {
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        console.log('👁️ Page hidden - auto-saving...');
+        this.handlePageHidden();
+      } else {
+        console.log('👁️ Page visible - resuming...');
+        this.handlePageVisible();
+      }
+    });
+  }
+
+  // 🌐 Handle network changes
+  setupNetworkListener() {
+    networkMonitor.subscribe((isOnline) => {
+      if (isOnline && this.offlineQueue.length > 0) {
+        this.processOfflineQueue();
+      }
+    });
+  }
+
+  async handlePageHidden() {
+    if (this.activeSessionId) {
+      await forceSaveSession();
+      this.pauseTimers();
+    }
+  }
+
+  async handlePageVisible() {
+    if (this.activeSessionId) {
+      this.resumeTimers();
+      this.resetIdleTimer();
+    }
+  }
+
+  pauseTimers() {
+    if (this.autoSaveTimer) clearInterval(this.autoSaveTimer);
+    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+  }
+
+  resumeTimers() {
+    if (this.activeSessionId) {
+      this.startAutoSave(this.activeSessionId);
+      this.startHeartbeat(this.activeSessionId);
+    }
   }
 
   trackActivity(activityType, metadata = {}) {
     this.lastActivity = Date.now();
 
-    this.activityLog.push({
+    const activity = {
       type: activityType,
       timestamp: Date.now(),
       metadata
-    });
+    };
+
+    this.activityLog.push(activity);
+
+    // Keep only recent activities
+    if (this.activityLog.length > CONFIG.MAX_ACTIVITY_LOG) {
+      this.activityLog = this.activityLog.slice(-CONFIG.MAX_ACTIVITY_LOG);
+    }
 
     // Update metrics
-    if (activityType === 'page_view') this.sessionMetrics.pagesViewed++;
-    if (activityType === 'note_created') this.sessionMetrics.notesCreated++;
-    if (activityType === 'highlight_made') this.sessionMetrics.highlightsMade++;
-    if (activityType === 'quiz_generated') this.sessionMetrics.quizzesGenerated++;
-    if (activityType === 'flashcard_created') this.sessionMetrics.flashcardsCreated++;
+    if (activityType === 'pageview') this.sessionMetrics.pagesViewed++;
+    if (activityType === 'notecreated') this.sessionMetrics.notesCreated++;
+    if (activityType === 'highlightmade') this.sessionMetrics.highlightsMade++;
+    if (activityType === 'quizgenerated') this.sessionMetrics.quizzesGenerated++;
+    if (activityType === 'flashcardcreated') this.sessionMetrics.flashcardsCreated++;
 
+    this.saveToLocalStorage();
     this.resetIdleTimer();
+    this.notifyListeners('activity', activity);
   }
 
   resetIdleTimer() {
@@ -163,13 +411,23 @@ class SessionManager {
   async handleIdle() {
     if (this.activeSessionId) {
       console.log('💤 User idle, pausing session...');
-      await pauseStudySession(this.activeSessionId);
 
-      eventBus.publish(EVENT_TYPES.STUDY_SESSION_PAUSED, {
-        sessionId: this.activeSessionId,
-        reason: 'idle',
-        idleTime: CONFIG.IDLE_TIMEOUT
-      });
+      try {
+        await pauseStudySession(this.activeSessionId);
+
+        eventBus.publish(EVENT_TYPES.STUDY_SESSION_PAUSED, {
+          sessionId: this.activeSessionId,
+          reason: 'idle',
+          idleTime: CONFIG.IDLE_TIMEOUT
+        });
+
+        toast('Session paused due to inactivity', {
+          icon: '💤',
+          duration: 3000
+        });
+      } catch (error) {
+        console.error('❌ Failed to pause idle session:', error);
+      }
     }
   }
 
@@ -183,6 +441,9 @@ class SessionManager {
         await autoSaveSession(sessionId, this.sessionMetrics, this.activityLog);
       } catch (error) {
         console.warn('⚠️ Auto-save failed:', error);
+        if (!networkMonitor.getStatus()) {
+          this.queueOfflineOperation('autosave', { sessionId, metrics: this.sessionMetrics });
+        }
       }
     }, CONFIG.AUTO_SAVE_INTERVAL);
   }
@@ -218,6 +479,51 @@ class SessionManager {
     }
   }
 
+  queueOfflineOperation(type, data) {
+    this.offlineQueue.push({
+      type,
+      data,
+      timestamp: Date.now()
+    });
+    console.log(`📴 Queued offline operation: ${type}`);
+  }
+
+  async processOfflineQueue() {
+    console.log(`🔄 Processing ${this.offlineQueue.length} offline operations...`);
+
+    while (this.offlineQueue.length > 0) {
+      const operation = this.offlineQueue.shift();
+
+      try {
+        if (operation.type === 'autosave') {
+          await autoSaveSession(
+            operation.data.sessionId,
+            operation.data.metrics,
+            this.activityLog
+          );
+        }
+      } catch (error) {
+        console.error('❌ Failed to process offline operation:', error);
+        // Re-queue if failed
+        this.offlineQueue.unshift(operation);
+        break;
+      }
+    }
+  }
+
+  subscribe(event, callback) {
+    this.listeners.add({ event, callback });
+    return () => this.listeners.delete({ event, callback });
+  }
+
+  notifyListeners(event, data) {
+    this.listeners.forEach(listener => {
+      if (listener.event === event) {
+        listener.callback(data);
+      }
+    });
+  }
+
   reset() {
     this.activeSessionId = null;
     this.activityLog = [];
@@ -229,6 +535,18 @@ class SessionManager {
       flashcardsCreated: 0
     };
     this.stopTimers();
+    localStorage.removeItem('activeSession');
+  }
+
+  getState() {
+    return {
+      activeSessionId: this.activeSessionId,
+      metrics: { ...this.sessionMetrics },
+      activityCount: this.activityLog.length,
+      lastActivity: this.lastActivity,
+      isOnline: networkMonitor.getStatus(),
+      offlineQueueSize: this.offlineQueue.length
+    };
   }
 }
 
@@ -238,8 +556,16 @@ const sessionManager = new SessionManager();
 
 /**
  * Start a new study session with advanced features
+ * @param {string} userId - User ID
+ * @param {string} documentId - Document ID
+ * @param {string} documentTitle - Document title
+ * @param {string} subject - Subject
+ * @param {object} options - Additional options
+ * @returns {Promise<string>} Session ID
  */
 export const startStudySession = async (userId, documentId, documentTitle, subject, options = {}) => {
+  const perf = performanceMonitor.start('startStudySession');
+
   try {
     console.log('🚀 Starting advanced study session...');
 
@@ -247,11 +573,16 @@ export const startStudySession = async (userId, documentId, documentTitle, subje
       throw new Error('User ID is required');
     }
 
+    // Validate network connectivity
+    if (!networkMonitor.getStatus() && !CONFIG.OFFLINE_MODE) {
+      throw new Error('Cannot start session while offline');
+    }
+
     // Check for existing active session
     const activeSession = await getActiveSession(userId);
 
     if (activeSession) {
-      console.log('📌 Existing active session found');
+      console.log('📌 Existing active session found:', activeSession.id);
 
       // If same document, resume it
       if (activeSession.documentId === documentId) {
@@ -262,12 +593,20 @@ export const startStudySession = async (userId, documentId, documentTitle, subje
         sessionManager.startAutoSave(activeSession.id);
         sessionManager.startHeartbeat(activeSession.id);
         sessionManager.resetIdleTimer();
+        sessionManager.saveToLocalStorage();
 
+        perf?.end();
         return activeSession.id;
       } else {
         // Different document, exit old session and start new
         console.log('🔄 Switching documents, ending previous session');
-        await exitStudySession(activeSession.id, userId, activeSession.documentId, activeSession.documentTitle, activeSession.subject);
+        await exitStudySession(
+          activeSession.id,
+          userId,
+          activeSession.documentId,
+          activeSession.documentTitle,
+          activeSession.subject
+        );
       }
     }
 
@@ -289,6 +628,7 @@ export const startStudySession = async (userId, documentId, documentTitle, subje
       platform: detectPlatform(),
       userAgent: navigator.userAgent,
       screenResolution: `${window.screen.width}x${window.screen.height}`,
+      sessionVersion: CONFIG.SESSION_VERSION,
 
       // Metrics
       totalPauses: 0,
@@ -310,9 +650,12 @@ export const startStudySession = async (userId, documentId, documentTitle, subje
       updatedAt: serverTimestamp()
     };
 
-    const docRef = await retryOperation(async () => {
-      return await addDoc(collection(db, 'studySessions'), sessionData);
-    });
+    const docRef = await retryOperation(
+      async () => await addDoc(collection(db, 'studySessions'), sessionData),
+      CONFIG.RETRY_ATTEMPTS,
+      CONFIG.RETRY_DELAY,
+      'createSession'
+    );
 
     const sessionId = docRef.id;
     console.log('✅ Session created:', sessionId);
@@ -329,6 +672,7 @@ export const startStudySession = async (userId, documentId, documentTitle, subje
     sessionManager.startAutoSave(sessionId);
     sessionManager.startHeartbeat(sessionId);
     sessionManager.resetIdleTimer();
+    sessionManager.saveToLocalStorage();
 
     // Publish event
     eventBus.publish(EVENT_TYPES.STUDY_SESSION_STARTED, {
@@ -346,18 +690,28 @@ export const startStudySession = async (userId, documentId, documentTitle, subje
     // Update user stats
     await updateUserSessionStats(userId, 'start');
 
+    perf?.end();
     return sessionId;
 
   } catch (error) {
     console.error('❌ Error starting session:', error);
+    perf?.end();
     throw error;
   }
 };
 
 /**
  * Exit study session with comprehensive cleanup
+ * @param {string} sessionId - Session ID
+ * @param {string} userId - User ID
+ * @param {string} documentId - Document ID
+ * @param {string} documentTitle - Document title
+ * @param {string} subject - Subject
+ * @returns {Promise<object>} Exit result
  */
 export const exitStudySession = async (sessionId, userId, documentId, documentTitle, subject) => {
+  const perf = performanceMonitor.start('exitStudySession');
+
   try {
     console.log('🔄 Exiting study session:', sessionId);
 
@@ -367,7 +721,12 @@ export const exitStudySession = async (sessionId, userId, documentId, documentTi
 
     // Get session
     const sessionRef = doc(db, 'studySessions', sessionId);
-    const sessionSnap = await getDoc(sessionRef);
+    const sessionSnap = await retryOperation(
+      async () => await getDoc(sessionRef),
+      CONFIG.RETRY_ATTEMPTS,
+      CONFIG.RETRY_DELAY,
+      'getSession'
+    );
 
     if (!sessionSnap.exists()) {
       console.warn('⚠️ Session not found');
@@ -411,9 +770,12 @@ export const exitStudySession = async (sessionId, userId, documentId, documentTi
       updatedAt: serverTimestamp()
     };
 
-    await retryOperation(async () => {
-      await updateDoc(sessionRef, updateData);
-    });
+    await retryOperation(
+      async () => await updateDoc(sessionRef, updateData),
+      CONFIG.RETRY_ATTEMPTS,
+      CONFIG.RETRY_DELAY,
+      'updateSession'
+    );
 
     console.log('✅ Firestore updated');
 
@@ -469,6 +831,8 @@ export const exitStudySession = async (sessionId, userId, documentId, documentTi
 
     console.log('🎉 Session exit complete!');
 
+    perf?.end();
+
     return {
       success: true,
       totalMinutes: cappedTime,
@@ -478,6 +842,7 @@ export const exitStudySession = async (sessionId, userId, documentId, documentTi
 
   } catch (error) {
     console.error('❌ Error exiting session:', error);
+    perf?.end();
     throw error;
   }
 };
@@ -486,6 +851,8 @@ export const exitStudySession = async (sessionId, userId, documentId, documentTi
  * Pause study session
  */
 export const pauseStudySession = async (sessionId) => {
+  const perf = performanceMonitor.start('pauseStudySession');
+
   try {
     console.log('⏸️ Pausing session:', sessionId);
 
@@ -500,6 +867,7 @@ export const pauseStudySession = async (sessionId) => {
 
     if (sessionData.status !== 'active') {
       console.warn('⚠️ Session is not active');
+      perf?.end();
       return;
     }
 
@@ -518,9 +886,11 @@ export const pauseStudySession = async (sessionId) => {
     });
 
     console.log('✅ Session paused');
+    perf?.end();
 
   } catch (error) {
     console.error('❌ Error pausing session:', error);
+    perf?.end();
     throw error;
   }
 };
@@ -529,6 +899,8 @@ export const pauseStudySession = async (sessionId) => {
  * Resume paused session
  */
 export const resumeStudySession = async (sessionId) => {
+  const perf = performanceMonitor.start('resumeStudySession');
+
   try {
     console.log('▶️ Resuming session:', sessionId);
 
@@ -543,6 +915,7 @@ export const resumeStudySession = async (sessionId) => {
 
     if (sessionData.status !== 'paused') {
       console.warn('⚠️ Session is not paused');
+      perf?.end();
       return;
     }
 
@@ -569,9 +942,11 @@ export const resumeStudySession = async (sessionId) => {
     });
 
     console.log('✅ Session resumed');
+    perf?.end();
 
   } catch (error) {
     console.error('❌ Error resuming session:', error);
+    perf?.end();
     throw error;
   }
 };
@@ -580,11 +955,16 @@ export const resumeStudySession = async (sessionId) => {
  * Get active session for user
  */
 export const getActiveSession = async (userId) => {
+  const perf = performanceMonitor.start('getActiveSession');
+
   try {
     // Check cache first
     const cacheKey = `active_session_${userId}`;
     const cached = sessionCache.get(cacheKey);
-    if (cached) return cached;
+    if (cached) {
+      perf?.end();
+      return cached;
+    }
 
     const q = query(
       collection(db, 'studySessions'),
@@ -596,7 +976,10 @@ export const getActiveSession = async (userId) => {
 
     const snapshot = await getDocs(q);
 
-    if (snapshot.empty) return null;
+    if (snapshot.empty) {
+      perf?.end();
+      return null;
+    }
 
     const session = {
       id: snapshot.docs[0].id,
@@ -606,9 +989,11 @@ export const getActiveSession = async (userId) => {
     // Cache it
     sessionCache.set(cacheKey, session);
 
+    perf?.end();
     return session;
   } catch (error) {
     console.error('Error getting active session:', error);
+    perf?.end();
     return null;
   }
 };
@@ -629,7 +1014,7 @@ const autoSaveSession = async (sessionId, metrics, activityLog) => {
 
     await updateDoc(sessionRef, {
       ...metrics,
-      activityLog: activityLog.slice(-100), // Keep last 100 activities
+      activityLog: activityLog.slice(-CONFIG.MAX_ACTIVITY_LOG),
       lastActivity: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
@@ -637,6 +1022,7 @@ const autoSaveSession = async (sessionId, metrics, activityLog) => {
     console.log('💾 Session auto-saved');
   } catch (error) {
     console.warn('⚠️ Auto-save failed:', error);
+    throw error;
   }
 };
 
@@ -654,6 +1040,7 @@ const sendHeartbeat = async (sessionId) => {
     console.log('💓 Heartbeat sent');
   } catch (error) {
     console.warn('⚠️ Heartbeat failed:', error);
+    throw error;
   }
 };
 
@@ -717,7 +1104,7 @@ const syncToBigQuery = async (sessionData) => {
 };
 
 /**
- * Calculate engagement score
+ * Calculate engagement score (0-100)
  */
 const calculateEngagementScore = (data) => {
   const {
@@ -871,6 +1258,8 @@ export const getUserStudySessions = async (userId, options = {}) => {
  * Get session analytics
  */
 export const getSessionAnalytics = async (userId, dateRange = 30) => {
+  const perf = performanceMonitor.start('getSessionAnalytics');
+
   try {
     const sessions = await getUserStudySessions(userId, {
       dateRange,
@@ -944,9 +1333,11 @@ export const getSessionAnalytics = async (userId, dateRange = 30) => {
     analytics.mostProductiveDay = Object.entries(analytics.dailyActivity)
       .find(([_, minutes]) => minutes === maxMinutes)?.[0] || null;
 
+    perf?.end();
     return analytics;
   } catch (error) {
     console.error('Error getting analytics:', error);
+    perf?.end();
     return null;
   }
 };
@@ -996,12 +1387,7 @@ export const subscribeToSession = (sessionId, callback) => {
  * Get current session manager state
  */
 export const getSessionManagerState = () => {
-  return {
-    activeSessionId: sessionManager.activeSessionId,
-    metrics: { ...sessionManager.sessionMetrics },
-    activityCount: sessionManager.activityLog.length,
-    lastActivity: sessionManager.lastActivity
-  };
+  return sessionManager.getState();
 };
 
 /**
@@ -1025,6 +1411,49 @@ export const clearSessionCache = () => {
   console.log('🗑️ Session cache cleared');
 };
 
+/**
+ * Get performance metrics
+ */
+export const getPerformanceMetrics = () => {
+  return {
+    operations: performanceMonitor.getAllMetrics(),
+    cache: sessionCache.getStatistics()
+  };
+};
+
+/**
+ * Export session data
+ */
+export const exportSessionData = async (sessionId) => {
+  try {
+    const sessionRef = doc(db, 'studySessions', sessionId);
+    const sessionSnap = await getDoc(sessionRef);
+
+    if (!sessionSnap.exists()) {
+      throw new Error('Session not found');
+    }
+
+    const data = {
+      ...sessionSnap.data(),
+      id: sessionId,
+      exportedAt: new Date().toISOString()
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `session-${sessionId}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    console.log('✅ Session data exported');
+  } catch (error) {
+    console.error('❌ Export failed:', error);
+    throw error;
+  }
+};
+
 // ==================== 📦 EXPORTS ====================
 
 export default {
@@ -1046,5 +1475,11 @@ export default {
   // Utilities
   subscribeToSession,
   getSessionManagerState,
-  clearSessionCache
+  clearSessionCache,
+  getPerformanceMetrics,
+  exportSessionData,
+
+  // Monitoring
+  networkMonitor,
+  performanceMonitor
 };

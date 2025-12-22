@@ -174,10 +174,14 @@ export const useUnifiedMetrics = (userId, options = {}) => {
         // Sort by date desc
         completedSessions.sort((a, b) => b.startTime - a.startTime);
 
-        const studyTotalMinutes = completedSessions.reduce((sum, s) => sum + (s.totalTime || 0), 0);
-        const studyTodayMinutes = completedSessions
+        // Study sessions store totalTime in seconds - convert to minutes
+        const studyTotalSeconds = completedSessions.reduce((sum, s) => sum + (s.totalTime || 0), 0);
+        const studyTotalMinutes = Math.round(studyTotalSeconds / 60);
+
+        const studyTodaySeconds = completedSessions
             .filter(s => s.startTime >= today)
             .reduce((sum, s) => sum + (s.totalTime || 0), 0);
+        const studyTodayMinutes = Math.round(studyTodaySeconds / 60);
 
         // Unique days studied
         const activeDays = new Set(completedSessions.map(s => s.startTime.toDateString()));

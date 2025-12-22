@@ -1,4 +1,5 @@
-// src/pages/DocumentsSection.jsx - AI-POWERED DOCUMENT MANAGER
+// src/pages/DocumentsSection.jsx - WHITE & SILVER MINIMAL DESIGN ✨
+
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -6,14 +7,14 @@ import {
     BookOpen, Atom, FlaskConical, Dna, Code, Landmark, TrendingUp,
     BookMarked, Brain, Hammer, GraduationCap, X,
     LayoutGrid, List, ChevronRight, Folder, ArrowLeft,
-    Star, Calendar, Check, Grid, Rows, Target, Sparkles  // ✅ Added Sparkles icon
+    Star, Calendar, Check, Grid, Rows, Target, Sparkles
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { collection, query, where, onSnapshot, deleteDoc, doc, getDocs } from 'firebase/firestore';
 import { db } from '@shared/config/firebase';
 import { useAuth } from '@auth/contexts/AuthContext';
-import { deleteDocument, redetectDocumentSubject } from '@study/services/documentService';  // ✅ Import redetect
-import { detectSubjectHybrid } from '@shared/utils/subjectDetection';  // ✅ Import AI detection
+import { deleteDocument, redetectDocumentSubject } from '@study/services/documentService';
+import { detectSubjectHybrid } from '@shared/utils/subjectDetection';
 import toast from 'react-hot-toast';
 
 const DocumentsSection = () => {
@@ -28,104 +29,104 @@ const DocumentsSection = () => {
     const [selectedDocs, setSelectedDocs] = useState(new Set());
     const [favorites, setFavorites] = useState(new Set());
     const [documentStats, setDocumentStats] = useState({});
-    const [redetecting, setRedetecting] = useState(new Set());  // ✅ Track redetection status
+    const [redetecting, setRedetecting] = useState(new Set());
+    const [batchRedetecting, setBatchRedetecting] = useState(false);
 
-    // Enhanced subject configuration - TEAL, ROYAL BLUE, BLACK, GRAY, WHITE ONLY
+    // Subject configuration - TEAL, BLUE, SILVER tones
     const subjectConfig = {
         'Mathematics': {
             icon: BookOpen,
-            color: 'from-blue-600 via-blue-500 to-teal-600',
+            color: 'from-blue-500 via-blue-400 to-teal-500',
             lightColor: 'from-blue-50 via-teal-50 to-blue-100',
             accentColor: 'blue-600',
-            gradient: 'bg-gradient-to-br from-blue-600 to-teal-600',
+            gradient: 'bg-gradient-to-br from-blue-500 to-teal-500',
             emoji: '📐'
         },
         'Physics': {
             icon: Atom,
-            color: 'from-teal-600 via-blue-500 to-teal-700',
+            color: 'from-teal-500 via-blue-400 to-teal-600',
             lightColor: 'from-teal-50 via-blue-50 to-teal-100',
             accentColor: 'teal-600',
-            gradient: 'bg-gradient-to-br from-teal-600 to-blue-600',
+            gradient: 'bg-gradient-to-br from-teal-500 to-blue-500',
             emoji: '⚛️'
         },
         'Chemistry': {
             icon: FlaskConical,
-            color: 'from-teal-600 via-teal-500 to-blue-600',
+            color: 'from-teal-500 via-teal-400 to-blue-500',
             lightColor: 'from-teal-50 via-blue-50 to-teal-100',
             accentColor: 'teal-600',
-            gradient: 'bg-gradient-to-br from-teal-600 to-blue-500',
+            gradient: 'bg-gradient-to-br from-teal-500 to-blue-400',
             emoji: '🧪'
         },
         'Biology': {
             icon: Dna,
-            color: 'from-teal-700 via-teal-500 to-blue-600',
+            color: 'from-teal-600 via-teal-400 to-blue-500',
             lightColor: 'from-teal-50 via-blue-50 to-teal-100',
             accentColor: 'teal-700',
-            gradient: 'bg-gradient-to-br from-teal-700 to-blue-500',
+            gradient: 'bg-gradient-to-br from-teal-600 to-blue-400',
             emoji: '🧬'
         },
         'Computer Science': {
             icon: Code,
-            color: 'from-blue-700 via-blue-500 to-teal-600',
+            color: 'from-blue-600 via-blue-400 to-teal-500',
             lightColor: 'from-blue-50 via-teal-50 to-blue-100',
             accentColor: 'blue-700',
-            gradient: 'bg-gradient-to-br from-blue-700 to-teal-600',
+            gradient: 'bg-gradient-to-br from-blue-600 to-teal-500',
             emoji: '💻'
         },
         'History': {
             icon: Landmark,
-            color: 'from-gray-700 via-gray-600 to-gray-800',
-            lightColor: 'from-gray-50 via-gray-100 to-gray-200',
-            accentColor: 'gray-700',
-            gradient: 'bg-gradient-to-br from-gray-700 to-gray-900',
+            color: 'from-slate-500 via-slate-400 to-slate-600',
+            lightColor: 'from-slate-50 via-slate-100 to-slate-200',
+            accentColor: 'slate-700',
+            gradient: 'bg-gradient-to-br from-slate-500 to-slate-600',
             emoji: '🏛️'
         },
         'Economics': {
             icon: TrendingUp,
-            color: 'from-blue-600 via-teal-500 to-blue-700',
+            color: 'from-blue-500 via-teal-400 to-blue-600',
             lightColor: 'from-blue-50 via-teal-50 to-blue-100',
             accentColor: 'blue-600',
-            gradient: 'bg-gradient-to-br from-blue-600 to-teal-600',
+            gradient: 'bg-gradient-to-br from-blue-500 to-teal-500',
             emoji: '📈'
         },
         'Literature': {
             icon: BookMarked,
-            color: 'from-gray-800 via-gray-700 to-black',
-            lightColor: 'from-gray-50 via-gray-100 to-gray-200',
-            accentColor: 'gray-800',
-            gradient: 'bg-gradient-to-br from-gray-800 to-black',
+            color: 'from-slate-600 via-slate-500 to-slate-700',
+            lightColor: 'from-slate-50 via-slate-100 to-slate-200',
+            accentColor: 'slate-800',
+            gradient: 'bg-gradient-to-br from-slate-600 to-slate-700',
             emoji: '📚'
         },
         'Psychology': {
             icon: Brain,
-            color: 'from-blue-700 via-teal-600 to-blue-800',
+            color: 'from-blue-600 via-teal-500 to-blue-700',
             lightColor: 'from-blue-50 via-teal-50 to-blue-100',
             accentColor: 'blue-700',
-            gradient: 'bg-gradient-to-br from-blue-700 to-teal-700',
+            gradient: 'bg-gradient-to-br from-blue-600 to-teal-600',
             emoji: '🧠'
         },
         'Engineering': {
             icon: Hammer,
-            color: 'from-gray-700 via-gray-600 to-gray-800',
-            lightColor: 'from-gray-50 via-gray-100 to-gray-200',
-            accentColor: 'gray-700',
-            gradient: 'bg-gradient-to-br from-gray-700 to-gray-900',
+            color: 'from-slate-500 via-slate-400 to-slate-600',
+            lightColor: 'from-slate-50 via-slate-100 to-slate-200',
+            accentColor: 'slate-700',
+            gradient: 'bg-gradient-to-br from-slate-500 to-slate-600',
             emoji: '🔧'
         },
         'General Studies': {
             icon: GraduationCap,
-            color: 'from-gray-600 via-gray-500 to-gray-700',
-            lightColor: 'from-gray-50 via-gray-100 to-gray-200',
-            accentColor: 'gray-600',
-            gradient: 'bg-gradient-to-br from-gray-600 to-gray-800',
+            color: 'from-slate-400 via-slate-300 to-slate-500',
+            lightColor: 'from-slate-50 via-slate-100 to-slate-200',
+            accentColor: 'slate-600',
+            gradient: 'bg-gradient-to-br from-slate-400 to-slate-500',
             emoji: '🎓'
         }
     };
 
-    // ✅ NEW: Re-detect subject using AI
+    // Re-detect subject using AI
     const handleRedetectSubject = useCallback(async (docId, docTitle) => {
         setRedetecting(prev => new Set(prev).add(docId));
-
         try {
             const result = await redetectDocumentSubject(docId);
             toast.success(`Updated: ${result.subject} (${result.confidence}% ${result.method})`);
@@ -141,12 +142,9 @@ const DocumentsSection = () => {
         }
     }, []);
 
-    // ✅ NEW: Batch re-detect all documents in a folder (especially General Studies)
-    const [batchRedetecting, setBatchRedetecting] = useState(false);
-
+    // Batch re-detect all documents in a folder
     const handleBatchRedetect = useCallback(async (folderSubject) => {
         const docsToRedetect = documents.filter(doc => doc.subject === folderSubject);
-
         if (docsToRedetect.length === 0) {
             toast.error('No documents to re-detect');
             return;
@@ -155,21 +153,16 @@ const DocumentsSection = () => {
         setBatchRedetecting(true);
         let successCount = 0;
         let failCount = 0;
-
         const toastId = toast.loading(`Re-detecting ${docsToRedetect.length} documents with AI...`);
 
         for (const doc of docsToRedetect) {
             try {
                 setRedetecting(prev => new Set(prev).add(doc.id));
                 const result = await redetectDocumentSubject(doc.id);
-
                 if (result.subject !== folderSubject) {
                     successCount++;
                 }
-
-                // Update toast progress
                 toast.loading(`Re-detected ${successCount + failCount}/${docsToRedetect.length}...`, { id: toastId });
-
             } catch (error) {
                 console.error(`Re-detection failed for ${doc.id}:`, error);
                 failCount++;
@@ -180,13 +173,10 @@ const DocumentsSection = () => {
                     return newSet;
                 });
             }
-
-            // Small delay to prevent rate limiting
             await new Promise(resolve => setTimeout(resolve, 500));
         }
 
         setBatchRedetecting(false);
-
         if (successCount > 0) {
             toast.success(`✅ Re-categorized ${successCount} document(s)! ${failCount > 0 ? `(${failCount} unchanged)` : ''}`, { id: toastId });
         } else {
@@ -194,11 +184,9 @@ const DocumentsSection = () => {
         }
     }, [documents]);
 
-
-    // PERMANENT DELETE ALL FUNCTION - NO RECOVERY
+    // Delete all in folder
     const handleDeleteAllInFolder = useCallback(async (folderSubject) => {
         const docsToDelete = documents.filter(doc => doc.subject === folderSubject);
-
         if (docsToDelete.length === 0) {
             toast.error('No documents to delete in this folder');
             return;
@@ -211,13 +199,11 @@ const DocumentsSection = () => {
             `All files will be deleted from the database forever.\n\n` +
             `Type "DELETE" in the next prompt to confirm.`
         );
-
         if (!confirmed) return;
 
         const confirmText = window.prompt(
             `Type DELETE (in capital letters) to permanently delete ${docsToDelete.length} documents:`
         );
-
         if (confirmText !== 'DELETE') {
             toast.error('Deletion cancelled - incorrect confirmation');
             return;
@@ -248,7 +234,7 @@ const DocumentsSection = () => {
         );
     }, [documents]);
 
-    // PERMANENT DELETE ALL DOCUMENTS (ENTIRE LIBRARY)
+    // Delete all documents
     const handleDeleteAllDocuments = useCallback(async () => {
         if (documents.length === 0) {
             toast.error('No documents to delete');
@@ -263,7 +249,6 @@ const DocumentsSection = () => {
             `This action CANNOT be undone or recovered.\n\n` +
             `Are you absolutely sure?`
         );
-
         if (!confirmed) return;
 
         const doubleConfirm = window.confirm(
@@ -272,7 +257,6 @@ const DocumentsSection = () => {
             `Clicking OK will DELETE ALL ${documents.length} documents PERMANENTLY.\n\n` +
             `Click Cancel to abort, or OK to proceed with deletion.`
         );
-
         if (!doubleConfirm) {
             toast.success('Deletion cancelled');
             return;
@@ -281,7 +265,6 @@ const DocumentsSection = () => {
         const confirmText = window.prompt(
             `Type DELETE ALL (exactly) to confirm total deletion:`
         );
-
         if (confirmText !== 'DELETE ALL') {
             toast.error('Deletion cancelled - incorrect confirmation');
             return;
@@ -310,7 +293,7 @@ const DocumentsSection = () => {
         );
     }, [documents]);
 
-    // ✅ ENHANCED: Real-time Firestore listener with subject info
+    // Real-time Firestore listener
     useEffect(() => {
         if (!user?.uid) {
             setLoading(false);
@@ -326,7 +309,6 @@ const DocumentsSection = () => {
             (snapshot) => {
                 const docs = snapshot.docs.map(doc => {
                     const data = doc.data();
-
                     return {
                         id: doc.id,
                         ...data,
@@ -385,12 +367,10 @@ const DocumentsSection = () => {
             stats[subject].count++;
             stats[subject].documents.push(doc);
             stats[subject].totalSize += (doc.fileSize || 0);
-
             if (doc.createdAt > stats[subject].lastUpdated) {
                 stats[subject].lastUpdated = doc.createdAt;
             }
         });
-
         return stats;
     }, [documents]);
 
@@ -446,10 +426,8 @@ const DocumentsSection = () => {
     // Bulk delete
     const handleBulkDelete = useCallback(async () => {
         if (selectedDocs.size === 0) return;
-
         if (window.confirm(`Permanently delete ${selectedDocs.size} document(s)? This cannot be undone.`)) {
             const deletePromises = [...selectedDocs].map(docId => deleteDocument(docId));
-
             toast.promise(
                 Promise.all(deletePromises),
                 {
@@ -458,7 +436,6 @@ const DocumentsSection = () => {
                     error: 'Failed to delete some documents',
                 }
             );
-
             setSelectedDocs(new Set());
         }
     }, [selectedDocs]);
@@ -497,7 +474,6 @@ const DocumentsSection = () => {
         if (diffDays === 0) return 'Today';
         if (diffDays === 1) return 'Yesterday';
         if (diffDays < 7) return `${diffDays}d ago`;
-
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     };
 
@@ -516,58 +492,57 @@ const DocumentsSection = () => {
             >
                 <div
                     onClick={() => setSelectedFolder(subject)}
-                    className="relative bg-white rounded-3xl p-6 border-2 border-gray-200
-                             hover:border-teal-500 hover:shadow-2xl hover:shadow-teal-100
-                             transition-all duration-500 hover:-translate-y-2 cursor-pointer"
+                    className="relative bg-white rounded-3xl p-6 border border-slate-200/60 shadow-sm
+                             hover:border-teal-400/60 hover:shadow-xl hover:shadow-teal-100/50
+                             transition-all duration-500 hover:-translate-y-1 cursor-pointer"
                 >
-                    <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${config.color} rounded-t-3xl
-                                   group-hover:h-2.5 transition-all duration-300`} />
+                    <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${config.color} rounded-t-3xl
+                                   group-hover:h-1.5 transition-all duration-300`} />
 
                     <div className="flex items-center justify-between mb-5">
                         <motion.div
                             whileHover={{ rotate: [0, -5, 5, 0], scale: 1.1 }}
                             transition={{ duration: 0.5 }}
-                            className={`w-20 h-20 ${config.gradient} rounded-2xl flex items-center justify-center shadow-xl`}
+                            className={`w-16 h-16 ${config.gradient} rounded-2xl flex items-center justify-center shadow-lg shadow-teal-100/50`}
                         >
-                            <Folder className="text-white" size={36} strokeWidth={1.8} />
+                            <Folder className="text-white" size={30} strokeWidth={2} />
                         </motion.div>
-                        <ChevronRight className="text-gray-400 group-hover:text-teal-600 group-hover:translate-x-2 transition-all" size={26} strokeWidth={2.5} />
+                        <ChevronRight className="text-slate-400 group-hover:text-teal-600 group-hover:translate-x-1 transition-all" size={22} strokeWidth={2.5} />
                     </div>
 
-                    <h3 className="text-xl font-black text-gray-900 mb-3 line-clamp-1">
+                    <h3 className="text-lg font-bold text-slate-800 mb-3 line-clamp-1">
                         {config.emoji} {subject}
                     </h3>
 
-                    <div className="space-y-2.5">
+                    <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                            <span className="text-sm font-bold text-gray-700">
+                            <span className="text-sm font-semibold text-slate-600">
                                 {stats.count} document{stats.count !== 1 ? 's' : ''}
                             </span>
-                            <span className="text-sm text-gray-500 font-semibold">
+                            <span className="text-sm text-slate-500 font-medium">
                                 {formatSize(stats.totalSize)}
                             </span>
                         </div>
                     </div>
 
-                    <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between gap-2">
-                        <span className="text-xs text-gray-500 font-medium">
+                    <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between gap-2">
+                        <span className="text-xs text-slate-500 font-medium">
                             {formatDate(stats.lastUpdated)}
                         </span>
 
                         <div className="flex items-center gap-2">
-                            {/* ✅ NEW: Re-detect All button - especially for General Studies */}
                             <motion.button
-                                whileHover={{ scale: 1.1 }}
+                                whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     handleBatchRedetect(subject);
                                 }}
                                 disabled={batchRedetecting}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border flex items-center gap-1
+                                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border flex items-center gap-1
                                           ${batchRedetecting
-                                        ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                                        : 'bg-gradient-to-r from-teal-50 to-blue-50 text-teal-700 hover:from-teal-100 hover:to-blue-100 border-teal-200 hover:border-teal-400'
+                                        ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                                        : 'bg-gradient-to-r from-teal-50 to-blue-50 text-teal-700 hover:from-teal-100 hover:to-blue-100 border-teal-200/60 hover:border-teal-400/60'
                                     }`}
                                 title="Re-detect all documents with AI"
                             >
@@ -576,26 +551,25 @@ const DocumentsSection = () => {
                                         animate={{ rotate: 360 }}
                                         transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                                     >
-                                        <Sparkles size={14} strokeWidth={2} />
+                                        <Sparkles size={13} strokeWidth={2} />
                                     </motion.div>
                                 ) : (
-                                    <Sparkles size={14} strokeWidth={2} />
+                                    <Sparkles size={13} strokeWidth={2} />
                                 )}
-                                Re-detect All
+                                <span className="hidden sm:inline">AI Detect</span>
                             </motion.button>
 
                             <motion.button
-                                whileHover={{ scale: 1.1 }}
+                                whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     handleDeleteAllInFolder(subject);
                                 }}
-                                className="px-3 py-1.5 bg-gray-100 hover:bg-red-50 text-gray-600 hover:text-red-600 
-                                         rounded-lg text-xs font-bold transition-all border border-gray-200 hover:border-red-300"
+                                className="px-2.5 py-1.5 bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600 
+                                         rounded-lg text-xs font-semibold transition-all border border-slate-200/60 hover:border-red-300/60"
                             >
-                                <Trash2 size={14} className="inline mr-1" strokeWidth={2} />
-                                Delete All
+                                <Trash2 size={13} className="inline" strokeWidth={2} />
                             </motion.button>
                         </div>
                     </div>
@@ -604,7 +578,7 @@ const DocumentsSection = () => {
         );
     };
 
-    // ✅ ENHANCED: Render document card with AI detection indicator
+    // Render document card
     const renderDocumentCard = (doc, idx) => {
         const subject = doc.subject || 'General Studies';
         const config = subjectConfig[subject] || subjectConfig['General Studies'];
@@ -614,16 +588,15 @@ const DocumentsSection = () => {
         const method = doc.detectionMethod || 'unknown';
         const isRedetecting = redetecting.has(doc.id);
 
-        // ✅ Determine badge colors based on method and confidence
         const getBadgeStyle = () => {
             if (method === 'ai_gemini') {
                 return confidence >= 90
                     ? 'bg-gradient-to-r from-teal-500 to-blue-600 text-white border-teal-400'
                     : 'bg-gradient-to-r from-blue-500 to-teal-500 text-white border-blue-400';
             } else if (method === 'keyword') {
-                return 'bg-gray-100 text-gray-700 border-gray-300';
+                return 'bg-slate-100 text-slate-700 border-slate-300';
             }
-            return 'bg-gray-50 text-gray-500 border-gray-200';
+            return 'bg-slate-50 text-slate-500 border-slate-200';
         };
 
         return (
@@ -634,10 +607,10 @@ const DocumentsSection = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ delay: idx * 0.02, type: "spring" }}
-                className={`group relative bg-white rounded-2xl p-5 border-2 transition-all cursor-pointer
+                className={`group relative bg-white rounded-2xl p-5 border shadow-sm transition-all cursor-pointer
                           ${isSelected
-                        ? 'border-blue-500 shadow-xl shadow-blue-100'
-                        : 'border-gray-200 hover:border-teal-400 hover:shadow-xl hover:shadow-teal-50'
+                        ? 'border-blue-400/60 shadow-lg shadow-blue-100/50'
+                        : 'border-slate-200/60 hover:border-teal-400/60 hover:shadow-lg hover:shadow-teal-50/50'
                     }`}
                 onClick={() => navigate(`/study/${doc.id}`)}
             >
@@ -657,8 +630,8 @@ const DocumentsSection = () => {
                                 return newSet;
                             });
                         }}
-                        className="w-5 h-5 rounded-md border-2 border-gray-300 text-blue-600 
-                                 focus:ring-2 focus:ring-blue-500 cursor-pointer hover:border-blue-500"
+                        className="w-5 h-5 rounded-md border-2 border-slate-300 text-blue-600 
+                                 focus:ring-2 focus:ring-blue-400/50 cursor-pointer hover:border-blue-500 transition-colors"
                     />
                 </div>
 
@@ -666,29 +639,28 @@ const DocumentsSection = () => {
                     <div className="relative shrink-0">
                         <motion.div
                             whileHover={{ scale: 1.08 }}
-                            className={`w-16 h-16 ${config.gradient} rounded-xl flex items-center justify-center shadow-lg`}
+                            className={`w-14 h-14 ${config.gradient} rounded-xl flex items-center justify-center shadow-md shadow-teal-100/50`}
                         >
-                            <FileText className="text-white" size={28} strokeWidth={2.2} />
+                            <FileText className="text-white" size={24} strokeWidth={2.2} />
                         </motion.div>
                         {isFavorite && (
                             <motion.div
                                 initial={{ scale: 0 }}
                                 animate={{ scale: 1 }}
-                                className="absolute -top-1.5 -right-1.5 bg-gradient-to-br from-teal-400 to-blue-500 rounded-full p-1.5 shadow-lg"
+                                className="absolute -top-1 -right-1 bg-gradient-to-br from-teal-400 to-blue-500 rounded-full p-1 shadow-md"
                             >
-                                <Star size={12} className="text-white" fill="white" strokeWidth={0} />
+                                <Star size={10} className="text-white" fill="white" strokeWidth={0} />
                             </motion.div>
                         )}
                     </div>
 
                     <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-3 mb-2">
-                            <h4 className="text-base font-black text-gray-900 group-hover:text-teal-700 leading-snug line-clamp-2">
+                            <h4 className="text-base font-bold text-slate-800 group-hover:text-teal-700 leading-snug line-clamp-2 transition-colors">
                                 {doc.title || doc.fileName || 'Untitled'}
                             </h4>
 
                             <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                {/* ✅ NEW: Re-detect button */}
                                 <motion.button
                                     whileHover={{ scale: 1.1 }}
                                     whileTap={{ scale: 0.95 }}
@@ -698,8 +670,8 @@ const DocumentsSection = () => {
                                     }}
                                     disabled={isRedetecting}
                                     className={`p-2 rounded-lg transition-all border ${isRedetecting
-                                        ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                                        : 'bg-gradient-to-r from-teal-50 to-blue-50 text-teal-700 hover:from-teal-100 hover:to-blue-100 border-teal-200'
+                                        ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                                        : 'bg-gradient-to-r from-teal-50 to-blue-50 text-teal-700 hover:from-teal-100 hover:to-blue-100 border-teal-200/60'
                                         }`}
                                     title="Re-detect subject with AI"
                                 >
@@ -708,10 +680,10 @@ const DocumentsSection = () => {
                                             animate={{ rotate: 360 }}
                                             transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                                         >
-                                            <Sparkles size={16} strokeWidth={2} />
+                                            <Sparkles size={15} strokeWidth={2} />
                                         </motion.div>
                                     ) : (
-                                        <Sparkles size={16} strokeWidth={2} />
+                                        <Sparkles size={15} strokeWidth={2} />
                                     )}
                                 </motion.button>
 
@@ -723,12 +695,13 @@ const DocumentsSection = () => {
                                         toggleFavorite(doc.id);
                                     }}
                                     className={`p-2 rounded-lg transition-all border ${isFavorite
-                                        ? 'bg-teal-50 text-teal-700 border-teal-200'
-                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-200'
+                                        ? 'bg-teal-50 text-teal-700 border-teal-200/60'
+                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border-slate-200/60'
                                         }`}
                                 >
-                                    {isFavorite ? <Star size={16} fill="currentColor" strokeWidth={0} /> : <Star size={16} strokeWidth={2} />}
+                                    {isFavorite ? <Star size={15} fill="currentColor" strokeWidth={0} /> : <Star size={15} strokeWidth={2} />}
                                 </motion.button>
+
                                 <motion.button
                                     whileHover={{ scale: 1.1 }}
                                     whileTap={{ scale: 0.95 }}
@@ -736,11 +709,12 @@ const DocumentsSection = () => {
                                         e.stopPropagation();
                                         navigate(`/study/${doc.id}`);
                                     }}
-                                    className="p-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-blue-50 hover:text-blue-600
-                                             transition-all border border-gray-200"
+                                    className="p-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-blue-50 hover:text-blue-600
+                                             transition-all border border-slate-200/60"
                                 >
-                                    <Eye size={16} strokeWidth={2} />
+                                    <Eye size={15} strokeWidth={2} />
                                 </motion.button>
+
                                 <motion.button
                                     whileHover={{ scale: 1.1 }}
                                     whileTap={{ scale: 0.95 }}
@@ -748,44 +722,41 @@ const DocumentsSection = () => {
                                         e.stopPropagation();
                                         handleDelete(doc.id, doc.title);
                                     }}
-                                    className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-600
-                                             transition-all border border-gray-200"
+                                    className="p-2 rounded-lg bg-slate-100 text-slate-600 hover:bg-red-50 hover:text-red-600
+                                             transition-all border border-slate-200/60"
                                 >
-                                    <Trash2 size={16} strokeWidth={2} />
+                                    <Trash2 size={15} strokeWidth={2} />
                                 </motion.button>
                             </div>
                         </div>
 
-                        {/* ✅ ENHANCED: Detection method badges */}
-                        <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
-                            <span className="flex items-center gap-1.5 font-semibold">
-                                <Calendar size={13} strokeWidth={2} />
+                        <div className="flex flex-wrap items-center gap-2.5 text-xs text-slate-500">
+                            <span className="flex items-center gap-1.5 font-medium">
+                                <Calendar size={12} strokeWidth={2} />
                                 {formatDate(doc.createdAt)}
                             </span>
-                            <span className="flex items-center gap-1.5 font-semibold">
-                                <HardDrive size={13} strokeWidth={2} />
+                            <span className="flex items-center gap-1.5 font-medium">
+                                <HardDrive size={12} strokeWidth={2} />
                                 {formatSize(doc.fileSize)}
                             </span>
-                            <span className={`px-2.5 py-1 rounded-lg text-xs font-bold bg-gradient-to-r ${config.lightColor} border border-gray-200`}>
+                            <span className={`px-2 py-1 rounded-lg text-xs font-semibold bg-gradient-to-r ${config.lightColor} border border-slate-200/60`}>
                                 {subject}
                             </span>
 
-                            {/* 🎯 ENHANCED: Detection badge with method indicator */}
                             {confidence > 0 && (
                                 <div className="relative group/tooltip">
                                     <motion.span
                                         initial={{ scale: 0 }}
                                         animate={{ scale: 1 }}
                                         transition={{ delay: 0.2 }}
-                                        className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-help border ${getBadgeStyle()}`}
+                                        className={`px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-help border ${getBadgeStyle()}`}
                                     >
-                                        {method === 'ai_gemini' && <Sparkles size={12} strokeWidth={2.5} />}
-                                        <Target size={12} strokeWidth={2.5} />
+                                        {method === 'ai_gemini' && <Sparkles size={11} strokeWidth={2.5} />}
+                                        <Target size={11} strokeWidth={2.5} />
                                         {confidence}%
                                     </motion.span>
 
-                                    {/* Enhanced Tooltip */}
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg 
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-slate-900 text-white text-xs rounded-lg 
                                                   opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl">
                                         {method === 'ai_gemini' ? (
                                             <>
@@ -799,7 +770,7 @@ const DocumentsSection = () => {
                                         ) : (
                                             '❓ Unknown Method'
                                         )}
-                                        <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                                        <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-900"></div>
                                     </div>
                                 </div>
                             )}
@@ -812,31 +783,33 @@ const DocumentsSection = () => {
 
     if (loading) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 via-white to-teal-50">
+            <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50">
                 <motion.div
                     animate={{ rotate: 360 }}
                     transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                    className="w-20 h-20 border-4 border-gray-200 border-t-teal-600 rounded-full shadow-xl mb-6"
+                    className="w-16 h-16 border-4 border-slate-200 border-t-teal-600 rounded-full shadow-lg mb-5"
                 />
-                <p className="text-gray-700 font-black text-xl">Loading library...</p>
+                <p className="text-slate-700 font-bold text-lg">Loading library...</p>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-teal-50 relative overflow-hidden">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50 relative overflow-hidden">
+            {/* Animated background orbs */}
             <motion.div
-                animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
+                animate={{ scale: [1, 1.2, 1], opacity: [0.15, 0.25, 0.15] }}
                 transition={{ duration: 8, repeat: Infinity }}
-                className="absolute top-20 left-20 w-96 h-96 bg-gradient-to-br from-blue-200/30 via-teal-200/30 to-transparent rounded-full blur-3xl"
+                className="absolute top-20 left-20 w-96 h-96 bg-gradient-to-br from-blue-200/40 via-teal-200/40 to-transparent rounded-full blur-3xl pointer-events-none"
             />
             <motion.div
-                animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.4, 0.2] }}
+                animate={{ scale: [1, 1.3, 1], opacity: [0.1, 0.2, 0.1] }}
                 transition={{ duration: 10, repeat: Infinity, delay: 1 }}
-                className="absolute bottom-20 right-20 w-96 h-96 bg-gradient-to-br from-teal-200/30 via-blue-200/30 to-transparent rounded-full blur-3xl"
+                className="absolute bottom-20 right-20 w-96 h-96 bg-gradient-to-br from-teal-200/40 via-blue-200/40 to-transparent rounded-full blur-3xl pointer-events-none"
             />
 
             <div className="relative z-10 max-w-7xl mx-auto px-6 py-8">
+                {/* Header */}
                 <div className="mb-8">
                     <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center gap-4">
@@ -845,16 +818,16 @@ const DocumentsSection = () => {
                                     whileHover={{ scale: 1.05, x: -2 }}
                                     whileTap={{ scale: 0.95 }}
                                     onClick={() => setSelectedFolder(null)}
-                                    className="p-3.5 rounded-2xl bg-white border-2 border-gray-200 hover:border-teal-500 hover:shadow-xl transition-all"
+                                    className="p-3 rounded-2xl bg-white border border-slate-200/60 hover:border-teal-500/60 hover:shadow-lg transition-all"
                                 >
-                                    <ArrowLeft size={22} className="text-gray-700" strokeWidth={2.5} />
+                                    <ArrowLeft size={20} className="text-slate-700" strokeWidth={2.5} />
                                 </motion.button>
                             )}
                             <div>
-                                <h1 className="text-4xl font-black bg-gradient-to-r from-gray-900 via-teal-700 to-blue-700 bg-clip-text text-transparent">
+                                <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-800 via-teal-700 to-blue-700 bg-clip-text text-transparent">
                                     {selectedFolder || 'My Library'}
                                 </h1>
-                                <p className="text-gray-600 font-semibold flex items-center gap-2">
+                                <p className="text-slate-600 font-medium flex items-center gap-2 mt-1">
                                     {selectedFolder
                                         ? `${filteredDocuments.length} document${filteredDocuments.length !== 1 ? 's' : ''}`
                                         : `${Object.keys(folderStats).length} folders • ${documents.length} documents • ${formatSize(documentStats.totalSize)}`
@@ -869,11 +842,11 @@ const DocumentsSection = () => {
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
                                     onClick={handleDeleteAllDocuments}
-                                    className="flex items-center gap-2.5 px-6 py-3.5 bg-gradient-to-r from-gray-700 to-gray-900
-                                             text-white rounded-2xl font-black hover:shadow-2xl hover:shadow-gray-500/40
-                                             transition-all border-2 border-gray-600"
+                                    className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-slate-700 to-slate-900
+                                             text-white rounded-2xl font-semibold hover:shadow-lg hover:shadow-slate-400/40
+                                             transition-all border border-slate-600"
                                 >
-                                    <Trash2 size={20} strokeWidth={2.5} />
+                                    <Trash2 size={18} strokeWidth={2.5} />
                                     <span>Delete All</span>
                                 </motion.button>
                             )}
@@ -882,10 +855,10 @@ const DocumentsSection = () => {
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
                                 onClick={() => navigate('/upload')}
-                                className="flex items-center gap-2.5 px-6 py-3.5 bg-gradient-to-r from-blue-600 to-teal-600
-                                         text-white rounded-2xl font-black hover:shadow-2xl hover:shadow-blue-500/50 transition-all"
+                                className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-blue-600 to-teal-600
+                                         text-white rounded-2xl font-semibold hover:shadow-lg hover:shadow-blue-400/40 transition-all"
                             >
-                                <Upload size={20} strokeWidth={2.5} />
+                                <Upload size={18} strokeWidth={2.5} />
                                 <span>Upload</span>
                             </motion.button>
                         </div>
@@ -894,45 +867,45 @@ const DocumentsSection = () => {
                     {selectedFolder && (
                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                             <div className="flex-1 relative">
-                                <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400" size={20} strokeWidth={2.5} />
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} strokeWidth={2.5} />
                                 <input
                                     type="text"
                                     placeholder="Search documents..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="w-full pl-14 pr-14 py-4 bg-white rounded-2xl border-2 border-gray-200 
-                                             focus:border-teal-500 focus:shadow-xl transition-all font-semibold"
+                                    className="w-full pl-12 pr-4 py-3.5 bg-white rounded-2xl border border-slate-200/60 
+                                             focus:border-teal-500/60 focus:shadow-lg transition-all font-medium text-slate-800 placeholder:text-slate-400"
                                 />
                             </div>
 
-                            <div className="flex items-center gap-2 bg-white rounded-2xl border-2 border-gray-200 p-1.5">
+                            <div className="flex items-center gap-2 bg-white rounded-2xl border border-slate-200/60 p-1">
                                 <motion.button
                                     whileTap={{ scale: 0.95 }}
                                     onClick={() => setViewMode('grid')}
-                                    className={`p-3 rounded-xl transition-all ${viewMode === 'grid'
-                                        ? 'bg-gradient-to-br from-blue-600 to-teal-600 text-white shadow-lg'
-                                        : 'text-gray-600 hover:bg-gray-100'
+                                    className={`p-2.5 rounded-xl transition-all ${viewMode === 'grid'
+                                        ? 'bg-gradient-to-br from-blue-600 to-teal-600 text-white shadow-md'
+                                        : 'text-slate-600 hover:bg-slate-100'
                                         }`}
                                 >
-                                    <LayoutGrid size={18} strokeWidth={2.5} />
+                                    <LayoutGrid size={17} strokeWidth={2.5} />
                                 </motion.button>
                                 <motion.button
                                     whileTap={{ scale: 0.95 }}
                                     onClick={() => setViewMode('list')}
-                                    className={`p-3 rounded-xl transition-all ${viewMode === 'list'
-                                        ? 'bg-gradient-to-br from-blue-600 to-teal-600 text-white shadow-lg'
-                                        : 'text-gray-600 hover:bg-gray-100'
+                                    className={`p-2.5 rounded-xl transition-all ${viewMode === 'list'
+                                        ? 'bg-gradient-to-br from-blue-600 to-teal-600 text-white shadow-md'
+                                        : 'text-slate-600 hover:bg-slate-100'
                                         }`}
                                 >
-                                    <List size={18} strokeWidth={2.5} />
+                                    <List size={17} strokeWidth={2.5} />
                                 </motion.button>
                             </div>
 
                             <select
                                 value={sortBy}
                                 onChange={(e) => setSortBy(e.target.value)}
-                                className="px-5 py-4 bg-white rounded-2xl border-2 border-gray-200 focus:border-teal-500 
-                                         transition-all font-black text-gray-900 cursor-pointer"
+                                className="px-4 py-3.5 bg-white rounded-2xl border border-slate-200/60 focus:border-teal-500/60 
+                                         transition-all font-semibold text-slate-800 cursor-pointer"
                             >
                                 <option value="newest">📅 Newest</option>
                                 <option value="oldest">📆 Oldest</option>
@@ -942,20 +915,21 @@ const DocumentsSection = () => {
                         </div>
                     )}
 
+                    {/* Bulk selection bar */}
                     <AnimatePresence>
                         {selectedDocs.size > 0 && (
                             <motion.div
                                 initial={{ opacity: 0, y: -20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -20 }}
-                                className="mt-4 flex items-center justify-between px-6 py-4 bg-gradient-to-r from-blue-50 to-teal-50 
-                                         rounded-2xl border-2 border-blue-200 shadow-lg"
+                                className="mt-4 flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-blue-50 to-teal-50 
+                                         rounded-2xl border border-blue-200/60 shadow-md"
                             >
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
-                                        <Check size={20} className="text-white" strokeWidth={3} />
+                                    <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center shadow-md">
+                                        <Check size={18} className="text-white" strokeWidth={3} />
                                     </div>
-                                    <span className="font-black text-blue-900 text-lg">
+                                    <span className="font-bold text-blue-900 text-base">
                                         {selectedDocs.size} selected
                                     </span>
                                 </div>
@@ -964,8 +938,8 @@ const DocumentsSection = () => {
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
                                         onClick={() => setSelectedDocs(new Set())}
-                                        className="px-5 py-2.5 bg-white rounded-xl text-gray-700 font-black hover:bg-gray-100 
-                                                 transition-all border-2 border-gray-200"
+                                        className="px-4 py-2 bg-white rounded-xl text-slate-700 font-semibold hover:bg-slate-100 
+                                                 transition-all border border-slate-200/60"
                                     >
                                         Clear
                                     </motion.button>
@@ -973,10 +947,10 @@ const DocumentsSection = () => {
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
                                         onClick={handleBulkDelete}
-                                        className="px-5 py-2.5 bg-gradient-to-r from-gray-700 to-gray-900 rounded-xl text-white font-black 
-                                                 hover:shadow-xl transition-all"
+                                        className="px-4 py-2 bg-gradient-to-r from-slate-700 to-slate-900 rounded-xl text-white font-semibold 
+                                                 hover:shadow-lg transition-all"
                                     >
-                                        <Trash2 size={16} className="inline mr-2" strokeWidth={2.5} />
+                                        <Trash2 size={15} className="inline mr-1.5" strokeWidth={2.5} />
                                         Delete
                                     </motion.button>
                                 </div>
@@ -985,6 +959,7 @@ const DocumentsSection = () => {
                     </AnimatePresence>
                 </div>
 
+                {/* Content */}
                 <AnimatePresence mode="wait">
                     {!selectedFolder ? (
                         <motion.div
@@ -992,7 +967,7 @@ const DocumentsSection = () => {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
                         >
                             {Object.entries(folderStats).length > 0 ? (
                                 Object.entries(folderStats).map(([subject, stats], idx) =>
@@ -1003,21 +978,21 @@ const DocumentsSection = () => {
                                     <motion.div
                                         initial={{ scale: 0 }}
                                         animate={{ scale: 1 }}
-                                        className="w-32 h-32 bg-gradient-to-br from-gray-200 to-gray-100 rounded-full
-                                                  flex items-center justify-center mx-auto mb-6 shadow-2xl"
+                                        className="w-28 h-28 bg-gradient-to-br from-slate-200 to-slate-100 rounded-full
+                                                  flex items-center justify-center mx-auto mb-5 shadow-lg"
                                     >
-                                        <FileText size={60} className="text-gray-400" strokeWidth={1.5} />
+                                        <FileText size={50} className="text-slate-400" strokeWidth={1.5} />
                                     </motion.div>
-                                    <h3 className="text-3xl font-black text-gray-900 mb-3">No documents yet</h3>
-                                    <p className="text-gray-600 text-lg mb-6">Upload your first document to get started</p>
+                                    <h3 className="text-2xl font-bold text-slate-800 mb-2">No documents yet</h3>
+                                    <p className="text-slate-600 text-base mb-5">Upload your first document to get started</p>
                                     <motion.button
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
                                         onClick={() => navigate('/upload')}
-                                        className="px-8 py-4 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-2xl 
-                                                 font-black hover:shadow-2xl transition-all inline-flex items-center gap-2"
+                                        className="px-7 py-3.5 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-2xl 
+                                                 font-semibold hover:shadow-lg transition-all inline-flex items-center gap-2"
                                     >
-                                        <Upload size={20} strokeWidth={2.5} />
+                                        <Upload size={18} strokeWidth={2.5} />
                                         Upload Document
                                     </motion.button>
                                 </div>
@@ -1038,13 +1013,13 @@ const DocumentsSection = () => {
                                     <motion.div
                                         initial={{ scale: 0 }}
                                         animate={{ scale: 1 }}
-                                        className="w-32 h-32 bg-gradient-to-br from-gray-200 to-gray-100 rounded-full
-                                                  flex items-center justify-center mx-auto mb-6 shadow-2xl"
+                                        className="w-28 h-28 bg-gradient-to-br from-slate-200 to-slate-100 rounded-full
+                                                  flex items-center justify-center mx-auto mb-5 shadow-lg"
                                     >
-                                        <Search size={50} className="text-gray-400" strokeWidth={1.5} />
+                                        <Search size={45} className="text-slate-400" strokeWidth={1.5} />
                                     </motion.div>
-                                    <h3 className="text-3xl font-black text-gray-900 mb-3">No matches found</h3>
-                                    <p className="text-gray-600 text-lg mb-6">
+                                    <h3 className="text-2xl font-bold text-slate-800 mb-2">No matches found</h3>
+                                    <p className="text-slate-600 text-base mb-5">
                                         {searchTerm ? `No results for "${searchTerm}"` : 'This folder is empty'}
                                     </p>
                                     {searchTerm ? (
@@ -1052,10 +1027,10 @@ const DocumentsSection = () => {
                                             whileHover={{ scale: 1.05 }}
                                             whileTap={{ scale: 0.95 }}
                                             onClick={() => setSearchTerm('')}
-                                            className="px-8 py-4 bg-gradient-to-r from-gray-700 to-gray-900 text-white rounded-2xl 
-                                                     font-black hover:shadow-2xl transition-all inline-flex items-center gap-2"
+                                            className="px-7 py-3.5 bg-gradient-to-r from-slate-700 to-slate-900 text-white rounded-2xl 
+                                                     font-semibold hover:shadow-lg transition-all inline-flex items-center gap-2"
                                         >
-                                            <X size={20} strokeWidth={2.5} />
+                                            <X size={18} strokeWidth={2.5} />
                                             Clear Search
                                         </motion.button>
                                     ) : (
@@ -1063,10 +1038,10 @@ const DocumentsSection = () => {
                                             whileHover={{ scale: 1.05 }}
                                             whileTap={{ scale: 0.95 }}
                                             onClick={() => navigate('/upload')}
-                                            className="px-8 py-4 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-2xl 
-                                                     font-black hover:shadow-2xl transition-all inline-flex items-center gap-2"
+                                            className="px-7 py-3.5 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-2xl 
+                                                     font-semibold hover:shadow-lg transition-all inline-flex items-center gap-2"
                                         >
-                                            <Upload size={20} strokeWidth={2.5} />
+                                            <Upload size={18} strokeWidth={2.5} />
                                             Upload Document
                                         </motion.button>
                                     )}

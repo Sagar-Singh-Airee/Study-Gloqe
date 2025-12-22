@@ -1,14 +1,14 @@
-// src/components/features/AchievementsSection.jsx - ✨ LIGHT PREMIUM VERSION
+// src/components/features/AchievementsSection.jsx - BOLD MINIMALIST WITH TEAL ✨
+
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Trophy, Award, Gift, Crown, Star, Zap, BookOpen, Target, Lock,
-    TrendingUp, Flame, Medal, Sparkles, ArrowRight, Info, ChevronRight,
-    CheckCircle2
+    TrendingUp, Flame, Medal, Sparkles, ArrowRight, CheckCircle2
 } from 'lucide-react';
 import { useGamification } from '@gamification/hooks/useGamification';
 
-// --- UsersIcon Component ---
+// UsersIcon Component
 function UsersIcon({ className }) {
     return (
         <svg
@@ -31,39 +31,18 @@ function UsersIcon({ className }) {
     );
 }
 
-// --- ICONS MAPPING ---
+// Icons Mapping
 const IconMap = {
-    Zap: Zap,
-    Star: Star,
-    BookOpen: BookOpen,
-    Target: Target,
-    UsersIcon: UsersIcon,
-    Crown: Crown,
-    Trophy: Trophy,
-    Award: Award,
-    Medal: Medal,
-    Flame: Flame
+    Zap, Star, BookOpen, Target, UsersIcon, Crown, Trophy, Award, Medal, Flame
 };
 
 const AchievementsSection = () => {
     const [activeTab, setActiveTab] = useState('badges');
 
     const {
-        xp,
-        level,
-        nextLevelXp,
-        levelProgress,
-        globalRank,
-        streak,
-        totalBadges,
-        equippedTitle,
-        allBadges,
-        allTitles,
-        loading,
-        changeTitle,
-        xpToNextLevel,
-        badgeCompletionRate,
-        syncing
+        xp, level, nextLevelXp, levelProgress, globalRank, streak, totalBadges,
+        equippedTitle, allBadges, allTitles, loading, changeTitle,
+        xpToNextLevel, badgeCompletionRate, syncing
     } = useGamification();
 
     const handleEquipTitle = async (titleId) => {
@@ -73,299 +52,232 @@ const AchievementsSection = () => {
         }
     };
 
-    // Calculate badge statistics
     const unlockedBadges = allBadges.filter(b => b.unlocked).length;
     const totalBadgesCount = allBadges.length;
     const unlockedTitles = allTitles.filter(t => t.unlocked).length;
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-white">
+            <div className="min-h-screen flex items-center justify-center bg-white">
                 <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
                     className="text-center"
                 >
                     <motion.div
                         animate={{ rotate: 360 }}
-                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                        className="w-16 h-16 border-3 border-gray-200 border-t-gray-900 rounded-full mx-auto mb-4"
+                        transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                        className="w-14 h-14 border-3 border-slate-200 border-t-teal-600 rounded-full mx-auto mb-4"
                     />
-                    <p className="text-gray-900 font-bold text-lg">Loading Achievements...</p>
-                    <p className="text-gray-500 text-sm mt-1">Syncing your progress</p>
+                    <p className="text-slate-900 font-bold text-lg">Loading</p>
                 </motion.div>
             </div>
         );
     }
 
     return (
-        <div className="space-y-6 pb-8">
-            {/* ✨ LIGHT Hero Header */}
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="relative bg-white rounded-2xl p-8 shadow-sm border border-gray-200 overflow-hidden"
-            >
-                {/* Subtle gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-br from-gray-50/50 to-white pointer-events-none" />
+        <div className="min-h-screen bg-white">
+            <div className="max-w-6xl mx-auto px-8 py-12">
+                {/* Bold Header */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-16"
+                >
+                    {/* Badges */}
+                    <div className="flex items-center gap-3 mb-10">
+                        <div className="px-4 py-1.5 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-lg text-sm font-bold tracking-wide shadow-lg shadow-teal-600/20">
+                            LEVEL {level}
+                        </div>
+                        <div className="flex items-center gap-2 px-4 py-1.5 bg-slate-100 rounded-lg">
+                            <Trophy size={14} className="text-teal-600" />
+                            <span className="text-sm font-bold text-slate-900">#{globalRank}</span>
+                        </div>
+                        <div className="flex items-center gap-2 px-4 py-1.5 bg-slate-100 rounded-lg">
+                            <Crown size={14} className="text-teal-600" />
+                            <span className="text-sm font-bold text-slate-900">{equippedTitle}</span>
+                        </div>
+                    </div>
 
-                <div className="relative z-10">
-                    <div className="grid lg:grid-cols-[1fr_380px] gap-8 items-start">
-                        {/* Left: User Info */}
-                        <div>
-                            <motion.div
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.1 }}
-                                className="flex items-center gap-3 mb-6 flex-wrap"
-                            >
-                                <div className="px-4 py-1.5 bg-gray-900 text-white rounded-full text-sm font-bold">
-                                    Level {level}
-                                </div>
-                                <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-full border border-gray-200">
-                                    <Trophy size={14} className="text-gray-700" />
-                                    <span className="text-sm font-semibold text-gray-700">Rank #{globalRank}</span>
-                                </div>
-                            </motion.div>
+                    {/* Large Bold Title */}
+                    <h1 className="text-7xl font-black text-slate-900 mb-14 tracking-tight leading-none">
+                        Achievements
+                    </h1>
 
-                            <motion.h1
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.2 }}
-                                className="text-4xl md:text-5xl font-black mb-4 text-gray-900"
-                            >
-                                My Achievements
-                            </motion.h1>
+                    {/* Stats Grid - Bold */}
+                    <div className="grid grid-cols-4 gap-6">
+                        {/* XP Card - Gradient */}
+                        <div className="col-span-2 relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-black rounded-2xl p-8 shadow-xl">
+                            <div className="absolute top-0 right-0 w-40 h-40 bg-teal-500/10 rounded-full blur-3xl" />
 
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                transition={{ delay: 0.3 }}
-                                className="flex items-center gap-2 mb-8 text-gray-600"
-                            >
-                                <Crown size={16} className="text-gray-900" />
-                                <span className="text-sm font-medium">{equippedTitle}</span>
-                            </motion.div>
-
-                            {/* Clean Stats Grid */}
-                            <motion.div
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.4 }}
-                                className="grid grid-cols-3 gap-4"
-                            >
-                                <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-4 border border-gray-200">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
-                                            <Flame size={16} className="text-orange-600" />
-                                        </div>
+                            <div className="relative z-10">
+                                <div className="flex justify-between items-start mb-8">
+                                    <div>
+                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Total XP</p>
+                                        <p className="text-5xl font-black text-white tracking-tight">{xp.toLocaleString()}</p>
                                     </div>
-                                    <p className="text-2xl font-black text-gray-900 mb-0.5">{streak}</p>
-                                    <p className="text-xs text-gray-500 font-medium">Day Streak</p>
+                                    <div className="text-right">
+                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Next Level</p>
+                                        <p className="text-2xl font-bold text-teal-400">{nextLevelXp.toLocaleString()}</p>
+                                    </div>
                                 </div>
 
-                                <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-4 border border-gray-200">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
-                                            <Medal size={16} className="text-blue-600" />
-                                        </div>
-                                    </div>
-                                    <p className="text-2xl font-black text-gray-900 mb-0.5">{totalBadges}</p>
-                                    <p className="text-xs text-gray-500 font-medium">{unlockedBadges}/{totalBadgesCount} Badges</p>
+                                <div className="relative h-2 bg-slate-700 rounded-full overflow-hidden mb-4">
+                                    <motion.div
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${levelProgress}%` }}
+                                        transition={{ duration: 1, ease: "easeOut" }}
+                                        className="absolute h-full bg-gradient-to-r from-teal-400 via-teal-500 to-teal-600 rounded-full shadow-lg shadow-teal-500/50"
+                                    />
                                 </div>
 
-                                <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-4 border border-gray-200">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center">
-                                            <TrendingUp size={16} className="text-green-600" />
-                                        </div>
-                                    </div>
-                                    <p className="text-2xl font-black text-gray-900 mb-0.5">{badgeCompletionRate}%</p>
-                                    <p className="text-xs text-gray-500 font-medium">Complete</p>
+                                <div className="flex justify-between text-xs font-bold">
+                                    <span className="text-slate-400">{levelProgress}% COMPLETE</span>
+                                    <span className="text-white">{xpToNextLevel.toLocaleString()} TO GO</span>
                                 </div>
-                            </motion.div>
+                            </div>
                         </div>
 
-                        {/* Right: Clean XP Progress Card */}
-                        <motion.div
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.3 }}
-                            className="bg-gradient-to-br from-gray-900 to-black p-6 rounded-2xl text-white border border-gray-800"
-                        >
-                            <div className="flex justify-between items-start mb-4">
-                                <div>
-                                    <p className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-1">Total XP</p>
-                                    <p className="text-3xl font-black">{xp.toLocaleString()}</p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-xs text-gray-400 font-medium mb-1">Next Level</p>
-                                    <p className="text-xl font-bold text-gray-300">{nextLevelXp.toLocaleString()}</p>
-                                </div>
-                            </div>
+                        {/* Mini Stats - Bold */}
+                        <div className="border-2 border-slate-200 rounded-2xl p-7 hover:border-teal-500 transition-colors">
+                            <Flame size={28} className="text-teal-600 mb-5" strokeWidth={2.5} />
+                            <p className="text-4xl font-black text-slate-900 mb-2">{streak}</p>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Day Streak</p>
+                        </div>
 
-                            {/* Clean Progress Bar */}
-                            <div className="relative h-3 bg-gray-800 rounded-full overflow-hidden mb-3">
-                                <motion.div
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${levelProgress}%` }}
-                                    transition={{ duration: 1.2, ease: "easeOut", delay: 0.5 }}
-                                    className="h-full bg-gradient-to-r from-gray-400 to-white rounded-full"
-                                />
-                            </div>
-
-                            <div className="flex justify-between items-center text-xs">
-                                <span className="text-gray-400 font-medium">{levelProgress}% Complete</span>
-                                <span className="text-white font-bold">{xpToNextLevel.toLocaleString()} XP to go</span>
-                            </div>
-                        </motion.div>
+                        <div className="border-2 border-slate-200 rounded-2xl p-7 hover:border-teal-500 transition-colors">
+                            <Medal size={28} className="text-teal-600 mb-5" strokeWidth={2.5} />
+                            <p className="text-4xl font-black text-slate-900 mb-2">{badgeCompletionRate}%</p>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Complete</p>
+                        </div>
                     </div>
-                </div>
-            </motion.div>
+                </motion.div>
 
-            {/* ✨ CLEAN Tabs */}
-            <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                className="bg-white rounded-xl p-1.5 border border-gray-200"
-            >
-                <div className="flex gap-1">
-                    {[
-                        { key: 'badges', icon: Award, label: 'Badges', count: unlockedBadges },
-                        { key: 'titles', icon: Crown, label: 'Titles', count: unlockedTitles },
-                        { key: 'gifts', icon: Gift, label: 'Gifts', count: 0 }
-                    ].map((tab) => (
-                        <motion.button
-                            key={tab.key}
-                            onClick={() => setActiveTab(tab.key)}
-                            whileHover={{ scale: 1.01 }}
-                            whileTap={{ scale: 0.99 }}
-                            className={`flex-1 px-5 py-3 font-bold text-sm transition-all rounded-lg flex items-center justify-center gap-2 relative ${activeTab === tab.key
-                                    ? 'text-white bg-gray-900'
-                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                                }`}
-                        >
-                            {activeTab === tab.key && (
-                                <motion.div
-                                    layoutId="activeTabBg"
-                                    className="absolute inset-0 bg-gray-900 rounded-lg"
-                                    transition={{ type: "spring", bounce: 0.15, duration: 0.5 }}
-                                />
-                            )}
-                            <tab.icon size={18} className="relative z-10" />
-                            <span className="relative z-10">{tab.label}</span>
-                            {tab.count > 0 && (
-                                <span className={`relative z-10 px-1.5 py-0.5 rounded text-xs font-black ${activeTab === tab.key
-                                        ? 'bg-white/20 text-white'
-                                        : 'bg-gray-200 text-gray-700'
-                                    }`}>
-                                    {tab.count}
-                                </span>
-                            )}
-                        </motion.button>
-                    ))}
-                </div>
-            </motion.div>
+                {/* Bold Tabs */}
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className="mb-12"
+                >
+                    <div className="flex gap-2 border-b-2 border-slate-200">
+                        {[
+                            { key: 'badges', label: 'Badges', count: unlockedBadges },
+                            { key: 'titles', label: 'Titles', count: unlockedTitles },
+                            { key: 'gifts', label: 'Gifts', count: 0 }
+                        ].map((tab) => (
+                            <button
+                                key={tab.key}
+                                onClick={() => setActiveTab(tab.key)}
+                                className={`px-6 py-4 text-sm font-bold uppercase tracking-wide transition-colors relative ${activeTab === tab.key
+                                        ? 'text-slate-900'
+                                        : 'text-slate-400 hover:text-slate-600'
+                                    }`}
+                            >
+                                {tab.label}
+                                {tab.count > 0 && (
+                                    <span className={`ml-2 px-2 py-0.5 rounded-md text-xs font-black ${activeTab === tab.key
+                                            ? 'bg-teal-100 text-teal-700'
+                                            : 'bg-slate-100 text-slate-500'
+                                        }`}>
+                                        {tab.count}
+                                    </span>
+                                )}
+                                {activeTab === tab.key && (
+                                    <motion.div
+                                        layoutId="activeTab"
+                                        className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-teal-600 to-teal-500 rounded-t-full"
+                                        transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                                    />
+                                )}
+                            </button>
+                        ))}
+                    </div>
+                </motion.div>
 
-            {/* Syncing Indicator */}
-            <AnimatePresence>
-                {syncing && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-center gap-3"
-                    >
+                {/* Syncing */}
+                <AnimatePresence>
+                    {syncing && (
                         <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                            className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full"
-                        />
-                        <span className="text-sm font-semibold text-blue-900">Syncing achievements...</span>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0 }}
+                            className="mb-8 flex items-center gap-3 px-4 py-3 bg-teal-50 rounded-lg border border-teal-200"
+                        >
+                            <motion.div
+                                animate={{ rotate: 360 }}
+                                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                className="w-4 h-4 border-2 border-teal-300 border-t-teal-600 rounded-full"
+                            />
+                            <span className="text-sm font-bold text-teal-900">Syncing...</span>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
-            {/* ✨ CLEAN Content Area */}
-            <div className="min-h-[500px]">
+                {/* Content */}
                 <AnimatePresence mode="wait">
-                    {/* BADGES TAB */}
+                    {/* BADGES */}
                     {activeTab === 'badges' && (
                         <motion.div
                             key="badges"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.3 }}
-                            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="grid grid-cols-4 gap-6"
                         >
                             {allBadges.length > 0 ? allBadges.map((badge, idx) => {
                                 const Icon = IconMap[badge.iconName] || Star;
-
                                 return (
                                     <motion.div
                                         key={badge.id}
-                                        initial={{ opacity: 0, scale: 0.95 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        transition={{ delay: idx * 0.02 }}
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: idx * 0.03 }}
                                         whileHover={{ y: -4 }}
-                                        className={`relative p-5 rounded-2xl border transition-all ${badge.unlocked
-                                                ? 'bg-white border-gray-200 shadow-sm hover:shadow-md'
-                                                : 'bg-gray-50 border-gray-200 border-dashed opacity-60'
+                                        className={`group relative border-2 rounded-2xl p-7 transition-all ${badge.unlocked
+                                                ? 'border-slate-200 hover:border-teal-500 bg-white hover:shadow-lg hover:shadow-teal-500/10'
+                                                : 'border-slate-100 bg-slate-50 opacity-40'
                                             }`}
                                     >
                                         <div className="flex flex-col items-center text-center">
-                                            <div
-                                                className={`w-16 h-16 rounded-xl flex items-center justify-center mb-3 ${badge.unlocked
-                                                        ? 'bg-gray-900 text-white'
-                                                        : 'bg-gray-200 text-gray-400'
-                                                    }`}
-                                            >
-                                                {badge.unlocked ? (
-                                                    <Icon size={28} strokeWidth={2.5} />
-                                                ) : (
-                                                    <Lock size={24} />
-                                                )}
+                                            <div className={`w-14 h-14 rounded-xl flex items-center justify-center mb-5 transition-all ${badge.unlocked
+                                                    ? 'bg-gradient-to-br from-teal-600 to-teal-700 text-white shadow-lg shadow-teal-600/30 group-hover:scale-110'
+                                                    : 'bg-slate-200 text-slate-400'
+                                                }`}>
+                                                {badge.unlocked ? <Icon size={24} strokeWidth={2.5} /> : <Lock size={20} />}
                                             </div>
-
-                                            <h3 className="font-bold text-sm mb-1 text-gray-900">
+                                            <h3 className="text-sm font-bold text-slate-900 mb-2">
                                                 {badge.name}
                                             </h3>
-                                            <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">
+                                            <p className="text-xs text-slate-600 leading-relaxed font-medium">
                                                 {badge.desc || badge.description}
                                             </p>
-
                                             {badge.unlocked && (
-                                                <div className="absolute top-3 right-3 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                                                    <CheckCircle2 size={14} className="text-white" strokeWidth={3} />
+                                                <div className="absolute top-4 right-4">
+                                                    <CheckCircle2 size={20} className="text-teal-600" strokeWidth={2.5} />
                                                 </div>
                                             )}
                                         </div>
                                     </motion.div>
                                 );
                             }) : (
-                                <motion.div
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    className="col-span-full bg-gray-50 rounded-2xl p-16 text-center border border-gray-200"
-                                >
-                                    <Award size={64} className="mx-auto mb-4 text-gray-300" />
-                                    <h3 className="text-2xl font-bold text-gray-700 mb-2">No Badges Yet</h3>
-                                    <p className="text-gray-500">Complete activities to earn your first badge!</p>
-                                </motion.div>
+                                <div className="col-span-4 text-center py-24">
+                                    <Award size={56} className="mx-auto mb-6 text-slate-300" strokeWidth={2} />
+                                    <h3 className="text-2xl font-bold text-slate-900 mb-2">No badges yet</h3>
+                                    <p className="text-sm text-slate-600 font-medium">Complete activities to earn badges</p>
+                                </div>
                             )}
                         </motion.div>
                     )}
 
-                    {/* TITLES TAB */}
+                    {/* TITLES */}
                     {activeTab === 'titles' && (
                         <motion.div
                             key="titles"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="space-y-3"
+                            className="space-y-4"
                         >
                             {allTitles.length > 0 ? allTitles.map((title, idx) => {
                                 const isUnlocked = title.unlocked;
@@ -374,88 +286,74 @@ const AchievementsSection = () => {
                                 return (
                                     <motion.div
                                         key={title.id}
-                                        initial={{ opacity: 0, x: -10 }}
+                                        initial={{ opacity: 0, x: -20 }}
                                         animate={{ opacity: 1, x: 0 }}
-                                        transition={{ delay: idx * 0.03 }}
+                                        transition={{ delay: idx * 0.05 }}
                                         whileHover={{ x: 4 }}
-                                        className={`flex items-center justify-between p-5 rounded-xl border transition-all ${isUnlocked
-                                                ? 'bg-white border-gray-200 shadow-sm hover:shadow-md'
-                                                : 'bg-gray-50 border-gray-200 opacity-60'
-                                            } ${isEquipped ? 'ring-2 ring-gray-900 ring-offset-2' : ''}`}
+                                        className={`flex items-center justify-between p-6 border-2 rounded-2xl transition-all ${isUnlocked
+                                                ? 'border-slate-200 hover:border-teal-500 bg-white hover:shadow-lg hover:shadow-teal-500/10'
+                                                : 'border-slate-100 bg-slate-50 opacity-40'
+                                            } ${isEquipped ? 'ring-2 ring-teal-600 ring-offset-2' : ''}`}
                                     >
-                                        <div className="flex items-center gap-4">
-                                            <div
-                                                className={`w-14 h-14 rounded-xl flex items-center justify-center ${isUnlocked
-                                                        ? 'bg-gray-900 text-white'
-                                                        : 'bg-gray-200 text-gray-400'
-                                                    }`}
-                                            >
-                                                {isUnlocked ? <Crown size={24} /> : <Lock size={20} />}
+                                        <div className="flex items-center gap-5">
+                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isUnlocked
+                                                    ? 'bg-gradient-to-br from-teal-600 to-teal-700 text-white shadow-lg shadow-teal-600/30'
+                                                    : 'bg-slate-200 text-slate-400'
+                                                }`}>
+                                                {isUnlocked ? <Crown size={22} strokeWidth={2.5} /> : <Lock size={18} />}
                                             </div>
                                             <div>
-                                                <h3 className={`font-bold text-base mb-0.5 ${!isUnlocked ? 'text-gray-500' : 'text-gray-900'}`}>
+                                                <h3 className="text-base font-bold text-slate-900 mb-1">
                                                     {title.text}
                                                 </h3>
-                                                <p className="text-xs text-gray-500 font-medium">
+                                                <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">
                                                     {isUnlocked
-                                                        ? isEquipped
-                                                            ? '✨ Currently equipped'
-                                                            : 'Available to equip'
-                                                        : `Unlocks at Level ${title.requiredLevel || 1}`}
+                                                        ? isEquipped ? '✨ Active' : 'Available'
+                                                        : `Level ${title.requiredLevel || 1}`}
                                                 </p>
                                             </div>
                                         </div>
 
                                         {isUnlocked && !isEquipped && (
-                                            <motion.button
-                                                whileHover={{ scale: 1.02 }}
-                                                whileTap={{ scale: 0.98 }}
+                                            <button
                                                 onClick={() => handleEquipTitle(title.id)}
-                                                className="px-5 py-2.5 bg-gray-900 hover:bg-black text-white text-sm font-bold rounded-lg transition-colors flex items-center gap-2"
+                                                className="px-6 py-2.5 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white text-sm font-bold rounded-lg transition-all shadow-lg shadow-teal-600/20 hover:shadow-xl hover:shadow-teal-600/30"
                                             >
-                                                Equip
-                                                <ChevronRight size={16} />
-                                            </motion.button>
+                                                EQUIP
+                                            </button>
                                         )}
                                         {isEquipped && (
-                                            <span className="px-5 py-2.5 bg-green-500 text-white text-sm font-bold rounded-lg flex items-center gap-2">
-                                                <CheckCircle2 size={16} />
-                                                Active
-                                            </span>
+                                            <div className="flex items-center gap-2 px-5 py-2.5 bg-teal-100 rounded-lg">
+                                                <CheckCircle2 size={16} className="text-teal-700" strokeWidth={2.5} />
+                                                <span className="text-sm font-bold text-teal-700 uppercase tracking-wide">Active</span>
+                                            </div>
                                         )}
                                     </motion.div>
                                 );
                             }) : (
-                                <motion.div
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    className="bg-gray-50 rounded-2xl p-16 text-center border border-gray-200"
-                                >
-                                    <Crown size={64} className="mx-auto mb-4 text-gray-300" />
-                                    <h3 className="text-2xl font-bold text-gray-700 mb-2">No Titles Available</h3>
-                                    <p className="text-gray-500">Level up to unlock prestigious titles!</p>
-                                </motion.div>
+                                <div className="text-center py-24">
+                                    <Crown size={56} className="mx-auto mb-6 text-slate-300" strokeWidth={2} />
+                                    <h3 className="text-2xl font-bold text-slate-900 mb-2">No titles available</h3>
+                                    <p className="text-sm text-slate-600 font-medium">Level up to unlock titles</p>
+                                </div>
                             )}
                         </motion.div>
                     )}
 
-                    {/* GIFTS TAB */}
+                    {/* GIFTS */}
                     {activeTab === 'gifts' && (
                         <motion.div
                             key="gifts"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
+                            className="text-center py-24"
                         >
-                            <div className="bg-gray-50 rounded-2xl p-20 flex flex-col items-center justify-center text-center border border-gray-200">
-                                <div className="w-20 h-20 bg-gray-200 rounded-2xl flex items-center justify-center mb-6">
-                                    <Gift size={40} className="text-gray-400" />
-                                </div>
-                                <h3 className="text-2xl font-bold text-gray-800 mb-2">No Gifts Yet</h3>
-                                <p className="text-gray-600 max-w-md">
-                                    Impress your teachers with great work to receive special gifts and rewards!
-                                </p>
-                            </div>
+                            <Gift size={56} className="mx-auto mb-6 text-slate-300" strokeWidth={2} />
+                            <h3 className="text-2xl font-bold text-slate-900 mb-2">No gifts yet</h3>
+                            <p className="text-sm text-slate-600 font-medium max-w-md mx-auto">
+                                Impress your teachers with great work to receive special rewards
+                            </p>
                         </motion.div>
                     )}
                 </AnimatePresence>

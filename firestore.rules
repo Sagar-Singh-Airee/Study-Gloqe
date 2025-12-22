@@ -4,7 +4,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     // ==========================================
-    // HELPER FUNCTIONS - ALL SAFE
+    // HELPER FUNCTIONS - OPTIMIZED & SAFE
     // ==========================================
     
     function isSignedIn() {
@@ -15,7 +15,6 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
     
-    // ✅ FIXED: Safe getUserData with exists() check
     function getUserData() {
       return isSignedIn() && 
              exists(/databases/$(database)/documents/users/$(request.auth.uid)) 
@@ -40,7 +39,7 @@ service cloud.firestore {
     }
     
     function isValidSize() {
-      return request.resource.size() < 1000000;
+      return request.resource.size() < 1000000; // 1MB limit
     }
     
     function ownsResource() {
@@ -72,7 +71,27 @@ service cloud.firestore {
     }
     
     // ==========================================
-    // USERS COLLECTION - ✅ WITH ANALYTICS SUBCOLLECTIONS
+    // 🔥 USER EVENTS - CRITICAL FOR ANALYTICS
+    // ==========================================
+    match /userEvents/{eventId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidSize();
+      allow update: if isSignedIn() && ownsResource();
+      allow delete: if isAdmin();
+    }
+    
+    // ==========================================
+    // 🔥 SESSION SUMMARIES - ANALYTICS
+    // ==========================================
+    match /sessionSummaries/{summaryId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidSize();
+      allow update: if isSignedIn() && ownsResource();
+      allow delete: if ownsResource() || isAdmin();
+    }
+    
+    // ==========================================
+    // USERS COLLECTION - WITH ANALYTICS SUBCOLLECTIONS
     // ==========================================
     match /users/{userId} {
       allow read: if isSignedIn();
@@ -80,28 +99,23 @@ service cloud.firestore {
       allow update: if isOwner(userId) && isValidSize();
       allow delete: if isOwner(userId) || isAdmin();
       
-      // ✅ Allow ANY authenticated user to read badges/titles
+      // Badges and titles
       match /badges/{badgeId} {
         allow read: if isSignedIn();
-        allow write: if isSignedIn() && isOwner(userId);
+        allow write: if isOwner(userId);
       }
       
       match /titles/{titleId} {
         allow read: if isSignedIn();
-        allow write: if isSignedIn() && isOwner(userId);
+        allow write: if isOwner(userId);
       }
       
-      // ==========================================
-      // 🔥 ANALYTICS SUBCOLLECTIONS FOR REAL-TIME TRACKING
-      // ==========================================
-      
-      // Analytics summary and patterns
+      // Analytics subcollections
       match /analytics/{document=**} {
         allow read: if isOwner(userId) || isTeacher() || isAdmin();
         allow write: if isOwner(userId) || isAdmin();
       }
       
-      // Study sessions (completed and in-progress)
       match /studySessions/{sessionId} {
         allow read: if isOwner(userId) || isTeacher() || isAdmin();
         allow create: if isOwner(userId);
@@ -109,13 +123,11 @@ service cloud.firestore {
         allow delete: if isOwner(userId) || isAdmin();
       }
       
-      // Active study session (currently studying)
       match /activeSession/{document=**} {
         allow read: if isOwner(userId) || isTeacher() || isAdmin();
         allow write: if isOwner(userId);
       }
       
-      // Quiz results and performance
       match /quizResults/{quizId} {
         allow read: if isOwner(userId) || isTeacher() || isAdmin();
         allow create: if isOwner(userId);
@@ -123,31 +135,32 @@ service cloud.firestore {
         allow delete: if isOwner(userId) || isAdmin();
       }
       
-      // Subject-wise performance tracking
       match /subjectPerformance/{subjectId} {
         allow read: if isOwner(userId) || isTeacher() || isAdmin();
         allow write: if isOwner(userId) || isAdmin();
       }
       
-      // Weak areas identification
       match /weakAreas/{areaId} {
         allow read: if isOwner(userId) || isTeacher() || isAdmin();
         allow write: if isOwner(userId) || isAdmin();
       }
       
-      // Performance trends over time
       match /trends/{trendId} {
         allow read: if isOwner(userId) || isTeacher() || isAdmin();
         allow write: if isOwner(userId) || isAdmin();
       }
       
-      // 🔥 NEW: AI Recommendations subcollection
       match /recommendations/{recId} {
         allow read: if isOwner(userId) || isTeacher() || isAdmin();
         allow write: if isOwner(userId) || isAdmin();
       }
       
-      // Documents uploaded by user
+      // 🤖 AI Analytics Reports
+      match /aiReports/{reportId} {
+        allow read: if isOwner(userId) || isTeacher() || isAdmin();
+        allow write: if isOwner(userId);
+      }
+      
       match /documents/{docId} {
         allow read: if isOwner(userId) || isTeacher() || isAdmin();
         allow create: if isOwner(userId);
@@ -155,31 +168,26 @@ service cloud.firestore {
         allow delete: if isOwner(userId) || isAdmin();
       }
       
-      // Flashcards created by user
       match /flashcards/{cardId} {
         allow read: if isOwner(userId) || isTeacher() || isAdmin();
         allow write: if isOwner(userId);
       }
       
-      // Achievements earned
       match /achievements/{achievementId} {
         allow read: if isOwner(userId) || isAdmin();
         allow write: if isOwner(userId) || isAdmin();
       }
       
-      // Gamification data
       match /gamification/{document=**} {
         allow read: if isOwner(userId) || isAdmin();
         allow write: if isOwner(userId) || isAdmin();
       }
       
-      // Notifications for user
       match /notifications/{notifId} {
         allow read: if isOwner(userId);
         allow write: if isOwner(userId) || isAdmin();
       }
       
-      // User's study rooms
       match /myRooms/{roomId} {
         allow read: if isOwner(userId);
         allow write: if isOwner(userId);
@@ -187,23 +195,63 @@ service cloud.firestore {
     }
     
     // ==========================================
-    // ✅ GLOBAL BADGES - FULLY OPEN FOR READING
+    // FOLDERS COLLECTION - Smart Organization
+    // ==========================================
+    match /folders/{folderId} {
+      allow read: if isSignedIn() && (ownsResource() || isTeacher() || isAdmin());
+      allow create: if isSignedIn() && creatingWithOwnId() && isValidSize();
+      allow update: if ownsResource() && isValidSize();
+      allow delete: if ownsResource() || isAdmin();
+    }
+    
+    // ==========================================
+    // DOCUMENTS COLLECTION
+    // ==========================================
+    match /documents/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && creatingWithOwnId() && isValidSize();
+      allow update: if ownsResource() && isValidSize();
+      allow delete: if ownsResource() || isAdmin();
+      
+      match /pages/{pageId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && 
+                        get(/databases/$(database)/documents/documents/$(docId)).data.userId == request.auth.uid;
+      }
+    }
+    
+    // ==========================================
+    // GAMIFICATION COLLECTION (User-Specific)
+    // ==========================================
+    match /gamification/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId) && isValidSize();
+      allow update: if isSignedIn(); // Allow system updates
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+    
+    // ==========================================
+    // GLOBAL BADGES - Public Read, Admin Write
     // ==========================================
     match /globalBadges/{badgeId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
     
     // ==========================================
-    // ✅ GLOBAL TITLES - FULLY OPEN FOR READING
+    // GLOBAL TITLES - Public Read, Admin Write
     // ==========================================
     match /globalTitles/{titleId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
     
     // ==========================================
-    // CLASSES COLLECTION - FIXED FOR ALL OPERATIONS
+    // CLASSES COLLECTION
     // ==========================================
     match /classes/{classId} {
       allow read: if isSignedIn() && (
@@ -228,10 +276,24 @@ service cloud.firestore {
         allow read: if isSignedIn();
         allow write: if isTeacherOfResource() || isAdmin();
       }
+      
+      match /announcements/{announcementId} {
+        allow read: if isSignedIn();
+        allow create: if isTeacherOfResource();
+        allow update: if isTeacherOfResource();
+        allow delete: if isTeacherOfResource() || isAdmin();
+      }
+      
+      match /materials/{materialId} {
+        allow read: if isSignedIn();
+        allow create: if isTeacherOfResource();
+        allow update: if isTeacherOfResource();
+        allow delete: if isTeacherOfResource() || isAdmin();
+      }
     }
     
     // ==========================================
-    // ASSIGNMENTS COLLECTION - ✅ FIXED
+    // ASSIGNMENTS COLLECTION
     // ==========================================
     match /assignments/{assignmentId} {
       allow read: if isSignedIn() && (
@@ -266,12 +328,12 @@ service cloud.firestore {
     }
     
     // ==========================================
-    // ✅ QUIZ SESSIONS COLLECTION - ADDED BACK
+    // QUIZ SESSIONS
     // ==========================================
     match /quizSessions/{sessionId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
+      allow create: if isSignedIn() && creatingWithOwnId();
+      allow update: if isSignedIn() && ownsResource();
       allow delete: if ownsResource() || isAdmin();
     }
     
@@ -279,16 +341,14 @@ service cloud.firestore {
     // SESSIONS COLLECTION
     // ==========================================
     match /sessions/{sessionId} {
-      allow read: if isSignedIn() && (ownsResource() || isTeacher() || isAdmin());
-      allow create: if isSignedIn() && 
-                       creatingWithOwnId() && 
-                       isValidSize();
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && creatingWithOwnId() && isValidSize();
       allow update: if ownsResource() && isValidSize();
       allow delete: if ownsResource() || isAdmin();
     }
     
     // ==========================================
-    // SUBMISSIONS COLLECTION - ✅ FIXED
+    // SUBMISSIONS COLLECTION
     // ==========================================
     match /submissions/{submissionId} {
       allow read: if isSignedIn() && (
@@ -313,78 +373,39 @@ service cloud.firestore {
     }
     
     // ==========================================
-    // DOCUMENTS COLLECTION
-    // ==========================================
-    match /documents/{docId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && 
-                       creatingWithOwnId() && 
-                       isValidSize();
-      allow update: if ownsResource() && isValidSize();
-      allow delete: if ownsResource();
-      
-      match /pages/{pageId} {
-        allow read: if isSignedIn();
-        allow write: if false;
-      }
-    }
-    
-    // ==========================================
     // FLASHCARD DECKS COLLECTION
     // ==========================================
     match /flashcardDecks/{deckId} {
-      allow read: if isSignedIn() && ownsResource();
-      allow create: if isSignedIn() && 
-                       creatingWithOwnId() && 
-                       isValidSize();
-      allow update: if ownsResource() && isValidSize();
-      allow delete: if ownsResource();
-      
-      match /cards/{cardId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedIn();
-        allow update: if isSignedIn();
-        allow delete: if isSignedIn();
-      }
-    }
-    
-    // ==========================================
-    // OLD FLASHCARDS COLLECTION
-    // ==========================================
-    match /flashcards/{deckId} {
-      allow read: if isSignedIn() && ownsResource();
+      allow read: if isSignedIn();
       allow create: if isSignedIn() && creatingWithOwnId() && isValidSize();
       allow update: if ownsResource() && isValidSize();
       allow delete: if ownsResource();
       
       match /cards/{cardId} {
         allow read: if isSignedIn();
-        allow write: if isSignedIn();
-      }
-    }
-    
-    // ==========================================
-    // 🎮 GAMIFICATION COLLECTION - ✅ UPDATED FOR INITIALIZATION
-    // ==========================================
-    match /gamification/{document} {
-      allow read: if document == 'badges' || document == 'titles' || true;
-      allow write: if document == 'badges' || document == 'titles' || true;
-      
-      match /dailyActions/{actionId} {
-        allow read: if true;
         allow create: if isSignedIn();
         allow update: if isSignedIn();
         allow delete: if isSignedIn();
       }
+    }
+    
+    // ==========================================
+    // FLASHCARDS COLLECTION
+    // ==========================================
+    match /flashcards/{cardId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && creatingWithOwnId() && isValidSize();
+      allow update: if ownsResource() && isValidSize();
+      allow delete: if ownsResource();
       
-      match /progress/{progressId} {
-        allow read: if true;
+      match /cards/{subcardId} {
+        allow read: if isSignedIn();
         allow write: if isSignedIn();
       }
     }
     
     // ==========================================
-    // ✅ TOP-LEVEL DAILY ACTIONS
+    // DAILY ACTIONS
     // ==========================================
     match /dailyActions/{actionId} {
       allow read: if true;
@@ -394,7 +415,7 @@ service cloud.firestore {
     }
     
     // ==========================================
-    // ✅ USER GAMIFICATION DATA (SEPARATE FROM DEFINITIONS)
+    // USER GAMIFICATION DATA (Legacy)
     // ==========================================
     match /userGamification/{userId} {
       allow read: if true;
@@ -414,12 +435,12 @@ service cloud.firestore {
     }
     
     // ==========================================
-    // ALO
+    // ALO (AI Learning Orchestrator)
     // ==========================================
     match /alo/{userId} {
       allow read: if isOwner(userId);
       allow create: if isOwner(userId);
-      allow update: if true;
+      allow update: if true; // Allow system updates
       allow delete: if isOwner(userId) || isAdmin();
     }
     
@@ -442,17 +463,17 @@ service cloud.firestore {
     // NOTES COLLECTION
     // ==========================================
     match /notes/{noteId} {
-      allow read: if isSignedIn() && ownsResource();
+      allow read: if isSignedIn();
       allow create: if isSignedIn() && creatingWithOwnId() && isValidSize();
       allow update: if ownsResource() && isValidSize();
       allow delete: if ownsResource();
     }
     
     // ==========================================
-    // SRS
+    // SRS (Spaced Repetition System)
     // ==========================================
     match /srs/{cardId} {
-      allow read: if isSignedIn() && ownsResource();
+      allow read: if isSignedIn();
       allow create: if isSignedIn() && creatingWithOwnId();
       allow update: if ownsResource();
       allow delete: if ownsResource();
@@ -463,9 +484,7 @@ service cloud.firestore {
     // ==========================================
     match /rooms/{roomId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && 
-                       creatingRoomAsHost() &&
-                       isValidSize();
+      allow create: if isSignedIn() && creatingRoomAsHost() && isValidSize();
       allow update: if isSignedIn() && isValidSize();
       allow delete: if isRoomHost() || isAdmin();
       
@@ -502,7 +521,7 @@ service cloud.firestore {
     // SUMMARIES COLLECTION
     // ==========================================
     match /summaries/{summaryId} {
-      allow read: if isSignedIn() && ownsResource();
+      allow read: if isSignedIn();
       allow create: if isSignedIn() && creatingWithOwnId() && isValidSize();
       allow update: if ownsResource() && isValidSize();
       allow delete: if ownsResource();
@@ -512,7 +531,7 @@ service cloud.firestore {
     // FLOWCHARTS COLLECTION
     // ==========================================
     match /flowcharts/{flowchartId} {
-      allow read: if isSignedIn() && ownsResource();
+      allow read: if isSignedIn();
       allow create: if isSignedIn() && creatingWithOwnId() && isValidSize();
       allow update: if ownsResource() && isValidSize();
       allow delete: if ownsResource();
@@ -522,7 +541,7 @@ service cloud.firestore {
     // NOTIFICATIONS COLLECTION
     // ==========================================
     match /notifications/{notificationId} {
-      allow read: if isSignedIn() && ownsResource();
+      allow read: if isSignedIn();
       allow create: if isSignedIn() && creatingWithOwnId();
       allow update: if ownsResource();
       allow delete: if ownsResource();
@@ -532,14 +551,14 @@ service cloud.firestore {
     // STUDY SESSIONS
     // ==========================================
     match /studySessions/{sessionId} {
-      allow read: if isSignedIn() && ownsResource();
+      allow read: if isSignedIn();
       allow create: if isSignedIn() && creatingWithOwnId() && isValidSize();
-      allow update: if ownsResource() && isValidSize();
-      allow delete: if ownsResource();
+      allow update: if isSignedIn(); // Allow system updates
+      allow delete: if ownsResource() || isAdmin();
     }
     
     // ==========================================
-    // LEADERBOARD COLLECTION - ✅ FULLY OPEN FOR READING
+    // LEADERBOARD COLLECTION - FULLY OPEN
     // ==========================================
     match /leaderboard/{userId} {
       allow read: if true;
@@ -561,11 +580,11 @@ service cloud.firestore {
     // ==========================================
     match /analytics/{userId} {
       allow read: if isOwner(userId) || isTeacher() || isAdmin();
-      allow write: if true;
+      allow write: if true; // Allow system writes
     }
     
     // ==========================================
-    // RECOMMENDATIONS COLLECTION (TOP-LEVEL - KEPT FOR COMPATIBILITY)
+    // RECOMMENDATIONS COLLECTION (TOP-LEVEL)
     // ==========================================
     match /recommendations/{userId} {
       allow read: if isOwner(userId) || isTeacher() || isAdmin();
@@ -573,7 +592,37 @@ service cloud.firestore {
     }
     
     // ==========================================
-    // DEFAULT DENY ALL
+    // CHALLENGES COLLECTION
+    // ==========================================
+    match /challenges/{challengeId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // ==========================================
+    // USER CHALLENGES (Progress Tracking)
+    // ==========================================
+    match /userChallenges/{userChallengeId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && creatingWithOwnId();
+      allow update: if isSignedIn() && ownsResource();
+      allow delete: if ownsResource() || isAdmin();
+    }
+    
+    // ==========================================
+    // STREAKS COLLECTION
+    // ==========================================
+    match /streaks/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId);
+      allow update: if isSignedIn(); // Allow system updates
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+    
+    // ==========================================
+    // DEFAULT DENY ALL - SECURITY LAST LINE
     // ==========================================
     match /{document=**} {
       allow read, write: if false;

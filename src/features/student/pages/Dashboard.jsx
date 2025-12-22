@@ -37,7 +37,8 @@ import AchievementsSection from '@student/components/dashboard/AchievementsSecti
 import Profile from '@student/pages/Profile';
 
 // Analytics Components
-import StudentAnalytics from '@analytics/components/StudentAnalytics';
+import AnalyticsSection from '@analytics/components/AnalyticsSection';
+import StudentAnalytics from '@analytics/components/StudentAnalytics'; // Keep for legacy if needed or remove
 import LeaderboardSection from '@analytics/components/LeaderboardSection';
 
 // ============================================
@@ -1000,7 +1001,7 @@ const Dashboard = () => {
                     />
                 );
             case 'analytics':
-                return <StudentAnalytics />;
+                return <AnalyticsSection />;
             case 'classes':
                 return <ClassesSection />;
             case 'documents':
