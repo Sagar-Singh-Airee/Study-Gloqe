@@ -19,7 +19,6 @@ build/
 
 # Google Cloud Service Account Keys (IMPORTANT!)
 keys/
-*.json
 service-account*.json
 google-*.json
 *-key.json
@@ -48,7 +47,6 @@ lerna-debug.log*
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
-firebase.json
 
 # Misc
 *.log

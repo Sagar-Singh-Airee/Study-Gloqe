@@ -264,21 +264,55 @@ export const initializeUserAchievements = async (userId) => {
     }
 
     try {
-        const userRef = doc(db, 'gamification', userId);
+        const gamificationRef = doc(db, 'gamification', userId);
+        const userRef = doc(db, 'users', userId);
 
-        await updateDoc(userRef, {
+        // 1. Check for existing data in USERS collection (legacy)
+        let legacyData = {};
+        try {
+            const userSnapshot = await getDoc(userRef);
+            if (userSnapshot.exists()) {
+                const userData = userSnapshot.data();
+                console.log('📦 Found legacy user data, migrating...', userData?.streakData);
+
+                legacyData = {
+                    xp: userData.xp || 0,
+                    level: userData.level || 1,
+                    streakData: userData.streakData || null,
+                    unlockedBadges: userData.unlockedBadges || [],
+                    unlockedTitles: userData.unlockedTitles || ['title_newbie'],
+                    equippedTitle: userData.equippedTitle || 'Newbie Scholar',
+                    equippedTitleId: userData.equippedTitleId || 'title_newbie',
+
+                    // Stats migration (if they exist)
+                    totalStudyTime: userData.totalStudyTime || 0,
+                    quizzesCompleted: userData.quizzesCompleted || 0,
+                    documentsUploaded: userData.documentsUploaded || 0,
+                };
+            }
+        } catch (e) {
+            console.warn('⚠️ Could not fetch legacy user data:', e);
+        }
+
+        // 2. Create new gamification document with merged data
+        // Use setDoc instead of updateDoc to create if not exists
+        const { setDoc } = await import('firebase/firestore');
+
+        await setDoc(gamificationRef, {
             // Achievements
-            unlockedBadges: [],
-            unlockedTitles: ['title_newbie'], // Everyone starts as a newbie
-            badgesUnlocked: 0,
+            unlockedBadges: legacyData.unlockedBadges || [],
+            unlockedTitles: legacyData.unlockedTitles || ['title_newbie'],
+            equippedTitle: legacyData.equippedTitle || 'Newbie Scholar',
+            equippedTitleId: legacyData.equippedTitleId || 'title_newbie',
+            badgesUnlocked: (legacyData.unlockedBadges || []).length,
 
             // Stats
-            totalStudyTime: 0,
-            quizzesCompleted: 0,
+            totalStudyTime: legacyData.totalStudyTime || 0,
+            quizzesCompleted: legacyData.quizzesCompleted || 0,
             perfectQuizzes: 0,
             flashcardsReviewed: 0,
             flashcardsMastered: 0,
-            documentsUploaded: 0,
+            documentsUploaded: legacyData.documentsUploaded || 0,
             documentsViewed: 0,
             classesJoined: 0,
 
@@ -294,8 +328,8 @@ export const initializeUserAchievements = async (userId) => {
             roomsJoined: 0,
             notesCreated: 0,
 
-            // Streak data
-            streakData: {
+            // Streak data (Preserve legacy streak!)
+            streakData: legacyData.streakData || {
                 currentStreak: 0,
                 longestStreak: 0,
                 lastCheckIn: null,
@@ -303,15 +337,15 @@ export const initializeUserAchievements = async (userId) => {
             },
 
             // XP and Level
-            xp: 0,
-            level: 1,
+            xp: legacyData.xp || 0,
+            level: legacyData.level || 1,
 
             // Timestamps
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp()
-        });
+        }, { merge: true }); // Merge true to be safe
 
-        console.log('✅ User achievements initialized:', userId);
+        console.log('✅ User achievements initialized (with migration):', userId);
     } catch (error) {
         console.error('❌ Error initializing achievements:', error);
         throw error;

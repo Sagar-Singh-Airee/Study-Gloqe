@@ -12,9 +12,13 @@ import { db } from '@shared/config/firebase';
 import { useAuth } from '@auth/contexts/AuthContext';
 import toast from 'react-hot-toast';
 
+import { useGamification } from '../../../gamification/hooks/useGamification';
+import { orderBy, limit } from 'firebase/firestore'; // Added orderBy
+
 const SessionHistorySection = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const { streak } = useGamification(); // ✅ Use global streak
     const [sessions, setSessions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -32,7 +36,9 @@ const SessionHistorySection = () => {
 
         const q = query(
             collection(db, 'studySessions'),
-            where('userId', '==', user.uid)
+            where('userId', '==', user.uid),
+            orderBy('startTime', 'desc'), // ✅ Server-side sorting
+            limit(100) // ✅ Limit to prevents overloading
         );
 
         const unsubscribe = onSnapshot(q,
@@ -45,8 +51,8 @@ const SessionHistorySection = () => {
                         startTime: data.startTime?.toDate?.() || new Date(data.startTime) || new Date(),
                         endTime: data.endTime?.toDate?.() || (data.endTime ? new Date(data.endTime) : null)
                     };
-                })
-                    .sort((a, b) => (b.startTime?.getTime() || 0) - (a.startTime?.getTime() || 0));
+                });
+                // .sort() removed as we rely on server sort for efficiency
 
                 setSessions(sessionData);
                 setLoading(false);
@@ -123,25 +129,8 @@ const SessionHistorySection = () => {
 
         const todayTime = todaySessions.reduce((sum, s) => sum + (s.totalTime || 0), 0);
 
-        // Calculate streak
-        let streak = 0;
-        const sortedDates = [...new Set(
-            sessions.map(s => new Date(s.startTime).toDateString())
-        )].sort((a, b) => new Date(b) - new Date(a));
-
-        if (sortedDates.length > 0 && sortedDates[0] === today) {
-            streak = 1;
-            for (let i = 1; i < sortedDates.length; i++) {
-                const prevDate = new Date(sortedDates[i - 1]);
-                const currDate = new Date(sortedDates[i]);
-                const diffDays = Math.floor((prevDate - currDate) / (1000 * 60 * 60 * 24));
-                if (diffDays === 1) {
-                    streak++;
-                } else {
-                    break;
-                }
-            }
-        }
+        // Calculate streak (Now handled by global gamification hook)
+        // const streak = ... (Old logic removed)
 
         return {
             total: sessions.length,
@@ -149,9 +138,9 @@ const SessionHistorySection = () => {
             avgProgress,
             todaySessions: todaySessions.length,
             todayTime: Math.round(todayTime / 60),
-            streak
+            streak // ✅ From useGamification
         };
-    }, [sessions]);
+    }, [sessions, streak]); // Added streak to dependency
 
     // Filter sessions
     const filteredSessions = useMemo(() => {

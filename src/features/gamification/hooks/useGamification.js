@@ -1,17 +1,19 @@
-// src/features/gamification/hooks/useGamification.js - 🚀 ULTIMATE REALTIME VERSION
+// src/features/gamification/hooks/useGamification.js - 🚀 ULTIMATE REALTIME VERSION (COLLECTION FIXED)
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { doc, onSnapshot, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { db } from '../../../shared/config/firebase';
 import { useAuth } from '../../auth/contexts/AuthContext';
 import { BADGE_DEFINITIONS, TITLE_DEFINITIONS } from '../config/achievements';
-import { trackAction as trackActionService, checkAndUnlockAchievements } from '../services/achievementTracker';
+import { trackAction as trackActionService, checkAndUnlockAchievements, initializeUserAchievements } from '../services/achievementTracker';
 import toast from 'react-hot-toast';
 import confetti from 'canvas-confetti';
+
 
 // Level XP thresholds
 const LEVEL_THRESHOLDS = [
     0, 100, 250, 500, 1000, 2000, 4000, 8000, 16000, 32000, 64000, 128000
 ];
+
 
 // Calculate level from XP
 const calculateLevel = (xp) => {
@@ -22,6 +24,7 @@ const calculateLevel = (xp) => {
     }
     return 1;
 };
+
 
 // Calculate progress to next level
 const calculateLevelProgress = (xp, level) => {
@@ -34,6 +37,7 @@ const calculateLevelProgress = (xp, level) => {
     return Math.min(Math.max(progress, 0), 100);
 };
 
+
 export const useGamification = () => {
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
@@ -41,8 +45,13 @@ export const useGamification = () => {
     const [error, setError] = useState(null);
     const [notifications, setNotifications] = useState([]);
 
+    // ✅ DEDICATED REFS - Prevents race conditions
+    const isMountedRef = useRef(true);
+    const unsubscribeRef = useRef(null);
+    const achievementCheckTimeoutRef = useRef(null);
+    const initAttemptedRef = useRef(false);
+
     // Store previous values for animations
-    // ✅ FIXED: Use refs to track previous values without re-triggering listener
     const prevXPRef = useRef(null);
     const prevLevelRef = useRef(null);
 
@@ -60,7 +69,7 @@ export const useGamification = () => {
         badgesUnlocked: 0,
 
         // Titles
-        unlockedTitles: [],
+        unlockedTitles: ['title_newbie'],
         equippedTitle: 'Newbie Scholar',
         equippedTitleId: 'title_newbie',
 
@@ -83,21 +92,33 @@ export const useGamification = () => {
         classesJoined: 0
     });
 
-    // 🔥 MAIN REALTIME LISTENER - Users Collection (Unified Source of Truth)
+    // 🔥 MAIN REALTIME LISTENER - Gamification Collection (FIXED)
     useEffect(() => {
+        // Reset mounted flag
+        isMountedRef.current = true;
+        initAttemptedRef.current = false;
+
         if (!user?.uid) {
             setLoading(false);
             return;
         }
 
-        console.log('🔄 Setting up realtime gamification listener (Users Collection)');
+        console.log('🔄 Setting up realtime gamification listener (Gamification Collection)');
         setLoading(true);
 
-        const userRef = doc(db, 'users', user.uid);
+        // ✅ Point to 'gamification' collection instead of 'users'
+        const gamificationRef = doc(db, 'gamification', user.uid);
 
-        const unsubscribe = onSnapshot(
-            userRef,
-            (snapshot) => {
+        // ✅ NO DELAY - Set up listener immediately to prevent race conditions
+        unsubscribeRef.current = onSnapshot(
+            gamificationRef,
+            async (snapshot) => {
+                // ✅ Check if component is still mounted
+                if (!isMountedRef.current) {
+                    console.log('⚠️ Component unmounted, skipping state update');
+                    return;
+                }
+
                 if (snapshot.exists()) {
                     const data = snapshot.data();
 
@@ -111,20 +132,19 @@ export const useGamification = () => {
                     if (previousXP !== null && xp > previousXP) {
                         const gained = xp - previousXP;
 
-                        // Prevent toast spam on initial load or large updates
-                        if (gained < 1000) {
+                        if (gained < 1000 && isMountedRef.current) {
                             toast.success(`+${gained} XP!`, {
                                 icon: '⚡',
                                 duration: 2000,
                                 position: 'top-right',
-                                id: 'xp-toast' // Prevent duplicates
+                                id: 'xp-toast'
                             });
                         }
                     }
 
-                    // 🎊 Detect level up (Only if prev exists)
+                    // 🎊 Detect level up
                     const previousLevel = prevLevelRef.current;
-                    if (previousLevel !== null && level > previousLevel) {
+                    if (previousLevel !== null && level > previousLevel && isMountedRef.current) {
                         confetti({
                             particleCount: 200,
                             spread: 100,
@@ -138,7 +158,6 @@ export const useGamification = () => {
                             icon: '👑'
                         });
 
-                        // Add level up notification
                         setNotifications(prev => [...prev, {
                             type: 'levelUp',
                             data: { newLevel: level, xpGained: xp - (previousXP || 0) },
@@ -151,13 +170,14 @@ export const useGamification = () => {
                     prevXPRef.current = xp;
                     prevLevelRef.current = level;
 
+                    // Update state
                     setGamificationData({
                         xp,
                         level,
                         nextLevelXp,
                         levelProgress,
                         globalRank: data.globalRank || 999,
-                        streak: data.streak || 0, // ✅ Correctly reading from users collection
+                        streak: data.streakData?.currentStreak || 0, // Use streakData.currentStreak
 
                         unlockedBadges: data.unlockedBadges || [],
                         badgesUnlocked: (data.unlockedBadges || []).length,
@@ -166,64 +186,104 @@ export const useGamification = () => {
                         equippedTitle: data.equippedTitle || 'Newbie Scholar',
                         equippedTitleId: data.equippedTitleId || 'title_newbie',
 
-                        // Map legacy streakData structure for compatibility
                         streakData: {
-                            currentStreak: data.streak || 0,
-                            longestStreak: data.longestStreak || data.streak || 0,
-                            lastCheckIn: data.lastLoginDate || null,
-                            activeDays: [], // Can be populated if needed, but not strictly required for basic display
-                            streakFreeze: 0
+                            currentStreak: data.streakData?.currentStreak || 0,
+                            longestStreak: data.streakData?.longestStreak || 0,
+                            lastCheckIn: data.streakData?.lastCheckIn || null,
+                            activeDays: data.streakData?.activeDays || [],
+                            streakFreeze: data.streakData?.streakFreeze || 0
                         },
 
                         totalStudyTime: data.totalStudyTime || 0,
-                        quizzesCompleted: data.totalQuizzes || 0,
+                        quizzesCompleted: data.quizzesCompleted || 0,
                         perfectQuizzes: data.perfectQuizzes || 0,
                         flashcardsReviewed: data.flashcardsReviewed || 0,
                         flashcardsMastered: data.flashcardsMastered || 0,
-                        documentsUploaded: data.totalDocuments || 0,
-                        classesJoined: data.totalRoomsJoined || 0
+                        documentsUploaded: data.documentsUploaded || 0,
+                        classesJoined: data.classesJoined || 0
                     });
 
                     setError(null);
+                    setLoading(false);
+                    setSyncing(false);
                 } else {
-                    console.warn('⚠️ No user gamification data found');
-                    if (loading) setError('Gamification data not initialized');
-                }
+                    // ⚠️ No data found - Attempt initialization
+                    console.warn('⚠️ No gamification data found, initializing...');
 
-                setLoading(false);
-                setSyncing(false);
+                    if (!initAttemptedRef.current) {
+                        initAttemptedRef.current = true;
+                        try {
+                            await initializeUserAchievements(user.uid);
+                            // The listener will catch the update after initialization
+                        } catch (initErr) {
+                            console.error("❌ Failed to initialize gamification:", initErr);
+                            if (isMountedRef.current) {
+                                setError('Failed to initialize gamification profile');
+                                setLoading(false);
+                            }
+                        }
+                    } else {
+                        // Already attempted init and still no data? Stop infinite loop
+                        if (isMountedRef.current) {
+                            setError('Gamification data not initialized');
+                            setLoading(false);
+                        }
+                    }
+                }
             },
             (err) => {
                 console.error('❌ Gamification listener error:', err);
-                setError(err.message);
-                setLoading(false);
-                setSyncing(false);
+                if (isMountedRef.current) {
+                    setError(err.message);
+                    setLoading(false);
+                    setSyncing(false);
+                }
             }
         );
 
+        // ✅ PROPER CLEANUP - Guaranteed to run
         return () => {
             console.log('🔴 Cleaning up gamification listener');
-            unsubscribe();
-        };
-    }, [user?.uid]); // ✅ Removed previousXP/previousLevel deps to prevent re-subscribing loop
+            isMountedRef.current = false;
 
-    // Process all badges with unlock status
+            // Clear any pending achievement checks
+            if (achievementCheckTimeoutRef.current) {
+                clearTimeout(achievementCheckTimeoutRef.current);
+                achievementCheckTimeoutRef.current = null;
+            }
+
+            // Unsubscribe from Firestore listener
+            if (unsubscribeRef.current) {
+                unsubscribeRef.current();
+                unsubscribeRef.current = null;
+            }
+        };
+    }, [user?.uid]); // ✅ Only re-run when user ID changes
+
+    // ✅ SAFE GUARD: Ensure BADGE_DEFINITIONS and TITLE_DEFINITIONS are valid
     const allBadges = useMemo(() => {
+        if (!BADGE_DEFINITIONS || typeof BADGE_DEFINITIONS !== 'object') {
+            console.warn('⚠️ BADGE_DEFINITIONS is not defined');
+            return [];
+        }
         return Object.values(BADGE_DEFINITIONS).map(badge => ({
             ...badge,
             unlocked: gamificationData.unlockedBadges.includes(badge.id)
         }));
     }, [gamificationData.unlockedBadges]);
 
-    // Process all titles with unlock status
     const allTitles = useMemo(() => {
+        if (!TITLE_DEFINITIONS || typeof TITLE_DEFINITIONS !== 'object') {
+            console.warn('⚠️ TITLE_DEFINITIONS is not defined');
+            return [];
+        }
         return Object.values(TITLE_DEFINITIONS).map(title => ({
             ...title,
             unlocked: gamificationData.unlockedTitles.includes(title.id)
         }));
     }, [gamificationData.unlockedTitles]);
 
-    // Track action wrapper
+    // ✅ Track action wrapper - WITH PROPER CLEANUP
     const trackAction = useCallback(async (actionType, data = {}) => {
         if (!user?.uid) {
             console.warn('⚠️ Cannot track action: user not authenticated');
@@ -235,22 +295,33 @@ export const useGamification = () => {
         try {
             await trackActionService(user.uid, actionType, data);
 
-            // Check for new unlocks after a short delay
-            setTimeout(() => {
-                checkAndUnlockAchievements(user.uid).catch(console.error);
+            // ✅ FIX: Clear previous timeout and store new one
+            if (achievementCheckTimeoutRef.current) {
+                clearTimeout(achievementCheckTimeoutRef.current);
+            }
+
+            achievementCheckTimeoutRef.current = setTimeout(() => {
+                if (isMountedRef.current) {
+                    checkAndUnlockAchievements(user.uid).catch(console.error);
+                }
+                achievementCheckTimeoutRef.current = null;
             }, 500);
 
             return { success: true };
         } catch (error) {
             console.error('❌ Error tracking action:', error);
-            toast.error('Failed to track action');
+            if (isMountedRef.current) {
+                toast.error('Failed to track action');
+            }
             return { success: false, error: error.message };
         } finally {
-            setSyncing(false);
+            if (isMountedRef.current) {
+                setSyncing(false);
+            }
         }
     }, [user?.uid]);
 
-    // Change equipped title
+    // ✅ Change equipped title - write to GAMIFICATION collection (and USERS for profile sync)
     const changeTitle = useCallback(async (titleId) => {
         if (!user?.uid) {
             return { success: false, error: 'Not authenticated' };
@@ -267,6 +338,9 @@ export const useGamification = () => {
                 return { success: false, error: 'Title not unlocked' };
             }
 
+            setSyncing(true);
+
+            // 1. Update GAMIFICATION collection (Source of truth for this hook)
             const gamificationRef = doc(db, 'gamification', user.uid);
             await updateDoc(gamificationRef, {
                 equippedTitle: title.text,
@@ -274,23 +348,43 @@ export const useGamification = () => {
                 updatedAt: serverTimestamp()
             });
 
-            toast.success(`👑 Title equipped: ${title.text}`);
+            // 2. Update USERS collection (For public profile display)
+            // We do this concurrently but don't fail the operation if this tracking one fails?
+            // Better to await it to ensure consistency.
+            const userRef = doc(db, 'users', user.uid);
+            await updateDoc(userRef, {
+                equippedTitle: title.text,
+                equippedTitleId: title.id,
+                updatedAt: serverTimestamp()
+            }).catch(e => console.warn("Failed to sync title to user profile:", e));
+
+            if (isMountedRef.current) {
+                toast.success(`👑 Title equipped: ${title.text}`);
+                setSyncing(false);
+            }
             return { success: true };
         } catch (error) {
             console.error('❌ Error equipping title:', error);
-            toast.error('Failed to equip title');
+            if (isMountedRef.current) {
+                toast.error('Failed to equip title');
+                setSyncing(false);
+            }
             return { success: false, error: error.message };
         }
     }, [user?.uid, allTitles]);
 
     // Dismiss notification
     const dismissNotification = useCallback((notificationId) => {
-        setNotifications(prev => prev.filter(n => n.id !== notificationId));
+        if (isMountedRef.current) {
+            setNotifications(prev => prev.filter(n => n.id !== notificationId));
+        }
     }, []);
 
     // Clear all notifications
     const clearAllNotifications = useCallback(() => {
-        setNotifications([]);
+        if (isMountedRef.current) {
+            setNotifications([]);
+        }
     }, []);
 
     // Computed values
@@ -318,6 +412,50 @@ export const useGamification = () => {
             return nextBadgeMilestone || null;
         })()
     }), [gamificationData, allBadges, allTitles]);
+
+    // ✅ SELF-HEALING: Check for legacy streak if current is 0
+    useEffect(() => {
+        const checkAndRepairStreak = async () => {
+            if (!user?.uid || loading) return;
+
+            // If we have data but streak is 0, check if we lost it during migration
+            const currentStreak = gamificationData?.streakData?.currentStreak || 0;
+
+            if (currentStreak === 0) {
+                try {
+                    const userDoc = await getDoc(doc(db, 'users', user.uid));
+                    if (userDoc.exists()) {
+                        const userData = userDoc.data();
+                        const legacyStreak = userData?.streakData?.currentStreak || userData?.streak || 0;
+
+                        // Only restore if legacy is actually non-zero
+                        if (legacyStreak > 0) {
+                            console.log(`🩹 Repairing streak: Restoring ${legacyStreak} from legacy profile...`);
+
+                            const gamificationRef = doc(db, 'gamification', user.uid);
+                            await updateDoc(gamificationRef, {
+                                'streakData.currentStreak': legacyStreak,
+                                'streakData.longestStreak': Math.max(legacyStreak, userData?.streakData?.longestStreak || 0),
+                                'streakData.activeDays': userData?.streakData?.activeDays || [],
+                                'streakData.lastCheckIn': userData?.streakData?.lastCheckIn || null,
+                                // Also sync XP/Level if they are 0/1 but legacy has more
+                                ...(gamificationData?.xp === 0 && userData?.xp > 0 ? { xp: userData.xp } : {}),
+                                ...(gamificationData?.level === 1 && userData?.level > 1 ? { level: userData.level } : {})
+                            });
+
+                            toast.success('Stats restored from backup!', { icon: '🔄' });
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error repairing streak:', err);
+                }
+            }
+        };
+
+        if (!loading && gamificationData) {
+            checkAndRepairStreak();
+        }
+    }, [user?.uid, loading, gamificationData?.streakData?.currentStreak]);
 
     return {
         // Core stats
@@ -370,5 +508,6 @@ export const useGamification = () => {
         hasNotifications: notifications.length > 0
     };
 };
+
 
 export default useGamification;
