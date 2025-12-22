@@ -1,15 +1,15 @@
-// src/components/features/NotesSection.jsx - PREMIUM APPLE-STYLE AUTO-CATEGORIZED NOTES
+// src/components/features/NotesSection.jsx - PREMIUM LIGHT COMPACT EDITION 💎
+
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
+import {
     StickyNote, Search, Trash2, Clock, FileText, Folder,
-    ChevronRight, ArrowLeft, BookOpen, Atom, FlaskConical, 
-    Dna, Code, Landmark, TrendingUp, BookMarked, Brain, 
-    Hammer, GraduationCap, FolderOpen, Plus, Eye, Edit,
-    MoreVertical, Filter, SortAsc, Calendar, Tag
+    ChevronRight, ArrowLeft, BookOpen, Atom, FlaskConical,
+    Dna, Code, Landmark, TrendingUp, BookMarked, Brain,
+    Hammer, GraduationCap, FolderOpen, Plus, Eye, Edit
 } from 'lucide-react';
 import { useAuth } from '@auth/contexts/AuthContext';
-import { 
+import {
     collection, query, where, onSnapshot,
     deleteDoc, doc, writeBatch
 } from 'firebase/firestore';
@@ -17,103 +17,78 @@ import { db } from '@shared/config/firebase';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
-
 const NotesSection = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
-    
+
     const [notes, setNotes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [sortBy, setSortBy] = useState('newest');
-    const [selectedFolder, setSelectedFolder] = useState(null); // null = show folders
+    const [selectedFolder, setSelectedFolder] = useState(null);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [deleting, setDeleting] = useState(false);
 
-
-    // Premium subject configuration with Apple-style colors
+    // Subject configuration with teal/blue theme
     const subjectConfig = {
-        'Mathematics': { 
+        'Mathematics': {
             icon: BookOpen,
-            color: 'from-gray-700 via-gray-600 to-gray-500',
-            lightColor: 'from-gray-100 via-gray-50 to-white',
-            accentColor: 'gray-600',
-            badgeColor: 'bg-gray-100 text-gray-700 border-gray-300'
+            color: 'bg-blue-50 text-blue-700 border-blue-200',
+            gradient: 'from-blue-500 to-teal-600'
         },
-        'Physics': { 
+        'Physics': {
             icon: Atom,
-            color: 'from-gray-600 via-gray-500 to-gray-700',
-            lightColor: 'from-white via-gray-50 to-gray-100',
-            accentColor: 'gray-700',
-            badgeColor: 'bg-gray-50 text-gray-800 border-gray-300'
+            color: 'bg-teal-50 text-teal-700 border-teal-200',
+            gradient: 'from-teal-500 to-blue-600'
         },
-        'Chemistry': { 
+        'Chemistry': {
             icon: FlaskConical,
-            color: 'from-gray-500 via-gray-600 to-gray-700',
-            lightColor: 'from-gray-50 via-white to-gray-100',
-            accentColor: 'gray-600',
-            badgeColor: 'bg-gray-100 text-gray-700 border-gray-300'
+            color: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+            gradient: 'from-cyan-500 to-teal-600'
         },
-        'Biology': { 
+        'Biology': {
             icon: Dna,
-            color: 'from-gray-700 via-gray-800 to-gray-600',
-            lightColor: 'from-gray-100 via-white to-gray-50',
-            accentColor: 'gray-700',
-            badgeColor: 'bg-gray-100 text-gray-800 border-gray-300'
+            color: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+            gradient: 'from-emerald-500 to-teal-600'
         },
-        'Computer Science': { 
+        'Computer Science': {
             icon: Code,
-            color: 'from-gray-800 via-gray-700 to-gray-900',
-            lightColor: 'from-white via-gray-100 to-gray-200',
-            accentColor: 'gray-800',
-            badgeColor: 'bg-gray-100 text-gray-900 border-gray-400'
+            color: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+            gradient: 'from-indigo-500 to-blue-600'
         },
-        'History': { 
+        'History': {
             icon: Landmark,
-            color: 'from-gray-600 via-gray-700 to-gray-500',
-            lightColor: 'from-gray-50 via-white to-gray-100',
-            accentColor: 'gray-600',
-            badgeColor: 'bg-gray-50 text-gray-700 border-gray-300'
+            color: 'bg-amber-50 text-amber-700 border-amber-200',
+            gradient: 'from-amber-500 to-orange-600'
         },
-        'Economics': { 
+        'Economics': {
             icon: TrendingUp,
-            color: 'from-gray-700 via-gray-600 to-gray-800',
-            lightColor: 'from-gray-100 via-gray-50 to-white',
-            accentColor: 'gray-700',
-            badgeColor: 'bg-gray-100 text-gray-800 border-gray-300'
+            color: 'bg-violet-50 text-violet-700 border-violet-200',
+            gradient: 'from-violet-500 to-purple-600'
         },
-        'Literature': { 
+        'Literature': {
             icon: BookMarked,
-            color: 'from-gray-600 via-gray-700 to-gray-600',
-            lightColor: 'from-white via-gray-50 to-gray-100',
-            accentColor: 'gray-600',
-            badgeColor: 'bg-gray-50 text-gray-700 border-gray-300'
+            color: 'bg-rose-50 text-rose-700 border-rose-200',
+            gradient: 'from-rose-500 to-pink-600'
         },
-        'Psychology': { 
+        'Psychology': {
             icon: Brain,
-            color: 'from-gray-700 via-gray-600 to-gray-700',
-            lightColor: 'from-gray-50 via-white to-gray-100',
-            accentColor: 'gray-700',
-            badgeColor: 'bg-gray-100 text-gray-800 border-gray-300'
+            color: 'bg-purple-50 text-purple-700 border-purple-200',
+            gradient: 'from-purple-500 to-indigo-600'
         },
-        'Engineering': { 
+        'Engineering': {
             icon: Hammer,
-            color: 'from-gray-800 via-gray-700 to-gray-900',
-            lightColor: 'from-gray-100 via-white to-gray-50',
-            accentColor: 'gray-800',
-            badgeColor: 'bg-gray-100 text-gray-900 border-gray-400'
+            color: 'bg-orange-50 text-orange-700 border-orange-200',
+            gradient: 'from-orange-500 to-amber-600'
         },
-        'General Studies': { 
+        'General Studies': {
             icon: GraduationCap,
-            color: 'from-gray-600 via-gray-500 to-gray-600',
-            lightColor: 'from-white via-gray-50 to-gray-100',
-            accentColor: 'gray-600',
-            badgeColor: 'bg-gray-50 text-gray-600 border-gray-200'
+            color: 'bg-slate-50 text-slate-700 border-slate-200',
+            gradient: 'from-slate-500 to-slate-600'
         }
     };
 
-
-    // ✅ REAL-TIME NOTES LISTENER
+    // Real-time notes listener
     useEffect(() => {
         if (!user?.uid) {
             setLoading(false);
@@ -140,7 +115,7 @@ const NotesSection = () => {
                 setLoading(false);
             },
             (error) => {
-                console.error('❌ Error loading notes:', error);
+                console.error('Error loading notes:', error);
                 toast.error('Failed to load notes');
                 setLoading(false);
             }
@@ -149,8 +124,7 @@ const NotesSection = () => {
         return () => unsubscribe();
     }, [user?.uid]);
 
-
-    // Group notes by subject (Auto-categorization)
+    // Group notes by subject
     const folderStats = useMemo(() => {
         const stats = {};
         notes.forEach(note => {
@@ -173,11 +147,10 @@ const NotesSection = () => {
         return stats;
     }, [notes]);
 
-
     // Filter notes for selected folder
     const folderNotes = useMemo(() => {
         if (!selectedFolder) return [];
-        return folderStats[selectedFolder]?.notes.filter(note => 
+        return folderStats[selectedFolder]?.notes.filter(note =>
             note.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             note.content?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             note.documentTitle?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -189,7 +162,6 @@ const NotesSection = () => {
         }) || [];
     }, [selectedFolder, folderStats, searchTerm, sortBy]);
 
-
     // Delete single note
     const deleteNote = async (noteId, noteTitle) => {
         if (!window.confirm(`Delete "${noteTitle}"?`)) return;
@@ -198,18 +170,17 @@ const NotesSection = () => {
             await deleteDoc(doc(db, 'notes', noteId));
             toast.success('Note deleted');
         } catch (error) {
-            console.error('❌ Error deleting note:', error);
+            console.error('Error deleting note:', error);
             toast.error('Failed to delete note');
         }
     };
-
 
     // Delete all notes in folder
     const handleDeleteFolder = async () => {
         if (!selectedFolder) return;
 
         setDeleting(true);
-        const toastId = toast.loading(`Deleting all ${selectedFolder} notes...`);
+        const toastId = toast.loading(`Deleting notes...`);
 
         try {
             const notesToDelete = folderStats[selectedFolder].notes;
@@ -233,19 +204,18 @@ const NotesSection = () => {
             setShowDeleteModal(false);
             setSelectedFolder(null);
         } catch (error) {
-            console.error('❌ Error deleting folder:', error);
+            console.error('Error deleting folder:', error);
             toast.error('Failed to delete notes', { id: toastId });
         } finally {
             setDeleting(false);
         }
     };
 
-
     // Format date
     const formatDate = (date) => {
         if (!date) return 'Unknown';
         const d = date instanceof Date ? date : new Date(date);
-        
+
         const today = new Date();
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);
@@ -256,80 +226,59 @@ const NotesSection = () => {
         if (d.toDateString() === yesterday.toDateString()) {
             return `Yesterday ${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
         }
-        
-        return d.toLocaleDateString('en-US', { 
-            month: 'short', day: 'numeric', year: 'numeric' 
+
+        return d.toLocaleDateString('en-US', {
+            month: 'short', day: 'numeric', year: 'numeric'
         });
     };
 
-
-    // Render folder card (Apple Finder style)
+    // Render folder card
     const renderFolderCard = (subject, stats, idx) => {
         const config = subjectConfig[subject] || subjectConfig['General Studies'];
         const Icon = config.icon;
 
         return (
-            <motion.div
+            <motion.button
                 key={subject}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: idx * 0.05 }}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.04 }}
                 onClick={() => setSelectedFolder(subject)}
-                className="group relative cursor-pointer"
+                whileHover={{ y: -2 }}
+                className="text-left bg-white border border-slate-200 rounded-xl p-4 hover:border-teal-300 hover:shadow-md transition-all"
             >
-                {/* Glassmorphic card */}
-                <div className="relative bg-gradient-to-br from-white/80 via-white/60 to-gray-50/80 
-                              backdrop-blur-2xl rounded-3xl p-8 
-                              border border-gray-200/50 
-                              hover:border-gray-300 hover:shadow-2xl hover:shadow-gray-400/20
-                              transition-all duration-500 hover:-translate-y-2">
-                    
-                    {/* Top gradient accent */}
-                    <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${config.color} rounded-t-3xl`} />
-                    
-                    {/* Folder icon */}
-                    <div className="flex items-center justify-between mb-6">
-                        <div className={`w-20 h-20 bg-gradient-to-br ${config.color} rounded-2xl 
-                                       flex items-center justify-center shadow-xl shadow-gray-400/30
-                                       group-hover:scale-110 transition-transform duration-300`}>
-                            <Folder className="text-white" size={36} strokeWidth={1.5} />
-                        </div>
-                        <ChevronRight className="text-gray-400 group-hover:text-gray-600 transition-colors" size={24} />
+                <div className="flex items-center justify-between mb-3">
+                    <div className={`w-10 h-10 bg-gradient-to-br ${config.gradient} rounded-lg flex items-center justify-center shadow-sm`}>
+                        <Icon className="text-white" size={18} strokeWidth={2.5} />
                     </div>
+                    <ChevronRight className="text-slate-400" size={16} />
+                </div>
 
-                    {/* Folder info */}
-                    <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-gray-700 transition-colors">
-                        {subject}
-                    </h3>
-                    
-                    <div className="space-y-2 text-sm">
-                        <div className="flex items-center justify-between text-gray-600">
-                            <span className="font-medium flex items-center gap-2">
-                                <StickyNote size={16} />
-                                {stats.count} note{stats.count !== 1 ? 's' : ''}
-                            </span>
-                            <span className="text-gray-500 flex items-center gap-1">
-                                <FileText size={14} />
-                                {stats.documents.size}
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-gray-500">
-                            <Clock size={14} />
-                            <span className="text-xs">Modified {formatDate(stats.lastUpdated)}</span>
-                        </div>
+                <h3 className="text-sm font-bold text-slate-900 mb-2">
+                    {subject}
+                </h3>
+
+                <div className="space-y-1.5 text-[11px]">
+                    <div className="flex items-center justify-between text-slate-600">
+                        <span className="font-medium flex items-center gap-1.5">
+                            <StickyNote size={11} />
+                            {stats.count} note{stats.count !== 1 ? 's' : ''}
+                        </span>
+                        <span className="text-slate-500 flex items-center gap-1">
+                            <FileText size={10} />
+                            {stats.documents.size}
+                        </span>
                     </div>
-
-                    {/* Hover preview indicator */}
-                    <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${config.color}`} />
+                    <div className="flex items-center gap-1.5 text-slate-500">
+                        <Clock size={10} />
+                        <span className="text-[10px]">{formatDate(stats.lastUpdated)}</span>
                     </div>
                 </div>
-            </motion.div>
+            </motion.button>
         );
     };
 
-
-    // Render note card inside folder
+    // Render note card
     const renderNoteCard = (note, idx) => {
         const subject = note.subject || 'General Studies';
         const config = subjectConfig[subject];
@@ -340,71 +289,55 @@ const NotesSection = () => {
                 key={note.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.03 }}
-                className="group relative bg-gradient-to-br from-white/90 via-white/70 to-gray-50/90
-                          backdrop-blur-xl rounded-2xl p-5
-                          border border-gray-200/60 hover:border-gray-300
-                          hover:shadow-xl hover:shadow-gray-300/30
-                          transition-all duration-300"
+                transition={{ delay: idx * 0.02 }}
+                className="group bg-white border border-slate-200 rounded-xl p-4 hover:border-teal-300 hover:shadow-sm transition-all"
             >
-                <div className="flex gap-4">
-                    {/* Note icon */}
-                    <div className={`w-14 h-14 bg-gradient-to-br ${config.color} rounded-xl
-                                   flex items-center justify-center shadow-lg shadow-gray-400/20
-                                   group-hover:scale-105 transition-transform flex-shrink-0`}>
-                        <StickyNote className="text-white" size={24} strokeWidth={2} />
+                <div className="flex gap-3">
+                    <div className={`w-10 h-10 bg-gradient-to-br ${config.gradient} rounded-lg flex items-center justify-center shadow-sm flex-shrink-0 group-hover:scale-105 transition-transform`}>
+                        <StickyNote className="text-white" size={16} strokeWidth={2.5} />
                     </div>
 
-                    {/* Note content */}
                     <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-3 mb-2">
-                            <h4 className="text-base font-bold text-gray-900 line-clamp-2 group-hover:text-gray-700">
+                        <div className="flex items-start justify-between gap-2 mb-1.5">
+                            <h4 className="text-sm font-bold text-slate-900 line-clamp-2 leading-tight">
                                 {note.title || 'Untitled Note'}
                             </h4>
-                            
-                            {/* Subject badge */}
-                            <span className={`text-xs px-2.5 py-1 rounded-lg border font-bold whitespace-nowrap ${config.badgeColor}`}>
+
+                            <span className={`text-[10px] px-2 py-0.5 rounded-md border font-semibold whitespace-nowrap ${config.color}`}>
                                 {subject}
                             </span>
                         </div>
 
-                        <p className="text-sm text-gray-600 line-clamp-2 mb-3 font-medium">
+                        <p className="text-xs text-slate-600 line-clamp-2 mb-2 leading-relaxed">
                             {note.content || 'No content'}
                         </p>
 
-                        {/* Document reference */}
                         {note.documentTitle && (
-                            <div className="flex items-center gap-2 text-xs text-gray-500 mb-2 font-semibold">
-                                <FileText size={12} strokeWidth={2.5} />
+                            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mb-2 font-medium">
+                                <FileText size={10} strokeWidth={2.5} />
                                 <span className="truncate">{note.documentTitle}</span>
                             </div>
                         )}
 
-                        {/* Footer */}
-                        <div className="flex items-center justify-between pt-2 border-t border-gray-200/60">
-                            <div className="flex items-center gap-1 text-xs text-gray-500 font-semibold">
-                                <Clock size={12} strokeWidth={2.5} />
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                            <div className="flex items-center gap-1 text-[10px] text-slate-500 font-medium">
+                                <Clock size={10} strokeWidth={2.5} />
                                 {formatDate(note.createdAt)}
                             </div>
 
-                            {/* Actions */}
-                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button
                                     onClick={() => note.documentId && navigate(`/study/${note.documentId}`)}
                                     disabled={!note.documentId}
-                                    className="p-2 rounded-lg bg-white/80 border border-gray-300
-                                             text-gray-700 hover:bg-gray-100 hover:border-gray-400
-                                             transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                                    className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300 transition-all disabled:opacity-30"
                                 >
-                                    <Eye size={16} />
+                                    <Eye size={14} />
                                 </button>
                                 <button
                                     onClick={() => deleteNote(note.id, note.title || 'Untitled')}
-                                    className="p-2 rounded-lg bg-white/80 border border-gray-300
-                                             text-red-600 hover:bg-red-50 hover:border-red-400
-                                             transition-all"
+                                    className="p-1.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 hover:border-rose-300 transition-all"
                                 >
-                                    <Trash2 size={16} />
+                                    <Trash2 size={14} />
                                 </button>
                             </div>
                         </div>
@@ -414,45 +347,42 @@ const NotesSection = () => {
         );
     };
 
-
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-                <div className="relative">
-                    <div className="w-16 h-16 border-4 border-gray-200 border-t-gray-600 rounded-full animate-spin" />
+            <div className="flex items-center justify-center py-20 bg-white">
+                <div className="text-center">
+                    <div className="w-12 h-12 border-2 border-slate-200 border-t-teal-600 rounded-full animate-spin mx-auto mb-3" />
+                    <p className="text-sm font-medium text-slate-600">Loading notes...</p>
                 </div>
             </div>
         );
     }
 
-
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 relative">
-            {/* Subtle glassmorphic background elements */}
-            <div className="absolute top-20 left-20 w-96 h-96 bg-gradient-to-br from-gray-200/30 to-transparent rounded-full blur-3xl" />
-            <div className="absolute bottom-20 right-20 w-96 h-96 bg-gradient-to-br from-gray-300/20 to-transparent rounded-full blur-3xl" />
+        <div className="min-h-screen bg-white">
+            {/* Subtle background */}
+            <div className="fixed inset-0 -z-10 bg-gradient-to-br from-white via-teal-50/20 to-blue-50/20" />
 
-            <div className="relative z-10 max-w-7xl mx-auto px-6 py-10">
-                
+            <div className="max-w-7xl mx-auto px-6 py-8">
+
                 {/* Header */}
-                <div className="flex items-center justify-between mb-10">
-                    <div className="flex items-center gap-4">
+                <div className="flex items-center justify-between mb-8">
+                    <div className="flex items-center gap-3">
                         {selectedFolder && (
                             <button
                                 onClick={() => setSelectedFolder(null)}
-                                className="p-3 rounded-xl bg-white/80 backdrop-blur-xl border border-gray-200
-                                         hover:bg-white hover:border-gray-300 hover:shadow-lg transition-all"
+                                className="p-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all"
                             >
-                                <ArrowLeft size={20} className="text-gray-700" />
+                                <ArrowLeft size={18} className="text-slate-700" />
                             </button>
                         )}
                         <div>
-                            <h1 className="text-4xl font-black text-gray-900 mb-1">
+                            <h1 className="text-2xl font-bold text-slate-900 mb-0.5">
                                 {selectedFolder || 'Notes Library'}
                             </h1>
-                            <p className="text-gray-600 font-medium">
-                                {selectedFolder 
-                                    ? `${folderNotes.length} note${folderNotes.length !== 1 ? 's' : ''} • Auto-categorized from study sessions`
+                            <p className="text-xs text-slate-600">
+                                {selectedFolder
+                                    ? `${folderNotes.length} note${folderNotes.length !== 1 ? 's' : ''}`
                                     : `${Object.keys(folderStats).length} subjects • ${notes.length} total notes`
                                 }
                             </p>
@@ -462,39 +392,33 @@ const NotesSection = () => {
                     {selectedFolder ? (
                         <button
                             onClick={() => setShowDeleteModal(true)}
-                            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700
-                                     text-white rounded-xl font-bold hover:shadow-xl hover:shadow-red-600/30
-                                     hover:scale-105 transition-all"
+                            className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-lg text-xs font-bold hover:bg-rose-700 hover:shadow-sm transition-all"
                         >
-                            <Trash2 size={20} />
+                            <Trash2 size={14} />
                             Delete Folder
                         </button>
                     ) : (
                         <button
                             onClick={() => navigate('/documents')}
-                            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-gray-800 to-gray-700
-                                     text-white rounded-xl font-bold hover:shadow-xl hover:shadow-gray-600/30
-                                     hover:scale-105 transition-all"
+                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-500 to-blue-600 text-white rounded-lg text-xs font-bold hover:shadow-sm transition-all"
                         >
-                            <Plus size={20} />
+                            <Plus size={14} />
                             New Study Session
                         </button>
                     )}
                 </div>
 
-                {/* Search bar (only when inside folder) */}
+                {/* Search bar */}
                 {selectedFolder && (
-                    <div className="mb-8">
+                    <div className="mb-6">
                         <div className="relative">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                             <input
                                 type="text"
                                 placeholder="Search notes..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-12 pr-6 py-4 bg-white/80 backdrop-blur-xl rounded-2xl
-                                         border border-gray-200 focus:border-gray-400 focus:shadow-xl
-                                         transition-all font-medium text-gray-900 placeholder:text-gray-500"
+                                className="w-full pl-10 pr-4 py-2.5 bg-white rounded-xl border border-slate-200 focus:border-teal-400 focus:ring-2 focus:ring-teal-100 transition-all text-sm text-slate-900 placeholder:text-slate-400"
                             />
                         </div>
                     </div>
@@ -503,28 +427,25 @@ const NotesSection = () => {
                 {/* Content */}
                 <AnimatePresence mode="wait">
                     {!selectedFolder ? (
-                        // Folder view
                         notes.length === 0 ? (
-                            <motion.div 
+                            <motion.div
                                 key="empty"
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
-                                className="bg-gradient-to-br from-gray-50 to-white border-2 border-dashed border-gray-300 rounded-3xl p-20 text-center"
+                                className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-12 text-center"
                             >
-                                <div className="w-24 h-24 bg-gradient-to-br from-gray-200 to-gray-100 rounded-full
-                                              flex items-center justify-center mx-auto mb-6 shadow-xl">
-                                    <StickyNote size={48} className="text-gray-400" />
+                                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-200">
+                                    <StickyNote size={32} className="text-slate-400" />
                                 </div>
-                                <h3 className="text-3xl font-black text-gray-900 mb-3">No notes yet</h3>
-                                <p className="text-gray-600 mb-8 max-w-md mx-auto font-medium text-lg">
+                                <h3 className="text-lg font-bold text-slate-900 mb-1">No notes yet</h3>
+                                <p className="text-xs text-slate-600 mb-6 max-w-md mx-auto leading-relaxed">
                                     Start a study session and take notes. They'll be automatically organized by subject!
                                 </p>
                                 <button
                                     onClick={() => navigate('/documents')}
-                                    className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-gray-800 to-gray-700 
-                                             text-white rounded-2xl font-bold hover:scale-105 transition-all shadow-2xl hover:shadow-gray-600/40"
+                                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-teal-500 to-blue-600 text-white rounded-lg text-xs font-bold hover:shadow-sm transition-all"
                                 >
-                                    <Plus size={22} />
+                                    <Plus size={14} />
                                     Start Study Session
                                 </button>
                             </motion.div>
@@ -534,15 +455,14 @@ const NotesSection = () => {
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
-                                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                                className="grid grid-cols-3 gap-4"
                             >
-                                {Object.entries(folderStats).map(([subject, stats], idx) => 
+                                {Object.entries(folderStats).map(([subject, stats], idx) =>
                                     renderFolderCard(subject, stats, idx)
                                 )}
                             </motion.div>
                         )
                     ) : (
-                        // Notes inside folder
                         <motion.div
                             key="notes"
                             initial={{ opacity: 0 }}
@@ -553,13 +473,12 @@ const NotesSection = () => {
                             {folderNotes.length > 0 ? (
                                 folderNotes.map((note, idx) => renderNoteCard(note, idx))
                             ) : (
-                                <div className="text-center py-20 bg-gradient-to-br from-white to-gray-50 rounded-3xl border-2 border-dashed border-gray-300">
-                                    <div className="w-20 h-20 bg-gradient-to-br from-gray-200 to-gray-100 rounded-full
-                                                  flex items-center justify-center mx-auto mb-6 shadow-xl">
-                                        <StickyNote size={40} className="text-gray-400" />
+                                <div className="text-center py-12 bg-white rounded-2xl border-2 border-dashed border-slate-200">
+                                    <div className="w-14 h-14 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3 border border-slate-200">
+                                        <StickyNote size={28} className="text-slate-400" />
                                     </div>
-                                    <h3 className="text-2xl font-bold text-gray-900 mb-2">No notes found</h3>
-                                    <p className="text-gray-600 font-medium">
+                                    <h3 className="text-base font-bold text-slate-900 mb-1">No notes found</h3>
+                                    <p className="text-xs text-slate-600">
                                         {searchTerm ? 'Try a different search term' : 'Start studying to create notes!'}
                                     </p>
                                 </div>
@@ -569,62 +488,59 @@ const NotesSection = () => {
                 </AnimatePresence>
             </div>
 
-            {/* Delete Folder Confirmation Modal */}
+            {/* Delete Modal */}
             <AnimatePresence>
                 {showDeleteModal && (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+                        className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
                         onClick={() => !deleting && setShowDeleteModal(false)}
                     >
                         <motion.div
-                            initial={{ scale: 0.9, opacity: 0 }}
+                            initial={{ scale: 0.95, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.9, opacity: 0 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
                             onClick={(e) => e.stopPropagation()}
-                            className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border-2 border-gray-200"
+                            className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl border border-slate-200"
                         >
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="p-3 bg-red-100 rounded-xl">
-                                    <Trash2 className="w-6 h-6 text-red-600" />
+                            <div className="flex items-center gap-2.5 mb-4">
+                                <div className="p-2 bg-rose-50 rounded-lg border border-rose-200">
+                                    <Trash2 className="w-5 h-5 text-rose-600" strokeWidth={2.5} />
                                 </div>
-                                <h3 className="text-2xl font-black text-gray-900">Delete {selectedFolder}?</h3>
+                                <h3 className="text-lg font-bold text-slate-900">Delete {selectedFolder}?</h3>
                             </div>
 
-                            <p className="text-gray-600 mb-6 font-semibold leading-relaxed">
+                            <p className="text-xs text-slate-600 mb-6 leading-relaxed">
                                 This will permanently delete{' '}
-                                <span className="font-black text-gray-900">
+                                <span className="font-bold text-slate-900">
                                     {folderStats[selectedFolder]?.count} note{folderStats[selectedFolder]?.count !== 1 ? 's' : ''}
                                 </span>{' '}
                                 from {selectedFolder}. This action cannot be undone.
                             </p>
 
-                            <div className="flex gap-3">
+                            <div className="flex gap-2.5">
                                 <button
                                     onClick={() => setShowDeleteModal(false)}
                                     disabled={deleting}
-                                    className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold 
-                                             hover:bg-gray-200 transition-all disabled:opacity-50"
+                                    className="flex-1 px-4 py-2.5 bg-slate-50 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-100 border border-slate-200 transition-all disabled:opacity-50"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={handleDeleteFolder}
                                     disabled={deleting}
-                                    className="flex-1 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white 
-                                             rounded-xl font-bold hover:from-red-700 hover:to-red-800 transition-all 
-                                             disabled:opacity-50 flex items-center justify-center gap-2"
+                                    className="flex-1 px-4 py-2.5 bg-rose-600 text-white rounded-lg text-xs font-bold hover:bg-rose-700 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
                                 >
                                     {deleting ? (
                                         <>
-                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                             Deleting...
                                         </>
                                     ) : (
                                         <>
-                                            <Trash2 size={18} />
+                                            <Trash2 size={14} />
                                             Delete Folder
                                         </>
                                     )}
@@ -637,6 +553,5 @@ const NotesSection = () => {
         </div>
     );
 };
-
 
 export default NotesSection;

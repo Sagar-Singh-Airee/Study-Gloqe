@@ -411,12 +411,7 @@ const PDFUpload = () => {
         );
       }
 
-      // Auto-navigate if single file upload
-      if (files.length === 1) {
-        setTimeout(() => {
-          navigate(`/study/${result.docId}`);
-        }, 1500);
-      }
+
 
       return { success: true, result };
 

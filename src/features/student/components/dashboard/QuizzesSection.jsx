@@ -1,22 +1,11 @@
-// src/components/features/QuizzesSection.jsx - WHITE & SILVER MINIMAL DESIGN ✨
+// src/components/features/QuizzesSection.jsx - PREMIUM LIGHT COMPACT EDITION 💎
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    Brain,
-    Plus,
-    Search,
-    Trash2,
-    Play,
-    Clock,
-    Target,
-    Award,
-    Sparkles,
-    ChevronRight,
-    Zap,
-    TrendingUp,
-    BookOpen,
-    Loader2
+    Brain, Plus, Search, Trash2, Play, Clock, Target, Award,
+    Sparkles, ChevronRight, Zap, TrendingUp, BookOpen, Loader2,
+    Filter, AlertCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@auth/contexts/AuthContext';
@@ -37,74 +26,15 @@ const QuizzesSection = () => {
     const [showGenerateModal, setShowGenerateModal] = useState(false);
     const [selectedDocument, setSelectedDocument] = useState(null);
 
-    // Subject config - white/silver theme
-    const subjectConfig = {
-        'Mathematics': {
-            color: 'text-blue-700',
-            bg: 'bg-gradient-to-br from-blue-50 to-blue-100/50',
-            border: 'border-blue-200/60',
-            icon: 'bg-gradient-to-br from-blue-500 to-teal-500'
-        },
-        'Physics': {
-            color: 'text-teal-700',
-            bg: 'bg-gradient-to-br from-teal-50 to-teal-100/50',
-            border: 'border-teal-200/60',
-            icon: 'bg-gradient-to-br from-teal-500 to-blue-500'
-        },
-        'Chemistry': {
-            color: 'text-teal-700',
-            bg: 'bg-gradient-to-br from-teal-50 to-blue-50',
-            border: 'border-teal-200/60',
-            icon: 'bg-gradient-to-br from-teal-500 to-blue-400'
-        },
-        'Biology': {
-            color: 'text-teal-800',
-            bg: 'bg-gradient-to-br from-teal-50 to-teal-100/50',
-            border: 'border-teal-200/60',
-            icon: 'bg-gradient-to-br from-teal-600 to-blue-400'
-        },
-        'Computer Science': {
-            color: 'text-blue-800',
-            bg: 'bg-gradient-to-br from-blue-50 to-blue-100/50',
-            border: 'border-blue-200/60',
-            icon: 'bg-gradient-to-br from-blue-600 to-teal-500'
-        },
-        'History': {
-            color: 'text-slate-700',
-            bg: 'bg-gradient-to-br from-slate-50 to-slate-100/50',
-            border: 'border-slate-200/60',
-            icon: 'bg-gradient-to-br from-slate-500 to-slate-600'
-        },
-        'Economics': {
-            color: 'text-blue-700',
-            bg: 'bg-gradient-to-br from-blue-50 to-teal-50',
-            border: 'border-blue-200/60',
-            icon: 'bg-gradient-to-br from-blue-500 to-teal-500'
-        },
-        'Literature': {
-            color: 'text-slate-700',
-            bg: 'bg-gradient-to-br from-slate-50 to-slate-100/50',
-            border: 'border-slate-200/60',
-            icon: 'bg-gradient-to-br from-slate-600 to-slate-700'
-        },
-        'Psychology': {
-            color: 'text-blue-700',
-            bg: 'bg-gradient-to-br from-blue-50 to-teal-50',
-            border: 'border-blue-200/60',
-            icon: 'bg-gradient-to-br from-blue-600 to-teal-600'
-        },
-        'Engineering': {
-            color: 'text-slate-800',
-            bg: 'bg-gradient-to-br from-slate-50 to-slate-100/50',
-            border: 'border-slate-200/60',
-            icon: 'bg-gradient-to-br from-slate-500 to-slate-600'
-        },
-        'General Studies': {
-            color: 'text-slate-600',
-            bg: 'bg-gradient-to-br from-slate-50 to-slate-100/50',
-            border: 'border-slate-200/60',
-            icon: 'bg-gradient-to-br from-slate-400 to-slate-500'
-        }
+    // Subject colors - compact
+    const subjectColors = {
+        'Mathematics': 'bg-blue-50 text-blue-700 border-blue-200',
+        'Physics': 'bg-teal-50 text-teal-700 border-teal-200',
+        'Chemistry': 'bg-cyan-50 text-cyan-700 border-cyan-200',
+        'Biology': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        'Computer Science': 'bg-indigo-50 text-indigo-700 border-indigo-200',
+        'History': 'bg-amber-50 text-amber-700 border-amber-200',
+        'default': 'bg-slate-50 text-slate-700 border-slate-200'
     };
 
     // Real-time quizzes listener
@@ -122,16 +52,12 @@ const QuizzesSection = () => {
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const quizzesData = snapshot.docs.map(doc => {
                 const data = doc.data();
-                const completionCount = data.completionCount || 0;
-                const averageScore = data.averageScore || 0;
-                const bestScore = data.bestScore || 0;
-
                 return {
                     id: doc.id,
                     ...data,
-                    completionCount,
-                    averageScore,
-                    bestScore,
+                    completionCount: data.completionCount || 0,
+                    averageScore: data.averageScore || 0,
+                    bestScore: data.bestScore || 0,
                     createdAt: data.createdAt?.toDate?.() || new Date()
                 };
             }).sort((a, b) => b.createdAt - a.createdAt);
@@ -170,10 +96,8 @@ const QuizzesSection = () => {
     const quizzesBySubject = useMemo(() => {
         const grouped = {};
         quizzes.forEach(quiz => {
-            const subject = quiz.subject || 'General Studies';
-            if (!grouped[subject]) {
-                grouped[subject] = [];
-            }
+            const subject = quiz.subject || 'General';
+            if (!grouped[subject]) grouped[subject] = [];
             grouped[subject].push(quiz);
         });
         return grouped;
@@ -185,7 +109,7 @@ const QuizzesSection = () => {
 
         if (selectedSubject !== 'all') {
             filtered = filtered.filter(quiz =>
-                (quiz.subject || 'General Studies') === selectedSubject
+                (quiz.subject || 'General') === selectedSubject
             );
         }
 
@@ -202,16 +126,12 @@ const QuizzesSection = () => {
     // Calculate stats
     const quizStats = useMemo(() => {
         const totalCompleted = quizzes.reduce((sum, quiz) => sum + (quiz.completionCount || 0), 0);
-        const perfectScores = quizzes.filter(quiz => (quiz.bestScore || 0) === 100).length;
         const avgScore = quizzes.length > 0
             ? Math.round(quizzes.reduce((sum, quiz) => sum + (quiz.averageScore || 0), 0) / quizzes.length)
             : 0;
+        const perfectScores = quizzes.filter(quiz => (quiz.bestScore || 0) === 100).length;
 
-        return {
-            totalCompleted,
-            perfectScores,
-            avgScore
-        };
+        return { totalCompleted, avgScore, perfectScores };
     }, [quizzes]);
 
     // Generate quiz handler
@@ -222,7 +142,7 @@ const QuizzesSection = () => {
         }
 
         setGeneratingQuiz(document.id);
-        const toastId = toast.loading(`🤖 AI is generating your ${difficulty} quiz...`);
+        const toastId = toast.loading(`Generating ${difficulty} quiz...`);
 
         try {
             const questions = await generateQuizWithGemini(document.id, difficulty, questionCount);
@@ -233,15 +153,14 @@ const QuizzesSection = () => {
 
             const quizId = await createQuiz(user.uid, document.id, questions, {
                 title: `${document.title || 'Quiz'} - ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}`,
-                description: `AI-generated ${difficulty} quiz with ${questions.length} questions`,
-                subject: document.subject || 'General Studies',
+                description: `AI-generated ${difficulty} quiz`,
+                subject: document.subject || 'General',
                 difficulty: difficulty,
                 timeLimit: Math.ceil(questionCount * 1.5),
                 shuffleQuestions: false,
                 shuffleChoices: true,
                 showResults: true,
                 allowRetake: true,
-                showHints: true,
                 completionCount: 0,
                 averageScore: 0,
                 bestScore: 0
@@ -249,34 +168,17 @@ const QuizzesSection = () => {
 
             setShowGenerateModal(false);
             setSelectedDocument(null);
-            toast.success('✨ Quiz generated successfully!', { id: toastId });
+            toast.success('Quiz generated successfully!', { id: toastId });
 
             setTimeout(() => {
                 navigate(`/quiz/${quizId}`, {
-                    replace: false,
-                    state: {
-                        fromGeneration: true,
-                        difficulty: difficulty,
-                        documentTitle: document.title
-                    }
+                    state: { fromGeneration: true, difficulty, documentTitle: document.title }
                 });
             }, 500);
 
         } catch (error) {
             console.error('Quiz generation error:', error);
-
-            let errorMessage = 'Failed to generate quiz';
-            if (error.message.includes('API key')) {
-                errorMessage = 'AI service configuration error. Please contact support.';
-            } else if (error.message.includes('too short')) {
-                errorMessage = 'Document text is too short. Please upload a longer document.';
-            } else if (error.message.includes('not found')) {
-                errorMessage = 'Document not found. Please try again.';
-            } else if (error.message) {
-                errorMessage = error.message;
-            }
-
-            toast.error(errorMessage, { id: toastId });
+            toast.error(error.message || 'Failed to generate quiz', { id: toastId });
         } finally {
             setGeneratingQuiz(null);
         }
@@ -284,302 +186,213 @@ const QuizzesSection = () => {
 
     // Delete quiz handler
     const handleDeleteQuiz = async (quizId, quizTitle) => {
-        if (!confirm(`Are you sure you want to delete "${quizTitle}"?`)) {
-            return;
-        }
+        if (!confirm(`Delete "${quizTitle}"?`)) return;
 
         const toastId = toast.loading('Deleting quiz...');
-
         try {
             await deleteQuiz(quizId);
-            toast.success('Quiz deleted successfully', { id: toastId });
+            toast.success('Quiz deleted', { id: toastId });
         } catch (error) {
-            console.error('Delete error:', error);
             toast.error('Failed to delete quiz', { id: toastId });
         }
     };
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center py-20 bg-gradient-to-br from-slate-50 via-white to-teal-50">
-                <div className="flex flex-col items-center gap-4">
-                    <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                        className="w-16 h-16 border-4 border-slate-200 border-t-teal-600 rounded-full shadow-lg"
-                    />
-                    <p className="text-slate-700 font-bold">Loading quizzes...</p>
+            <div className="flex items-center justify-center py-20 bg-white">
+                <div className="text-center">
+                    <div className="w-12 h-12 border-2 border-slate-200 border-t-teal-600 rounded-full animate-spin mx-auto mb-3" />
+                    <p className="text-sm font-medium text-slate-600">Loading quizzes...</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50 py-8 px-6">
-            {/* Animated background orbs */}
-            <motion.div
-                animate={{ scale: [1, 1.2, 1], opacity: [0.15, 0.25, 0.15] }}
-                transition={{ duration: 8, repeat: Infinity }}
-                className="fixed top-20 left-20 w-96 h-96 bg-gradient-to-br from-blue-200/40 via-teal-200/40 to-transparent rounded-full blur-3xl pointer-events-none"
-            />
+        <div className="min-h-screen bg-white">
+            {/* Subtle background */}
+            <div className="fixed inset-0 -z-10 bg-gradient-to-br from-white via-teal-50/20 to-blue-50/20" />
 
-            <div className="max-w-7xl mx-auto space-y-6">
-                {/* Header */}
-                <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                        <motion.div
-                            whileHover={{ scale: 1.05 }}
-                            className="p-4 bg-gradient-to-br from-blue-600 to-teal-600 rounded-2xl shadow-lg shadow-teal-200/50"
-                        >
-                            <Brain className="w-7 h-7 text-white" />
-                        </motion.div>
+            <div className="max-w-7xl mx-auto px-6 py-8">
+                {/* Compact Header */}
+                <div className="mb-8">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="p-2.5 bg-gradient-to-br from-teal-500 to-blue-600 rounded-xl shadow-sm">
+                            <Brain className="w-5 h-5 text-white" strokeWidth={2.5} />
+                        </div>
                         <div>
-                            <h2 className="text-3xl font-bold bg-gradient-to-r from-slate-800 via-teal-700 to-blue-700 bg-clip-text text-transparent">
+                            <h2 className="text-2xl font-bold text-slate-900">
                                 AI Quizzes
                             </h2>
-                            <p className="text-slate-600 font-medium mt-1">
+                            <p className="text-xs text-slate-600 mt-0.5">
                                 Test your knowledge with AI-generated quizzes
                             </p>
                         </div>
                     </div>
+
+
                 </div>
 
-                {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <motion.div
-                        whileHover={{ y: -2 }}
-                        className="bg-white border border-slate-200/60 rounded-2xl p-5 hover:border-blue-300/60 hover:shadow-lg hover:shadow-blue-100/50 transition-all"
-                    >
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className="p-2.5 bg-gradient-to-br from-blue-100 to-blue-50 rounded-xl border border-blue-200/60">
-                                <Brain size={20} className="text-blue-700" />
-                            </div>
-                            <span className="text-sm font-semibold text-slate-600">Total Quizzes</span>
-                        </div>
-                        <p className="text-3xl font-bold text-slate-800">{quizzes.length}</p>
-                    </motion.div>
+                {/* Search & Filter */}
+                <div className="mb-6 space-y-3">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        <input
+                            type="text"
+                            placeholder="Search quizzes..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl 
+                                     focus:outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100 
+                                     transition-all text-sm text-slate-900 placeholder:text-slate-400"
+                        />
+                    </div>
 
-                    <motion.div
-                        whileHover={{ y: -2 }}
-                        className="bg-white border border-slate-200/60 rounded-2xl p-5 hover:border-teal-300/60 hover:shadow-lg hover:shadow-teal-100/50 transition-all"
-                    >
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className="p-2.5 bg-gradient-to-br from-teal-100 to-teal-50 rounded-xl border border-teal-200/60">
-                                <Target size={20} className="text-teal-700" />
-                            </div>
-                            <span className="text-sm font-semibold text-slate-600">Completed</span>
-                        </div>
-                        <p className="text-3xl font-bold text-slate-800">{quizStats.totalCompleted}</p>
-                    </motion.div>
+                    {/* Subject Pills */}
+                    <div className="flex items-center gap-2 overflow-x-auto pb-2">
+                        <button
+                            onClick={() => setSelectedSubject('all')}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${selectedSubject === 'all'
+                                ? 'bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-sm'
+                                : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
+                                }`}
+                        >
+                            All ({quizzes.length})
+                        </button>
 
-                    <motion.div
-                        whileHover={{ y: -2 }}
-                        className="bg-white border border-slate-200/60 rounded-2xl p-5 hover:border-yellow-300/60 hover:shadow-lg hover:shadow-yellow-100/50 transition-all"
-                    >
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className="p-2.5 bg-gradient-to-br from-yellow-100 to-yellow-50 rounded-xl border border-yellow-200/60">
-                                <Award size={20} className="text-yellow-700" />
-                            </div>
-                            <span className="text-sm font-semibold text-slate-600">Perfect Scores</span>
-                        </div>
-                        <p className="text-3xl font-bold text-slate-800">{quizStats.perfectScores}</p>
-                    </motion.div>
-
-                    <motion.div
-                        whileHover={{ y: -2 }}
-                        className="bg-white border border-slate-200/60 rounded-2xl p-5 hover:border-blue-300/60 hover:shadow-lg hover:shadow-blue-100/50 transition-all"
-                    >
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className="p-2.5 bg-gradient-to-br from-blue-100 to-blue-50 rounded-xl border border-blue-200/60">
-                                <TrendingUp size={20} className="text-blue-700" />
-                            </div>
-                            <span className="text-sm font-semibold text-slate-600">Avg Score</span>
-                        </div>
-                        <p className="text-3xl font-bold text-slate-800">{quizStats.avgScore}%</p>
-                    </motion.div>
-                </div>
-
-                {/* Search */}
-                <div className="relative">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={20} />
-                    <input
-                        type="text"
-                        placeholder="Search quizzes..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-200/60 rounded-2xl 
-                                 focus:outline-none focus:border-teal-400/60 focus:ring-2 focus:ring-teal-100 
-                                 transition-all font-medium text-slate-800 placeholder:text-slate-400 shadow-sm"
-                    />
-                </div>
-
-                {/* Subject Filter Tabs */}
-                <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-300">
-                    <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => setSelectedSubject('all')}
-                        className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm whitespace-nowrap transition-all shadow-sm ${selectedSubject === 'all'
-                            ? 'bg-gradient-to-r from-blue-600 to-teal-600 text-white shadow-md shadow-blue-200/50'
-                            : 'bg-white border border-slate-200/60 text-slate-700 hover:border-slate-300'
-                            }`}
-                    >
-                        All ({quizzes.length})
-                    </motion.button>
-
-                    {Object.entries(quizzesBySubject).map(([subject, subjectQuizzes]) => {
-                        const config = subjectConfig[subject] || subjectConfig['General Studies'];
-
-                        return (
-                            <motion.button
+                        {Object.entries(quizzesBySubject).map(([subject, subjectQuizzes]) => (
+                            <button
                                 key={subject}
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
                                 onClick={() => setSelectedSubject(subject)}
-                                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm whitespace-nowrap transition-all shadow-sm ${selectedSubject === subject
-                                    ? `${config.bg} ${config.color} border ${config.border} shadow-md`
-                                    : 'bg-white border border-slate-200/60 text-slate-700 hover:border-slate-300'
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap border ${selectedSubject === subject
+                                    ? subjectColors[subject] || subjectColors.default
+                                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                                     }`}
                             >
                                 {subject} ({subjectQuizzes.length})
-                            </motion.button>
-                        );
-                    })}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
-                {/* Generate Quiz Section */}
+                {/* Generate from Documents */}
                 {documents.length > 0 && (
-                    <div>
-                        <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-                            <Sparkles size={20} className="text-teal-600" />
-                            Generate New Quiz
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {documents.slice(0, 6).map((doc) => {
-                                const config = subjectConfig[doc.subject] || subjectConfig['General Studies'];
-
-                                return (
-                                    <motion.div
-                                        key={doc.id}
-                                        initial={{ opacity: 0, scale: 0.95 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        whileHover={{ y: -2 }}
-                                        className="bg-white border border-slate-200/60 rounded-2xl p-5 hover:border-teal-300/60 hover:shadow-lg hover:shadow-teal-50/50 transition-all"
-                                    >
-                                        <div className="flex items-start gap-3 mb-4">
-                                            <div className={`w-11 h-11 ${config.icon} rounded-xl flex items-center justify-center flex-shrink-0 shadow-md`}>
-                                                <BookOpen size={20} className="text-white" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <h4 className="text-sm font-bold text-slate-800 truncate mb-1.5">
-                                                    {doc.title}
-                                                </h4>
-                                                {doc.subject && (
-                                                    <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-lg ${config.bg} ${config.color} border ${config.border}`}>
-                                                        {doc.subject}
-                                                    </span>
-                                                )}
-                                            </div>
+                    <div className="mb-8">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Sparkles size={16} className="text-teal-600" strokeWidth={2.5} />
+                            <h3 className="text-sm font-bold text-slate-900">Generate New Quiz</h3>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                            {documents.slice(0, 6).map((doc) => (
+                                <motion.div
+                                    key={doc.id}
+                                    whileHover={{ y: -2 }}
+                                    className="bg-white border border-slate-200 rounded-xl p-3 hover:border-teal-300 hover:shadow-sm transition-all"
+                                >
+                                    <div className="flex items-start gap-2 mb-3">
+                                        <div className="w-8 h-8 bg-gradient-to-br from-teal-500 to-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                            <BookOpen size={16} className="text-white" strokeWidth={2.5} />
                                         </div>
-                                        <motion.button
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
-                                            onClick={() => {
-                                                setSelectedDocument(doc);
-                                                setShowGenerateModal(true);
-                                            }}
-                                            disabled={generatingQuiz === doc.id}
-                                            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-xl text-sm font-semibold hover:shadow-md hover:shadow-teal-200/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            {generatingQuiz === doc.id ? (
-                                                <>
-                                                    <Loader2 size={16} className="animate-spin" />
-                                                    Generating...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Sparkles size={16} />
-                                                    Generate Quiz
-                                                </>
+                                        <div className="flex-1 min-w-0">
+                                            <h4 className="text-xs font-bold text-slate-900 truncate mb-1">
+                                                {doc.title}
+                                            </h4>
+                                            {doc.subject && (
+                                                <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-md border ${subjectColors[doc.subject] || subjectColors.default
+                                                    }`}>
+                                                    {doc.subject}
+                                                </span>
                                             )}
-                                        </motion.button>
-                                    </motion.div>
-                                );
-                            })}
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            setSelectedDocument(doc);
+                                            setShowGenerateModal(true);
+                                        }}
+                                        disabled={generatingQuiz === doc.id}
+                                        className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-r from-teal-500 to-blue-600 text-white rounded-lg text-xs font-bold hover:shadow-sm transition-all disabled:opacity-50"
+                                    >
+                                        {generatingQuiz === doc.id ? (
+                                            <>
+                                                <Loader2 size={12} className="animate-spin" />
+                                                Generating...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Sparkles size={12} />
+                                                Generate Quiz
+                                            </>
+                                        )}
+                                    </button>
+                                </motion.div>
+                            ))}
                         </div>
                     </div>
                 )}
 
-                {/* Quizzes List */}
+                {/* Quizzes Grid */}
                 {filteredQuizzes.length > 0 ? (
                     <div>
-                        <h3 className="text-xl font-bold text-slate-800 mb-4">Your Quizzes</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <h3 className="text-sm font-bold text-slate-900 mb-4">Your Quizzes</h3>
+                        <div className="grid grid-cols-3 gap-4">
                             {filteredQuizzes.map((quiz) => {
-                                const subject = quiz.subject || 'General Studies';
-                                const config = subjectConfig[subject] || subjectConfig['General Studies'];
+                                const subject = quiz.subject || 'General';
+                                const subjectStyle = subjectColors[subject] || subjectColors.default;
 
                                 return (
                                     <motion.div
                                         key={quiz.id}
-                                        initial={{ opacity: 0, y: 20 }}
+                                        initial={{ opacity: 0, y: 15 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         whileHover={{ y: -2 }}
-                                        className="bg-white border border-slate-200/60 rounded-2xl p-5 hover:border-blue-300/60 hover:shadow-lg hover:shadow-blue-50/50 transition-all group"
+                                        className="bg-white border border-slate-200 rounded-xl p-4 hover:border-teal-300 hover:shadow-md transition-all"
                                     >
-                                        <div className="flex items-start gap-3 mb-4">
-                                            <div className={`w-12 h-12 ${config.icon} rounded-xl flex items-center justify-center flex-shrink-0 shadow-md`}>
-                                                <Brain size={22} className="text-white" />
+                                        <div className="flex items-start gap-2.5 mb-3">
+                                            <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-blue-600 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm">
+                                                <Brain size={18} className="text-white" strokeWidth={2.5} />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <h4 className="text-base font-bold text-slate-800 truncate mb-2 group-hover:text-teal-700 transition-colors">
+                                                <h4 className="text-sm font-bold text-slate-900 mb-1.5 line-clamp-2 leading-tight">
                                                     {quiz.title}
                                                 </h4>
-                                                <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-lg ${config.bg} ${config.color} border ${config.border}`}>
+                                                <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-md border ${subjectStyle}`}>
                                                     {subject}
                                                 </span>
                                             </div>
                                         </div>
 
-                                        <div className="space-y-2 mb-4 text-xs text-slate-600 font-medium">
-                                            <div className="flex items-center gap-2">
-                                                <Target size={13} />
-                                                {quiz.totalQuestions} Questions
+                                        <div className="space-y-1.5 mb-3">
+                                            <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
+                                                <Target size={11} />
+                                                <span>{quiz.totalQuestions} Questions</span>
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                <Clock size={13} />
-                                                {quiz.timeLimit ? `${quiz.timeLimit} minutes` : 'No time limit'}
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <TrendingUp size={13} />
-                                                {quiz.difficulty?.charAt(0).toUpperCase() + quiz.difficulty?.slice(1)} Level
+                                            <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
+                                                <Clock size={11} />
+                                                <span>{quiz.timeLimit ? `${quiz.timeLimit} min` : 'No limit'}</span>
                                             </div>
                                             {quiz.completionCount > 0 && (
-                                                <div className="flex items-center gap-2 text-teal-600 font-semibold">
-                                                    <Award size={13} />
-                                                    Completed {quiz.completionCount}x • Best: {quiz.bestScore}%
+                                                <div className="flex items-center gap-1.5 text-[11px] text-teal-600 font-semibold">
+                                                    <Award size={11} />
+                                                    <span>Best: {quiz.bestScore}%</span>
                                                 </div>
                                             )}
                                         </div>
 
                                         <div className="flex gap-2">
-                                            <motion.button
-                                                whileHover={{ scale: 1.02 }}
-                                                whileTap={{ scale: 0.98 }}
+                                            <button
                                                 onClick={() => navigate(`/quiz/${quiz.id}`)}
-                                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-xl text-sm font-semibold hover:shadow-md hover:shadow-blue-200/50 transition-all"
+                                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-r from-teal-500 to-blue-600 text-white rounded-lg text-xs font-bold hover:shadow-sm transition-all"
                                             >
-                                                <Play size={14} />
-                                                {quiz.completionCount > 0 ? 'Retake' : 'Start Quiz'}
-                                            </motion.button>
-                                            <motion.button
-                                                whileHover={{ scale: 1.05 }}
-                                                whileTap={{ scale: 0.95 }}
+                                                <Play size={12} />
+                                                {quiz.completionCount > 0 ? 'Retake' : 'Start'}
+                                            </button>
+                                            <button
                                                 onClick={() => handleDeleteQuiz(quiz.id, quiz.title)}
-                                                className="p-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 border border-red-200/60 transition-all"
+                                                className="p-2 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 border border-rose-200 transition-all"
                                             >
-                                                <Trash2 size={16} />
-                                            </motion.button>
+                                                <Trash2 size={14} />
+                                            </button>
                                         </div>
                                     </motion.div>
                                 );
@@ -587,26 +400,18 @@ const QuizzesSection = () => {
                         </div>
                     </div>
                 ) : (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="bg-white border-2 border-dashed border-slate-300/60 rounded-3xl p-16 text-center"
-                    >
-                        <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            className="w-24 h-24 bg-gradient-to-br from-slate-100 to-slate-50 rounded-full flex items-center justify-center mx-auto mb-5 shadow-md border border-slate-200/60"
-                        >
-                            <Brain size={40} className="text-slate-400" />
-                        </motion.div>
-                        <h3 className="text-xl font-bold text-slate-800 mb-2">No quizzes yet</h3>
-                        <p className="text-slate-600 mb-6 font-medium">
-                            Generate your first AI quiz from a document!
+                    <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-12 text-center">
+                        <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3 border border-slate-200">
+                            <Brain size={32} className="text-slate-400" />
+                        </div>
+                        <h3 className="text-base font-bold text-slate-900 mb-1">No quizzes yet</h3>
+                        <p className="text-xs text-slate-600">
+                            Generate your first quiz from a document
                         </p>
-                    </motion.div>
+                    </div>
                 )}
 
-                {/* Generate Quiz Modal */}
+                {/* Generate Modal */}
                 <AnimatePresence>
                     {showGenerateModal && selectedDocument && (
                         <motion.div
@@ -622,76 +427,68 @@ const QuizzesSection = () => {
                             }}
                         >
                             <motion.div
-                                initial={{ scale: 0.9, opacity: 0 }}
+                                initial={{ scale: 0.95, opacity: 0 }}
                                 animate={{ scale: 1, opacity: 1 }}
-                                exit={{ scale: 0.9, opacity: 0 }}
+                                exit={{ scale: 0.95, opacity: 0 }}
                                 onClick={(e) => e.stopPropagation()}
-                                className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-slate-200/60"
+                                className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl border border-slate-200"
                             >
-                                <div className="flex items-center gap-3 mb-6">
-                                    <div className="p-3 bg-gradient-to-br from-teal-100 to-blue-100 rounded-2xl border border-teal-200/60">
-                                        <Sparkles className="w-6 h-6 text-teal-700" />
+                                <div className="flex items-center gap-2.5 mb-4">
+                                    <div className="p-2 bg-gradient-to-br from-teal-500 to-blue-600 rounded-lg">
+                                        <Sparkles className="w-5 h-5 text-white" strokeWidth={2.5} />
                                     </div>
-                                    <h3 className="text-2xl font-bold text-slate-800">Generate Quiz</h3>
+                                    <h3 className="text-lg font-bold text-slate-900">Generate Quiz</h3>
                                 </div>
 
-                                <p className="text-slate-600 mb-6 font-medium">
-                                    Creating quiz for: <span className="font-bold text-slate-800">{selectedDocument.title}</span>
+                                <p className="text-xs text-slate-600 mb-4">
+                                    For: <span className="font-bold text-slate-900">{selectedDocument.title}</span>
                                 </p>
 
-                                <div className="space-y-3">
-                                    <motion.button
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
+                                <div className="space-y-2.5">
+                                    <button
                                         onClick={() => handleGenerateQuiz(selectedDocument, 'easy', 10)}
                                         disabled={!!generatingQuiz}
-                                        className="w-full p-4 bg-gradient-to-br from-green-50 to-green-100/50 border border-green-200/60 rounded-2xl text-left hover:border-green-300 hover:shadow-md hover:shadow-green-100/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="w-full p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-left hover:bg-emerald-100 hover:shadow-sm transition-all disabled:opacity-50"
                                     >
-                                        <div className="font-bold text-green-800 mb-1">Easy</div>
-                                        <div className="text-sm text-green-700 font-medium">10 questions • Beginner level</div>
-                                    </motion.button>
+                                        <div className="font-bold text-sm text-emerald-800 mb-0.5">Easy</div>
+                                        <div className="text-xs text-emerald-700">10 questions • Beginner level</div>
+                                    </button>
 
-                                    <motion.button
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
+                                    <button
                                         onClick={() => handleGenerateQuiz(selectedDocument, 'medium', 15)}
                                         disabled={!!generatingQuiz}
-                                        className="w-full p-4 bg-gradient-to-br from-yellow-50 to-yellow-100/50 border border-yellow-200/60 rounded-2xl text-left hover:border-yellow-300 hover:shadow-md hover:shadow-yellow-100/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="w-full p-3 bg-amber-50 border border-amber-200 rounded-xl text-left hover:bg-amber-100 hover:shadow-sm transition-all disabled:opacity-50"
                                     >
-                                        <div className="font-bold text-yellow-800 mb-1">Medium</div>
-                                        <div className="text-sm text-yellow-700 font-medium">15 questions • Intermediate level</div>
-                                    </motion.button>
+                                        <div className="font-bold text-sm text-amber-800 mb-0.5">Medium</div>
+                                        <div className="text-xs text-amber-700">15 questions • Intermediate level</div>
+                                    </button>
 
-                                    <motion.button
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
+                                    <button
                                         onClick={() => handleGenerateQuiz(selectedDocument, 'hard', 20)}
                                         disabled={!!generatingQuiz}
-                                        className="w-full p-4 bg-gradient-to-br from-red-50 to-red-100/50 border border-red-200/60 rounded-2xl text-left hover:border-red-300 hover:shadow-md hover:shadow-red-100/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="w-full p-3 bg-rose-50 border border-rose-200 rounded-xl text-left hover:bg-rose-100 hover:shadow-sm transition-all disabled:opacity-50"
                                     >
-                                        <div className="font-bold text-red-800 mb-1">Hard</div>
-                                        <div className="text-sm text-red-700 font-medium">20 questions • Advanced level</div>
-                                    </motion.button>
+                                        <div className="font-bold text-sm text-rose-800 mb-0.5">Hard</div>
+                                        <div className="text-xs text-rose-700">20 questions • Advanced level</div>
+                                    </button>
                                 </div>
 
                                 {!generatingQuiz && (
-                                    <motion.button
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
+                                    <button
                                         onClick={() => {
                                             setShowGenerateModal(false);
                                             setSelectedDocument(null);
                                         }}
-                                        className="w-full mt-4 px-6 py-3 bg-slate-100 text-slate-700 rounded-2xl font-semibold hover:bg-slate-200 border border-slate-200/60 transition-all"
+                                        className="w-full mt-3 px-4 py-2.5 bg-slate-50 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-100 border border-slate-200 transition-all"
                                     >
                                         Cancel
-                                    </motion.button>
+                                    </button>
                                 )}
 
                                 {generatingQuiz && (
-                                    <div className="mt-4 flex items-center justify-center gap-2 text-slate-600">
-                                        <Loader2 size={16} className="animate-spin" />
-                                        <span className="text-sm font-medium">AI is working on your quiz...</span>
+                                    <div className="mt-3 flex items-center justify-center gap-2 text-slate-600">
+                                        <Loader2 size={14} className="animate-spin" />
+                                        <span className="text-xs font-medium">Generating quiz...</span>
                                     </div>
                                 )}
                             </motion.div>

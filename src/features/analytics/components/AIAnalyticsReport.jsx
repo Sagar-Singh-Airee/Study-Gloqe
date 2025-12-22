@@ -1,5 +1,5 @@
 // src/features/analytics/components/AIAnalyticsReport.jsx
-// Premium AI-generated analytics report component
+// Premium Light Edition - Teal × Royal Blue
 
 import { memo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -12,17 +12,17 @@ import {
 // ==================== GRADE BADGE ====================
 const GradeBadge = memo(({ grade }) => {
     const gradeColors = {
-        'A+': 'from-emerald-400 to-green-500',
-        'A': 'from-emerald-500 to-teal-500',
-        'A-': 'from-teal-500 to-cyan-500',
-        'B+': 'from-blue-400 to-cyan-500',
-        'B': 'from-blue-500 to-indigo-500',
-        'B-': 'from-indigo-500 to-purple-500',
-        'C+': 'from-amber-400 to-yellow-500',
-        'C': 'from-amber-500 to-orange-500',
-        'C-': 'from-orange-500 to-red-400',
-        'D': 'from-red-400 to-rose-500',
-        'F': 'from-red-500 to-rose-600'
+        'A+': 'from-teal-500 to-emerald-600',
+        'A': 'from-teal-500 to-blue-600',
+        'A-': 'from-blue-500 to-cyan-600',
+        'B+': 'from-blue-500 to-indigo-600',
+        'B': 'from-indigo-500 to-purple-600',
+        'B-': 'from-purple-500 to-blue-600',
+        'C+': 'from-amber-500 to-yellow-600',
+        'C': 'from-amber-600 to-orange-600',
+        'C-': 'from-orange-600 to-red-500',
+        'D': 'from-red-500 to-rose-600',
+        'F': 'from-red-600 to-rose-700'
     };
 
     return (
@@ -30,9 +30,9 @@ const GradeBadge = memo(({ grade }) => {
             initial={{ scale: 0, rotate: -180 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-            className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${gradeColors[grade] || gradeColors['B']} flex items-center justify-center shadow-2xl`}
+            className={`w-16 h-16 rounded-xl bg-gradient-to-br ${gradeColors[grade] || gradeColors['B']} flex items-center justify-center shadow-lg`}
         >
-            <span className="text-3xl font-black text-white drop-shadow-lg">{grade}</span>
+            <span className="text-2xl font-bold text-white">{grade}</span>
         </motion.div>
     );
 });
@@ -42,38 +42,40 @@ GradeBadge.displayName = 'GradeBadge';
 // ==================== INSIGHT CARD ====================
 const InsightCard = memo(({ insight, index }) => {
     const typeColors = {
-        success: 'bg-emerald-50 border-emerald-200 text-emerald-800',
-        warning: 'bg-amber-50 border-amber-200 text-amber-800',
-        info: 'bg-blue-50 border-blue-200 text-blue-800',
-        celebration: 'bg-purple-50 border-purple-200 text-purple-800',
-        danger: 'bg-rose-50 border-rose-200 text-rose-800'
+        success: 'bg-teal-50 border-teal-200 text-teal-900',
+        warning: 'bg-amber-50 border-amber-200 text-amber-900',
+        info: 'bg-blue-50 border-blue-200 text-blue-900',
+        celebration: 'bg-purple-50 border-purple-200 text-purple-900',
+        danger: 'bg-rose-50 border-rose-200 text-rose-900'
     };
 
     const priorityBadge = {
-        high: 'bg-rose-100 text-rose-700',
-        medium: 'bg-amber-100 text-amber-700',
-        low: 'bg-slate-100 text-slate-600'
+        high: 'bg-rose-100 text-rose-700 border-rose-200',
+        medium: 'bg-amber-100 text-amber-700 border-amber-200',
+        low: 'bg-slate-100 text-slate-600 border-slate-200'
     };
 
     return (
         <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-            className={`p-5 rounded-2xl border-2 ${typeColors[insight.type] || typeColors.info} backdrop-blur-xl`}
+            transition={{ delay: index * 0.08 }}
+            className={`p-4 rounded-xl border ${typeColors[insight.type] || typeColors.info} shadow-sm`}
         >
-            <div className="flex items-start gap-3">
-                <span className="text-2xl">{insight.icon}</span>
-                <div className="flex-1">
-                    <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-black text-sm">{insight.title}</h4>
-                        <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${priorityBadge[insight.priority] || priorityBadge.medium}`}>
-                            {insight.priority?.toUpperCase()}
-                        </span>
+            <div className="flex items-start gap-2.5">
+                <span className="text-xl">{insight.icon}</span>
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <h4 className="font-bold text-xs truncate">{insight.title}</h4>
+                        {insight.priority && (
+                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${priorityBadge[insight.priority] || priorityBadge.medium}`}>
+                                {insight.priority.toUpperCase()}
+                            </span>
+                        )}
                     </div>
-                    <p className="text-sm opacity-90 leading-relaxed">{insight.description}</p>
+                    <p className="text-xs leading-relaxed opacity-90">{insight.description}</p>
                     {insight.metric && (
-                        <p className="text-xs font-bold mt-2 opacity-70">{insight.metric}</p>
+                        <p className="text-[10px] font-semibold mt-2 opacity-70">{insight.metric}</p>
                     )}
                 </div>
             </div>
@@ -86,27 +88,27 @@ InsightCard.displayName = 'InsightCard';
 // ==================== RECOMMENDATION CARD ====================
 const RecommendationCard = memo(({ rec, index }) => {
     const priorityColors = {
-        high: 'from-rose-500 to-pink-500',
-        medium: 'from-amber-500 to-orange-500',
-        low: 'from-slate-500 to-gray-500'
+        high: 'from-rose-500 to-pink-600',
+        medium: 'from-amber-500 to-orange-600',
+        low: 'from-slate-400 to-slate-500'
     };
 
     return (
         <motion.div
-            initial={{ opacity: 0, x: -20 }}
+            initial={{ opacity: 0, x: -15 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 + index * 0.1 }}
-            whileHover={{ scale: 1.02, x: 5 }}
-            className="flex items-center gap-4 p-4 bg-white/60 backdrop-blur-xl rounded-2xl border border-white/40 shadow-lg hover:shadow-xl transition-all"
+            transition={{ delay: 0.2 + index * 0.08 }}
+            whileHover={{ x: 4 }}
+            className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-teal-300 transition-all"
         >
-            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${priorityColors[rec.priority] || priorityColors.medium} flex items-center justify-center shadow-lg`}>
-                <ArrowRight size={18} className="text-white" strokeWidth={3} />
+            <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${priorityColors[rec.priority] || priorityColors.medium} flex items-center justify-center shadow-sm flex-shrink-0`}>
+                <ArrowRight size={14} className="text-white" strokeWidth={2.5} />
             </div>
-            <div className="flex-1">
-                <p className="font-bold text-slate-800 text-sm">{rec.action}</p>
-                <p className="text-xs text-slate-500 mt-1">{rec.reason}</p>
+            <div className="flex-1 min-w-0">
+                <p className="font-bold text-slate-900 text-xs truncate">{rec.action}</p>
+                <p className="text-[10px] text-slate-600 mt-0.5 truncate">{rec.reason}</p>
             </div>
-            <span className="text-xs font-bold text-slate-400 bg-slate-100 px-3 py-1.5 rounded-full">
+            <span className="text-[10px] font-semibold text-slate-500 bg-slate-50 px-2 py-1 rounded-md border border-slate-200 flex-shrink-0">
                 {rec.timeframe}
             </span>
         </motion.div>
@@ -118,9 +120,9 @@ RecommendationCard.displayName = 'RecommendationCard';
 // ==================== PREDICTION PANEL ====================
 const PredictionPanel = memo(({ predictions }) => {
     const trendIcons = {
-        improving: { icon: TrendingUp, color: 'text-emerald-500', bg: 'bg-emerald-100' },
-        stable: { icon: Target, color: 'text-blue-500', bg: 'bg-blue-100' },
-        declining: { icon: TrendingDown, color: 'text-rose-500', bg: 'bg-rose-100' }
+        improving: { icon: TrendingUp, color: 'text-teal-600', bg: 'bg-teal-50', border: 'border-teal-200' },
+        stable: { icon: Target, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200' },
+        declining: { icon: TrendingDown, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-200' }
     };
 
     const trend = trendIcons[predictions.trend] || trendIcons.stable;
@@ -128,44 +130,44 @@ const PredictionPanel = memo(({ predictions }) => {
 
     return (
         <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="p-6 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-3xl text-white shadow-2xl"
+            transition={{ delay: 0.4 }}
+            className="p-5 bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl border border-slate-200 shadow-sm"
         >
-            <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
-                    <Rocket size={20} className="text-white" strokeWidth={2.5} />
+            <div className="flex items-center gap-2.5 mb-4">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-blue-600 flex items-center justify-center shadow-sm">
+                    <Rocket size={16} className="text-white" strokeWidth={2.5} />
                 </div>
-                <h3 className="font-black text-lg">Performance Prediction</h3>
+                <h3 className="font-bold text-sm text-slate-900">Performance Prediction</h3>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4">
-                <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-                    <div className="flex items-center gap-2 mb-2">
-                        <div className={`p-1.5 rounded-lg ${trend.bg}`}>
-                            <TrendIcon size={16} className={trend.color} strokeWidth={3} />
+            <div className="grid md:grid-cols-2 gap-3 mb-3">
+                <div className={`p-3 ${trend.bg} rounded-lg border ${trend.border}`}>
+                    <div className="flex items-center gap-2 mb-1.5">
+                        <div className="p-1 rounded-md bg-white/50">
+                            <TrendIcon size={14} className={trend.color} strokeWidth={2.5} />
                         </div>
-                        <span className="text-xs font-bold text-white/60 uppercase">Trend</span>
+                        <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wide">Trend</span>
                     </div>
-                    <p className="font-black text-xl capitalize">{predictions.trend}</p>
-                    <p className="text-xs text-white/50 mt-1">Confidence: {predictions.confidence}</p>
+                    <p className="font-bold text-base text-slate-900 capitalize">{predictions.trend}</p>
+                    <p className="text-[10px] text-slate-600 mt-0.5">Confidence: {predictions.confidence}</p>
                 </div>
 
-                <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-                    <div className="flex items-center gap-2 mb-2">
-                        <div className="p-1.5 rounded-lg bg-purple-100">
-                            <Star size={16} className="text-purple-500" strokeWidth={3} />
+                <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+                    <div className="flex items-center gap-2 mb-1.5">
+                        <div className="p-1 rounded-md bg-white/50">
+                            <Star size={14} className="text-purple-600" strokeWidth={2.5} />
                         </div>
-                        <span className="text-xs font-bold text-white/60 uppercase">Monthly Goal</span>
+                        <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wide">Goal</span>
                     </div>
-                    <p className="font-bold text-sm leading-relaxed">{predictions.monthlyGoal}</p>
+                    <p className="font-semibold text-xs text-slate-900 leading-relaxed">{predictions.monthlyGoal}</p>
                 </div>
             </div>
 
-            <div className="mt-4 p-4 bg-white/5 rounded-2xl border border-white/10">
-                <p className="text-sm font-medium text-white/80">
-                    <span className="font-black text-white">Next Week:</span> {predictions.nextWeekForecast}
+            <div className="p-3 bg-white rounded-lg border border-slate-200">
+                <p className="text-xs text-slate-700">
+                    <span className="font-bold text-slate-900">Next Week:</span> {predictions.nextWeekForecast}
                 </p>
             </div>
         </motion.div>
@@ -183,34 +185,32 @@ const AIAnalyticsReport = ({
     canGenerate,
     lastGenerated
 }) => {
-    const [expandedSection, setExpandedSection] = useState('insights');
-
     // Loading State
     if (loading) {
         return (
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="bg-gradient-to-br from-purple-50 via-white to-pink-50 rounded-3xl p-8 border-2 border-purple-200 shadow-2xl"
+                className="bg-gradient-to-br from-teal-50 via-white to-blue-50 rounded-2xl p-6 border border-slate-200 shadow-sm"
             >
-                <div className="flex flex-col items-center justify-center py-12">
+                <div className="flex flex-col items-center justify-center py-10">
                     <motion.div
                         animate={{ rotate: 360 }}
                         transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                        className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-xl mb-6"
+                        className="w-14 h-14 rounded-xl bg-gradient-to-br from-teal-500 to-blue-600 flex items-center justify-center shadow-lg mb-4"
                     >
-                        <Brain size={32} className="text-white" strokeWidth={2} />
+                        <Brain size={26} className="text-white" strokeWidth={2} />
                     </motion.div>
-                    <h3 className="text-xl font-black text-slate-800 mb-2">Analyzing Your Data...</h3>
-                    <p className="text-sm text-slate-500">AI is generating personalized insights</p>
+                    <h3 className="text-base font-bold text-slate-900 mb-1">Analyzing Your Data</h3>
+                    <p className="text-xs text-slate-600">Generating personalized insights...</p>
 
-                    <div className="mt-8 flex gap-2">
+                    <div className="mt-6 flex gap-1.5">
                         {[0, 1, 2].map(i => (
                             <motion.div
                                 key={i}
                                 animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
                                 transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
-                                className="w-3 h-3 rounded-full bg-purple-500"
+                                className="w-2 h-2 rounded-full bg-teal-500"
                             />
                         ))}
                     </div>
@@ -223,21 +223,21 @@ const AIAnalyticsReport = ({
     if (error) {
         return (
             <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-rose-50 rounded-3xl p-8 border-2 border-rose-200 text-center"
+                className="bg-rose-50 rounded-2xl p-6 border border-rose-200 text-center shadow-sm"
             >
-                <div className="w-16 h-16 rounded-2xl bg-rose-100 flex items-center justify-center mx-auto mb-4">
-                    <AlertCircle size={32} className="text-rose-500" strokeWidth={2} />
+                <div className="w-14 h-14 rounded-xl bg-rose-100 border border-rose-200 flex items-center justify-center mx-auto mb-3">
+                    <AlertCircle size={26} className="text-rose-600" strokeWidth={2} />
                 </div>
-                <h3 className="text-lg font-black text-rose-800 mb-2">Unable to Generate Report</h3>
-                <p className="text-sm text-rose-600 mb-6">{error}</p>
+                <h3 className="text-sm font-bold text-rose-900 mb-1">Unable to Generate Report</h3>
+                <p className="text-xs text-rose-700 mb-4">{error}</p>
                 <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={onGenerate}
                     disabled={!canGenerate}
-                    className="px-6 py-3 bg-rose-500 text-white rounded-xl font-bold shadow-lg hover:bg-rose-600 transition-all disabled:opacity-50"
+                    className="px-5 py-2 bg-rose-600 text-white rounded-lg text-xs font-bold shadow-sm hover:bg-rose-700 transition-all disabled:opacity-50"
                 >
                     Try Again
                 </motion.button>
@@ -249,37 +249,37 @@ const AIAnalyticsReport = ({
     if (!report) {
         return (
             <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-gradient-to-br from-purple-50 via-white to-pink-50 rounded-3xl p-8 border-2 border-purple-200 shadow-xl text-center"
+                className="bg-gradient-to-br from-teal-50 via-white to-blue-50 rounded-2xl p-6 border border-slate-200 shadow-sm text-center"
             >
                 <motion.div
-                    animate={{ y: [0, -10, 0] }}
+                    animate={{ y: [0, -8, 0] }}
                     transition={{ duration: 3, repeat: Infinity }}
-                    className="w-20 h-20 rounded-3xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center mx-auto mb-6 shadow-2xl"
+                    className="w-16 h-16 rounded-xl bg-gradient-to-br from-teal-500 to-blue-600 flex items-center justify-center mx-auto mb-4 shadow-lg"
                 >
-                    <Sparkles size={36} className="text-white" strokeWidth={2} />
+                    <Sparkles size={30} className="text-white" strokeWidth={2} />
                 </motion.div>
 
-                <h3 className="text-2xl font-black text-slate-800 mb-3">AI Analytics Report</h3>
-                <p className="text-slate-600 mb-8 max-w-md mx-auto">
-                    Get personalized insights, recommendations, and predictions powered by AI analysis of your learning data.
+                <h3 className="text-lg font-bold text-slate-900 mb-2">AI Analytics Report</h3>
+                <p className="text-xs text-slate-600 mb-6 max-w-md mx-auto leading-relaxed">
+                    Get personalized insights, recommendations, and predictions powered by AI analysis.
                 </p>
 
                 <motion.button
-                    whileHover={{ scale: 1.05, boxShadow: '0 20px 40px rgba(168, 85, 247, 0.3)' }}
-                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={onGenerate}
                     disabled={!canGenerate}
-                    className="px-8 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-2xl font-black shadow-xl hover:shadow-2xl transition-all disabled:opacity-50 flex items-center gap-3 mx-auto"
+                    className="px-6 py-3 bg-gradient-to-r from-teal-500 to-blue-600 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition-all disabled:opacity-50 flex items-center gap-2 mx-auto"
                 >
-                    <Brain size={20} strokeWidth={2.5} />
+                    <Brain size={16} strokeWidth={2.5} />
                     Generate AI Report
-                    <Sparkles size={18} strokeWidth={2.5} />
+                    <Sparkles size={14} strokeWidth={2.5} />
                 </motion.button>
 
                 {!canGenerate && (
-                    <p className="text-xs text-slate-400 mt-4">Please wait before generating another report</p>
+                    <p className="text-[10px] text-slate-500 mt-3">Please wait before generating another report</p>
                 )}
             </motion.div>
         );
@@ -290,21 +290,21 @@ const AIAnalyticsReport = ({
         <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="space-y-6"
+            className="space-y-4"
         >
             {/* Header Card */}
-            <div className="bg-gradient-to-br from-purple-50 via-white to-pink-50 rounded-3xl p-8 border-2 border-purple-200 shadow-xl">
-                <div className="flex items-start justify-between flex-wrap gap-6">
-                    <div className="flex items-center gap-6">
+            <div className="bg-gradient-to-br from-teal-50 via-white to-blue-50 rounded-2xl p-5 border border-slate-200 shadow-sm">
+                <div className="flex items-start justify-between gap-4 mb-4">
+                    <div className="flex items-center gap-4">
                         <GradeBadge grade={report.overallGrade} />
-                        <div>
-                            <div className="flex items-center gap-2 mb-2">
-                                <Sparkles size={18} className="text-purple-500" />
-                                <span className="text-xs font-black text-purple-600 uppercase tracking-wider">AI Analysis</span>
+                        <div className="flex-1">
+                            <div className="flex items-center gap-1.5 mb-1">
+                                <Sparkles size={14} className="text-teal-600" />
+                                <span className="text-[10px] font-bold text-teal-700 uppercase tracking-wide">AI Analysis</span>
                             </div>
-                            <h2 className="text-2xl font-black text-slate-800 mb-1">{report.summaryHeadline}</h2>
+                            <h2 className="text-base font-bold text-slate-900 leading-tight">{report.summaryHeadline}</h2>
                             {lastGenerated && (
-                                <p className="text-xs text-slate-400">
+                                <p className="text-[10px] text-slate-500 mt-1">
                                     Generated {lastGenerated.toLocaleString()}
                                 </p>
                             )}
@@ -316,22 +316,22 @@ const AIAnalyticsReport = ({
                         whileTap={{ scale: 0.95 }}
                         onClick={onGenerate}
                         disabled={!canGenerate || loading}
-                        className="p-3 bg-white rounded-xl border-2 border-purple-200 shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
+                        className="p-2 bg-white rounded-lg border border-slate-200 shadow-sm hover:shadow-md hover:border-teal-300 transition-all disabled:opacity-50 flex-shrink-0"
                         title="Regenerate report"
                     >
-                        <RefreshCw size={20} className="text-purple-600" strokeWidth={2.5} />
+                        <RefreshCw size={16} className="text-teal-600" strokeWidth={2.5} />
                     </motion.button>
                 </div>
 
                 {/* Motivational Message */}
                 {report.motivationalMessage && (
                     <motion.div
-                        initial={{ opacity: 0, y: 10 }}
+                        initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.2 }}
-                        className="mt-6 p-4 bg-gradient-to-r from-purple-100 to-pink-100 rounded-2xl"
+                        transition={{ delay: 0.15 }}
+                        className="p-3 bg-gradient-to-r from-teal-100 to-blue-100 rounded-lg"
                     >
-                        <p className="text-purple-800 font-semibold text-center">
+                        <p className="text-xs font-semibold text-slate-800 text-center">
                             ✨ {report.motivationalMessage}
                         </p>
                     </motion.div>
@@ -340,7 +340,7 @@ const AIAnalyticsReport = ({
 
             {/* Insights Grid */}
             {report.insights?.length > 0 && (
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid md:grid-cols-2 gap-3">
                     {report.insights.map((insight, idx) => (
                         <InsightCard key={idx} insight={insight} index={idx} />
                     ))}
@@ -348,26 +348,26 @@ const AIAnalyticsReport = ({
             )}
 
             {/* Strengths & Improvements */}
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid md:grid-cols-2 gap-4">
                 {/* Strengths */}
                 {report.strengths?.length > 0 && (
                     <motion.div
-                        initial={{ opacity: 0, x: -20 }}
+                        initial={{ opacity: 0, x: -15 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.3 }}
-                        className="bg-emerald-50 rounded-3xl p-6 border-2 border-emerald-200"
+                        transition={{ delay: 0.2 }}
+                        className="bg-teal-50 rounded-xl p-4 border border-teal-200 shadow-sm"
                     >
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center shadow-lg">
-                                <Shield size={20} className="text-white" strokeWidth={2.5} />
+                        <div className="flex items-center gap-2.5 mb-3">
+                            <div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center shadow-sm">
+                                <Shield size={16} className="text-white" strokeWidth={2.5} />
                             </div>
-                            <h3 className="font-black text-emerald-800">Your Strengths</h3>
+                            <h3 className="font-bold text-sm text-teal-900">Your Strengths</h3>
                         </div>
-                        <ul className="space-y-3">
+                        <ul className="space-y-2">
                             {report.strengths.map((strength, idx) => (
-                                <li key={idx} className="flex items-center gap-3">
-                                    <CheckCircle2 size={18} className="text-emerald-500" strokeWidth={3} />
-                                    <span className="text-sm font-semibold text-emerald-800">{strength}</span>
+                                <li key={idx} className="flex items-start gap-2">
+                                    <CheckCircle2 size={14} className="text-teal-600 mt-0.5 flex-shrink-0" strokeWidth={2.5} />
+                                    <span className="text-xs font-medium text-teal-900 leading-relaxed">{strength}</span>
                                 </li>
                             ))}
                         </ul>
@@ -377,22 +377,22 @@ const AIAnalyticsReport = ({
                 {/* Improvements */}
                 {report.improvements?.length > 0 && (
                     <motion.div
-                        initial={{ opacity: 0, x: 20 }}
+                        initial={{ opacity: 0, x: 15 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.3 }}
-                        className="bg-amber-50 rounded-3xl p-6 border-2 border-amber-200"
+                        transition={{ delay: 0.2 }}
+                        className="bg-amber-50 rounded-xl p-4 border border-amber-200 shadow-sm"
                     >
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center shadow-lg">
-                                <Flame size={20} className="text-white" strokeWidth={2.5} />
+                        <div className="flex items-center gap-2.5 mb-3">
+                            <div className="w-8 h-8 rounded-lg bg-amber-600 flex items-center justify-center shadow-sm">
+                                <Flame size={16} className="text-white" strokeWidth={2.5} />
                             </div>
-                            <h3 className="font-black text-amber-800">Areas to Improve</h3>
+                            <h3 className="font-bold text-sm text-amber-900">Areas to Improve</h3>
                         </div>
-                        <ul className="space-y-3">
+                        <ul className="space-y-2">
                             {report.improvements.map((area, idx) => (
-                                <li key={idx} className="flex items-center gap-3">
-                                    <Lightbulb size={18} className="text-amber-500" strokeWidth={3} />
-                                    <span className="text-sm font-semibold text-amber-800">{area}</span>
+                                <li key={idx} className="flex items-start gap-2">
+                                    <Lightbulb size={14} className="text-amber-600 mt-0.5 flex-shrink-0" strokeWidth={2.5} />
+                                    <span className="text-xs font-medium text-amber-900 leading-relaxed">{area}</span>
                                 </li>
                             ))}
                         </ul>
@@ -402,14 +402,14 @@ const AIAnalyticsReport = ({
 
             {/* Recommendations */}
             {report.recommendations?.length > 0 && (
-                <div className="bg-white/60 backdrop-blur-xl rounded-3xl p-6 border border-white/40 shadow-xl">
-                    <div className="flex items-center gap-3 mb-5">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg">
-                            <Target size={20} className="text-white" strokeWidth={2.5} />
+                <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                    <div className="flex items-center gap-2.5 mb-4">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-blue-600 flex items-center justify-center shadow-sm">
+                            <Target size={16} className="text-white" strokeWidth={2.5} />
                         </div>
-                        <h3 className="font-black text-slate-800 text-lg">Action Recommendations</h3>
+                        <h3 className="font-bold text-sm text-slate-900">Action Recommendations</h3>
                     </div>
-                    <div className="space-y-3">
+                    <div className="space-y-2.5">
                         {report.recommendations.map((rec, idx) => (
                             <RecommendationCard key={idx} rec={rec} index={idx} />
                         ))}
@@ -425,18 +425,18 @@ const AIAnalyticsReport = ({
             {/* Study Tip */}
             {report.studyTip && (
                 <motion.div
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.6 }}
-                    className="p-6 bg-gradient-to-r from-cyan-50 to-blue-50 rounded-3xl border-2 border-cyan-200"
+                    transition={{ delay: 0.5 }}
+                    className="p-4 bg-gradient-to-r from-cyan-50 to-blue-50 rounded-xl border border-cyan-200 shadow-sm"
                 >
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-xl">
-                            <Lightbulb size={24} className="text-white" strokeWidth={2} />
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-sm flex-shrink-0">
+                            <Lightbulb size={18} className="text-white" strokeWidth={2} />
                         </div>
-                        <div>
-                            <h4 className="font-black text-cyan-800 mb-1">💡 Pro Study Tip</h4>
-                            <p className="text-sm text-cyan-700">{report.studyTip}</p>
+                        <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-xs text-cyan-900 mb-0.5">💡 Pro Study Tip</h4>
+                            <p className="text-xs text-cyan-800 leading-relaxed">{report.studyTip}</p>
                         </div>
                     </div>
                 </motion.div>

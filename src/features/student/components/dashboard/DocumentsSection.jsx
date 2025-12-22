@@ -1,4 +1,4 @@
-// src/pages/DocumentsSection.jsx - WHITE & SILVER MINIMAL DESIGN ✨
+// src/pages/DocumentsSection.jsx - PREMIUM LIGHT COMPACT WITH SMART DETECTION 💎🤖
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -7,14 +7,13 @@ import {
     BookOpen, Atom, FlaskConical, Dna, Code, Landmark, TrendingUp,
     BookMarked, Brain, Hammer, GraduationCap, X,
     LayoutGrid, List, ChevronRight, Folder, ArrowLeft,
-    Star, Calendar, Check, Grid, Rows, Target, Sparkles
+    Star, Calendar, Check, Target, Sparkles, RefreshCw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, where, onSnapshot, deleteDoc, doc, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '@shared/config/firebase';
 import { useAuth } from '@auth/contexts/AuthContext';
 import { deleteDocument, redetectDocumentSubject } from '@study/services/documentService';
-import { detectSubjectHybrid } from '@shared/utils/subjectDetection';
 import toast from 'react-hot-toast';
 
 const DocumentsSection = () => {
@@ -32,107 +31,35 @@ const DocumentsSection = () => {
     const [redetecting, setRedetecting] = useState(new Set());
     const [batchRedetecting, setBatchRedetecting] = useState(false);
 
-    // Subject configuration - TEAL, BLUE, SILVER tones
+    // Subject configuration - Teal/Blue theme
     const subjectConfig = {
-        'Mathematics': {
-            icon: BookOpen,
-            color: 'from-blue-500 via-blue-400 to-teal-500',
-            lightColor: 'from-blue-50 via-teal-50 to-blue-100',
-            accentColor: 'blue-600',
-            gradient: 'bg-gradient-to-br from-blue-500 to-teal-500',
-            emoji: '📐'
-        },
-        'Physics': {
-            icon: Atom,
-            color: 'from-teal-500 via-blue-400 to-teal-600',
-            lightColor: 'from-teal-50 via-blue-50 to-teal-100',
-            accentColor: 'teal-600',
-            gradient: 'bg-gradient-to-br from-teal-500 to-blue-500',
-            emoji: '⚛️'
-        },
-        'Chemistry': {
-            icon: FlaskConical,
-            color: 'from-teal-500 via-teal-400 to-blue-500',
-            lightColor: 'from-teal-50 via-blue-50 to-teal-100',
-            accentColor: 'teal-600',
-            gradient: 'bg-gradient-to-br from-teal-500 to-blue-400',
-            emoji: '🧪'
-        },
-        'Biology': {
-            icon: Dna,
-            color: 'from-teal-600 via-teal-400 to-blue-500',
-            lightColor: 'from-teal-50 via-blue-50 to-teal-100',
-            accentColor: 'teal-700',
-            gradient: 'bg-gradient-to-br from-teal-600 to-blue-400',
-            emoji: '🧬'
-        },
-        'Computer Science': {
-            icon: Code,
-            color: 'from-blue-600 via-blue-400 to-teal-500',
-            lightColor: 'from-blue-50 via-teal-50 to-blue-100',
-            accentColor: 'blue-700',
-            gradient: 'bg-gradient-to-br from-blue-600 to-teal-500',
-            emoji: '💻'
-        },
-        'History': {
-            icon: Landmark,
-            color: 'from-slate-500 via-slate-400 to-slate-600',
-            lightColor: 'from-slate-50 via-slate-100 to-slate-200',
-            accentColor: 'slate-700',
-            gradient: 'bg-gradient-to-br from-slate-500 to-slate-600',
-            emoji: '🏛️'
-        },
-        'Economics': {
-            icon: TrendingUp,
-            color: 'from-blue-500 via-teal-400 to-blue-600',
-            lightColor: 'from-blue-50 via-teal-50 to-blue-100',
-            accentColor: 'blue-600',
-            gradient: 'bg-gradient-to-br from-blue-500 to-teal-500',
-            emoji: '📈'
-        },
-        'Literature': {
-            icon: BookMarked,
-            color: 'from-slate-600 via-slate-500 to-slate-700',
-            lightColor: 'from-slate-50 via-slate-100 to-slate-200',
-            accentColor: 'slate-800',
-            gradient: 'bg-gradient-to-br from-slate-600 to-slate-700',
-            emoji: '📚'
-        },
-        'Psychology': {
-            icon: Brain,
-            color: 'from-blue-600 via-teal-500 to-blue-700',
-            lightColor: 'from-blue-50 via-teal-50 to-blue-100',
-            accentColor: 'blue-700',
-            gradient: 'bg-gradient-to-br from-blue-600 to-teal-600',
-            emoji: '🧠'
-        },
-        'Engineering': {
-            icon: Hammer,
-            color: 'from-slate-500 via-slate-400 to-slate-600',
-            lightColor: 'from-slate-50 via-slate-100 to-slate-200',
-            accentColor: 'slate-700',
-            gradient: 'bg-gradient-to-br from-slate-500 to-slate-600',
-            emoji: '🔧'
-        },
-        'General Studies': {
-            icon: GraduationCap,
-            color: 'from-slate-400 via-slate-300 to-slate-500',
-            lightColor: 'from-slate-50 via-slate-100 to-slate-200',
-            accentColor: 'slate-600',
-            gradient: 'bg-gradient-to-br from-slate-400 to-slate-500',
-            emoji: '🎓'
-        }
+        'Mathematics': { icon: BookOpen, color: 'bg-blue-50 text-blue-700 border-blue-200', gradient: 'from-blue-500 to-teal-600' },
+        'Physics': { icon: Atom, color: 'bg-teal-50 text-teal-700 border-teal-200', gradient: 'from-teal-500 to-blue-600' },
+        'Chemistry': { icon: FlaskConical, color: 'bg-cyan-50 text-cyan-700 border-cyan-200', gradient: 'from-cyan-500 to-teal-600' },
+        'Biology': { icon: Dna, color: 'bg-emerald-50 text-emerald-700 border-emerald-200', gradient: 'from-emerald-500 to-teal-600' },
+        'Computer Science': { icon: Code, color: 'bg-indigo-50 text-indigo-700 border-indigo-200', gradient: 'from-indigo-500 to-blue-600' },
+        'History': { icon: Landmark, color: 'bg-amber-50 text-amber-700 border-amber-200', gradient: 'from-amber-500 to-orange-600' },
+        'Economics': { icon: TrendingUp, color: 'bg-violet-50 text-violet-700 border-violet-200', gradient: 'from-violet-500 to-purple-600' },
+        'Literature': { icon: BookMarked, color: 'bg-rose-50 text-rose-700 border-rose-200', gradient: 'from-rose-500 to-pink-600' },
+        'Psychology': { icon: Brain, color: 'bg-purple-50 text-purple-700 border-purple-200', gradient: 'from-purple-500 to-indigo-600' },
+        'Engineering': { icon: Hammer, color: 'bg-orange-50 text-orange-700 border-orange-200', gradient: 'from-orange-500 to-amber-600' },
+        'General Studies': { icon: GraduationCap, color: 'bg-slate-50 text-slate-700 border-slate-200', gradient: 'from-slate-500 to-slate-600' }
     };
 
     // Re-detect subject using AI
     const handleRedetectSubject = useCallback(async (docId, docTitle) => {
         setRedetecting(prev => new Set(prev).add(docId));
+        const toastId = toast.loading('AI analyzing document...');
+
         try {
             const result = await redetectDocumentSubject(docId);
-            toast.success(`Updated: ${result.subject} (${result.confidence}% ${result.method})`);
+            toast.success(
+                `✨ ${result.subject} detected (${result.confidence}% confidence via ${result.method === 'ai_gemini' ? 'AI' : 'keywords'})`,
+                { id: toastId }
+            );
         } catch (error) {
             console.error('Re-detection error:', error);
-            toast.error('Failed to re-detect subject');
+            toast.error('Failed to re-detect subject', { id: toastId });
         } finally {
             setRedetecting(prev => {
                 const newSet = new Set(prev);
@@ -152,20 +79,20 @@ const DocumentsSection = () => {
 
         setBatchRedetecting(true);
         let successCount = 0;
-        let failCount = 0;
-        const toastId = toast.loading(`Re-detecting ${docsToRedetect.length} documents with AI...`);
+        let reclassified = 0;
+        const toastId = toast.loading(`AI analyzing ${docsToRedetect.length} documents...`);
 
         for (const doc of docsToRedetect) {
             try {
                 setRedetecting(prev => new Set(prev).add(doc.id));
                 const result = await redetectDocumentSubject(doc.id);
+                successCount++;
                 if (result.subject !== folderSubject) {
-                    successCount++;
+                    reclassified++;
                 }
-                toast.loading(`Re-detected ${successCount + failCount}/${docsToRedetect.length}...`, { id: toastId });
+                toast.loading(`Analyzed ${successCount}/${docsToRedetect.length}...`, { id: toastId });
             } catch (error) {
                 console.error(`Re-detection failed for ${doc.id}:`, error);
-                failCount++;
             } finally {
                 setRedetecting(prev => {
                     const newSet = new Set(prev);
@@ -177,120 +104,42 @@ const DocumentsSection = () => {
         }
 
         setBatchRedetecting(false);
-        if (successCount > 0) {
-            toast.success(`✅ Re-categorized ${successCount} document(s)! ${failCount > 0 ? `(${failCount} unchanged)` : ''}`, { id: toastId });
+        if (reclassified > 0) {
+            toast.success(`✅ Re-categorized ${reclassified} of ${docsToRedetect.length} documents!`, { id: toastId });
         } else {
-            toast.error(`No documents were re-categorized. They may already be correctly classified.`, { id: toastId });
+            toast.success(`All documents correctly classified!`, { id: toastId });
         }
     }, [documents]);
 
     // Delete all in folder
     const handleDeleteAllInFolder = useCallback(async (folderSubject) => {
         const docsToDelete = documents.filter(doc => doc.subject === folderSubject);
-        if (docsToDelete.length === 0) {
-            toast.error('No documents to delete in this folder');
-            return;
-        }
+        if (docsToDelete.length === 0) return;
 
-        const confirmed = window.confirm(
-            `⚠️ PERMANENT DELETE WARNING ⚠️\n\n` +
-            `You are about to PERMANENTLY DELETE ${docsToDelete.length} document(s) from "${folderSubject}".\n\n` +
-            `This action is IRREVERSIBLE and CANNOT BE UNDONE.\n` +
-            `All files will be deleted from the database forever.\n\n` +
-            `Type "DELETE" in the next prompt to confirm.`
-        );
-        if (!confirmed) return;
+        if (!window.confirm(`Delete all ${docsToDelete.length} documents in "${folderSubject}"? This cannot be undone.`)) return;
 
-        const confirmText = window.prompt(
-            `Type DELETE (in capital letters) to permanently delete ${docsToDelete.length} documents:`
-        );
-        if (confirmText !== 'DELETE') {
-            toast.error('Deletion cancelled - incorrect confirmation');
-            return;
-        }
-
-        const deletePromises = docsToDelete.map(async (doc) => {
-            try {
-                await deleteDocument(doc.id);
-                return { success: true, id: doc.id };
-            } catch (error) {
-                console.error(`Failed to delete ${doc.id}:`, error);
-                return { success: false, id: doc.id };
-            }
+        const deletePromises = docsToDelete.map(doc => deleteDocument(doc.id));
+        toast.promise(Promise.all(deletePromises), {
+            loading: `Deleting ${docsToDelete.length} documents...`,
+            success: () => {
+                setSelectedFolder(null);
+                return `Deleted ${docsToDelete.length} documents`;
+            },
+            error: 'Failed to delete documents',
         });
-
-        toast.promise(
-            Promise.all(deletePromises),
-            {
-                loading: `Permanently deleting ${docsToDelete.length} documents...`,
-                success: (results) => {
-                    const successful = results.filter(r => r.success).length;
-                    const failed = results.filter(r => !r.success).length;
-                    setSelectedFolder(null);
-                    return `Deleted ${successful} documents${failed > 0 ? `, ${failed} failed` : ''}`;
-                },
-                error: 'Failed to delete documents',
-            }
-        );
     }, [documents]);
 
     // Delete all documents
     const handleDeleteAllDocuments = useCallback(async () => {
-        if (documents.length === 0) {
-            toast.error('No documents to delete');
-            return;
-        }
+        if (documents.length === 0) return;
+        if (!window.confirm(`⚠️ Delete ALL ${documents.length} documents? This cannot be undone.`)) return;
 
-        const confirmed = window.confirm(
-            `🚨 CRITICAL WARNING 🚨\n\n` +
-            `You are about to DELETE YOUR ENTIRE LIBRARY!\n\n` +
-            `This will PERMANENTLY DELETE ALL ${documents.length} documents.\n` +
-            `ALL folders and files will be removed from the database FOREVER.\n\n` +
-            `This action CANNOT be undone or recovered.\n\n` +
-            `Are you absolutely sure?`
-        );
-        if (!confirmed) return;
-
-        const doubleConfirm = window.confirm(
-            `⚠️ FINAL CONFIRMATION ⚠️\n\n` +
-            `This is your last chance to cancel.\n\n` +
-            `Clicking OK will DELETE ALL ${documents.length} documents PERMANENTLY.\n\n` +
-            `Click Cancel to abort, or OK to proceed with deletion.`
-        );
-        if (!doubleConfirm) {
-            toast.success('Deletion cancelled');
-            return;
-        }
-
-        const confirmText = window.prompt(
-            `Type DELETE ALL (exactly) to confirm total deletion:`
-        );
-        if (confirmText !== 'DELETE ALL') {
-            toast.error('Deletion cancelled - incorrect confirmation');
-            return;
-        }
-
-        const deletePromises = documents.map(async (doc) => {
-            try {
-                await deleteDocument(doc.id);
-                return { success: true };
-            } catch (error) {
-                console.error(`Failed to delete ${doc.id}:`, error);
-                return { success: false };
-            }
+        const deletePromises = documents.map(doc => deleteDocument(doc.id));
+        toast.promise(Promise.all(deletePromises), {
+            loading: `Deleting all ${documents.length} documents...`,
+            success: `Deleted ${documents.length} documents`,
+            error: 'Failed to delete some documents',
         });
-
-        toast.promise(
-            Promise.all(deletePromises),
-            {
-                loading: `Deleting all ${documents.length} documents...`,
-                success: (results) => {
-                    const successful = results.filter(r => r.success).length;
-                    return `Successfully deleted ${successful} documents`;
-                },
-                error: 'Some documents failed to delete',
-            }
-        );
     }, [documents]);
 
     // Real-time Firestore listener
@@ -300,11 +149,7 @@ const DocumentsSection = () => {
             return;
         }
 
-        const q = query(
-            collection(db, 'documents'),
-            where('userId', '==', user.uid)
-        );
-
+        const q = query(collection(db, 'documents'), where('userId', '==', user.uid));
         const unsubscribe = onSnapshot(q,
             (snapshot) => {
                 const docs = snapshot.docs.map(doc => {
@@ -322,12 +167,10 @@ const DocumentsSection = () => {
 
                 setDocuments(docs);
                 setLoading(false);
-
-                const stats = {
+                setDocumentStats({
                     totalSize: docs.reduce((sum, d) => sum + (d.fileSize || 0), 0),
                     totalDocs: docs.length
-                };
-                setDocumentStats(stats);
+                });
             },
             (error) => {
                 console.error('Firestore error:', error);
@@ -361,7 +204,9 @@ const DocumentsSection = () => {
                     count: 0,
                     documents: [],
                     totalSize: 0,
-                    lastUpdated: doc.createdAt
+                    lastUpdated: doc.createdAt,
+                    aiDetected: 0,
+                    avgConfidence: 0
                 };
             }
             stats[subject].count++;
@@ -370,7 +215,16 @@ const DocumentsSection = () => {
             if (doc.createdAt > stats[subject].lastUpdated) {
                 stats[subject].lastUpdated = doc.createdAt;
             }
+            if (doc.detectionMethod === 'ai_gemini') {
+                stats[subject].aiDetected++;
+            }
+            stats[subject].avgConfidence += (doc.subjectConfidence || 0);
         });
+
+        Object.keys(stats).forEach(subject => {
+            stats[subject].avgConfidence = Math.round(stats[subject].avgConfidence / stats[subject].count);
+        });
+
         return stats;
     }, [documents]);
 
@@ -391,16 +245,11 @@ const DocumentsSection = () => {
 
         filtered.sort((a, b) => {
             switch (sortBy) {
-                case 'newest':
-                    return b.createdAt - a.createdAt;
-                case 'oldest':
-                    return a.createdAt - b.createdAt;
-                case 'name':
-                    return (a.title || a.fileName || '').localeCompare(b.title || b.fileName || '');
-                case 'size':
-                    return (b.fileSize || 0) - (a.fileSize || 0);
-                default:
-                    return 0;
+                case 'newest': return b.createdAt - a.createdAt;
+                case 'oldest': return a.createdAt - b.createdAt;
+                case 'name': return (a.title || a.fileName || '').localeCompare(b.title || b.fileName || '');
+                case 'size': return (b.fileSize || 0) - (a.fileSize || 0);
+                default: return 0;
             }
         });
 
@@ -426,29 +275,26 @@ const DocumentsSection = () => {
     // Bulk delete
     const handleBulkDelete = useCallback(async () => {
         if (selectedDocs.size === 0) return;
-        if (window.confirm(`Permanently delete ${selectedDocs.size} document(s)? This cannot be undone.`)) {
-            const deletePromises = [...selectedDocs].map(docId => deleteDocument(docId));
-            toast.promise(
-                Promise.all(deletePromises),
-                {
-                    loading: `Deleting ${selectedDocs.size} documents...`,
-                    success: `Deleted ${selectedDocs.size} document(s)`,
-                    error: 'Failed to delete some documents',
-                }
-            );
-            setSelectedDocs(new Set());
-        }
+        if (!window.confirm(`Delete ${selectedDocs.size} document(s)? This cannot be undone.`)) return;
+
+        const deletePromises = [...selectedDocs].map(docId => deleteDocument(docId));
+        toast.promise(Promise.all(deletePromises), {
+            loading: `Deleting ${selectedDocs.size} documents...`,
+            success: `Deleted ${selectedDocs.size} document(s)`,
+            error: 'Failed to delete some documents',
+        });
+        setSelectedDocs(new Set());
     }, [selectedDocs]);
 
     const handleDelete = async (docId, title) => {
-        if (window.confirm(`Delete "${title || 'this document'}"? This cannot be undone.`)) {
-            try {
-                await deleteDocument(docId);
-                toast.success('Document deleted');
-            } catch (error) {
-                console.error('Delete error:', error);
-                toast.error('Failed to delete');
-            }
+        if (!window.confirm(`Delete "${title || 'this document'}"? This cannot be undone.`)) return;
+
+        try {
+            await deleteDocument(docId);
+            toast.success('Document deleted');
+        } catch (error) {
+            console.error('Delete error:', error);
+            toast.error('Failed to delete');
         }
     };
 
@@ -464,14 +310,13 @@ const DocumentsSection = () => {
         if (!date) return 'Unknown';
         const now = new Date();
         const diffMs = now - date;
-        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
         const diffMinutes = Math.floor(diffMs / (1000 * 60));
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
         if (diffMinutes < 1) return 'Just now';
         if (diffMinutes < 60) return `${diffMinutes}m ago`;
         if (diffHours < 24) return `${diffHours}h ago`;
-        if (diffDays === 0) return 'Today';
         if (diffDays === 1) return 'Yesterday';
         if (diffDays < 7) return `${diffDays}d ago`;
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -481,97 +326,85 @@ const DocumentsSection = () => {
     const renderFolderCard = (subject, stats, idx) => {
         const config = subjectConfig[subject] || subjectConfig['General Studies'];
         const Icon = config.icon;
+        const aiPercentage = Math.round((stats.aiDetected / stats.count) * 100);
 
         return (
             <motion.div
                 key={subject}
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ delay: idx * 0.05, type: "spring", stiffness: 120 }}
-                className="group relative"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.04 }}
+                whileHover={{ y: -2 }}
+                onClick={() => setSelectedFolder(subject)}
+                className="bg-white border border-slate-200 rounded-xl p-4 hover:border-teal-300 hover:shadow-md transition-all cursor-pointer group"
             >
-                <div
-                    onClick={() => setSelectedFolder(subject)}
-                    className="relative bg-white rounded-3xl p-6 border border-slate-200/60 shadow-sm
-                             hover:border-teal-400/60 hover:shadow-xl hover:shadow-teal-100/50
-                             transition-all duration-500 hover:-translate-y-1 cursor-pointer"
-                >
-                    <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${config.color} rounded-t-3xl
-                                   group-hover:h-1.5 transition-all duration-300`} />
+                <div className="flex items-center justify-between mb-3">
+                    <div className={`w-10 h-10 bg-gradient-to-br ${config.gradient} rounded-lg flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform`}>
+                        <Folder className="text-white" size={18} strokeWidth={2.5} />
+                    </div>
+                    <ChevronRight className="text-slate-400 group-hover:text-teal-600 group-hover:translate-x-0.5 transition-all" size={16} strokeWidth={2.5} />
+                </div>
 
-                    <div className="flex items-center justify-between mb-5">
-                        <motion.div
-                            whileHover={{ rotate: [0, -5, 5, 0], scale: 1.1 }}
-                            transition={{ duration: 0.5 }}
-                            className={`w-16 h-16 ${config.gradient} rounded-2xl flex items-center justify-center shadow-lg shadow-teal-100/50`}
+                <h3 className="text-sm font-bold text-slate-900 mb-2 line-clamp-1">{subject}</h3>
+
+                <div className="space-y-1.5 mb-3">
+                    <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-slate-600 font-medium">{stats.count} docs</span>
+                        <span className="text-slate-500 font-medium">{formatSize(stats.totalSize)}</span>
+                    </div>
+
+                    {/* AI Detection Stats */}
+                    {stats.aiDetected > 0 && (
+                        <div className="flex items-center justify-between text-[10px]">
+                            <span className="flex items-center gap-1 text-teal-600 font-bold">
+                                <Sparkles size={10} strokeWidth={2.5} />
+                                {stats.aiDetected} AI detected
+                            </span>
+                            <span className="text-teal-700 font-bold">{aiPercentage}%</span>
+                        </div>
+                    )}
+
+                    {stats.avgConfidence > 0 && (
+                        <div className="flex items-center gap-1 text-[10px]">
+                            <Target size={9} strokeWidth={2.5} className="text-blue-600" />
+                            <span className="text-slate-600 font-medium">Avg: {stats.avgConfidence}% confidence</span>
+                        </div>
+                    )}
+                </div>
+
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                    <span className="text-[10px] text-slate-500 font-medium">{formatDate(stats.lastUpdated)}</span>
+
+                    <div className="flex items-center gap-1.5">
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleBatchRedetect(subject);
+                            }}
+                            disabled={batchRedetecting}
+                            className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all border flex items-center gap-1 ${batchRedetecting
+                                    ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                                    : 'bg-teal-50 text-teal-700 hover:bg-teal-100 border-teal-200'
+                                }`}
+                            title="Re-detect all with AI"
                         >
-                            <Folder className="text-white" size={30} strokeWidth={2} />
-                        </motion.div>
-                        <ChevronRight className="text-slate-400 group-hover:text-teal-600 group-hover:translate-x-1 transition-all" size={22} strokeWidth={2.5} />
-                    </div>
+                            {batchRedetecting ? (
+                                <RefreshCw size={10} className="animate-spin" strokeWidth={2.5} />
+                            ) : (
+                                <Sparkles size={10} strokeWidth={2.5} />
+                            )}
+                            AI
+                        </button>
 
-                    <h3 className="text-lg font-bold text-slate-800 mb-3 line-clamp-1">
-                        {config.emoji} {subject}
-                    </h3>
-
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm font-semibold text-slate-600">
-                                {stats.count} document{stats.count !== 1 ? 's' : ''}
-                            </span>
-                            <span className="text-sm text-slate-500 font-medium">
-                                {formatSize(stats.totalSize)}
-                            </span>
-                        </div>
-                    </div>
-
-                    <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between gap-2">
-                        <span className="text-xs text-slate-500 font-medium">
-                            {formatDate(stats.lastUpdated)}
-                        </span>
-
-                        <div className="flex items-center gap-2">
-                            <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleBatchRedetect(subject);
-                                }}
-                                disabled={batchRedetecting}
-                                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border flex items-center gap-1
-                                          ${batchRedetecting
-                                        ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
-                                        : 'bg-gradient-to-r from-teal-50 to-blue-50 text-teal-700 hover:from-teal-100 hover:to-blue-100 border-teal-200/60 hover:border-teal-400/60'
-                                    }`}
-                                title="Re-detect all documents with AI"
-                            >
-                                {batchRedetecting ? (
-                                    <motion.div
-                                        animate={{ rotate: 360 }}
-                                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                                    >
-                                        <Sparkles size={13} strokeWidth={2} />
-                                    </motion.div>
-                                ) : (
-                                    <Sparkles size={13} strokeWidth={2} />
-                                )}
-                                <span className="hidden sm:inline">AI Detect</span>
-                            </motion.button>
-
-                            <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteAllInFolder(subject);
-                                }}
-                                className="px-2.5 py-1.5 bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600 
-                                         rounded-lg text-xs font-semibold transition-all border border-slate-200/60 hover:border-red-300/60"
-                            >
-                                <Trash2 size={13} className="inline" strokeWidth={2} />
-                            </motion.button>
-                        </div>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteAllInFolder(subject);
+                            }}
+                            className="px-2 py-1 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-md text-[10px] font-bold transition-all border border-slate-200 hover:border-rose-200"
+                        >
+                            <Trash2 size={10} strokeWidth={2.5} />
+                        </button>
                     </div>
                 </div>
             </motion.div>
@@ -588,14 +421,13 @@ const DocumentsSection = () => {
         const method = doc.detectionMethod || 'unknown';
         const isRedetecting = redetecting.has(doc.id);
 
-        const getBadgeStyle = () => {
+        const getConfidenceBadge = () => {
             if (method === 'ai_gemini') {
-                return confidence >= 90
-                    ? 'bg-gradient-to-r from-teal-500 to-blue-600 text-white border-teal-400'
-                    : 'bg-gradient-to-r from-blue-500 to-teal-500 text-white border-blue-400';
-            } else if (method === 'keyword') {
-                return 'bg-slate-100 text-slate-700 border-slate-300';
+                if (confidence >= 90) return 'bg-gradient-to-r from-teal-500 to-blue-600 text-white border-teal-400';
+                if (confidence >= 70) return 'bg-gradient-to-r from-blue-500 to-teal-500 text-white border-blue-400';
+                return 'bg-blue-50 text-blue-700 border-blue-200';
             }
+            if (method === 'keyword') return 'bg-slate-100 text-slate-700 border-slate-300';
             return 'bg-slate-50 text-slate-500 border-slate-200';
         };
 
@@ -606,158 +438,126 @@ const DocumentsSection = () => {
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ delay: idx * 0.02, type: "spring" }}
-                className={`group relative bg-white rounded-2xl p-5 border shadow-sm transition-all cursor-pointer
-                          ${isSelected
-                        ? 'border-blue-400/60 shadow-lg shadow-blue-100/50'
-                        : 'border-slate-200/60 hover:border-teal-400/60 hover:shadow-lg hover:shadow-teal-50/50'
+                transition={{ delay: idx * 0.02 }}
+                className={`group bg-white rounded-xl p-4 border shadow-sm transition-all cursor-pointer ${isSelected
+                        ? 'border-blue-400 shadow-md'
+                        : 'border-slate-200 hover:border-teal-300 hover:shadow-md'
                     }`}
                 onClick={() => navigate(`/study/${doc.id}`)}
             >
-                <div className="absolute top-4 left-4 z-10">
-                    <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={(e) => {
-                            e.stopPropagation();
-                            setSelectedDocs(prev => {
-                                const newSet = new Set(prev);
-                                if (newSet.has(doc.id)) {
-                                    newSet.delete(doc.id);
-                                } else {
-                                    newSet.add(doc.id);
-                                }
-                                return newSet;
-                            });
-                        }}
-                        className="w-5 h-5 rounded-md border-2 border-slate-300 text-blue-600 
-                                 focus:ring-2 focus:ring-blue-400/50 cursor-pointer hover:border-blue-500 transition-colors"
-                    />
-                </div>
+                <div className="flex items-start gap-3">
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                                e.stopPropagation();
+                                setSelectedDocs(prev => {
+                                    const newSet = new Set(prev);
+                                    if (newSet.has(doc.id)) newSet.delete(doc.id);
+                                    else newSet.add(doc.id);
+                                    return newSet;
+                                });
+                            }}
+                            className="w-4 h-4 rounded border-2 border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-400/50 cursor-pointer hover:border-blue-500 transition-colors"
+                        />
 
-                <div className="flex items-start gap-4 ml-9">
-                    <div className="relative shrink-0">
-                        <motion.div
-                            whileHover={{ scale: 1.08 }}
-                            className={`w-14 h-14 ${config.gradient} rounded-xl flex items-center justify-center shadow-md shadow-teal-100/50`}
-                        >
-                            <FileText className="text-white" size={24} strokeWidth={2.2} />
-                        </motion.div>
-                        {isFavorite && (
-                            <motion.div
-                                initial={{ scale: 0 }}
-                                animate={{ scale: 1 }}
-                                className="absolute -top-1 -right-1 bg-gradient-to-br from-teal-400 to-blue-500 rounded-full p-1 shadow-md"
-                            >
-                                <Star size={10} className="text-white" fill="white" strokeWidth={0} />
-                            </motion.div>
-                        )}
+                        <div className="relative">
+                            <div className={`w-10 h-10 bg-gradient-to-br ${config.gradient} rounded-lg flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform`}>
+                                <FileText className="text-white" size={16} strokeWidth={2.5} />
+                            </div>
+                            {isFavorite && (
+                                <div className="absolute -top-1 -right-1 bg-gradient-to-br from-teal-400 to-blue-500 rounded-full p-0.5">
+                                    <Star size={8} className="text-white" fill="white" strokeWidth={0} />
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-3 mb-2">
-                            <h4 className="text-base font-bold text-slate-800 group-hover:text-teal-700 leading-snug line-clamp-2 transition-colors">
+                        <div className="flex items-start justify-between gap-2 mb-1.5">
+                            <h4 className="text-sm font-bold text-slate-900 group-hover:text-teal-700 leading-tight line-clamp-2 transition-colors">
                                 {doc.title || doc.fileName || 'Untitled'}
                             </h4>
 
-                            <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                <motion.button
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.95 }}
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         handleRedetectSubject(doc.id, doc.title);
                                     }}
                                     disabled={isRedetecting}
-                                    className={`p-2 rounded-lg transition-all border ${isRedetecting
-                                        ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
-                                        : 'bg-gradient-to-r from-teal-50 to-blue-50 text-teal-700 hover:from-teal-100 hover:to-blue-100 border-teal-200/60'
+                                    className={`p-1.5 rounded-lg transition-all border ${isRedetecting
+                                            ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                                            : 'bg-teal-50 text-teal-700 hover:bg-teal-100 border-teal-200'
                                         }`}
-                                    title="Re-detect subject with AI"
+                                    title="Re-detect with AI"
                                 >
                                     {isRedetecting ? (
-                                        <motion.div
-                                            animate={{ rotate: 360 }}
-                                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                                        >
-                                            <Sparkles size={15} strokeWidth={2} />
-                                        </motion.div>
+                                        <RefreshCw size={12} className="animate-spin" strokeWidth={2.5} />
                                     ) : (
-                                        <Sparkles size={15} strokeWidth={2} />
+                                        <Sparkles size={12} strokeWidth={2.5} />
                                     )}
-                                </motion.button>
+                                </button>
 
-                                <motion.button
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.95 }}
+                                <button
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         toggleFavorite(doc.id);
                                     }}
-                                    className={`p-2 rounded-lg transition-all border ${isFavorite
-                                        ? 'bg-teal-50 text-teal-700 border-teal-200/60'
-                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border-slate-200/60'
+                                    className={`p-1.5 rounded-lg transition-all border ${isFavorite
+                                            ? 'bg-teal-50 text-teal-700 border-teal-200'
+                                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border-slate-200'
                                         }`}
                                 >
-                                    {isFavorite ? <Star size={15} fill="currentColor" strokeWidth={0} /> : <Star size={15} strokeWidth={2} />}
-                                </motion.button>
+                                    <Star size={12} fill={isFavorite ? 'currentColor' : 'none'} strokeWidth={2.5} />
+                                </button>
 
-                                <motion.button
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.95 }}
+                                <button
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         navigate(`/study/${doc.id}`);
                                     }}
-                                    className="p-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-blue-50 hover:text-blue-600
-                                             transition-all border border-slate-200/60"
+                                    className="p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-all border border-slate-200"
                                 >
-                                    <Eye size={15} strokeWidth={2} />
-                                </motion.button>
+                                    <Eye size={12} strokeWidth={2.5} />
+                                </button>
 
-                                <motion.button
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.95 }}
+                                <button
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         handleDelete(doc.id, doc.title);
                                     }}
-                                    className="p-2 rounded-lg bg-slate-100 text-slate-600 hover:bg-red-50 hover:text-red-600
-                                             transition-all border border-slate-200/60"
+                                    className="p-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-rose-50 hover:text-rose-600 transition-all border border-slate-200"
                                 >
-                                    <Trash2 size={15} strokeWidth={2} />
-                                </motion.button>
+                                    <Trash2 size={12} strokeWidth={2.5} />
+                                </button>
                             </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2.5 text-xs text-slate-500">
-                            <span className="flex items-center gap-1.5 font-medium">
-                                <Calendar size={12} strokeWidth={2} />
+                        <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                            <span className="flex items-center gap-1 text-slate-500 font-medium">
+                                <Calendar size={9} strokeWidth={2.5} />
                                 {formatDate(doc.createdAt)}
                             </span>
-                            <span className="flex items-center gap-1.5 font-medium">
-                                <HardDrive size={12} strokeWidth={2} />
+                            <span className="flex items-center gap-1 text-slate-500 font-medium">
+                                <HardDrive size={9} strokeWidth={2.5} />
                                 {formatSize(doc.fileSize)}
                             </span>
-                            <span className={`px-2 py-1 rounded-lg text-xs font-semibold bg-gradient-to-r ${config.lightColor} border border-slate-200/60`}>
+
+                            <span className={`px-1.5 py-0.5 rounded-md font-bold border ${config.color}`}>
                                 {subject}
                             </span>
 
                             {confidence > 0 && (
                                 <div className="relative group/tooltip">
-                                    <motion.span
-                                        initial={{ scale: 0 }}
-                                        animate={{ scale: 1 }}
-                                        transition={{ delay: 0.2 }}
-                                        className={`px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-help border ${getBadgeStyle()}`}
-                                    >
-                                        {method === 'ai_gemini' && <Sparkles size={11} strokeWidth={2.5} />}
-                                        <Target size={11} strokeWidth={2.5} />
+                                    <span className={`px-1.5 py-0.5 rounded-md font-bold flex items-center gap-0.5 cursor-help border ${getConfidenceBadge()}`}>
+                                        {method === 'ai_gemini' && <Sparkles size={9} strokeWidth={2.5} />}
+                                        <Target size={9} strokeWidth={2.5} />
                                         {confidence}%
-                                    </motion.span>
+                                    </span>
 
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-slate-900 text-white text-xs rounded-lg 
-                                                  opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl">
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[9px] rounded-lg opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 font-bold">
                                         {method === 'ai_gemini' ? (
                                             <>
                                                 🤖 AI Detection
@@ -765,12 +565,10 @@ const DocumentsSection = () => {
                                             </>
                                         ) : method === 'keyword' ? (
                                             '🔤 Keyword Detection'
-                                        ) : method === 'user_provided' ? (
-                                            '✏️ User Provided'
                                         ) : (
                                             '❓ Unknown Method'
                                         )}
-                                        <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-900"></div>
+                                        <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-0.5 border-4 border-transparent border-t-slate-900"></div>
                                     </div>
                                 </div>
                             )}
@@ -783,51 +581,35 @@ const DocumentsSection = () => {
 
     if (loading) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50">
-                <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                    className="w-16 h-16 border-4 border-slate-200 border-t-teal-600 rounded-full shadow-lg mb-5"
-                />
-                <p className="text-slate-700 font-bold text-lg">Loading library...</p>
+            <div className="flex items-center justify-center py-20">
+                <div className="w-12 h-12 border-2 border-slate-200 border-t-teal-600 rounded-full animate-spin" />
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50 relative overflow-hidden">
-            {/* Animated background orbs */}
-            <motion.div
-                animate={{ scale: [1, 1.2, 1], opacity: [0.15, 0.25, 0.15] }}
-                transition={{ duration: 8, repeat: Infinity }}
-                className="absolute top-20 left-20 w-96 h-96 bg-gradient-to-br from-blue-200/40 via-teal-200/40 to-transparent rounded-full blur-3xl pointer-events-none"
-            />
-            <motion.div
-                animate={{ scale: [1, 1.3, 1], opacity: [0.1, 0.2, 0.1] }}
-                transition={{ duration: 10, repeat: Infinity, delay: 1 }}
-                className="absolute bottom-20 right-20 w-96 h-96 bg-gradient-to-br from-teal-200/40 via-blue-200/40 to-transparent rounded-full blur-3xl pointer-events-none"
-            />
+        <div className="min-h-screen bg-white">
+            {/* Subtle background */}
+            <div className="fixed inset-0 -z-10 bg-gradient-to-br from-white via-teal-50/20 to-blue-50/20" />
 
-            <div className="relative z-10 max-w-7xl mx-auto px-6 py-8">
+            <div className="max-w-7xl mx-auto px-6 py-8">
                 {/* Header */}
                 <div className="mb-8">
                     <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3">
                             {selectedFolder && (
-                                <motion.button
-                                    whileHover={{ scale: 1.05, x: -2 }}
-                                    whileTap={{ scale: 0.95 }}
+                                <button
                                     onClick={() => setSelectedFolder(null)}
-                                    className="p-3 rounded-2xl bg-white border border-slate-200/60 hover:border-teal-500/60 hover:shadow-lg transition-all"
+                                    className="p-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all"
                                 >
-                                    <ArrowLeft size={20} className="text-slate-700" strokeWidth={2.5} />
-                                </motion.button>
+                                    <ArrowLeft size={18} className="text-slate-700" strokeWidth={2.5} />
+                                </button>
                             )}
                             <div>
-                                <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-800 via-teal-700 to-blue-700 bg-clip-text text-transparent">
+                                <h1 className="text-2xl font-bold text-slate-900">
                                     {selectedFolder || 'My Library'}
                                 </h1>
-                                <p className="text-slate-600 font-medium flex items-center gap-2 mt-1">
+                                <p className="text-xs text-slate-600">
                                     {selectedFolder
                                         ? `${filteredDocuments.length} document${filteredDocuments.length !== 1 ? 's' : ''}`
                                         : `${Object.keys(folderStats).length} folders • ${documents.length} documents • ${formatSize(documentStats.totalSize)}`
@@ -836,81 +618,70 @@ const DocumentsSection = () => {
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
                             {!selectedFolder && documents.length > 0 && (
-                                <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
+                                <button
                                     onClick={handleDeleteAllDocuments}
-                                    className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-slate-700 to-slate-900
-                                             text-white rounded-2xl font-semibold hover:shadow-lg hover:shadow-slate-400/40
-                                             transition-all border border-slate-600"
+                                    className="flex items-center gap-1.5 px-3 py-2 bg-white border border-rose-200 text-rose-600 rounded-lg text-xs font-bold hover:bg-rose-50 hover:border-rose-300 transition-all"
                                 >
-                                    <Trash2 size={18} strokeWidth={2.5} />
-                                    <span>Delete All</span>
-                                </motion.button>
+                                    <Trash2 size={14} strokeWidth={2.5} />
+                                    Delete All
+                                </button>
                             )}
 
-                            <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
+                            <button
                                 onClick={() => navigate('/upload')}
-                                className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-blue-600 to-teal-600
-                                         text-white rounded-2xl font-semibold hover:shadow-lg hover:shadow-blue-400/40 transition-all"
+                                className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-teal-500 to-blue-600 text-white rounded-lg text-xs font-bold hover:shadow-sm transition-all"
                             >
-                                <Upload size={18} strokeWidth={2.5} />
-                                <span>Upload</span>
-                            </motion.button>
+                                <Upload size={14} strokeWidth={2.5} />
+                                Upload
+                            </button>
                         </div>
                     </div>
 
                     {selectedFolder && (
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
                             <div className="flex-1 relative">
-                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} strokeWidth={2.5} />
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} strokeWidth={2.5} />
                                 <input
                                     type="text"
                                     placeholder="Search documents..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="w-full pl-12 pr-4 py-3.5 bg-white rounded-2xl border border-slate-200/60 
-                                             focus:border-teal-500/60 focus:shadow-lg transition-all font-medium text-slate-800 placeholder:text-slate-400"
+                                    className="w-full pl-10 pr-4 py-2.5 bg-white rounded-xl border border-slate-200 focus:border-teal-400 focus:ring-2 focus:ring-teal-100 transition-all text-sm text-slate-900 placeholder:text-slate-400"
                                 />
                             </div>
 
-                            <div className="flex items-center gap-2 bg-white rounded-2xl border border-slate-200/60 p-1">
-                                <motion.button
-                                    whileTap={{ scale: 0.95 }}
+                            <div className="flex items-center gap-2 bg-white rounded-xl border border-slate-200 p-1">
+                                <button
                                     onClick={() => setViewMode('grid')}
-                                    className={`p-2.5 rounded-xl transition-all ${viewMode === 'grid'
-                                        ? 'bg-gradient-to-br from-blue-600 to-teal-600 text-white shadow-md'
-                                        : 'text-slate-600 hover:bg-slate-100'
+                                    className={`p-2 rounded-lg transition-all ${viewMode === 'grid'
+                                            ? 'bg-gradient-to-br from-teal-500 to-blue-600 text-white'
+                                            : 'text-slate-600 hover:bg-slate-100'
                                         }`}
                                 >
-                                    <LayoutGrid size={17} strokeWidth={2.5} />
-                                </motion.button>
-                                <motion.button
-                                    whileTap={{ scale: 0.95 }}
+                                    <LayoutGrid size={14} strokeWidth={2.5} />
+                                </button>
+                                <button
                                     onClick={() => setViewMode('list')}
-                                    className={`p-2.5 rounded-xl transition-all ${viewMode === 'list'
-                                        ? 'bg-gradient-to-br from-blue-600 to-teal-600 text-white shadow-md'
-                                        : 'text-slate-600 hover:bg-slate-100'
+                                    className={`p-2 rounded-lg transition-all ${viewMode === 'list'
+                                            ? 'bg-gradient-to-br from-teal-500 to-blue-600 text-white'
+                                            : 'text-slate-600 hover:bg-slate-100'
                                         }`}
                                 >
-                                    <List size={17} strokeWidth={2.5} />
-                                </motion.button>
+                                    <List size={14} strokeWidth={2.5} />
+                                </button>
                             </div>
 
                             <select
                                 value={sortBy}
                                 onChange={(e) => setSortBy(e.target.value)}
-                                className="px-4 py-3.5 bg-white rounded-2xl border border-slate-200/60 focus:border-teal-500/60 
-                                         transition-all font-semibold text-slate-800 cursor-pointer"
+                                className="px-3 py-2.5 bg-white rounded-xl border border-slate-200 focus:border-teal-400 focus:ring-2 focus:ring-teal-100 transition-all text-xs font-bold text-slate-900 cursor-pointer"
                             >
-                                <option value="newest">📅 Newest</option>
-                                <option value="oldest">📆 Oldest</option>
-                                <option value="name">🔤 Name</option>
-                                <option value="size">💾 Size</option>
+                                <option value="newest">Newest</option>
+                                <option value="oldest">Oldest</option>
+                                <option value="name">Name</option>
+                                <option value="size">Size</option>
                             </select>
                         </div>
                     )}
@@ -919,40 +690,33 @@ const DocumentsSection = () => {
                     <AnimatePresence>
                         {selectedDocs.size > 0 && (
                             <motion.div
-                                initial={{ opacity: 0, y: -20 }}
+                                initial={{ opacity: 0, y: -10 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -20 }}
-                                className="mt-4 flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-blue-50 to-teal-50 
-                                         rounded-2xl border border-blue-200/60 shadow-md"
+                                exit={{ opacity: 0, y: -10 }}
+                                className="mt-4 flex items-center justify-between px-4 py-2.5 bg-blue-50 rounded-xl border border-blue-200"
                             >
-                                <div className="flex items-center gap-3">
-                                    <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center shadow-md">
-                                        <Check size={18} className="text-white" strokeWidth={3} />
+                                <div className="flex items-center gap-2">
+                                    <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center">
+                                        <Check size={14} className="text-white" strokeWidth={3} />
                                     </div>
-                                    <span className="font-bold text-blue-900 text-base">
+                                    <span className="text-xs font-bold text-blue-900">
                                         {selectedDocs.size} selected
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <motion.button
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
+                                    <button
                                         onClick={() => setSelectedDocs(new Set())}
-                                        className="px-4 py-2 bg-white rounded-xl text-slate-700 font-semibold hover:bg-slate-100 
-                                                 transition-all border border-slate-200/60"
+                                        className="px-3 py-1.5 bg-white rounded-lg text-xs text-slate-700 font-bold hover:bg-slate-100 transition-all border border-slate-200"
                                     >
                                         Clear
-                                    </motion.button>
-                                    <motion.button
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
+                                    </button>
+                                    <button
                                         onClick={handleBulkDelete}
-                                        className="px-4 py-2 bg-gradient-to-r from-slate-700 to-slate-900 rounded-xl text-white font-semibold 
-                                                 hover:shadow-lg transition-all"
+                                        className="px-3 py-1.5 bg-rose-600 rounded-lg text-xs text-white font-bold hover:bg-rose-700 transition-all flex items-center gap-1"
                                     >
-                                        <Trash2 size={15} className="inline mr-1.5" strokeWidth={2.5} />
+                                        <Trash2 size={12} strokeWidth={2.5} />
                                         Delete
-                                    </motion.button>
+                                    </button>
                                 </div>
                             </motion.div>
                         )}
@@ -967,34 +731,26 @@ const DocumentsSection = () => {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
+                            className="grid grid-cols-3 gap-4"
                         >
                             {Object.entries(folderStats).length > 0 ? (
                                 Object.entries(folderStats).map(([subject, stats], idx) =>
                                     renderFolderCard(subject, stats, idx)
                                 )
                             ) : (
-                                <div className="col-span-full text-center py-20">
-                                    <motion.div
-                                        initial={{ scale: 0 }}
-                                        animate={{ scale: 1 }}
-                                        className="w-28 h-28 bg-gradient-to-br from-slate-200 to-slate-100 rounded-full
-                                                  flex items-center justify-center mx-auto mb-5 shadow-lg"
-                                    >
-                                        <FileText size={50} className="text-slate-400" strokeWidth={1.5} />
-                                    </motion.div>
-                                    <h3 className="text-2xl font-bold text-slate-800 mb-2">No documents yet</h3>
-                                    <p className="text-slate-600 text-base mb-5">Upload your first document to get started</p>
-                                    <motion.button
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
+                                <div className="col-span-full text-center py-16">
+                                    <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-200">
+                                        <FileText size={32} className="text-slate-400" strokeWidth={1.5} />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-slate-900 mb-1">No documents yet</h3>
+                                    <p className="text-xs text-slate-600 mb-5">Upload your first document to get started</p>
+                                    <button
                                         onClick={() => navigate('/upload')}
-                                        className="px-7 py-3.5 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-2xl 
-                                                 font-semibold hover:shadow-lg transition-all inline-flex items-center gap-2"
+                                        className="px-5 py-2.5 bg-gradient-to-r from-teal-500 to-blue-600 text-white rounded-lg text-xs font-bold hover:shadow-sm transition-all inline-flex items-center gap-1.5"
                                     >
-                                        <Upload size={18} strokeWidth={2.5} />
+                                        <Upload size={14} strokeWidth={2.5} />
                                         Upload Document
-                                    </motion.button>
+                                    </button>
                                 </div>
                             )}
                         </motion.div>
@@ -1004,46 +760,35 @@ const DocumentsSection = () => {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className={viewMode === 'grid' ? 'grid grid-cols-1 lg:grid-cols-2 gap-4' : 'space-y-3'}
+                            className={viewMode === 'grid' ? 'grid grid-cols-2 gap-3' : 'space-y-2.5'}
                         >
                             {filteredDocuments.length > 0 ? (
                                 filteredDocuments.map((doc, idx) => renderDocumentCard(doc, idx))
                             ) : (
-                                <div className="text-center py-20 col-span-full">
-                                    <motion.div
-                                        initial={{ scale: 0 }}
-                                        animate={{ scale: 1 }}
-                                        className="w-28 h-28 bg-gradient-to-br from-slate-200 to-slate-100 rounded-full
-                                                  flex items-center justify-center mx-auto mb-5 shadow-lg"
-                                    >
-                                        <Search size={45} className="text-slate-400" strokeWidth={1.5} />
-                                    </motion.div>
-                                    <h3 className="text-2xl font-bold text-slate-800 mb-2">No matches found</h3>
-                                    <p className="text-slate-600 text-base mb-5">
+                                <div className="text-center py-16 col-span-full">
+                                    <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-200">
+                                        <Search size={32} className="text-slate-400" strokeWidth={1.5} />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-slate-900 mb-1">No matches found</h3>
+                                    <p className="text-xs text-slate-600 mb-5">
                                         {searchTerm ? `No results for "${searchTerm}"` : 'This folder is empty'}
                                     </p>
                                     {searchTerm ? (
-                                        <motion.button
-                                            whileHover={{ scale: 1.05 }}
-                                            whileTap={{ scale: 0.95 }}
+                                        <button
                                             onClick={() => setSearchTerm('')}
-                                            className="px-7 py-3.5 bg-gradient-to-r from-slate-700 to-slate-900 text-white rounded-2xl 
-                                                     font-semibold hover:shadow-lg transition-all inline-flex items-center gap-2"
+                                            className="px-5 py-2.5 bg-slate-700 text-white rounded-lg text-xs font-bold hover:bg-slate-800 transition-all inline-flex items-center gap-1.5"
                                         >
-                                            <X size={18} strokeWidth={2.5} />
+                                            <X size={14} strokeWidth={2.5} />
                                             Clear Search
-                                        </motion.button>
+                                        </button>
                                     ) : (
-                                        <motion.button
-                                            whileHover={{ scale: 1.05 }}
-                                            whileTap={{ scale: 0.95 }}
+                                        <button
                                             onClick={() => navigate('/upload')}
-                                            className="px-7 py-3.5 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-2xl 
-                                                     font-semibold hover:shadow-lg transition-all inline-flex items-center gap-2"
+                                            className="px-5 py-2.5 bg-gradient-to-r from-teal-500 to-blue-600 text-white rounded-lg text-xs font-bold hover:shadow-sm transition-all inline-flex items-center gap-1.5"
                                         >
-                                            <Upload size={18} strokeWidth={2.5} />
+                                            <Upload size={14} strokeWidth={2.5} />
                                             Upload Document
-                                        </motion.button>
+                                        </button>
                                     )}
                                 </div>
                             )}

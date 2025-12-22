@@ -1,35 +1,16 @@
-// src/components/features/FlashcardsSection.jsx - PREMIUM CLEAN DESIGN ✨
+// src/components/features/FlashcardsSection.jsx - PREMIUM LIGHT COMPACT EDITION 💎
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  CreditCard,
-  Search,
-  Brain,
-  Loader2,
-  Sparkles,
-  BookOpen,
-  Target,
-  Play,
-  Trash2,
-  Award,
-  Clock,
-  Zap,
-  TrendingUp,
-  LayoutGrid,
-  List,
-  ArrowRight
+  CreditCard, Search, Brain, Loader2, Sparkles, BookOpen,
+  Target, Play, Trash2, Award, Clock, Zap, TrendingUp,
+  LayoutGrid, List, ArrowRight
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@auth/contexts/AuthContext';
 import {
-  collection,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
-  deleteDoc,
-  doc
+  collection, query, where, orderBy, onSnapshot, deleteDoc, doc
 } from 'firebase/firestore';
 import { db } from '@shared/config/firebase';
 import { generateFlashcardsWithGemini, createFlashcardDeck } from '@study/services/flashcardService';
@@ -47,18 +28,18 @@ const FlashcardsSection = () => {
   const [viewMode, setViewMode] = useState('grid');
 
   // Clean subject config
-  const subjectConfig = {
-    'Mathematics': { color: 'blue', textColor: 'text-blue-700', bgColor: 'bg-blue-50', borderColor: 'border-blue-200' },
-    'Physics': { color: 'teal', textColor: 'text-teal-700', bgColor: 'bg-teal-50', borderColor: 'border-teal-200' },
-    'Chemistry': { color: 'cyan', textColor: 'text-cyan-700', bgColor: 'bg-cyan-50', borderColor: 'border-cyan-200' },
-    'Biology': { color: 'emerald', textColor: 'text-emerald-700', bgColor: 'bg-emerald-50', borderColor: 'border-emerald-200' },
-    'Computer Science': { color: 'indigo', textColor: 'text-indigo-700', bgColor: 'bg-indigo-50', borderColor: 'border-indigo-200' },
-    'History': { color: 'amber', textColor: 'text-amber-700', bgColor: 'bg-amber-50', borderColor: 'border-amber-200' },
-    'Economics': { color: 'violet', textColor: 'text-violet-700', bgColor: 'bg-violet-50', borderColor: 'border-violet-200' },
-    'Literature': { color: 'rose', textColor: 'text-rose-700', bgColor: 'bg-rose-50', borderColor: 'border-rose-200' },
-    'Psychology': { color: 'purple', textColor: 'text-purple-700', bgColor: 'bg-purple-50', borderColor: 'border-purple-200' },
-    'Engineering': { color: 'orange', textColor: 'text-orange-700', bgColor: 'bg-orange-50', borderColor: 'border-orange-200' },
-    'General Studies': { color: 'slate', textColor: 'text-slate-700', bgColor: 'bg-slate-50', borderColor: 'border-slate-200' }
+  const subjectColors = {
+    'Mathematics': 'bg-blue-50 text-blue-700 border-blue-200',
+    'Physics': 'bg-teal-50 text-teal-700 border-teal-200',
+    'Chemistry': 'bg-cyan-50 text-cyan-700 border-cyan-200',
+    'Biology': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    'Computer Science': 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    'History': 'bg-amber-50 text-amber-700 border-amber-200',
+    'Economics': 'bg-violet-50 text-violet-700 border-violet-200',
+    'Literature': 'bg-rose-50 text-rose-700 border-rose-200',
+    'Psychology': 'bg-purple-50 text-purple-700 border-purple-200',
+    'Engineering': 'bg-orange-50 text-orange-700 border-orange-200',
+    'default': 'bg-slate-50 text-slate-700 border-slate-200'
   };
 
   // Calculate optimal flashcard count
@@ -138,10 +119,8 @@ const FlashcardsSection = () => {
   const decksBySubject = useMemo(() => {
     const grouped = {};
     decks.forEach(deck => {
-      const subject = deck.subject || 'General Studies';
-      if (!grouped[subject]) {
-        grouped[subject] = [];
-      }
+      const subject = deck.subject || 'General';
+      if (!grouped[subject]) grouped[subject] = [];
       grouped[subject].push(deck);
     });
     return grouped;
@@ -153,7 +132,7 @@ const FlashcardsSection = () => {
 
     if (selectedSubject !== 'all') {
       filtered = filtered.filter(deck =>
-        (deck.subject || 'General Studies') === selectedSubject
+        (deck.subject || 'General') === selectedSubject
       );
     }
 
@@ -167,21 +146,6 @@ const FlashcardsSection = () => {
     return filtered;
   }, [decks, selectedSubject, searchTerm]);
 
-  // Calculate stats
-  const flashcardStats = useMemo(() => {
-    const totalCards = decks.reduce((sum, deck) => sum + (deck.cardCount || 0), 0);
-    const totalMastered = decks.reduce((sum, deck) => sum + (deck.masteredCount || 0), 0);
-    const totalReviewed = decks.reduce((sum, deck) => sum + (deck.reviewCount || 0), 0);
-    const masteryRate = totalCards > 0 ? Math.round((totalMastered / totalCards) * 100) : 0;
-
-    return {
-      totalCards,
-      totalMastered,
-      totalReviewed,
-      masteryRate
-    };
-  }, [decks]);
-
   // Generate deck handler
   const handleGenerateDeck = async (document) => {
     if (!document?.id || !user?.uid) {
@@ -191,7 +155,7 @@ const FlashcardsSection = () => {
 
     const optimalCardCount = calculateOptimalCardCount(document);
     setGeneratingDeck(document.id);
-    const toastId = toast.loading(`🧠 AI is generating ${optimalCardCount} flashcards...`);
+    const toastId = toast.loading(`Generating ${optimalCardCount} flashcards...`);
 
     try {
       const flashcards = await generateFlashcardsWithGemini(document.id, optimalCardCount);
@@ -203,18 +167,17 @@ const FlashcardsSection = () => {
       const deckId = await createFlashcardDeck(user.uid, document.id, flashcards, {
         title: `${document.title || 'Flashcards'}`,
         description: `AI-generated flashcard deck with ${flashcards.length} cards`,
-        subject: document.subject || 'General Studies',
+        subject: document.subject || 'General',
         cardCount: flashcards.length,
         masteredCount: 0,
         reviewCount: 0,
         lastStudied: null
       });
 
-      toast.success(`✨ Generated ${flashcards.length} flashcards successfully!`, { id: toastId });
+      toast.success(`Generated ${flashcards.length} flashcards!`, { id: toastId });
 
       setTimeout(() => {
         navigate(`/flashcards/${deckId}`, {
-          replace: false,
           state: {
             fromGeneration: true,
             cardCount: flashcards.length,
@@ -225,19 +188,7 @@ const FlashcardsSection = () => {
 
     } catch (error) {
       console.error('Flashcard generation error:', error);
-
-      let errorMessage = 'Failed to generate flashcards';
-      if (error.message.includes('API key')) {
-        errorMessage = 'AI service configuration error. Please contact support.';
-      } else if (error.message.includes('too short')) {
-        errorMessage = 'Document text is too short. Please upload a longer document.';
-      } else if (error.message.includes('not found')) {
-        errorMessage = 'Document not found. Please try again.';
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-
-      toast.error(errorMessage, { id: toastId });
+      toast.error(error.message || 'Failed to generate flashcards', { id: toastId });
     } finally {
       setGeneratingDeck(null);
     }
@@ -245,225 +196,158 @@ const FlashcardsSection = () => {
 
   // Delete deck handler
   const handleDeleteDeck = async (deckId, deckTitle) => {
-    if (!confirm(`Are you sure you want to delete "${deckTitle}"?`)) {
-      return;
-    }
+    if (!confirm(`Delete "${deckTitle}"?`)) return;
 
     const toastId = toast.loading('Deleting deck...');
-
     try {
       await deleteDoc(doc(db, 'flashcardDecks', deckId));
-      toast.success('Deck deleted successfully', { id: toastId });
+      toast.success('Deck deleted', { id: toastId });
     } catch (error) {
-      console.error('Delete error:', error);
       toast.error('Failed to delete deck', { id: toastId });
     }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="flex flex-col items-center gap-4"
-        >
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-            className="w-16 h-16 border-4 border-slate-200 border-t-teal-600 rounded-full"
-          />
-          <p className="text-slate-700 font-bold">Loading flashcards...</p>
-        </motion.div>
+      <div className="flex items-center justify-center py-20 bg-white">
+        <div className="text-center">
+          <div className="w-12 h-12 border-2 border-slate-200 border-t-teal-600 rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-sm font-medium text-slate-600">Loading flashcards...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50 relative overflow-hidden">
-      {/* Background orbs */}
-      <motion.div
-        animate={{ scale: [1, 1.2, 1], opacity: [0.15, 0.25, 0.15] }}
-        transition={{ duration: 8, repeat: Infinity }}
-        className="absolute top-20 left-20 w-96 h-96 bg-gradient-to-br from-blue-200/40 via-teal-200/40 to-transparent rounded-full blur-3xl pointer-events-none"
-      />
-      <motion.div
-        animate={{ scale: [1, 1.3, 1], opacity: [0.1, 0.2, 0.1] }}
-        transition={{ duration: 10, repeat: Infinity, delay: 1 }}
-        className="absolute bottom-20 right-20 w-96 h-96 bg-gradient-to-br from-teal-200/40 via-blue-200/40 to-transparent rounded-full blur-3xl pointer-events-none"
-      />
+    <div className="min-h-screen bg-white">
+      {/* Subtle background */}
+      <div className="fixed inset-0 -z-10 bg-gradient-to-br from-white via-teal-50/20 to-blue-50/20" />
 
-      <div className="relative z-10 max-w-7xl mx-auto px-6 py-8">
-        {/* Header */}
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Compact Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <div className="p-4 bg-gradient-to-br from-blue-600 to-teal-600 rounded-2xl shadow-lg">
-                <CreditCard className="w-7 h-7 text-white" strokeWidth={2} />
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-gradient-to-br from-teal-500 to-blue-600 rounded-xl shadow-sm">
+                <CreditCard className="w-5 h-5 text-white" strokeWidth={2.5} />
               </div>
               <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-800 via-teal-700 to-blue-700 bg-clip-text text-transparent">
+                <h1 className="text-2xl font-bold text-slate-900">
                   AI Flashcards
                 </h1>
-                <p className="text-slate-600 font-medium mt-1">
+                <p className="text-xs text-slate-600 mt-0.5">
                   Master concepts with intelligent flashcards
                 </p>
               </div>
             </div>
+            <button
+              onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+              className="p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all"
+            >
+              {viewMode === 'grid' ? (
+                <List size={18} className="text-slate-700" />
+              ) : (
+                <LayoutGrid size={18} className="text-slate-700" />
+              )}
+            </button>
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <motion.div whileHover={{ y: -2 }} className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm hover:shadow-lg transition-all">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2 bg-blue-50 rounded-xl">
-                <CreditCard size={20} className="text-blue-600" />
-              </div>
-              <span className="text-sm font-semibold text-slate-600">Total Cards</span>
-            </div>
-            <p className="text-3xl font-bold text-slate-800">{flashcardStats.totalCards}</p>
-          </motion.div>
-
-          <motion.div whileHover={{ y: -2 }} className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm hover:shadow-lg transition-all">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2 bg-emerald-50 rounded-xl">
-                <Award size={20} className="text-emerald-600" />
-              </div>
-              <span className="text-sm font-semibold text-slate-600">Mastered</span>
-            </div>
-            <p className="text-3xl font-bold text-slate-800">{flashcardStats.totalMastered}</p>
-          </motion.div>
-
-          <motion.div whileHover={{ y: -2 }} className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm hover:shadow-lg transition-all">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2 bg-teal-50 rounded-xl">
-                <Zap size={20} className="text-teal-600" />
-              </div>
-              <span className="text-sm font-semibold text-slate-600">Reviewed</span>
-            </div>
-            <p className="text-3xl font-bold text-slate-800">{flashcardStats.totalReviewed}</p>
-          </motion.div>
-
-          <motion.div whileHover={{ y: -2 }} className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm hover:shadow-lg transition-all">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2 bg-purple-50 rounded-xl">
-                <TrendingUp size={20} className="text-purple-600" />
-              </div>
-              <span className="text-sm font-semibold text-slate-600">Mastery Rate</span>
-            </div>
-            <p className="text-3xl font-bold text-slate-800">{flashcardStats.masteryRate}%</p>
-          </motion.div>
-        </div>
-
-        {/* Search & Filters */}
-        <div className="mb-6">
-          <div className="flex flex-col md:flex-row gap-3">
-            <div className="flex-1 relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-              <input
-                type="text"
-                placeholder="Search flashcard decks..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-3.5 bg-white rounded-2xl border border-slate-200/60 
-                         focus:outline-none focus:border-teal-500/60 focus:shadow-lg transition-all 
-                         font-medium text-slate-800 placeholder:text-slate-400"
-              />
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-                className="p-3.5 bg-white border border-slate-200/60 rounded-2xl hover:bg-slate-50 transition-all"
-              >
-                {viewMode === 'grid' ? <List size={20} className="text-slate-700" /> : <LayoutGrid size={20} className="text-slate-700" />}
-              </button>
-            </div>
+        {/* Search & Filter */}
+        <div className="mb-6 space-y-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+            <input
+              type="text"
+              placeholder="Search flashcard decks..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl 
+                       focus:outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100 
+                       transition-all text-sm text-slate-900 placeholder:text-slate-400"
+            />
           </div>
-        </div>
 
-        {/* Subject Filter Pills */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2 overflow-x-auto pb-3 scrollbar-thin scrollbar-thumb-slate-300">
+          {/* Subject Pills */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-2">
             <button
               onClick={() => setSelectedSubject('all')}
-              className={`px-4 py-2 rounded-xl font-semibold text-sm whitespace-nowrap transition-all ${selectedSubject === 'all'
-                  ? 'bg-gradient-to-r from-blue-600 to-teal-600 text-white shadow-md'
-                  : 'bg-white border border-slate-200/60 text-slate-700 hover:border-slate-300'
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${selectedSubject === 'all'
+                  ? 'bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-sm'
+                  : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
                 }`}
             >
               All ({decks.length})
             </button>
 
-            {Object.entries(decksBySubject).map(([subject, subjectDecks]) => {
-              const config = subjectConfig[subject] || subjectConfig['General Studies'];
-              return (
-                <button
-                  key={subject}
-                  onClick={() => setSelectedSubject(subject)}
-                  className={`px-4 py-2 rounded-xl font-semibold text-sm whitespace-nowrap transition-all ${selectedSubject === subject
-                      ? `${config.bgColor} ${config.textColor} border ${config.borderColor}`
-                      : 'bg-white border border-slate-200/60 text-slate-700 hover:border-slate-300'
-                    }`}
-                >
-                  {subject} ({subjectDecks.length})
-                </button>
-              );
-            })}
+            {Object.entries(decksBySubject).map(([subject, subjectDecks]) => (
+              <button
+                key={subject}
+                onClick={() => setSelectedSubject(subject)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap border ${selectedSubject === subject
+                    ? subjectColors[subject] || subjectColors.default
+                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                  }`}
+              >
+                {subject} ({subjectDecks.length})
+              </button>
+            ))}
           </div>
         </div>
 
         {/* Generate from Documents */}
         {documents.length > 0 && (
-          <div className="mb-10">
-            <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-              <Sparkles size={20} className="text-teal-600" />
-              Generate New Flashcard Deck
-            </h3>
-            <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles size={16} className="text-teal-600" strokeWidth={2.5} />
+              <h3 className="text-sm font-bold text-slate-900">Generate New Deck</h3>
+            </div>
+            <div className={`grid gap-3 ${viewMode === 'grid' ? 'grid-cols-3' : 'grid-cols-1'}`}>
               {documents.slice(0, 6).map((doc) => {
                 const optimalCount = calculateOptimalCardCount(doc);
-                const config = subjectConfig[doc.subject] || subjectConfig['General Studies'];
+                const subjectStyle = subjectColors[doc.subject] || subjectColors.default;
 
                 return (
                   <motion.div
                     key={doc.id}
                     whileHover={{ y: -2 }}
-                    className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm hover:shadow-lg hover:border-teal-400/60 transition-all"
+                    className="bg-white border border-slate-200 rounded-xl p-3 hover:border-teal-300 hover:shadow-sm transition-all"
                   >
-                    <div className="flex items-start gap-3 mb-4">
-                      <div className={`p-2.5 bg-gradient-to-br from-${config.color}-500 to-${config.color}-600 rounded-xl shadow-md`}>
-                        <BookOpen size={20} className="text-white" />
+                    <div className="flex items-start gap-2 mb-3">
+                      <div className="w-8 h-8 bg-gradient-to-br from-teal-500 to-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <BookOpen size={16} className="text-white" strokeWidth={2.5} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-bold text-slate-800 truncate mb-1.5">{doc.title}</h4>
+                        <h4 className="text-xs font-bold text-slate-900 truncate mb-1">
+                          {doc.title}
+                        </h4>
                         {doc.subject && (
-                          <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-lg ${config.bgColor} ${config.textColor}`}>
+                          <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-md border ${subjectStyle}`}>
                             {doc.subject}
                           </span>
                         )}
                       </div>
                     </div>
 
-                    <div className="mb-3 flex items-center gap-2 text-xs text-slate-500">
-                      <Zap size={12} className="text-teal-600" />
-                      <span className="font-semibold">Will generate ~{optimalCount} cards</span>
+                    <div className="mb-2 flex items-center gap-1.5 text-[11px] text-slate-500">
+                      <Zap size={10} className="text-teal-600" />
+                      <span className="font-semibold">~{optimalCount} cards</span>
                     </div>
 
                     <button
                       onClick={() => handleGenerateDeck(doc)}
                       disabled={generatingDeck === doc.id}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-xl text-sm font-semibold hover:shadow-md transition-all disabled:opacity-50"
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-r from-teal-500 to-blue-600 text-white rounded-lg text-xs font-bold hover:shadow-sm transition-all disabled:opacity-50"
                     >
                       {generatingDeck === doc.id ? (
                         <>
-                          <Loader2 size={16} className="animate-spin" />
+                          <Loader2 size={12} className="animate-spin" />
                           Generating...
                         </>
                       ) : (
                         <>
-                          <Sparkles size={16} />
-                          Generate Flashcards
+                          <Sparkles size={12} />
+                          Generate Deck
                         </>
                       )}
                     </button>
@@ -474,14 +358,14 @@ const FlashcardsSection = () => {
           </div>
         )}
 
-        {/* Flashcard Decks List */}
+        {/* Flashcard Decks */}
         {filteredDecks.length > 0 ? (
           <div>
-            <h3 className="text-xl font-bold text-slate-800 mb-4">Your Flashcard Decks</h3>
-            <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
+            <h3 className="text-sm font-bold text-slate-900 mb-4">Your Flashcard Decks</h3>
+            <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-3' : 'grid-cols-1'}`}>
               {filteredDecks.map((deck) => {
-                const subject = deck.subject || 'General Studies';
-                const config = subjectConfig[subject] || subjectConfig['General Studies'];
+                const subject = deck.subject || 'General';
+                const subjectStyle = subjectColors[subject] || subjectColors.default;
                 const masteryPercentage = deck.cardCount > 0
                   ? Math.round((deck.masteredCount / deck.cardCount) * 100)
                   : 0;
@@ -489,58 +373,64 @@ const FlashcardsSection = () => {
                 return (
                   <motion.div
                     key={deck.id}
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
                     whileHover={{ y: -2 }}
-                    className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm hover:shadow-lg hover:border-blue-400/60 transition-all"
+                    className="bg-white border border-slate-200 rounded-xl p-4 hover:border-teal-300 hover:shadow-md transition-all"
                   >
-                    <div className="flex items-start gap-3 mb-4">
-                      <div className={`p-2.5 bg-gradient-to-br from-${config.color}-500 to-${config.color}-600 rounded-xl shadow-md`}>
-                        <CreditCard size={22} className="text-white" />
+                    <div className="flex items-start gap-2.5 mb-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-blue-600 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <CreditCard size={18} className="text-white" strokeWidth={2.5} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-base font-bold text-slate-800 line-clamp-2 mb-2">{deck.title}</h4>
-                        <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-lg ${config.bgColor} ${config.textColor}`}>
+                        <h4 className="text-sm font-bold text-slate-900 mb-1.5 line-clamp-2 leading-tight">
+                          {deck.title}
+                        </h4>
+                        <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-md border ${subjectStyle}`}>
                           {subject}
                         </span>
                       </div>
                     </div>
 
-                    <div className="space-y-2.5 mb-4 text-sm">
-                      <div className="flex items-center justify-between">
+                    <div className="space-y-1.5 mb-3">
+                      <div className="flex items-center justify-between text-[11px]">
                         <span className="text-slate-600 font-medium">Total Cards</span>
-                        <span className="font-bold text-slate-800">{deck.cardCount || 0}</span>
+                        <span className="font-bold text-slate-900">{deck.cardCount || 0}</span>
                       </div>
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between text-[11px]">
                         <span className="text-slate-600 font-medium">Mastered</span>
                         <span className="font-bold text-emerald-700">{deck.masteredCount || 0}</span>
                       </div>
                       {deck.reviewCount > 0 && (
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between text-[11px]">
                           <span className="text-slate-600 font-medium">Reviews</span>
                           <span className="font-bold text-teal-700">{deck.reviewCount}</span>
                         </div>
                       )}
                       {deck.lastStudied && (
-                        <div className="flex items-center gap-2 text-xs text-slate-500 pt-2 border-t border-slate-100">
-                          <Clock size={12} />
-                          Last studied {new Date(deck.lastStudied.seconds * 1000).toLocaleDateString()}
+                        <div className="flex items-center gap-1.5 text-[10px] text-slate-500 pt-1.5 border-t border-slate-100">
+                          <Clock size={10} />
+                          Last: {new Date(deck.lastStudied.seconds * 1000).toLocaleDateString()}
                         </div>
                       )}
                     </div>
 
                     {/* Progress Bar */}
-                    <div className="mb-4">
-                      <div className="flex justify-between text-xs font-semibold text-slate-600 mb-1.5">
-                        <span>Mastery Progress</span>
-                        <span className={masteryPercentage === 100 ? 'text-emerald-600' : ''}>{masteryPercentage}%</span>
+                    <div className="mb-3">
+                      <div className="flex justify-between text-[10px] font-semibold text-slate-600 mb-1">
+                        <span>Mastery</span>
+                        <span className={masteryPercentage === 100 ? 'text-emerald-600' : ''}>
+                          {masteryPercentage}%
+                        </span>
                       </div>
-                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                         <motion.div
                           initial={{ width: 0 }}
                           animate={{ width: `${masteryPercentage}%` }}
                           transition={{ duration: 0.5 }}
                           className={`h-full ${masteryPercentage === 100
                               ? 'bg-gradient-to-r from-emerald-500 to-emerald-600'
-                              : 'bg-gradient-to-r from-blue-600 to-teal-600'
+                              : 'bg-gradient-to-r from-teal-500 to-blue-600'
                             }`}
                         />
                       </div>
@@ -549,16 +439,16 @@ const FlashcardsSection = () => {
                     <div className="flex gap-2">
                       <button
                         onClick={() => navigate(`/flashcards/${deck.id}`)}
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-xl text-sm font-semibold hover:shadow-md transition-all"
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-r from-teal-500 to-blue-600 text-white rounded-lg text-xs font-bold hover:shadow-sm transition-all"
                       >
-                        <Play size={14} />
+                        <Play size={12} />
                         Study Now
                       </button>
                       <button
                         onClick={() => handleDeleteDeck(deck.id, deck.title)}
-                        className="p-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 border border-red-200/60 transition-all"
+                        className="p-2 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 border border-rose-200 transition-all"
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   </motion.div>
@@ -567,13 +457,13 @@ const FlashcardsSection = () => {
             </div>
           </div>
         ) : (
-          <div className="bg-white border-2 border-dashed border-slate-300/60 rounded-3xl p-16 text-center">
-            <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-5 border border-slate-200">
-              <CreditCard size={40} className="text-slate-400" />
+          <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-12 text-center">
+            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3 border border-slate-200">
+              <CreditCard size={32} className="text-slate-400" />
             </div>
-            <h3 className="text-xl font-bold text-slate-800 mb-2">No flashcard decks yet</h3>
-            <p className="text-slate-600 font-medium">
-              {searchTerm ? `No results for "${searchTerm}"` : 'Generate your first AI flashcard deck from a document!'}
+            <h3 className="text-base font-bold text-slate-900 mb-1">No flashcard decks yet</h3>
+            <p className="text-xs text-slate-600">
+              {searchTerm ? `No results for "${searchTerm}"` : 'Generate your first deck from a document'}
             </p>
           </div>
         )}
