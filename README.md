@@ -153,5 +153,5 @@ Distributed under the MIT License. See `LICENSE` for more information.
 ---
 
 <div align="center">
-  <p>Built with ❤️ by the StudyGloqe Team</p>
+  <p>Built with ❤️ by Sagar </p>
 </div>
