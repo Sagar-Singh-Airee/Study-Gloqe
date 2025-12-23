@@ -25,13 +25,14 @@ import {
 
 } from 'lucide-react';
 import { useAuth } from '@auth/contexts/AuthContext';
-import { 
-  getQuiz, 
-  startQuizSession, 
-  submitQuizAnswer, 
+import {
+  getQuiz,
+  startQuizSession,
+  submitQuizAnswer,
   completeQuizSession,
-  getQuizResults 
+  getQuizResults
 } from '@teacher/services/quizService';
+import { trackAction } from '@gamification/services/achievementTracker';
 import toast from 'react-hot-toast';
 
 // ============================================
@@ -102,13 +103,12 @@ const TimerDisplay = ({ timeRemaining }) => {
         duration: isLowTime ? 1 : 0,
         repeat: isLowTime ? Infinity : 0,
       }}
-      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 font-mono font-bold text-lg transition-all ${
-        isLowTime
-          ? 'bg-red-50 border-red-300 text-red-600 shadow-lg shadow-red-100'
-          : timeRemaining < 300
+      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 font-mono font-bold text-lg transition-all ${isLowTime
+        ? 'bg-red-50 border-red-300 text-red-600 shadow-lg shadow-red-100'
+        : timeRemaining < 300
           ? 'bg-yellow-50 border-yellow-200 text-yellow-600'
           : 'bg-gray-50 border-gray-200 text-gray-700'
-      }`}
+        }`}
     >
       <Timer size={20} />
       <span>{minutes}:{seconds.toString().padStart(2, '0')}</span>
@@ -125,7 +125,7 @@ const QuizPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  
+
   // State
   const [quiz, setQuiz] = useState(null);
   const [sessionId, setSessionId] = useState(null);
@@ -289,6 +289,14 @@ const QuizPage = () => {
 
     try {
       const result = await completeQuizSession(sessionId);
+
+      // ✅ Track action for gamification & challenges
+      await trackAction(user.uid, 'QUIZ_COMPLETED', {
+        score: result.score,
+        perfect: result.score === 100,
+        quizId: quizId
+      });
+
       toast.success(`🎉 Score: ${result.score}%`, { id: toastId, duration: 4000 });
 
       navigate(`/results/${sessionId}`, {
@@ -363,11 +371,11 @@ const QuizPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 font-sans text-gray-900 selection:bg-indigo-100">
-      
+
       {/* ============================================ */}
       {/* OFFLINE BANNER */}
       {/* ============================================ */}
-      
+
       <AnimatePresence>
         {isOffline && (
           <motion.div
@@ -385,7 +393,7 @@ const QuizPage = () => {
       {/* ============================================ */}
       {/* STICKY HEADER */}
       {/* ============================================ */}
-      
+
       <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-200 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between gap-4 mb-4">
@@ -478,10 +486,10 @@ const QuizPage = () => {
       {/* ============================================ */}
       {/* MAIN CONTENT */}
       {/* ============================================ */}
-      
+
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="grid lg:grid-cols-3 gap-8">
-          
+
           {/* LEFT: Question Card */}
           <div className="lg:col-span-2">
             <AnimatePresence mode="wait">
@@ -514,7 +522,7 @@ const QuizPage = () => {
                       </span>
                     </div>
                   </div>
-                  
+
                   <h2 className="text-2xl md:text-3xl font-black text-gray-900 leading-tight mb-4">
                     {question.stem}
                   </h2>
@@ -542,18 +550,16 @@ const QuizPage = () => {
                         whileHover={{ scale: 1.01, x: 4 }}
                         whileTap={{ scale: 0.99 }}
                         onClick={() => handleAnswer(question.id, idx)}
-                        className={`w-full p-5 rounded-xl border-2 text-left transition-all flex items-start gap-4 group ${
-                          isSelected
-                            ? 'border-gray-900 bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-200'
-                            : 'border-gray-200 bg-white hover:border-gray-400 text-gray-700 hover:shadow-md'
-                        }`}
+                        className={`w-full p-5 rounded-xl border-2 text-left transition-all flex items-start gap-4 group ${isSelected
+                          ? 'border-gray-900 bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-200'
+                          : 'border-gray-200 bg-white hover:border-gray-400 text-gray-700 hover:shadow-md'
+                          }`}
                       >
                         <div
-                          className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold flex-shrink-0 transition-all ${
-                            isSelected
-                              ? 'bg-white/20 text-white border border-white/30'
-                              : 'bg-gray-100 text-gray-500 border border-gray-200 group-hover:bg-gray-200'
-                          }`}
+                          className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold flex-shrink-0 transition-all ${isSelected
+                            ? 'bg-white/20 text-white border border-white/30'
+                            : 'bg-gray-100 text-gray-500 border border-gray-200 group-hover:bg-gray-200'
+                            }`}
                         >
                           {label}
                         </div>
@@ -683,13 +689,12 @@ const QuizPage = () => {
                       onClick={() => setCurrentQuestion(idx)}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      className={`aspect-square rounded-lg font-bold text-sm transition-all border-2 ${
-                        isActive
-                          ? 'bg-gray-900 text-white border-gray-900 shadow-lg scale-110 z-10'
-                          : isAnsweredQ
+                      className={`aspect-square rounded-lg font-bold text-sm transition-all border-2 ${isActive
+                        ? 'bg-gray-900 text-white border-gray-900 shadow-lg scale-110 z-10'
+                        : isAnsweredQ
                           ? 'bg-green-50 text-green-700 border-green-300 hover:shadow-md'
                           : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-gray-400 hover:shadow-md'
-                      }`}
+                        }`}
                     >
                       {isAnsweredQ && isActive && <CheckCircle2 size={16} className="mx-auto" />}
                       {isAnsweredQ && !isActive && <CheckCircle2 size={14} className="mx-auto" />}
@@ -717,7 +722,7 @@ const QuizPage = () => {
       {/* ============================================ */}
       {/* EXIT MODAL */}
       {/* ============================================ */}
-      
+
       <AnimatePresence>
         {showExitModal && (
           <motion.div

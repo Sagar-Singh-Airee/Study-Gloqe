@@ -20,6 +20,8 @@ import {
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '@shared/config/firebase';
 import { eventBus, EVENT_TYPES } from '@shared/services/eventBus';
+import { trackAction } from '@gamification/services/achievementTracker';
+import { calculateTrueStreak } from '@shared/utils/streakUtils';
 import toast from 'react-hot-toast';
 
 // ==================== 🔧 CONFIGURATION ====================
@@ -1164,6 +1166,11 @@ const updateUserSessionStats = async (userId, action, studyTime = 0) => {
     } else if (action === 'end') {
       updates.totalStudyTime = increment(studyTime);
       updates.lastSessionEnded = serverTimestamp();
+
+      // ✅ Track study time for gamification
+      if (studyTime > 0) {
+        trackAction(userId, 'STUDY_TIME', { minutes: studyTime }).catch(console.error);
+      }
     }
 
     await updateDoc(userRef, updates);
@@ -1346,24 +1353,7 @@ export const getSessionAnalytics = async (userId, dateRange = 30) => {
  * Calculate study streak
  */
 const calculateStudyStreak = (dailyActivity) => {
-  const dates = Object.keys(dailyActivity).sort().reverse();
-  let streak = 0;
-  const today = new Date().toISOString().split('T')[0];
-
-  for (let i = 0; i < dates.length; i++) {
-    const date = dates[i];
-    const expectedDate = new Date();
-    expectedDate.setDate(expectedDate.getDate() - i);
-    const expected = expectedDate.toISOString().split('T')[0];
-
-    if (date === expected) {
-      streak++;
-    } else {
-      break;
-    }
-  }
-
-  return streak;
+  return calculateTrueStreak(dailyActivity);
 };
 
 /**

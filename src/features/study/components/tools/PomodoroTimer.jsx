@@ -6,7 +6,7 @@ import {
     Settings, Zap, Timer, CheckCircle2, Music, Waves, ChevronUp, ChevronDown
 } from 'lucide-react';
 import { useAuth } from '@auth/contexts/AuthContext';
-import { awardXP } from '@gamification/services/gamificationService';
+import { trackAction } from '@gamification/services/achievementTracker';
 import toast from 'react-hot-toast';
 
 // Pomodoro presets
@@ -108,14 +108,14 @@ const PomodoroTimer = ({
                 const baseXP = 50;
                 const bonusXP = Math.round(baseXP * xpMultiplier);
                 try {
-                    await awardXP(user.uid, bonusXP, 'Pomodoro focus session completed');
+                    await trackAction(user.uid, 'POMODORO_COMPLETED', { xp: bonusXP });
                     toast.success(`Focus session complete! +${bonusXP} XP 🍅`, {
                         icon: '🎉',
                         duration: 4000,
                         style: { background: '#000', color: '#fff' }
                     });
                 } catch (error) {
-                    console.error('Failed to award XP:', error);
+                    console.error('Failed to track action:', error);
                 }
             }
 
@@ -330,8 +330,8 @@ const PomodoroTimer = ({
                     <button
                         onClick={toggleTimer}
                         className={`p-4 rounded-xl font-bold transition-all ${isRunning
-                                ? 'bg-yellow-500 hover:bg-yellow-600'
-                                : 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600'
+                            ? 'bg-yellow-500 hover:bg-yellow-600'
+                            : 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600'
                             }`}
                     >
                         {isRunning ? <Pause size={24} className="text-white" /> : <Play size={24} className="text-white" />}
@@ -383,8 +383,8 @@ const PomodoroTimer = ({
                                             key={key}
                                             onClick={() => handlePresetChange(key)}
                                             className={`p-2 rounded-lg text-xs font-bold transition-all ${preset === key
-                                                    ? 'bg-white text-black'
-                                                    : 'bg-white/10 text-white hover:bg-white/20'
+                                                ? 'bg-white text-black'
+                                                : 'bg-white/10 text-white hover:bg-white/20'
                                                 }`}
                                         >
                                             {value.label}
@@ -415,8 +415,8 @@ const PomodoroTimer = ({
                                             key={sound.id}
                                             onClick={() => setAmbientSound(sound.id)}
                                             className={`flex-1 p-2 rounded-lg flex flex-col items-center gap-1 transition-all ${ambientSound === sound.id
-                                                    ? 'bg-white text-black'
-                                                    : 'bg-white/10 text-white hover:bg-white/20'
+                                                ? 'bg-white text-black'
+                                                : 'bg-white/10 text-white hover:bg-white/20'
                                                 }`}
                                         >
                                             <sound.icon size={14} />

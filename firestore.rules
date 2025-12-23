@@ -228,6 +228,13 @@ service cloud.firestore {
       allow create: if isOwner(userId) && isValidSize();
       allow update: if isSignedIn(); // Allow system updates
       allow delete: if isOwner(userId) || isAdmin();
+
+      match /dailyChallenges/{document=**} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+      match /dailyActions/{document=**} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
     }
     
     // ==========================================

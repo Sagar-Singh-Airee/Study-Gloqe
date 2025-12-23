@@ -2,12 +2,14 @@
 import { doc, updateDoc, increment, arrayUnion, serverTimestamp, getDoc } from 'firebase/firestore';
 import { db } from '../../../shared/config/firebase';
 import { BADGE_DEFINITIONS, TITLE_DEFINITIONS } from '../config/achievements';
+import { updateChallengeProgress } from './challengeService';
+import { calculateTrueStreak } from '@shared/utils/streakUtils';
 import toast from 'react-hot-toast';
 import confetti from 'canvas-confetti';
 
 /**
  * Track user action and update stats
- * ✅ FIXED: Added CONTENT_GENERATED action type
+ * ✅ FIXED: Added CONTENT_GENERATED and POMODORO_COMPLETED
  */
 export const trackAction = async (userId, actionType, data = {}) => {
     if (!userId) return;
@@ -20,8 +22,11 @@ export const trackAction = async (userId, actionType, data = {}) => {
 
     switch (actionType) {
         case 'STUDY_TIME':
-            updates.totalStudyTime = increment(data.seconds || 0);
-            updates.xp = increment(Math.floor((data.seconds || 0) / 60)); // 1 XP per minute
+            const minutesToTrack = data.minutes || Math.floor((data.seconds || 0) / 60) || 1;
+            updates.totalStudyTime = increment(minutesToTrack);
+            updates.xp = increment(minutesToTrack); // 1 XP per minute
+            // ✅ Update challenge progress
+            updateChallengeProgress(userId, 'study_minutes', minutesToTrack).catch(console.error);
             break;
 
         case 'QUIZ_COMPLETED':
@@ -30,16 +35,25 @@ export const trackAction = async (userId, actionType, data = {}) => {
             if (data.perfect) {
                 updates.perfectQuizzes = increment(1);
             }
+            // ✅ Update challenge progress
+            updateChallengeProgress(userId, 'quiz_completed', 1).catch(console.error);
+            if (data.score) {
+                updateChallengeProgress(userId, 'quiz_score', data.score).catch(console.error);
+            }
             break;
 
         case 'FLASHCARD_REVIEWED':
             updates.flashcardsReviewed = increment(data.count || 1);
             updates.xp = increment(data.count || 1);
+            // ✅ Update challenge progress
+            updateChallengeProgress(userId, 'flashcards_reviewed', data.count || 1).catch(console.error);
             break;
 
         case 'FLASHCARD_MASTERED':
             updates.flashcardsMastered = increment(1);
             updates.xp = increment(10);
+            // ✅ Update challenge progress
+            updateChallengeProgress(userId, 'flashcards_mastered', 1).catch(console.error);
             break;
 
         case 'DOCUMENT_UPLOADED':
@@ -69,23 +83,20 @@ export const trackAction = async (userId, actionType, data = {}) => {
             break;
 
         case 'DAILY_CHECK_IN':
-            const today = new Date().toISOString().split('T')[0];
-            const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+            const todayStr = new Date().toISOString().split('T')[0];
 
             const userDoc = await getDoc(userRef);
             const userData = userDoc.data();
             const lastCheckIn = userData?.streakData?.lastCheckIn;
-            const currentStreak = userData?.streakData?.currentStreak || 0;
             const activeDays = userData?.streakData?.activeDays || [];
 
-            if (lastCheckIn?.startsWith(today)) {
+            if (lastCheckIn?.startsWith(todayStr)) {
                 throw new Error('Already checked in today');
             }
 
-            let newStreak = 1;
-            if (lastCheckIn?.startsWith(yesterday)) {
-                newStreak = currentStreak + 1;
-            }
+            // Add today to active days and calculate true streak
+            const newActiveDays = [...activeDays, todayStr];
+            const newStreak = calculateTrueStreak(newActiveDays);
 
             updates['streakData.currentStreak'] = newStreak;
             updates['streakData.longestStreak'] = Math.max(
@@ -93,7 +104,7 @@ export const trackAction = async (userId, actionType, data = {}) => {
                 userData?.streakData?.longestStreak || 0
             );
             updates['streakData.lastCheckIn'] = new Date().toISOString();
-            updates['streakData.activeDays'] = arrayUnion(today);
+            updates['streakData.activeDays'] = arrayUnion(todayStr);
             updates.xp = increment(10);
             break;
 
@@ -140,6 +151,13 @@ export const trackAction = async (userId, actionType, data = {}) => {
                     icon: '🔥'
                 });
             }
+            break;
+
+        case 'POMODORO_COMPLETED':
+            updates.pomodorosCompleted = increment(1);
+            updates.xp = increment(data.xp || 50);
+            // ✅ Update challenge progress
+            updateChallengeProgress(userId, 'pomodoro_completed', 1).catch(console.error);
             break;
 
         default:

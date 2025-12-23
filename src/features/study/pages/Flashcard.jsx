@@ -2,21 +2,22 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-    ArrowLeft, RotateCw, Star, Award, TrendingUp, 
+import {
+    ArrowLeft, RotateCw, Star, Award, TrendingUp,
     Sparkles, Zap, CheckCircle2, Circle, Home, Eye,
     ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { doc, getDoc, collection, query, orderBy, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@shared/config/firebase';
 import { useAuth } from '@auth/contexts/AuthContext';
+import { trackAction } from '@gamification/services/achievementTracker';
 import toast from 'react-hot-toast';
 
 const Flashcard = () => {
     const { deckId } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
-    
+
     const [deck, setDeck] = useState(null);
     const [cards, setCards] = useState([]);
     const [currentCardIndex, setCurrentCardIndex] = useState(0);
@@ -37,7 +38,7 @@ const Flashcard = () => {
             try {
                 const deckRef = doc(db, 'flashcardDecks', deckId);
                 const deckSnap = await getDoc(deckRef);
-                
+
                 if (!deckSnap.exists()) {
                     toast.error('Flashcard deck not found');
                     navigate('/dashboard?tab=flashcards');
@@ -45,7 +46,7 @@ const Flashcard = () => {
                 }
 
                 const deckData = { id: deckSnap.id, ...deckSnap.data() };
-                
+
                 if (deckData.userId !== user.uid) {
                     toast.error('Access denied');
                     navigate('/dashboard?tab=flashcards');
@@ -62,20 +63,20 @@ const Flashcard = () => {
 
         const cardsRef = collection(db, `flashcardDecks/${deckId}/cards`);
         const q = query(cardsRef, orderBy('order', 'asc'));
-        
+
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const cardsData = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
             }));
             setCards(cardsData);
-            
+
             const mastered = new Set();
             cardsData.forEach((card, idx) => {
                 if (card.mastered) mastered.add(idx);
             });
             setMasteredCards(mastered);
-            
+
             setLoading(false);
         }, (error) => {
             console.error('Error loading cards:', error);
@@ -92,6 +93,9 @@ const Flashcard = () => {
             setDirection(newIndex > currentCardIndex ? 1 : -1);
             setCurrentCardIndex(newIndex);
             setFlipped(false);
+
+            // ✅ Track flashcard review
+            trackAction(user.uid, 'FLASHCARD_REVIEWED', { count: 1 }).catch(console.error);
         } else if (newIndex >= cards.length) {
             setShowResults(true);
         }
@@ -109,13 +113,15 @@ const Flashcard = () => {
                 const newSet = new Set(prev);
                 if (mastered) {
                     newSet.add(currentCardIndex);
+                    // ✅ Track flashcard mastery
+                    trackAction(user.uid, 'FLASHCARD_MASTERED', { cardId: cards[currentCardIndex].id }).catch(console.error);
                 } else {
                     newSet.delete(currentCardIndex);
                 }
                 return newSet;
             });
 
-            toast.success(mastered ? '✓ Mastered!' : '○ Unmarked', { 
+            toast.success(mastered ? '✓ Mastered!' : '○ Unmarked', {
                 duration: 1000,
                 style: {
                     background: 'rgba(255, 255, 255, 0.9)',
@@ -281,7 +287,7 @@ const Flashcard = () => {
                             <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
                             Back
                         </button>
-                        
+
                         <div className="text-center flex-1 mx-8">
                             <h1 className="text-xl font-bold text-gray-900">{deck.title}</h1>
                             <p className="text-sm text-gray-500 font-medium">{deck.subject || 'Flashcard Deck'}</p>
@@ -323,13 +329,12 @@ const Flashcard = () => {
                     {cards.map((_, idx) => (
                         <div
                             key={idx}
-                            className={`h-2 rounded-full transition-all ${
-                                idx === currentCardIndex 
-                                    ? 'w-8 bg-gradient-to-r from-gray-800 to-gray-700' 
-                                    : masteredCards.has(idx)
+                            className={`h-2 rounded-full transition-all ${idx === currentCardIndex
+                                ? 'w-8 bg-gradient-to-r from-gray-800 to-gray-700'
+                                : masteredCards.has(idx)
                                     ? 'w-2 bg-gray-600'
                                     : 'w-2 bg-gray-300'
-                            }`}
+                                }`}
                         />
                     ))}
                 </div>
@@ -363,16 +368,16 @@ const Flashcard = () => {
                             <motion.div
                                 animate={{ rotateY: flipped ? 180 : 0 }}
                                 transition={{ duration: 0.6, type: 'spring' }}
-                                style={{ 
+                                style={{
                                     transformStyle: 'preserve-3d',
                                     height: '500px'
                                 }}
                                 className="relative w-full"
                             >
                                 {/* Front Side - Question */}
-                                <div 
+                                <div
                                     className="absolute inset-0 bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl group-hover:shadow-3xl transition-shadow border-2 border-white/70"
-                                    style={{ 
+                                    style={{
                                         backfaceVisibility: 'hidden',
                                         WebkitBackfaceVisibility: 'hidden'
                                     }}
@@ -395,7 +400,7 @@ const Flashcard = () => {
                                 {/* Back Side - Answer */}
                                 <div
                                     className="absolute inset-0 bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border-2 border-white/70"
-                                    style={{ 
+                                    style={{
                                         backfaceVisibility: 'hidden',
                                         WebkitBackfaceVisibility: 'hidden',
                                         transform: 'rotateY(180deg)'
@@ -431,11 +436,10 @@ const Flashcard = () => {
                     <motion.button
                         whileTap={{ scale: 0.95 }}
                         onClick={() => markMastered(!masteredCards.has(currentCardIndex))}
-                        className={`p-4 rounded-2xl font-semibold transition-all shadow-lg border ${
-                            masteredCards.has(currentCardIndex)
-                                ? 'bg-white/90 backdrop-blur-xl text-gray-900 border-white/70'
-                                : 'bg-white/80 backdrop-blur-xl border-white/50 text-gray-700 hover:border-white/70'
-                        }`}
+                        className={`p-4 rounded-2xl font-semibold transition-all shadow-lg border ${masteredCards.has(currentCardIndex)
+                            ? 'bg-white/90 backdrop-blur-xl text-gray-900 border-white/70'
+                            : 'bg-white/80 backdrop-blur-xl border-white/50 text-gray-700 hover:border-white/70'
+                            }`}
                     >
                         {masteredCards.has(currentCardIndex) ? (
                             <CheckCircle2 size={28} className="text-gray-800" />

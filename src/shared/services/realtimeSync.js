@@ -9,10 +9,13 @@ import {
     where,
     onSnapshot,
     limit,
-    doc
+    doc,
+    updateDoc,
+    serverTimestamp
 } from 'firebase/firestore';
 import { db, COLLECTIONS } from '@shared/config/firebase';
 import { eventBus, EVENT_TYPES } from './eventBus';
+import { calculateTrueStreak } from '../utils/streakUtils';
 
 // ==================== UNIFIED METRICS HOOK ====================
 // This ensures Dashboard and Analytics use the SAME source of truth
@@ -217,15 +220,24 @@ export const useUnifiedMetrics = (userId, options = {}) => {
         const averageScore = completedQuizzes.length > 0 ? Math.round(totalScore / completedQuizzes.length) : 0;
 
         // --- Streak Logic (Robust & Centralized) ---
-        // Try Users collection first (authoritative)
-        let streak = 0;
+        // 1. Calculate "True Streak" from actual activity sessions
+        const allActivityDates = [
+            ...completedSessions.map(s => s.startTime),
+            ...completedQuizzes.map(q => q.completedAt)
+        ];
+        const calculatedStreak = calculateTrueStreak(allActivityDates);
+
+        // 2. Fallback to stored values if calculation is 0 (prevents flickering before history loads)
+        let storedStreak = 0;
         if (typeof raw.user.streak === 'number') {
-            streak = raw.user.streak;
+            storedStreak = raw.user.streak;
         } else if (raw.user.streak?.current !== undefined) {
-            streak = raw.user.streak.current;
-        } else if (raw.gamification.currentStreak !== undefined) {
-            streak = raw.gamification.currentStreak;
+            storedStreak = raw.user.streak.current;
+        } else if (raw.gamification.streakData?.currentStreak !== undefined) {
+            storedStreak = raw.gamification.streakData.currentStreak;
         }
+
+        const streak = Math.max(calculatedStreak, storedStreak);
 
         // --- Gamification ---
         const xp = raw.user.xp || 0;
@@ -290,6 +302,47 @@ export const useUnifiedMetrics = (userId, options = {}) => {
             ))
         };
     }, [raw, dateRange]);
+
+    // ==================== AUTO-SYNC STREAK BACK TO DB ====================
+    // If the calculated true streak from history is higher than stored value, sync it back
+    // This ensures consistency without manual login triggers
+    useEffect(() => {
+        if (!userId || loading || !metrics || !enableRealtime) return;
+
+        const storedStreak = raw.gamification?.streakData?.currentStreak || raw.user?.streak || 0;
+        const calculatedStreak = metrics.gamification.streak;
+
+        // Only sync if calculated is higher (healing) or if it's a new day
+        if (calculatedStreak > storedStreak) {
+            const updateStreakInDB = async () => {
+                try {
+                    console.log(`✨ Syncing True Streak to DB: ${storedStreak} -> ${calculatedStreak}`);
+                    const gamificationRef = doc(db, COLLECTIONS.GAMIFICATION, userId);
+
+                    await updateDoc(gamificationRef, {
+                        'streakData.currentStreak': calculatedStreak,
+                        'streakData.lastUpdated': serverTimestamp(),
+                        'streakData.longestStreak': Math.max(calculatedStreak, raw.gamification?.streakData?.longestStreak || 0),
+                        'lastActivityDate': serverTimestamp() // Also sync activity date
+                    });
+
+                    // Also sync to users doc for profile display
+                    const userRef = doc(db, COLLECTIONS.USERS, userId);
+                    await updateDoc(userRef, {
+                        'streak': calculatedStreak,
+                        'lastActivityDate': serverTimestamp()
+                    });
+
+                } catch (err) {
+                    console.error('❌ Failed to sync streak back to DB:', err);
+                }
+            };
+
+            const timer = setTimeout(updateStreakInDB, 2000); // Debounce to avoid spamming
+            return () => clearTimeout(timer);
+        }
+    }, [userId, loading, metrics?.gamification.streak, enableRealtime]);
+
 
     return {
         metrics,      // Aggregated stats (Use this for headlines)

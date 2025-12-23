@@ -8,6 +8,7 @@ import {
     TrendingUp, Flame, Medal, Sparkles, ArrowRight, CheckCircle2, Users
 } from 'lucide-react';
 import { useGamification } from '@gamification/hooks/useGamification';
+import DailyChallenges from '@gamification/components/DailyChallenges';
 
 
 // Icons Mapping
@@ -17,7 +18,7 @@ const IconMap = {
 
 
 const AchievementsSection = () => {
-    const [activeTab, setActiveTab] = useState('badges');
+    const [activeTab, setActiveTab] = useState('challenges'); // ✅ Set challenges as default for more engagement
 
     // ✅ ADD MOUNTED REF - Prevents state updates after unmount
     const isMountedRef = useRef(true);
@@ -188,6 +189,7 @@ const AchievementsSection = () => {
                 >
                     <div className="flex gap-1 border-b border-slate-200">
                         {[
+                            { key: 'challenges', label: 'Challenges', count: 0 },
                             { key: 'badges', label: 'Badges', count: unlockedBadges },
                             { key: 'titles', label: 'Titles', count: unlockedTitles },
                             { key: 'gifts', label: 'Gifts', count: 0 }
@@ -246,6 +248,18 @@ const AchievementsSection = () => {
                 {/* Content */}
                 {/* Content */}
                 <div className="relative">
+                    {/* CHALLENGES */}
+                    {activeTab === 'challenges' && (
+                        <motion.div
+                            key="challenges"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.3 }}
+                        >
+                            <DailyChallenges />
+                        </motion.div>
+                    )}
+
                     {/* BADGES */}
                     {activeTab === 'badges' && (
                         <motion.div

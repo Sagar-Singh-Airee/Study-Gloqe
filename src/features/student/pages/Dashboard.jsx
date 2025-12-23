@@ -17,6 +17,7 @@ import { db } from '@shared/config/firebase';
 import { awardDailyXP, DAILY_ACTIONS } from '@gamification/services/gamificationService';
 import { useGamification } from '@gamification/hooks/useGamification';
 import { updateDailyStreak } from '@shared/services/streakService';
+import { useDashboardSync } from '@shared/services/realtimeSync'; // Added unified sync
 import toast from 'react-hot-toast';
 import logoImage from '@assets/logo/logo.svg';
 
@@ -628,11 +629,17 @@ const Dashboard = () => {
         level: currentLevel,
         nextLevelXp: xpForNextLevel,
         levelProgress: xpProgress,
-        streak,
+        streak: gamificationStreak,
         loading: gamificationLoading,
         notifications,
         dismissNotification
     } = useGamification();
+
+    // ✅ UNIFIED METRICS LISTENER (Same as Analytics)
+    const { metrics: dashboardMetrics, loading: dashboardLoading } = useDashboardSync(user?.uid);
+
+    // ✅ Always compute highest streak for instant UI feedback
+    const streak = Math.max(dashboardMetrics?.gamification?.streak || 0, gamificationStreak || 0);
 
     const [realtimeStats, setRealtimeStats] = useState({
         totalDocuments: 0,
@@ -994,7 +1001,7 @@ const Dashboard = () => {
             case 'overview':
                 return (
                     <OverviewSection
-                        stats={{ ...realtimeStats, streak }}
+                        stats={{ streak, ...realtimeStats }}
                         recentDocuments={recentDocuments}
                         quickActions={quickActions}
                         {...commonProps}

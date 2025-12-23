@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { collection, query, where, onSnapshot, limit, orderBy } from 'firebase/firestore';
 import { db } from '../../../shared/config/firebase';
+import { calculateTrueStreak } from '@shared/utils/streakUtils';
 import { categorizeQuizSession } from '../../../shared/utils/subjectDetection';
 import bigQueryService from '../services/bigQueryService';
 
@@ -39,11 +40,11 @@ export const useAnalyticsData = (userId, timeRangeDays = 30) => {
             q,
             (snapshot) => {
                 const sessions = [];
-                
+
                 snapshot.docs.forEach(doc => {
                     const data = doc.data();
                     const completedAt = data.completedAt?.toDate() || data.createdAt?.toDate() || new Date();
-                    
+
                     if (completedAt >= cutoffDate) {
                         sessions.push({
                             id: doc.id,
@@ -201,40 +202,12 @@ export const useAnalyticsData = (userId, timeRangeDays = 30) => {
 
         const accuracy = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
 
-        // ✅ FIXED: Calculate streak
-        const activityDatesArray = [];
-        [...quizSessions, ...studySessions].forEach(session => {
-            const date = (session.completedAt || session.startTime)?.toDateString();
-            if (date) {
-                activityDatesArray.push(date);
-            }
-        });
+        // ✅ FIXED: Calculate streak using centralized utility
+        const activityDatesArray = [...quizSessions, ...studySessions].map(session =>
+            session.completedAt || session.startTime
+        ).filter(Boolean);
 
-        const uniqueDates = Array.from(new Set(activityDatesArray))
-            .map(d => new Date(d))
-            .sort((a, b) => b - a);
-
-        let streak = 0;
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        for (let i = 0; i <= uniqueDates.length; i++) {
-            const checkDate = new Date(today);
-            checkDate.setDate(checkDate.getDate() - i);
-            checkDate.setHours(0, 0, 0, 0);
-
-            const hasActivity = uniqueDates.some(d => {
-                const activityDate = new Date(d);
-                activityDate.setHours(0, 0, 0, 0);
-                return activityDate.getTime() === checkDate.getTime();
-            });
-
-            if (hasActivity) {
-                streak++;
-            } else if (i > 0) {
-                break;
-            }
-        }
+        const streak = calculateTrueStreak(activityDatesArray);
 
         const avgSessionLength = studySessions.length > 0
             ? Math.round(studySessions.reduce((sum, s) => sum + (s.totalTime || 0), 0) / studySessions.length)

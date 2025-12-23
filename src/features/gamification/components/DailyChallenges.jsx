@@ -22,7 +22,9 @@ const ICON_MAP = {
     Award: Award,
     Trophy: Trophy,
     Flame: Flame,
-    Crown: Crown
+    Crown: Crown,
+    CheckCircle2: CheckCircle2,
+    BookOpen: Brain // Or actual BookOpen if imported
 };
 
 // ✅ Bonus XP constant
@@ -54,7 +56,7 @@ const DailyChallenges = ({ compact = false }) => {
         }
 
         const today = getTodayString();
-        const challengesRef = doc(db, 'users', user.uid, 'dailyChallenges', today);
+        const challengesRef = doc(db, 'gamification', user.uid, 'dailyChallenges', today);
 
         console.log('🔄 Setting up daily challenges listener');
 
@@ -91,7 +93,7 @@ const DailyChallenges = ({ compact = false }) => {
                     } else {
                         // No challenges exist yet, generate them
                         console.log('⚠️ No challenges found, generating...');
-                        const { challenges: newChallenges, allCompleted: completed } = 
+                        const { challenges: newChallenges, allCompleted: completed } =
                             await getDailyChallenges(user.uid);
                         setChallenges(newChallenges);
                         setAllCompleted(completed);
@@ -146,7 +148,7 @@ const DailyChallenges = ({ compact = false }) => {
         setLoading(true);
         setError(null);
         try {
-            const { challenges: newChallenges, allCompleted: completed } = 
+            const { challenges: newChallenges, allCompleted: completed } =
                 await getDailyChallenges(user.uid);
             setChallenges(newChallenges);
             setAllCompleted(completed);
@@ -181,8 +183,8 @@ const DailyChallenges = ({ compact = false }) => {
     const calculateProgress = (challenge) => {
         // For quiz_score type, check if achieved target
         if (challenge.type === 'quiz_score') {
-            return challenge.progress >= challenge.target ? 100 : 
-                   (challenge.progress / challenge.target) * 100;
+            return challenge.progress >= challenge.target ? 100 :
+                (challenge.progress / challenge.target) * 100;
         }
         // For count/time challenges, normal calculation
         return Math.min((challenge.progress / challenge.target) * 100, 100);
@@ -258,9 +260,8 @@ const DailyChallenges = ({ compact = false }) => {
                     {challenges.map((challenge, idx) => (
                         <motion.div
                             key={idx}
-                            className={`flex-1 h-2 rounded-full transition-all ${
-                                challenge.completed ? 'bg-white' : 'bg-white/30'
-                            }`}
+                            className={`flex-1 h-2 rounded-full transition-all ${challenge.completed ? 'bg-white' : 'bg-white/30'
+                                }`}
                             initial={{ scale: 0.8 }}
                             animate={{ scale: challenge.completed ? 1.1 : 1 }}
                         />
@@ -418,27 +419,25 @@ const DailyChallenges = ({ compact = false }) => {
                                     key={challenge.id}
                                     layout
                                     initial={{ opacity: 0, x: -20 }}
-                                    animate={{ 
-                                        opacity: 1, 
+                                    animate={{
+                                        opacity: 1,
                                         x: 0,
                                         scale: isJustCompleted ? [1, 1.02, 1] : 1
                                     }}
                                     exit={{ opacity: 0, x: 20 }}
                                     transition={{ delay: idx * 0.05 }}
-                                    className={`p-4 rounded-xl border-2 transition-all ${
-                                        challenge.completed
-                                            ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-300 shadow-sm'
-                                            : getDifficultyBg(challenge.difficulty)
-                                    }`}
+                                    className={`p-4 rounded-xl border-2 transition-all ${challenge.completed
+                                        ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-300 shadow-sm'
+                                        : getDifficultyBg(challenge.difficulty)
+                                        }`}
                                 >
                                     <div className="flex items-center gap-4">
                                         {/* Icon */}
                                         <motion.div
-                                            className={`w-14 h-14 rounded-xl flex items-center justify-center shadow-md ${
-                                                challenge.completed
-                                                    ? 'bg-gradient-to-br from-green-500 to-emerald-600'
-                                                    : `bg-gradient-to-br ${getDifficultyColor(challenge.difficulty)}`
-                                            }`}
+                                            className={`w-14 h-14 rounded-xl flex items-center justify-center shadow-md ${challenge.completed
+                                                ? 'bg-gradient-to-br from-green-500 to-emerald-600'
+                                                : `bg-gradient-to-br ${getDifficultyColor(challenge.difficulty)}`
+                                                }`}
                                             animate={
                                                 isJustCompleted
                                                     ? { rotate: [0, -10, 10, -10, 0], scale: [1, 1.2, 1] }
@@ -456,20 +455,18 @@ const DailyChallenges = ({ compact = false }) => {
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 mb-1 flex-wrap">
                                                 <h3
-                                                    className={`font-black text-base ${
-                                                        challenge.completed ? 'text-green-700' : 'text-black'
-                                                    }`}
+                                                    className={`font-black text-base ${challenge.completed ? 'text-green-700' : 'text-black'
+                                                        }`}
                                                 >
                                                     {challenge.title}
                                                 </h3>
                                                 <span
-                                                    className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
-                                                        challenge.difficulty === 'easy'
-                                                            ? 'bg-green-100 text-green-700'
-                                                            : challenge.difficulty === 'medium'
+                                                    className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${challenge.difficulty === 'easy'
+                                                        ? 'bg-green-100 text-green-700'
+                                                        : challenge.difficulty === 'medium'
                                                             ? 'bg-yellow-100 text-yellow-700'
                                                             : 'bg-red-100 text-red-700'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     {challenge.difficulty}
                                                 </span>
@@ -484,11 +481,10 @@ const DailyChallenges = ({ compact = false }) => {
                                                     <motion.div
                                                         initial={{ width: 0 }}
                                                         animate={{ width: `${progress}%` }}
-                                                        className={`h-full relative ${
-                                                            challenge.completed
-                                                                ? 'bg-gradient-to-r from-green-500 to-emerald-600'
-                                                                : `bg-gradient-to-r ${getDifficultyColor(challenge.difficulty)}`
-                                                        }`}
+                                                        className={`h-full relative ${challenge.completed
+                                                            ? 'bg-gradient-to-r from-green-500 to-emerald-600'
+                                                            : `bg-gradient-to-r ${getDifficultyColor(challenge.difficulty)}`
+                                                            }`}
                                                         transition={{ duration: 0.5, ease: 'easeOut' }}
                                                     >
                                                         {/* Shimmer */}
@@ -514,9 +510,8 @@ const DailyChallenges = ({ compact = false }) => {
                                         {/* Reward */}
                                         <div className="text-right flex-shrink-0">
                                             <div
-                                                className={`flex items-center gap-1 justify-end ${
-                                                    challenge.completed ? 'text-green-600' : 'text-yellow-600'
-                                                }`}
+                                                className={`flex items-center gap-1 justify-end ${challenge.completed ? 'text-green-600' : 'text-yellow-600'
+                                                    }`}
                                             >
                                                 <Zap size={18} strokeWidth={2.5} />
                                                 <span className="font-black text-lg">{challenge.xpReward}</span>
