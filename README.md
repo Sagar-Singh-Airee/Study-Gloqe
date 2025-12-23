@@ -1,11 +1,20 @@
 # 🎓 StudyGloqe - Next-Gen AI Learning Platform
+Copyright © 2025 Sagar Singh Airee
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+📝 License: Apache License 2.0 (OSI-approved, commercial use permitted)
 
 <div align="center">
 
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-success?style=for-the-badge)
 ![AI Powered](https://img.shields.io/badge/AI-Powered%20by%20Gemini%202.5-blue?style=for-the-badge&logo=google)
 ![Event Driven](https://img.shields.io/badge/Architecture-Event%20Driven-orange?style=for-the-badge&logo=apachekafka)
-![License](https://img.shields.io/badge/License-MIT-purple?style=for-the-badge)
+![License](https://img.shields.io/badge/License-Apache%202.0-blue?style=for-the-badge)
 
 **Transforming education with scalable event-driven architecture and state-of-the-art Generative AI.**
 
@@ -148,7 +157,9 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ## 📄 License
 
-Distributed under the MIT License. See `LICENSE` for more information.
+Distributed under the Apache License 2.0. See `LICENSE` for more information.
+
+📝 License: Apache License 2.0 (OSI-approved, commercial use permitted)
 
 ---
 
