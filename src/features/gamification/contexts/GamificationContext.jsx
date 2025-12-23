@@ -5,6 +5,7 @@ import { useAuth } from '../../auth/contexts/AuthContext';
 import { BADGE_DEFINITIONS, TITLE_DEFINITIONS } from '../config/achievements'; // Adjust path
 import toast from 'react-hot-toast';
 import confetti from 'canvas-confetti';
+import { calculateLevel, calculateLevelProgress, getNextLevelXp, LEVEL_THRESHOLDS } from '../../../shared/utils/levelUtils';
 
 const GamificationContext = createContext(null);
 
@@ -44,22 +45,6 @@ const gamificationReducer = (state, action) => {
     }
 };
 
-// Level XP thresholds
-const LEVEL_THRESHOLDS = [0, 100, 250, 500, 1000, 2000, 4000, 8000, 16000, 32000, 64000, 128000];
-
-const calculateLevel = (xp) => {
-    for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
-        if (xp >= LEVEL_THRESHOLDS[i]) return i + 1;
-    }
-    return 1;
-};
-
-const calculateLevelProgress = (xp, level) => {
-    const currentThreshold = LEVEL_THRESHOLDS[level - 1] || 0;
-    const nextThreshold = LEVEL_THRESHOLDS[level] || LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1];
-    if (nextThreshold === currentThreshold) return 100;
-    return Math.min(Math.max(((xp - currentThreshold) / (nextThreshold - currentThreshold)) * 100, 0), 100);
-};
 
 export const GamificationProvider = ({ children }) => {
     const { user } = useAuth();
@@ -154,8 +139,8 @@ export const GamificationProvider = ({ children }) => {
 
     // Computed Values
     const contextValue = useMemo(() => {
-        const nextLevelXp = LEVEL_THRESHOLDS[state.level] || LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1];
-        const levelProgress = calculateLevelProgress(state.xp, state.level);
+        const nextLevelXp = getNextLevelXp(state.xp);
+        const levelProgress = calculateLevelProgress(state.xp);
         const xpToNextLevel = Math.max(0, nextLevelXp - state.xp);
 
         return {

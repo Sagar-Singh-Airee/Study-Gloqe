@@ -11,6 +11,7 @@ import {
     runTransaction
 } from 'firebase/firestore';
 import { db } from '@shared/config/firebase';
+import { calculateLevel, getNextLevelXp, LEVEL_THRESHOLDS } from '@shared/utils/levelUtils';
 
 // ✅ Commented out event bus until implemented
 // import { eventBus, EVENT_TYPES } from '@shared/services/eventBus';
@@ -52,7 +53,6 @@ const DAILY_ACTIONS = {
     DAILY_LOGIN: 'daily_login',
 };
 
-const LEVEL_THRESHOLDS = [0, 100, 250, 500, 1000, 2000, 4000, 8000, 16000, 32000, 64000];
 
 // ✅ Daily XP goal constant
 const DAILY_XP_GOAL = 100;
@@ -331,14 +331,6 @@ const TITLE_DEFINITIONS = {
 
 const getTodayString = () => new Date().toISOString().split('T')[0];
 
-const calculateLevel = (xp) => {
-    for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
-        if (xp >= LEVEL_THRESHOLDS[i]) {
-            return i + 1;
-        }
-    }
-    return 1;
-};
 
 // ==========================================
 // CORE XP FUNCTIONS
@@ -372,7 +364,9 @@ export const awardXP = async (userId, xpAmount, reason) => {
             const levelUp = newLevel > currentLevel;
             const levelsGained = newLevel - currentLevel;
 
-            // Update user document
+            // Update user document (for public profile/leaderboard)
+            const gamificationRef = doc(db, 'gamification', userId);
+
             transaction.update(userRef, {
                 xp: newXP,
                 level: newLevel,
@@ -381,7 +375,17 @@ export const awardXP = async (userId, xpAmount, reason) => {
                 lastXPAmount: xpAmount,
                 lastXPTime: serverTimestamp(),
                 updatedAt: serverTimestamp(),
-                // ✅ Don't use setTimeout - let frontend handle levelUp reset
+                ...(levelUp && {
+                    lastLevelUp: serverTimestamp(),
+                    lastLevelsGained: levelsGained
+                })
+            });
+
+            // Update gamification document (Specific source of truth for features)
+            transaction.update(gamificationRef, {
+                xp: newXP,
+                level: newLevel,
+                updatedAt: serverTimestamp(),
                 ...(levelUp && {
                     lastLevelUp: serverTimestamp(),
                     lastLevelsGained: levelsGained
@@ -394,7 +398,7 @@ export const awardXP = async (userId, xpAmount, reason) => {
                 levelUp,
                 levelsGained,
                 xpGained: xpAmount,
-                nextLevelXP: LEVEL_THRESHOLDS[newLevel] || LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1]
+                nextLevelXP: getNextLevelXp(newXP)
             };
         });
 

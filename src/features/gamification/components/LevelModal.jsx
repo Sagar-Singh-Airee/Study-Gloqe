@@ -9,8 +9,9 @@ import {
 import { useGamification } from '@gamification/hooks/useGamification';
 import { TITLE_DEFINITIONS, BADGE_DEFINITIONS } from '@gamification/services/gamificationService';
 import Confetti from 'react-confetti';
+import { calculateLevel, calculateLevelProgress, getNextLevelXp } from '@utils/levelUtils';
 
-const LevelModal = ({ isOpen, onClose, levelUpData = null }) => {
+const LevelModal = ({ isOpen, onClose, levelUpData = null, xp: propXP, level: propLevel }) => {
     const [showBigConfetti, setShowBigConfetti] = useState(false);
     const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
 
@@ -30,6 +31,13 @@ const LevelModal = ({ isOpen, onClose, levelUpData = null }) => {
         allBadges = [],
         allTitles = []
     } = useGamification();
+
+    // ✅ Unified logic: Use props if provided (from Dashboard/Profile), otherwise fallback to hook
+    const xp_unified = propXP ?? xp;
+    const level_unified = propLevel ?? level;
+    const nextLevelXp_unified = propXP !== undefined ? getNextLevelXp(propXP) : nextLevelXp;
+    const levelProgress_unified = propXP !== undefined ? calculateLevelProgress(propXP) : levelProgress;
+    const xpToNextLevel_unified = Math.max(0, nextLevelXp_unified - xp_unified);
 
     useEffect(() => {
         const updateWindowSize = () => {
@@ -55,7 +63,7 @@ const LevelModal = ({ isOpen, onClose, levelUpData = null }) => {
     // Get next unlockable rewards
     const getNextRewards = () => {
         const nextLevel = level + 1;
-        
+
         const nextTitle = Object.values(TITLE_DEFINITIONS)
             .filter(t => t.requiredLevel === nextLevel)
             .sort((a, b) => a.requiredLevel - b.requiredLevel)[0];
@@ -71,8 +79,8 @@ const LevelModal = ({ isOpen, onClose, levelUpData = null }) => {
     // Calculate completion stats
     const totalMissions = [...dailyMissions, ...weeklyMissions];
     const completedMissions = totalMissions.filter(m => m.current >= m.target).length;
-    const completionRate = totalMissions.length > 0 
-        ? Math.round((completedMissions / totalMissions.length) * 100) 
+    const completionRate = totalMissions.length > 0
+        ? Math.round((completedMissions / totalMissions.length) * 100)
         : 0;
 
     if (!isOpen) return null;
@@ -150,7 +158,7 @@ const LevelModal = ({ isOpen, onClose, levelUpData = null }) => {
                                     >
                                         <div className="text-center">
                                             <div className="text-[9px] text-gray-500 font-bold uppercase">Level</div>
-                                            <div className="text-2xl font-black text-gray-900">{level}</div>
+                                            <div className="text-2xl font-black text-gray-900">{level_unified}</div>
                                         </div>
                                     </motion.div>
 
@@ -179,14 +187,14 @@ const LevelModal = ({ isOpen, onClose, levelUpData = null }) => {
                                     </div>
 
                                     <p className="text-xs text-gray-300 mb-2">
-                                        <span className="font-bold text-white">{xpToNextLevel.toLocaleString()} XP</span> to Level {level + 1}
+                                        <span className="font-bold text-white">{xpToNextLevel_unified.toLocaleString()} XP</span> to Level {level_unified + 1}
                                     </p>
 
                                     {/* Progress Bar */}
                                     <div className="relative h-2 bg-white/20 rounded-full overflow-hidden">
                                         <motion.div
                                             initial={{ width: 0 }}
-                                            animate={{ width: `${levelProgress}%` }}
+                                            animate={{ width: `${levelProgress_unified}%` }}
                                             transition={{ duration: 1, ease: "easeOut" }}
                                             className="h-full bg-gradient-to-r from-blue-400 via-blue-500 to-blue-400 relative"
                                         >
@@ -198,8 +206,8 @@ const LevelModal = ({ isOpen, onClose, levelUpData = null }) => {
                                         </motion.div>
                                     </div>
                                     <div className="flex justify-between mt-1">
-                                        <span className="text-[10px] text-gray-400 font-semibold">{xp.toLocaleString()} XP</span>
-                                        <span className="text-[10px] text-gray-400 font-semibold">{nextLevelXp.toLocaleString()} XP</span>
+                                        <span className="text-[10px] text-gray-400 font-semibold">{xp_unified.toLocaleString()} XP</span>
+                                        <span className="text-[10px] text-gray-400 font-semibold">{nextLevelXp_unified.toLocaleString()} XP</span>
                                     </div>
                                 </div>
 
@@ -283,11 +291,11 @@ const LevelModal = ({ isOpen, onClose, levelUpData = null }) => {
                                 <div className="flex items-center justify-between mb-3">
                                     <div className="flex items-center gap-2">
                                         <Gift className="text-gray-700" size={16} />
-                                        <h3 className="text-sm font-black text-gray-900">Level {level + 1} Rewards</h3>
+                                        <h3 className="text-sm font-black text-gray-900">Level {level_unified + 1} Rewards</h3>
                                     </div>
-                                    <span className="text-xs font-bold text-gray-500">{xpToNextLevel} XP away</span>
+                                    <span className="text-xs font-bold text-gray-500">{xpToNextLevel_unified} XP away</span>
                                 </div>
-                                
+
                                 <div className="grid grid-cols-4 gap-2">
                                     {nextTitle ? (
                                         <CompactRewardCard icon={Crown} label={nextTitle.text.split(' ')[0]} active />
@@ -313,7 +321,7 @@ const LevelModal = ({ isOpen, onClose, levelUpData = null }) => {
 
 // ✅ Compact Mission Card
 const CompactMissionCard = ({ mission }) => {
-    const progress = mission.current && mission.target 
+    const progress = mission.current && mission.target
         ? Math.min((mission.current / mission.target) * 100, 100)
         : 0;
     const isCompleted = mission.current >= mission.target;
@@ -321,11 +329,10 @@ const CompactMissionCard = ({ mission }) => {
     return (
         <motion.div
             whileHover={{ x: 2 }}
-            className={`p-2.5 rounded-lg border transition-all ${
-                isCompleted
-                    ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
-                    : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-sm'
-            }`}
+            className={`p-2.5 rounded-lg border transition-all ${isCompleted
+                ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
+                : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-sm'
+                }`}
         >
             <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -355,11 +362,10 @@ const CompactMissionCard = ({ mission }) => {
                         initial={{ width: 0 }}
                         animate={{ width: `${progress}%` }}
                         transition={{ duration: 0.6, ease: "easeOut" }}
-                        className={`h-full ${
-                            isCompleted
-                                ? 'bg-gradient-to-r from-green-500 to-emerald-600'
-                                : 'bg-gradient-to-r from-blue-500 to-blue-600'
-                        }`}
+                        className={`h-full ${isCompleted
+                            ? 'bg-gradient-to-r from-green-500 to-emerald-600'
+                            : 'bg-gradient-to-r from-blue-500 to-blue-600'
+                            }`}
                     />
                 </div>
                 <span className="text-[10px] text-gray-500 font-bold min-w-[40px] text-right">
@@ -375,20 +381,17 @@ const CompactRewardCard = ({ icon: Icon, label, active = false }) => {
     return (
         <motion.div
             whileHover={{ y: -2, scale: 1.05 }}
-            className={`p-2 rounded-lg text-center transition-all ${
-                active
-                    ? 'bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700 shadow-md'
-                    : 'bg-gray-200 border border-gray-300 opacity-50'
-            }`}
+            className={`p-2 rounded-lg text-center transition-all ${active
+                ? 'bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700 shadow-md'
+                : 'bg-gray-200 border border-gray-300 opacity-50'
+                }`}
         >
-            <div className={`w-7 h-7 mx-auto mb-1 rounded-md ${
-                active ? 'bg-white/10' : 'bg-gray-400/20'
-            } flex items-center justify-center`}>
+            <div className={`w-7 h-7 mx-auto mb-1 rounded-md ${active ? 'bg-white/10' : 'bg-gray-400/20'
+                } flex items-center justify-center`}>
                 <Icon className={active ? 'text-white' : 'text-gray-600'} size={14} />
             </div>
-            <p className={`text-[9px] font-black uppercase tracking-wide truncate ${
-                active ? 'text-white' : 'text-gray-600'
-            }`}>
+            <p className={`text-[9px] font-black uppercase tracking-wide truncate ${active ? 'text-white' : 'text-gray-600'
+                }`}>
                 {label}
             </p>
         </motion.div>

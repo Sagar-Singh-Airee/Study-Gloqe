@@ -9,7 +9,7 @@ import {
 import AOS from 'aos';
 import 'aos/dist/aos.css';
 import mascotImage from '@assets/Landing/mascot.png';
-import logoImage from '@assets/logo/logoe.png';
+import logoImage from '@assets/logo/loma.png';
 
 const LandingPage = () => {
     const [isScrolled, setIsScrolled] = useState(false);
@@ -293,8 +293,8 @@ const LandingPage = () => {
 
             {/* Premium Navigation with enhanced effects */}
             <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${isScrolled
-                    ? 'backdrop-blur-2xl bg-black/80 border-b border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]'
-                    : 'bg-transparent'
+                ? 'backdrop-blur-2xl bg-black/80 border-b border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]'
+                : 'bg-transparent'
                 }`}>
                 <div className="container mx-auto px-8">
                     <div className="flex items-center justify-between h-20">
@@ -513,8 +513,8 @@ const LandingPage = () => {
                             <button
                                 onClick={() => setSelectedPlan('monthly')}
                                 className={`px-6 py-3 rounded-lg text-[14px] font-bold transition-all duration-300 tracking-tight ${selectedPlan === 'monthly'
-                                        ? 'bg-white text-black shadow-lg'
-                                        : 'text-gray-400 hover:text-white hover:bg-white/5'
+                                    ? 'bg-white text-black shadow-lg'
+                                    : 'text-gray-400 hover:text-white hover:bg-white/5'
                                     }`}
                             >
                                 Monthly
@@ -522,8 +522,8 @@ const LandingPage = () => {
                             <button
                                 onClick={() => setSelectedPlan('yearly')}
                                 className={`relative px-6 py-3 rounded-lg text-[14px] font-bold transition-all duration-300 tracking-tight ${selectedPlan === 'yearly'
-                                        ? 'bg-white text-black shadow-lg'
-                                        : 'text-gray-400 hover:text-white hover:bg-white/5'
+                                    ? 'bg-white text-black shadow-lg'
+                                    : 'text-gray-400 hover:text-white hover:bg-white/5'
                                     }`}
                             >
                                 Yearly
@@ -537,8 +537,8 @@ const LandingPage = () => {
                             <div
                                 key={index}
                                 className={`relative p-7 rounded-2xl backdrop-blur-xl border transition-all duration-500 hover:scale-[1.02] ${plan.highlighted
-                                        ? 'bg-white/[0.06] border-white/25 shadow-[0_8px_32px_rgba(255,255,255,0.12)] scale-[1.02]'
-                                        : 'bg-white/[0.02] border-white/5 hover:border-white/15 hover:shadow-[0_8px_32px_rgba(255,255,255,0.06)]'
+                                    ? 'bg-white/[0.06] border-white/25 shadow-[0_8px_32px_rgba(255,255,255,0.12)] scale-[1.02]'
+                                    : 'bg-white/[0.02] border-white/5 hover:border-white/15 hover:shadow-[0_8px_32px_rgba(255,255,255,0.06)]'
                                     }`}
                                 data-aos="fade-up"
                                 data-aos-delay={index * 100}
@@ -582,8 +582,8 @@ const LandingPage = () => {
                                 <Link
                                     to="/auth"
                                     className={`group/btn relative block w-full py-3.5 rounded-xl text-[14px] font-bold text-center transition-all duration-500 overflow-hidden tracking-tight ${plan.highlighted
-                                            ? 'bg-white text-black hover:shadow-[0_8px_32px_rgba(255,255,255,0.25)]'
-                                            : 'border-2 border-white/20 text-white hover:bg-white/5 hover:border-white/40'
+                                        ? 'bg-white text-black hover:shadow-[0_8px_32px_rgba(255,255,255,0.25)]'
+                                        : 'border-2 border-white/20 text-white hover:bg-white/5 hover:border-white/40'
                                         }`}
                                 >
                                     <span className="relative z-10 whitespace-nowrap">

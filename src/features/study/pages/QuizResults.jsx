@@ -35,7 +35,7 @@ import { getQuizResults } from '@teacher/services/quizService';
 import toast from 'react-hot-toast';
 
 // Your Logo
-import LogoImage from '@assets/logo/logox.png';
+import LogoImage from '@assets/logo/loma.png';
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
@@ -48,7 +48,7 @@ const SkeletonLoader = () => (
   <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="h-10 w-32 bg-gray-200 rounded-lg mb-12 animate-pulse" />
-      
+
       <div className="grid lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           <div className="h-40 bg-gray-200 rounded-3xl animate-pulse" />
@@ -69,14 +69,14 @@ const CircularProgress = ({ score, size = 200 }) => {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (score / 100) * circumference;
-  
+
   const getColor = () => {
     if (score >= 90) return { stroke: '#10B981', glow: '#10B9815c' };
     if (score >= 70) return { stroke: '#3B82F6', glow: '#3B82F65c' };
     if (score >= 50) return { stroke: '#F59E0B', glow: '#F59E0B5c' };
     return { stroke: '#EF4444', glow: '#EF44445c' };
   };
-  
+
   const colors = getColor();
 
   return (
@@ -84,14 +84,14 @@ const CircularProgress = ({ score, size = 200 }) => {
       <svg className="transform -rotate-90 drop-shadow-lg" width={size} height={size}>
         <defs>
           <filter id="glow">
-            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+            <feGaussianBlur stdDeviation="3" result="coloredBlur" />
             <feMerge>
-              <feMergeNode in="coloredBlur"/>
-              <feMergeNode in="SourceGraphic"/>
+              <feMergeNode in="coloredBlur" />
+              <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
         </defs>
-        
+
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -100,7 +100,7 @@ const CircularProgress = ({ score, size = 200 }) => {
           strokeWidth={strokeWidth}
           fill="transparent"
         />
-        
+
         <motion.circle
           initial={{ strokeDashoffset: circumference }}
           animate={{ strokeDashoffset: offset }}
@@ -116,7 +116,7 @@ const CircularProgress = ({ score, size = 200 }) => {
           filter="url(#glow)"
         />
       </svg>
-      
+
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <motion.div
           initial={{ scale: 0, opacity: 0 }}
@@ -144,7 +144,7 @@ const MetricCard = ({ icon: Icon, label, value, subtext, color, delay = 0 }) => 
     className={`bg-white border border-gray-100 rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all group overflow-hidden relative`}
   >
     <div className="absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-5 transition-opacity" style={{ backgroundImage: `linear-gradient(135deg, ${color} 0%, transparent 100%)` }} />
-    
+
     <div className="relative flex items-start justify-between">
       <div>
         <div className="flex items-center gap-2 mb-2">
@@ -172,9 +172,9 @@ const GradeBadge = ({ score }) => {
     if (score >= 60) return { label: 'Keep Going', emoji: '💪', bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700' };
     return { label: 'Keep Trying', emoji: '📚', bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700' };
   };
-  
+
   const grade = getGrade();
-  
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.8 }}
@@ -194,7 +194,7 @@ const GradeBadge = ({ score }) => {
 
 const PerformanceBar = ({ correct, total, delay }) => {
   const percentage = (correct / total) * 100;
-  
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -227,7 +227,7 @@ const QuizResults = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  
+
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
@@ -241,7 +241,7 @@ const QuizResults = () => {
   // ============================================
   // FETCH RESULTS
   // ============================================
-  
+
   useEffect(() => {
     if (!sessionId || !user?.uid) return;
 
@@ -249,7 +249,7 @@ const QuizResults = () => {
       try {
         const resultData = await getQuizResults(sessionId);
         setData(resultData);
-        
+
         if (location.state?.justCompleted && resultData.session.score >= 75) {
           setTimeout(triggerConfetti, 800);
         }
@@ -272,14 +272,14 @@ const QuizResults = () => {
   // ============================================
   // AI ANALYSIS
   // ============================================
-  
+
   const generateAiAnalysis = useCallback(async (resultData) => {
     if (!resultData) return;
-    
+
     try {
       setIsAnalyzing(true);
       const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-      
+
       const wrongAnswers = resultData.questions
         .filter(q => !q.isCorrect)
         .map(q => ({
@@ -334,7 +334,7 @@ Keep it motivating, concise, and actionable.`;
   // ============================================
   // UTILITIES
   // ============================================
-  
+
   const triggerConfetti = () => {
     const colors = ['#10B981', '#3B82F6', '#8B5CF6', '#F59E0B', '#EC4899'];
     const end = Date.now() + 3500;
@@ -363,7 +363,7 @@ Keep it motivating, concise, and actionable.`;
 
   const handleShare = async () => {
     const text = `🎯 I scored ${data.session.score}% on "${data.quizTitle}"!\n✅ ${stats.correct}/${stats.total} answers correct\n⏱️ ${stats.timeTakenMin}m\n\nBeat my score!`;
-    
+
     if (navigator.share) {
       try {
         await navigator.share({ title: 'Quiz Result', text });
@@ -385,18 +385,18 @@ Keep it motivating, concise, and actionable.`;
   // ============================================
   // COMPUTED VALUES
   // ============================================
-  
+
   const stats = useMemo(() => {
     if (!data) return null;
     const { session, questions } = data;
-    
+
     const correct = questions.filter(q => q.isCorrect).length;
     const total = questions.length;
     const startTime = session.startTime?.getTime?.() || Date.now();
     const endTime = session.endTime?.getTime?.() || Date.now();
     const timeTakenMin = Math.max(1, Math.round((endTime - startTime) / 60000));
     const avgTime = Math.round(timeTakenMin / total);
-    
+
     return { correct, total, timeTakenMin, avgTime, incorrect: total - correct };
   }, [data]);
 
@@ -410,11 +410,11 @@ Keep it motivating, concise, and actionable.`;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 font-sans selection:bg-indigo-100">
-      
+
       {/* ============================================ */}
       {/* HEADER & NAVIGATION */}
       {/* ============================================ */}
-      
+
       <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <motion.button
@@ -426,7 +426,7 @@ Keep it motivating, concise, and actionable.`;
             <Home size={18} className="group-hover:-translate-x-1 transition-transform" />
             Dashboard
           </motion.button>
-          
+
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -434,7 +434,7 @@ Keep it motivating, concise, and actionable.`;
           >
             <h1 className="text-lg font-black text-gray-900 truncate max-w-sm">{data.quizTitle}</h1>
           </motion.div>
-          
+
           <div className="w-10" />
         </div>
       </div>
@@ -442,15 +442,15 @@ Keep it motivating, concise, and actionable.`;
       {/* ============================================ */}
       {/* MAIN CONTENT */}
       {/* ============================================ */}
-      
+
       <div className="max-w-7xl mx-auto px-4 py-8">
-        
+
         {/* Top Section: Score + AI */}
         <div className="grid lg:grid-cols-3 gap-8 mb-12">
-          
+
           {/* LEFT: Score & Stats */}
           <div className="lg:col-span-2 space-y-6">
-            
+
             {/* Hero Card */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -458,11 +458,11 @@ Keep it motivating, concise, and actionable.`;
               className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm"
             >
               <GradeBadge score={data.session.score} />
-              
+
               <div className="mt-6">
                 <PerformanceBar correct={stats.correct} total={stats.total} delay={0.2} />
               </div>
-              
+
               <div className="mt-8 pt-8 border-t border-gray-100 flex flex-wrap gap-3">
                 <button
                   onClick={handleShare}
@@ -471,7 +471,7 @@ Keep it motivating, concise, and actionable.`;
                   {copied ? <Check size={18} /> : <Share2 size={18} />}
                   {copied ? 'Copied!' : 'Share Result'}
                 </button>
-                
+
                 <button
                   onClick={() => navigate(`/quiz/${data.session.quizId}`)}
                   className="flex-1 min-w-max flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-700 rounded-xl font-bold border-2 border-gray-200 hover:border-gray-300 transition-all"
@@ -484,31 +484,31 @@ Keep it motivating, concise, and actionable.`;
 
             {/* Metrics Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <MetricCard 
-                icon={CheckCircle2} 
-                label="Correct" 
+              <MetricCard
+                icon={CheckCircle2}
+                label="Correct"
                 value={stats.correct}
                 color="#10B981"
                 delay={0.1}
               />
-              <MetricCard 
-                icon={XCircle} 
-                label="Incorrect" 
+              <MetricCard
+                icon={XCircle}
+                label="Incorrect"
                 value={stats.incorrect}
                 color="#EF4444"
                 delay={0.2}
               />
-              <MetricCard 
-                icon={Clock} 
-                label="Total Time" 
+              <MetricCard
+                icon={Clock}
+                label="Total Time"
                 value={`${stats.timeTakenMin}m`}
                 subtext={`${stats.avgTime}s/q`}
                 color="#3B82F6"
                 delay={0.3}
               />
-              <MetricCard 
-                icon={Flame} 
-                label="Accuracy" 
+              <MetricCard
+                icon={Flame}
+                label="Accuracy"
                 value={`${Math.round((stats.correct / stats.total) * 100)}%`}
                 color="#F59E0B"
                 delay={0.4}
@@ -530,9 +530,9 @@ Keep it motivating, concise, and actionable.`;
             >
               <div className="flex items-center gap-3">
                 <div className="relative">
-                  <img 
-                    src={LogoImage} 
-                    alt="AI Coach" 
+                  <img
+                    src={LogoImage}
+                    alt="AI Coach"
                     className="w-12 h-12 rounded-xl object-contain bg-gradient-to-br from-gray-50 to-gray-100 p-2 border border-gray-100"
                   />
                   <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full flex items-center justify-center border-2 border-white">
@@ -544,9 +544,9 @@ Keep it motivating, concise, and actionable.`;
                   <p className="text-xs text-gray-500">Performance Analysis</p>
                 </div>
               </div>
-              <ChevronDown 
-                size={20} 
-                className={`text-gray-400 transition-transform ${showAiPanel ? 'rotate-180' : ''}`} 
+              <ChevronDown
+                size={20}
+                className={`text-gray-400 transition-transform ${showAiPanel ? 'rotate-180' : ''}`}
               />
             </button>
 
@@ -606,7 +606,7 @@ Keep it motivating, concise, and actionable.`;
         {/* ============================================ */}
         {/* REVIEW SECTION */}
         {/* ============================================ */}
-        
+
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -624,25 +624,23 @@ Keep it motivating, concise, and actionable.`;
                 <p className="text-gray-500 text-sm">Learn from each answer</p>
               </div>
             </div>
-            
+
             <div className="bg-white p-1.5 rounded-xl border border-gray-200 shadow-sm inline-flex self-start">
-              <button 
+              <button
                 onClick={() => setFilter('all')}
-                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-                  filter === 'all' 
-                    ? 'bg-gray-900 text-white shadow-md' 
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${filter === 'all'
+                    ? 'bg-gray-900 text-white shadow-md'
                     : 'text-gray-500 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 All ({stats.total})
               </button>
-              <button 
+              <button
                 onClick={() => setFilter('incorrect')}
-                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-                  filter === 'incorrect' 
-                    ? 'bg-red-500 text-white shadow-md' 
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${filter === 'incorrect'
+                    ? 'bg-red-500 text-white shadow-md'
                     : 'text-gray-500 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 Mistakes ({stats.incorrect})
               </button>
@@ -653,7 +651,7 @@ Keep it motivating, concise, and actionable.`;
           <div className="space-y-4">
             <AnimatePresence mode="popLayout">
               {filteredQuestions.length === 0 ? (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   className="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-gray-200"
@@ -668,7 +666,7 @@ Keep it motivating, concise, and actionable.`;
                 filteredQuestions.map((q, idx) => {
                   const isExpanded = expandedQ === idx;
                   const qNum = data.questions.findIndex(oq => oq.stem === q.stem) + 1;
-                  
+
                   return (
                     <motion.div
                       key={idx}
@@ -677,33 +675,30 @@ Keep it motivating, concise, and actionable.`;
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.95 }}
                       transition={{ delay: idx * 0.05 }}
-                      className={`bg-white rounded-2xl border overflow-hidden transition-all ${
-                        q.isCorrect 
-                          ? 'border-green-100 hover:border-green-200' 
+                      className={`bg-white rounded-2xl border overflow-hidden transition-all ${q.isCorrect
+                          ? 'border-green-100 hover:border-green-200'
                           : 'border-red-100 hover:border-red-200'
-                      } ${isExpanded ? 'shadow-lg' : 'shadow-sm hover:shadow-md'}`}
+                        } ${isExpanded ? 'shadow-lg' : 'shadow-sm hover:shadow-md'}`}
                     >
                       {/* Question Header */}
-                      <button 
+                      <button
                         onClick={() => setExpandedQ(isExpanded ? null : idx)}
                         className="w-full flex items-start gap-4 p-6 text-left transition-colors hover:bg-gray-50/50"
                       >
-                        <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-sm ${
-                          q.isCorrect ? 'bg-green-500' : 'bg-red-500'
-                        }`}>
+                        <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-sm ${q.isCorrect ? 'bg-green-500' : 'bg-red-500'
+                          }`}>
                           {qNum}
                         </div>
-                        
+
                         <div className="flex-1 min-w-0">
                           <p className="text-base font-bold text-gray-900 leading-snug mb-3">
                             {q.stem}
                           </p>
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold ${
-                              q.isCorrect 
-                                ? 'bg-green-100 text-green-700' 
+                            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold ${q.isCorrect
+                                ? 'bg-green-100 text-green-700'
                                 : 'bg-red-100 text-red-700'
-                            }`}>
+                              }`}>
                               {q.isCorrect ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
                               {q.isCorrect ? 'Correct' : 'Incorrect'}
                             </span>
@@ -714,11 +709,11 @@ Keep it motivating, concise, and actionable.`;
                             )}
                           </div>
                         </div>
-                        
+
                         <div className="flex-shrink-0">
-                          <ChevronDown 
-                            size={20} 
-                            className={`text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} 
+                          <ChevronDown
+                            size={20}
+                            className={`text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
                           />
                         </div>
                       </button>
@@ -734,18 +729,18 @@ Keep it motivating, concise, and actionable.`;
                             className="overflow-hidden"
                           >
                             <div className="px-6 pb-6 pt-4 space-y-4 border-t border-gray-100 bg-gray-50/30">
-                              
+
                               {/* Options */}
                               <div className="space-y-2">
                                 <p className="text-xs font-bold text-gray-600 uppercase">Options</p>
                                 {q.choices.map((choice, idx) => {
                                   const isUser = q.userAnswer === idx;
                                   const isCorrect = q.correctAnswer === idx;
-                                  
+
                                   let style = 'bg-white border-gray-200 text-gray-700';
                                   if (isCorrect) style = 'bg-green-50 border-green-300 text-green-900';
                                   if (isUser && !isCorrect) style = 'bg-red-50 border-red-300 text-red-900';
-                                  
+
                                   return (
                                     <div key={idx} className={`p-3 rounded-xl border-2 flex items-center gap-3 ${style}`}>
                                       <span className="w-7 h-7 rounded-lg bg-white border border-gray-300 flex items-center justify-center font-bold text-xs text-gray-600">
@@ -784,7 +779,7 @@ Keep it motivating, concise, and actionable.`;
         {/* ============================================ */}
         {/* FOOTER CTA */}
         {/* ============================================ */}
-        
+
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -792,7 +787,7 @@ Keep it motivating, concise, and actionable.`;
           className="mt-16 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-3xl p-10 md:p-16 text-center relative overflow-hidden"
         >
           <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-full blur-3xl -z-10" />
-          
+
           <div className="relative">
             <Zap size={40} className="text-yellow-400 mx-auto mb-6" />
             <h3 className="text-3xl md:text-4xl font-black text-white mb-4">
@@ -801,7 +796,7 @@ Keep it motivating, concise, and actionable.`;
             <p className="text-gray-300 mb-8 max-w-md mx-auto text-lg">
               Every quiz brings you closer to mastery. Ready to challenge yourself further?
             </p>
-            
+
             <button
               onClick={() => navigate('/dashboard')}
               className="inline-flex items-center gap-2 px-8 py-4 bg-white text-gray-900 rounded-xl font-bold hover:bg-gray-100 transition-all shadow-xl hover:shadow-2xl group"

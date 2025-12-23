@@ -117,8 +117,8 @@ const StatCard = memo(({ label, value, icon: Icon, trend, sparkData, onClick }) 
         </div>
         {trend && (
           <div className={`flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${trend.dir === 'up'
-              ? 'bg-emerald-50 text-emerald-700'
-              : 'bg-slate-100 text-slate-600'
+            ? 'bg-emerald-50 text-emerald-700'
+            : 'bg-slate-100 text-slate-600'
             }`}>
             {trend.dir === 'up' ? <TrendingUp size={9} /> : <TrendingDown size={9} />}
             {trend.val}
@@ -327,8 +327,8 @@ const Analytics = ({ embedded = false }) => {
                     key={view}
                     onClick={() => setActiveView(view)}
                     className={`px-3 py-1.5 rounded-md text-[11px] font-bold capitalize transition-all ${activeView === view
-                        ? 'bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-sm'
-                        : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
                       }`}
                   >
                     {view}
@@ -343,8 +343,8 @@ const Analytics = ({ embedded = false }) => {
                     key={days}
                     onClick={() => setTimeframe(days)}
                     className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-all ${timeframe === days
-                        ? 'bg-white text-slate-900 shadow-sm'
-                        : 'text-slate-500 hover:text-slate-900'
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-900'
                       }`}
                   >
                     {days}D
@@ -729,7 +729,7 @@ const useRealtimeAnalytics = (userId, timeframe) => {
       streak: metrics.gamification.streak,
       level: metrics.gamification.level,
       xp: metrics.gamification.xp,
-      nextLevelXp: 1000,
+      nextLevelXp: metrics.gamification.nextLevelXp,
       badges: metrics.gamification.badges,
       weakAreas: perf.filter((p) => p.score < 70).slice(0, 3),
       performance: perf

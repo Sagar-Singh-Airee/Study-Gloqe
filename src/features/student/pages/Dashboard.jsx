@@ -18,8 +18,9 @@ import { awardDailyXP, DAILY_ACTIONS } from '@gamification/services/gamification
 import { useGamification } from '@gamification/hooks/useGamification';
 import { updateDailyStreak } from '@shared/services/streakService';
 import { useDashboardSync } from '@shared/services/realtimeSync'; // Added unified sync
+import { calculateLevel, calculateLevelProgress, getNextLevelXp } from '@utils/levelUtils';
 import toast from 'react-hot-toast';
-import logoImage from '@assets/logo/logo.svg';
+import logoImage from '@assets/logo/loma.png';
 
 // Gamification Components
 import LevelModal from '@gamification/components/LevelModal';
@@ -547,7 +548,7 @@ const MobileSidebar = ({ isOpen, onClose, activeTab, onTabChange, onLogout }) =>
                         <div className="flex items-center gap-3">
                             <div className="relative">
                                 <div className="absolute inset-0 bg-teal-500/30 blur-lg rounded-xl" />
-                                <img src={logoImage} alt="Logo" className="relative h-11 w-11 rounded-xl shadow-lg" />
+                                <img src={logoImage} alt="Logo" className="relative h-16 w-16 rounded-xl shadow-lg" />
                             </div>
                             <div>
                                 <span className="text-lg font-black text-white block tracking-tight">StudyGloqe</span>
@@ -625,11 +626,11 @@ const Dashboard = () => {
     const [searchParams, setSearchParams] = useSearchParams();
 
     const {
-        xp: currentXP,
-        level: currentLevel,
-        nextLevelXp: xpForNextLevel,
-        levelProgress: xpProgress,
-        streak: gamificationStreak,
+        xp: rawXP,
+        level: rawLevel,
+        nextLevelXp: rawNextLevelXp,
+        levelProgress: rawLevelProgress,
+        streak: rawStreak,
         loading: gamificationLoading,
         notifications,
         dismissNotification
@@ -638,8 +639,14 @@ const Dashboard = () => {
     // ✅ UNIFIED METRICS LISTENER (Same as Analytics)
     const { metrics: dashboardMetrics, loading: dashboardLoading } = useDashboardSync(user?.uid);
 
-    // ✅ Always compute highest streak for instant UI feedback
-    const streak = Math.max(dashboardMetrics?.gamification?.streak || 0, gamificationStreak || 0);
+    // ✅ Always compute highest stats for instant UI feedback & sync consistency
+    const streak = Math.max(dashboardMetrics?.gamification?.streak || 0, rawStreak || 0);
+    const currentXP = Math.max(dashboardMetrics?.gamification?.xp || 0, rawXP || 0);
+
+    // Recalculate level and progress from the highest XP found to ensure consistency
+    const currentLevel = calculateLevel(currentXP);
+    const xpProgress = calculateLevelProgress(currentXP);
+    const xpForNextLevel = getNextLevelXp(currentXP);
 
     const [realtimeStats, setRealtimeStats] = useState({
         totalDocuments: 0,
@@ -1171,7 +1178,7 @@ const Dashboard = () => {
                     <div className="flex items-center gap-3">
                         <div className="relative shrink-0">
                             <div className="absolute inset-0 bg-gradient-to-br from-teal-500/30 to-cyan-500/30 blur-lg rounded-lg" />
-                            <img src={logoImage} alt="StudyGloqe" className="relative h-9 w-9 rounded-lg shadow-lg" />
+                            <img src={logoImage} alt="StudyGloqe" className="relative h-14 w-14 rounded-lg shadow-lg" />
                         </div>
                         <div className="min-w-0">
                             <h1 className="text-base font-black text-white tracking-tight truncate">StudyGloqe</h1>

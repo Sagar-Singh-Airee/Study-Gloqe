@@ -5,7 +5,7 @@ import {
     Trophy, Settings, Video, Calendar, Bell, MessageSquare,
     FolderOpen, Target, Zap
 } from 'lucide-react';
-import logoImage from '@assets/logo/logo.svg';
+import logoImage from '@assets/logo/loma.png';
 
 const TeacherSidebar = ({ stats = {}, activeTab, setActiveTab }) => {
 
@@ -55,10 +55,10 @@ const TeacherSidebar = ({ stats = {}, activeTab, setActiveTab }) => {
 
     return (
         <div className="w-64 bg-gradient-to-b from-black via-gray-950 to-black fixed h-screen flex flex-col shadow-2xl border-r border-white/5 overflow-hidden z-50">
-            
+
             {/* Logo */}
             <div className="p-5 border-b border-white/10">
-                <button 
+                <button
                     onClick={() => setActiveTab('overview')}
                     className="flex items-center gap-2 group w-full"
                 >
@@ -92,11 +92,10 @@ const TeacherSidebar = ({ stats = {}, activeTab, setActiveTab }) => {
                                     <button
                                         key={idx}
                                         onClick={() => setActiveTab(item.tab)}
-                                        className={`group relative flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 w-full ${
-                                            active
+                                        className={`group relative flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 w-full ${active
                                                 ? 'bg-white/10 text-white shadow-lg shadow-white/5'
                                                 : 'text-gray-400 hover:bg-white/5 hover:text-white'
-                                        }`}
+                                            }`}
                                     >
                                         {/* Active Indicator */}
                                         {active && (
@@ -108,9 +107,9 @@ const TeacherSidebar = ({ stats = {}, activeTab, setActiveTab }) => {
                                         )}
 
                                         <div className="flex items-center gap-3">
-                                            <item.icon 
-                                                size={18} 
-                                                className={`${active ? 'drop-shadow-lg' : ''} transition-transform group-hover:scale-110`} 
+                                            <item.icon
+                                                size={18}
+                                                className={`${active ? 'drop-shadow-lg' : ''} transition-transform group-hover:scale-110`}
                                             />
                                             <span>{item.label}</span>
                                         </div>

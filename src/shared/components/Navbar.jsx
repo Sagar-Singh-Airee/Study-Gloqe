@@ -40,7 +40,7 @@ const Navbar = ({ onMenuClick }) => {
 
                         <Link to="/dashboard" className="flex items-center gap-3">
                             <img
-                                src="/src/assets/logo/logo.svg"
+                                src="/src/assets/logo/loma.png"
                                 alt="StudyGloqe"
                                 className="h-8 w-8"
                             />

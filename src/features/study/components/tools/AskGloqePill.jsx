@@ -10,8 +10,8 @@ import { generateAIResponse } from '@shared/utils/vertexAI';
 import { awardDailyXP, DAILY_ACTIONS } from '@gamification/services/gamificationService';
 import { useAuth } from '@auth/contexts/AuthContext';
 import toast from 'react-hot-toast';
-import logoImage from '@assets/logo/logo.svg';
-import logoxImage from '@assets/logo/logox.png'; // ✅ Added logox.png import
+import logoImage from '@assets/logo/loma.png';
+import logoxImage from '@assets/logo/loma.png'; // ✅ Updated to loma.png
 
 
 const AskGloqePill = ({ selectedText, onClose, documentId }) => {

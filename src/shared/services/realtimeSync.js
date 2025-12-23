@@ -16,6 +16,7 @@ import {
 import { db, COLLECTIONS } from '@shared/config/firebase';
 import { eventBus, EVENT_TYPES } from './eventBus';
 import { calculateTrueStreak } from '../utils/streakUtils';
+import { calculateLevel, calculateLevelProgress, getNextLevelXp } from '../utils/levelUtils';
 
 // ==================== UNIFIED METRICS HOOK ====================
 // This ensures Dashboard and Analytics use the SAME source of truth
@@ -240,8 +241,11 @@ export const useUnifiedMetrics = (userId, options = {}) => {
         const streak = Math.max(calculatedStreak, storedStreak);
 
         // --- Gamification ---
-        const xp = raw.user.xp || 0;
-        const level = raw.user.level || 1;
+        // Take the highest XP found in either collection for resilience
+        const xp = Math.max(raw.user?.xp || 0, raw.gamification?.xp || 0);
+        const level = calculateLevel(xp);
+        const levelProgress = calculateLevelProgress(xp);
+        const nextLevelThreshold = getNextLevelXp(xp);
 
         // --- Documents & Flashcards ---
         const totalDocuments = raw.documents.length;
@@ -272,6 +276,8 @@ export const useUnifiedMetrics = (userId, options = {}) => {
             gamification: {
                 xp,
                 level,
+                levelProgress,
+                nextLevelXp: nextLevelThreshold,
                 streak,
                 badges: raw.user.unlockedBadges || [],
                 achievements: raw.gamification.achievements || []
@@ -292,8 +298,8 @@ export const useUnifiedMetrics = (userId, options = {}) => {
             // Helpers
             studyHours: Math.floor(studyTotalMinutes / 60),
             studyMinutesRemainder: studyTotalMinutes % 60,
-            xpProgress: xp % 1000,
-            xpToNextLevel: 1000 - (xp % 1000),
+            xpProgress: levelProgress,
+            xpToNextLevel: nextLevelThreshold - xp,
             totalItems: totalDocuments + totalDecks,
             overallProgress: Math.min(100, Math.round(
                 (accuracy * 0.4) +
@@ -312,36 +318,53 @@ export const useUnifiedMetrics = (userId, options = {}) => {
         const storedStreak = raw.gamification?.streakData?.currentStreak || raw.user?.streak || 0;
         const calculatedStreak = metrics.gamification.streak;
 
-        // Only sync if calculated is higher (healing) or if it's a new day
-        if (calculatedStreak > storedStreak) {
-            const updateStreakInDB = async () => {
+        const storedXP = raw.gamification?.xp || raw.user?.xp || 0;
+        const calculatedXP = metrics.gamification.xp;
+
+        // Only sync if calculated is higher (healing)
+        if (calculatedStreak > storedStreak || calculatedXP > storedXP) {
+            const updateGamificationInDB = async () => {
                 try {
-                    console.log(`✨ Syncing True Streak to DB: ${storedStreak} -> ${calculatedStreak}`);
+                    const updates = {};
+                    const userUpdates = {};
+
+                    if (calculatedStreak > storedStreak) {
+                        console.log(`✨ Healing Streak: ${storedStreak} -> ${calculatedStreak}`);
+                        updates['streakData.currentStreak'] = calculatedStreak;
+                        updates['streakData.longestStreak'] = Math.max(calculatedStreak, raw.gamification?.streakData?.longestStreak || 0);
+                        userUpdates.streak = calculatedStreak;
+                    }
+
+                    if (calculatedXP > storedXP) {
+                        console.log(`✨ Healing XP/Level: ${storedXP} -> ${calculatedXP}`);
+                        updates.xp = calculatedXP;
+                        updates.level = metrics.gamification.level;
+                        userUpdates.xp = calculatedXP;
+                        userUpdates.level = metrics.gamification.level;
+                    }
+
                     const gamificationRef = doc(db, COLLECTIONS.GAMIFICATION, userId);
+                    const userRef = doc(db, COLLECTIONS.USERS, userId);
 
                     await updateDoc(gamificationRef, {
-                        'streakData.currentStreak': calculatedStreak,
-                        'streakData.lastUpdated': serverTimestamp(),
-                        'streakData.longestStreak': Math.max(calculatedStreak, raw.gamification?.streakData?.longestStreak || 0),
-                        'lastActivityDate': serverTimestamp() // Also sync activity date
+                        ...updates,
+                        updatedAt: serverTimestamp()
                     });
 
-                    // Also sync to users doc for profile display
-                    const userRef = doc(db, COLLECTIONS.USERS, userId);
                     await updateDoc(userRef, {
-                        'streak': calculatedStreak,
-                        'lastActivityDate': serverTimestamp()
-                    });
+                        ...userUpdates,
+                        updatedAt: serverTimestamp()
+                    }).catch(e => console.warn("Failed to sync to users doc:", e));
 
-                } catch (err) {
-                    console.error('❌ Failed to sync streak back to DB:', err);
+                } catch (error) {
+                    console.error('❌ Error in auto-sync healing:', error);
                 }
             };
 
-            const timer = setTimeout(updateStreakInDB, 2000); // Debounce to avoid spamming
+            const timer = setTimeout(updateGamificationInDB, 2000); // Debounce
             return () => clearTimeout(timer);
         }
-    }, [userId, loading, metrics?.gamification.streak, enableRealtime]);
+    }, [userId, loading, metrics?.gamification.streak, metrics?.gamification.xp, enableRealtime]);
 
 
     return {

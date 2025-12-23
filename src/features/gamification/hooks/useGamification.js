@@ -7,35 +7,9 @@ import { BADGE_DEFINITIONS, TITLE_DEFINITIONS } from '../config/achievements';
 import { trackAction as trackActionService, checkAndUnlockAchievements, initializeUserAchievements } from '../services/achievementTracker';
 import toast from 'react-hot-toast';
 import confetti from 'canvas-confetti';
+import { calculateLevel, calculateLevelProgress, getNextLevelXp, LEVEL_THRESHOLDS } from '../../../shared/utils/levelUtils';
 
 
-// Level XP thresholds
-const LEVEL_THRESHOLDS = [
-    0, 100, 250, 500, 1000, 2000, 4000, 8000, 16000, 32000, 64000, 128000
-];
-
-
-// Calculate level from XP
-const calculateLevel = (xp) => {
-    for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
-        if (xp >= LEVEL_THRESHOLDS[i]) {
-            return i + 1;
-        }
-    }
-    return 1;
-};
-
-
-// Calculate progress to next level
-const calculateLevelProgress = (xp, level) => {
-    const currentThreshold = LEVEL_THRESHOLDS[level - 1] || 0;
-    const nextThreshold = LEVEL_THRESHOLDS[level] || LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1];
-
-    if (nextThreshold === currentThreshold) return 100;
-
-    const progress = ((xp - currentThreshold) / (nextThreshold - currentThreshold)) * 100;
-    return Math.min(Math.max(progress, 0), 100);
-};
 
 
 export const useGamification = () => {
@@ -124,8 +98,8 @@ export const useGamification = () => {
 
                     const xp = data.xp || 0;
                     const level = calculateLevel(xp);
-                    const nextLevelXp = LEVEL_THRESHOLDS[level] || LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1];
-                    const levelProgress = calculateLevelProgress(xp, level);
+                    const nextLevelXp = getNextLevelXp(xp);
+                    const levelProgress = calculateLevelProgress(xp);
 
                     // 🎉 Detect XP gain (Only if prev exists)
                     const previousXP = prevXPRef.current;
@@ -402,7 +376,7 @@ export const useGamification = () => {
             ? Math.round((allTitles.filter(t => t.unlocked).length / allTitles.length) * 100)
             : 0,
 
-        isMaxLevel: gamificationData.level >= LEVEL_THRESHOLDS.length - 1,
+        isMaxLevel: gamificationData.level >= LEVEL_THRESHOLDS.length,
 
         hasStreak: gamificationData.streak > 0,
 
