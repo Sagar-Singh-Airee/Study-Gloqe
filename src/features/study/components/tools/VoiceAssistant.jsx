@@ -10,7 +10,6 @@ import { db } from '@shared/config/firebase';
 import { useAuth } from '@auth/contexts/AuthContext';
 import { geminiModel } from '@shared/config/gemini';
 import { textToSpeech, VOICE_OPTIONS } from '@study/services/googleTTS';
-import toast from 'react-hot-toast';
 
 // ════════════════════════════════════════════════════════════════════════════════
 // 🎯 FAREWELL DETECTION - Auto-close on goodbye
@@ -170,7 +169,6 @@ const VoiceAssistant = ({ onClose, documentContext = '' }) => {
         console.log('🚀 Voice Assistant Starting...');
 
         if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-            toast.error('Voice recognition not supported in this browser');
             safeSetState(setHasRecognitionError, true);
             return;
         }
@@ -364,7 +362,6 @@ Respond naturally:`;
 
                 setTimeout(() => {
                     if (isMountedRef.current) {
-                        toast.success('Voice chat ended. See you soon! 👋', { duration: 2000 });
                         cleanupAll();
                         onClose();
                     }
@@ -463,7 +460,6 @@ Respond naturally:`;
                     if (isMountedRef.current) {
                         safeSetState(setIsSpeaking, false);
                         safeSetState(setAudioError, 'Playback failed');
-                        toast.error('Audio playback failed');
                     }
                     resolve();
                 };
@@ -481,17 +477,6 @@ Respond naturally:`;
 
                 safeSetState(setIsSpeaking, false);
                 safeSetState(setAudioError, error.message);
-
-                // Enhanced error messaging
-                if (error.message.includes('403')) {
-                    toast.error('Voice API access denied');
-                } else if (error.message.includes('429')) {
-                    toast.error('Voice quota exceeded');
-                } else if (error.message.includes('network')) {
-                    toast.error('Network error');
-                } else {
-                    toast.error('Voice synthesis failed');
-                }
 
                 // Show text briefly even if audio fails
                 setTimeout(() => {
@@ -517,33 +502,20 @@ Respond naturally:`;
         }
         const newMutedState = !isMuted;
         safeSetState(setIsMuted, newMutedState);
-
-        toast.success(newMutedState ? '🔇 Voice muted' : '🔊 Voice enabled', {
-            duration: 1000,
-            style: {
-                background: '#1f2937',
-                color: '#fff',
-                fontSize: '14px',
-                fontWeight: 'bold'
-            }
-        });
     }, [isMuted, isSpeaking, safeSetState]);
 
     const toggleListening = useCallback(() => {
         if (isListening) {
             stopRecognition();
             safeSetState(setIsListening, false);
-            toast.success('🎤 Paused', { duration: 1000 });
         } else {
             safeSetState(setIsListening, true);
-            toast.success('🎤 Listening', { duration: 1000 });
         }
     }, [isListening, stopRecognition, safeSetState]);
 
     const handleClose = useCallback(() => {
         cleanupAll();
         onClose();
-        toast.success('Voice chat ended 👋', { duration: 2000 });
     }, [onClose, cleanupAll]);
 
     const handleBackgroundClick = useCallback((e) => {
@@ -629,8 +601,8 @@ Respond naturally:`;
                 whileTap={{ scale: 0.95 }}
                 onClick={toggleMute}
                 className={`absolute top-6 left-6 p-3 rounded-full transition-all backdrop-blur-xl border shadow-xl z-10 ${isMuted
-                        ? 'bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20'
-                        : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
+                    ? 'bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20'
+                    : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
                     }`}
             >
                 {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
@@ -644,8 +616,8 @@ Respond naturally:`;
                 whileTap={{ scale: 0.95 }}
                 onClick={toggleListening}
                 className={`absolute bottom-6 left-6 p-3 rounded-full transition-all backdrop-blur-xl border shadow-xl z-10 ${isListening
-                        ? 'bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20'
-                        : 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/20'
+                    ? 'bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20'
+                    : 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/20'
                     }`}
             >
                 {isListening ? <Mic size={24} /> : <MicOff size={24} />}
@@ -688,10 +660,10 @@ Respond naturally:`;
                             ease: "easeInOut"
                         }}
                         className={`relative w-48 h-48 rounded-full flex items-center justify-center transition-all duration-500 ${isSpeaking
-                                ? 'bg-gradient-to-br from-blue-200 via-white to-blue-300 shadow-2xl shadow-blue-500/50'
-                                : isListening
-                                    ? 'bg-gradient-to-br from-green-600 via-green-500 to-green-400 shadow-2xl shadow-green-500/50'
-                                    : 'bg-gradient-to-br from-gray-800 via-gray-700 to-gray-600 shadow-xl'
+                            ? 'bg-gradient-to-br from-blue-200 via-white to-blue-300 shadow-2xl shadow-blue-500/50'
+                            : isListening
+                                ? 'bg-gradient-to-br from-green-600 via-green-500 to-green-400 shadow-2xl shadow-green-500/50'
+                                : 'bg-gradient-to-br from-gray-800 via-gray-700 to-gray-600 shadow-xl'
                             }`}
                     >
                         {/* Shine effect */}

@@ -1,6 +1,6 @@
 // src/features/study/pages/StudySession.jsx
-// 🎓 PRODUCTION EDITION v9.0 - ENHANCED & POLISHED
-// ✨ Beautiful Loma Button | 🎯 All Features Enhanced | 🚀 Production Ready
+// 🎓 MINIMALIST PREMIUM EDITION v10.0
+// ✨ Clean Design | 📚 Study-Optimized | 🚀 Production Ready
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -23,15 +23,16 @@ import {
     Mic,
     MessageSquare,
     ArrowUp,
-    X,
     Activity,
     Zap,
     Check,
-    Bot
+    TrendingUp,
+    Link,
+    CheckCircle,
+    X
 } from 'lucide-react';
 import { useAuth } from '../../auth/contexts/AuthContext';
 import ConceptFlowchart from '../components/visual/ConceptFlowchart';
-import toast from 'react-hot-toast';
 import lomaLogo from '../../../assets/logo/loma.png';
 
 // AI Tools
@@ -54,54 +55,13 @@ import {
 const DESIGN = {
     header: 'bg-white/95 backdrop-blur-xl border-b border-gray-200/80 shadow-sm',
     container: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8',
-    card: 'bg-white rounded-3xl border border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300',
-    gradient: {
-        primary: 'from-emerald-500 via-teal-500 to-cyan-500',
-        secondary: 'from-violet-500 via-purple-500 to-fuchsia-500',
-        accent: 'from-blue-500 via-indigo-500 to-purple-500'
-    }
+    card: 'bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300',
 };
 
-// ════════════════════════════════════════════════════════════════════════════════
-// 🎬 STREAMING TOAST COMPONENT
-// ════════════════════════════════════════════════════════════════════════════════
 
-const StreamingPageToast = ({ pageNumber, coreConcept, totalPages }) => (
-    <motion.div
-        initial={{ opacity: 0, y: 20, scale: 0.9 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: -20, scale: 0.9 }}
-        className="relative overflow-hidden flex items-start gap-4 px-6 py-5 rounded-2xl shadow-2xl backdrop-blur-2xl border-2 bg-white border-emerald-200 min-w-[340px]"
-    >
-        <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: '100%' }}
-            transition={{ duration: 3, ease: 'easeOut' }}
-            className="absolute bottom-0 left-0 h-1.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500"
-        />
-
-        <div className="p-3 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 flex-shrink-0">
-            <Check size={22} className="text-emerald-600" />
-        </div>
-
-        <div className="flex-1 min-w-0">
-            <p className="text-base font-bold text-gray-900">
-                📄 Page {pageNumber} Ready!
-            </p>
-            <p className="text-sm text-gray-600 mt-1 font-medium truncate">
-                {coreConcept}
-            </p>
-            <p className="text-xs text-emerald-600 mt-2 font-bold">
-                {pageNumber}/{totalPages} pages processed
-            </p>
-        </div>
-
-        <Activity size={22} className="text-emerald-500 animate-pulse flex-shrink-0" />
-    </motion.div>
-);
 
 // ════════════════════════════════════════════════════════════════════════════════
-// 🤖 ENHANCED LOMA AI BUTTON COMPONENT
+// 🤖 LOMA AI BUTTON
 // ════════════════════════════════════════════════════════════════════════════════
 
 const LomaAIButton = ({ onModeSelect, isActive, currentMode }) => {
@@ -116,17 +76,17 @@ const LomaAIButton = ({ onModeSelect, isActive, currentMode }) => {
                         initial={{ opacity: 0, scale: 0.9, y: 10 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: 10 }}
-                        className="bg-white rounded-3xl shadow-2xl border-2 border-gray-100 p-2 mb-2"
+                        className="bg-white rounded-2xl shadow-2xl border-2 border-gray-100 p-2 mb-2"
                     >
                         <button
                             onClick={() => {
                                 onModeSelect('voice');
                                 setShowMenu(false);
                             }}
-                            className="flex items-center gap-4 px-6 py-4 hover:bg-emerald-50 rounded-2xl transition-all group w-full"
+                            className="flex items-center gap-3 px-5 py-3 hover:bg-emerald-50 rounded-xl transition-all group w-full"
                         >
-                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                                <Mic size={20} className="text-white" />
+                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                                <Mic size={18} className="text-white" />
                             </div>
                             <div className="text-left">
                                 <p className="text-sm font-bold text-gray-900">Voice Chat</p>
@@ -139,10 +99,10 @@ const LomaAIButton = ({ onModeSelect, isActive, currentMode }) => {
                                 onModeSelect('text');
                                 setShowMenu(false);
                             }}
-                            className="flex items-center gap-4 px-6 py-4 hover:bg-blue-50 rounded-2xl transition-all group w-full mt-2"
+                            className="flex items-center gap-3 px-5 py-3 hover:bg-blue-50 rounded-xl transition-all group w-full mt-2"
                         >
-                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                                <MessageSquare size={20} className="text-white" />
+                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                                <MessageSquare size={18} className="text-white" />
                             </div>
                             <div className="text-left">
                                 <p className="text-sm font-bold text-gray-900">Text Chat</p>
@@ -160,19 +120,15 @@ const LomaAIButton = ({ onModeSelect, isActive, currentMode }) => {
                 onClick={() => {
                     if (isActive) {
                         onModeSelect(null);
-                        toast.success(`${currentMode === 'voice' ? 'Voice' : 'Text'} chat ended`);
                     } else {
                         setShowMenu(!showMenu);
                     }
                 }}
                 className={`relative w-20 h-20 rounded-full shadow-2xl hover:shadow-3xl transition-all group ${isActive
-                        ? 'ring-4 ring-emerald-400 animate-pulse'
-                        : 'ring-4 ring-white hover:ring-emerald-200'
+                    ? 'ring-4 ring-emerald-400 animate-pulse'
+                    : 'ring-4 ring-white hover:ring-emerald-200'
                     }`}
-                style={{
-                    background: 'white',
-                    padding: '6px'
-                }}
+                style={{ background: 'white', padding: '6px' }}
             >
                 {/* Active indicator rings */}
                 {isActive && (
@@ -190,7 +146,7 @@ const LomaAIButton = ({ onModeSelect, isActive, currentMode }) => {
                     </>
                 )}
 
-                {/* Logo container - Sticker style */}
+                {/* Logo container */}
                 <div className="relative w-full h-full rounded-full bg-gradient-to-br from-white to-gray-50 flex items-center justify-center shadow-inner overflow-hidden">
                     <img
                         src={lomaLogo}
@@ -198,7 +154,7 @@ const LomaAIButton = ({ onModeSelect, isActive, currentMode }) => {
                         className="w-[85%] h-[85%] object-contain relative z-10"
                     />
 
-                    {/* Shimmer effect on hover */}
+                    {/* Shimmer effect */}
                     <motion.div
                         initial={{ x: '-100%' }}
                         whileHover={{ x: '200%' }}
@@ -220,7 +176,7 @@ const LomaAIButton = ({ onModeSelect, isActive, currentMode }) => {
 
                 {/* Tooltip */}
                 <div className="absolute bottom-full right-0 mb-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                    <div className="px-4 py-2 bg-gray-900 text-white text-sm font-semibold rounded-xl shadow-2xl whitespace-nowrap">
+                    <div className="px-3 py-2 bg-gray-900 text-white text-xs font-semibold rounded-lg shadow-2xl whitespace-nowrap">
                         {isActive ? `End ${currentMode === 'voice' ? 'Voice' : 'Text'} Chat` : 'Ask Loma AI ✨'}
                     </div>
                 </div>
@@ -259,8 +215,8 @@ const StudySession = () => {
         isStreaming: false
     });
 
-    // UI state - ENHANCED
-    const [aiMode, setAiMode] = useState(null); // null, 'voice', or 'text'
+    // UI state
+    const [aiMode, setAiMode] = useState(null);
     const [showScrollTop, setShowScrollTop] = useState(false);
     const [autoScrollToNew, setAutoScrollToNew] = useState(true);
 
@@ -326,16 +282,7 @@ const StudySession = () => {
                 if (pages.length > prevCount && prevCount > 0) {
                     const newPage = pages[pages.length - 1];
 
-                    toast.custom(
-                        () => (
-                            <StreamingPageToast
-                                pageNumber={newPage.pageNumber}
-                                coreConcept={newPage.coreConcept || 'New Content'}
-                                totalPages={pages.length}
-                            />
-                        ),
-                        { duration: 4000, position: 'top-right', id: `page-${newPage.pageNumber}` }
-                    );
+
 
                     setNewPageAnimation(newPage.pageNumber);
                     setTimeout(() => setNewPageAnimation(null), 2000);
@@ -385,12 +332,7 @@ const StudySession = () => {
                         isStreaming: docData.status === 'processing'
                     }));
 
-                    if (docData.status === 'completed' && docData.totalPages > 0) {
-                        toast.success(`🎉 All ${docData.totalPages} pages ready!`, {
-                            duration: 5000,
-                            id: 'doc-complete'
-                        });
-                    }
+
                 } else {
                     setError('Document not found');
                     setLoading(false);
@@ -429,10 +371,9 @@ const StudySession = () => {
 
                 sessionIdRef.current = id;
                 setSessionId(id);
-                toast.success('Study session started! 🎯', { duration: 2000 });
 
             } catch (error) {
-                toast.error('Failed to start session');
+                // Silently fails for production
             }
         };
 
@@ -469,7 +410,6 @@ const StudySession = () => {
 
     const handleNextPage = useCallback(() => {
         if (!hasNextPage) {
-            toast('🎉 Last page reached!', { icon: '✅', duration: 2000 });
             return;
         }
 
@@ -504,7 +444,6 @@ const StudySession = () => {
 
     const handleTogglePause = useCallback(async () => {
         if (!sessionIdRef.current) {
-            toast.error('No active session');
             return;
         }
 
@@ -512,14 +451,12 @@ const StudySession = () => {
             if (sessionPaused) {
                 await resumeStudySession(sessionIdRef.current);
                 setSessionPaused(false);
-                toast.success('Session resumed ▶️', { duration: 2000 });
             } else {
                 await pauseStudySession(sessionIdRef.current);
                 setSessionPaused(true);
-                toast('Session paused ⏸️', { duration: 2000 });
             }
         } catch (error) {
-            toast.error('Failed to toggle pause');
+            // Error logged in console if needed
         }
     }, [sessionPaused]);
 
@@ -585,19 +522,19 @@ const StudySession = () => {
                 <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="text-center space-y-8"
+                    className="text-center space-y-6"
                 >
-                    <div className="relative w-28 h-28 mx-auto">
+                    <div className="relative w-20 h-20 mx-auto">
                         <motion.div
                             className="absolute inset-0 border-4 border-emerald-500 rounded-full border-t-transparent"
                             animate={{ rotate: 360 }}
                             transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
                         />
-                        <Loader2 className="absolute inset-0 m-auto w-12 h-12 text-emerald-600 animate-pulse" />
+                        <Loader2 className="absolute inset-0 m-auto w-10 h-10 text-emerald-600 animate-pulse" />
                     </div>
                     <div>
-                        <h2 className="text-3xl font-black text-gray-900 mb-2">Loading Session</h2>
-                        <p className="text-base text-gray-600">Preparing your study materials...</p>
+                        <h2 className="text-2xl font-bold text-gray-900 mb-2">Loading Session</h2>
+                        <p className="text-sm text-gray-600">Preparing your study materials...</p>
                     </div>
                 </motion.div>
             </div>
@@ -614,22 +551,22 @@ const StudySession = () => {
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="text-center max-w-md space-y-8"
+                    className="text-center max-w-md space-y-6"
                 >
-                    <div className="w-24 h-24 rounded-full bg-red-50 flex items-center justify-center mx-auto">
-                        <AlertCircle size={48} className="text-red-600" />
+                    <div className="w-20 h-20 rounded-full bg-red-50 flex items-center justify-center mx-auto">
+                        <AlertCircle size={40} className="text-red-600" />
                     </div>
                     <div>
-                        <h2 className="text-3xl font-black text-gray-900 mb-3">
+                        <h2 className="text-2xl font-bold text-gray-900 mb-2">
                             {error || 'Document Not Found'}
                         </h2>
-                        <p className="text-gray-600 text-lg">
+                        <p className="text-gray-600 text-sm">
                             Unable to load the study session. Please try again.
                         </p>
                     </div>
                     <button
                         onClick={handleGoHome}
-                        className="px-10 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-2xl font-bold text-lg hover:shadow-2xl transition-all transform hover:scale-105"
+                        className="px-8 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-semibold text-sm hover:shadow-xl transition-all transform hover:scale-105"
                     >
                         Back to Dashboard
                     </button>
@@ -648,26 +585,26 @@ const StudySession = () => {
                 <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="text-center max-w-lg space-y-8"
+                    className="text-center max-w-lg space-y-6"
                 >
                     {processingStatus.isStreaming ? (
                         <>
                             <motion.div
                                 animate={{ rotate: 360 }}
                                 transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                                className="w-24 h-24 mx-auto"
+                                className="w-20 h-20 mx-auto"
                             >
-                                <Activity size={96} className="text-emerald-600" />
+                                <Activity size={80} className="text-emerald-600" />
                             </motion.div>
                             <div>
-                                <h2 className="text-3xl font-black text-gray-900 mb-4">
+                                <h2 className="text-2xl font-bold text-gray-900 mb-3">
                                     🎬 AI Processing
                                 </h2>
-                                <p className="text-gray-600 text-lg mb-6">
+                                <p className="text-gray-600 text-sm mb-4">
                                     First page arriving soon... Pages appear one-by-one
                                 </p>
 
-                                <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden mb-4 shadow-inner">
+                                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden mb-3 shadow-inner">
                                     <motion.div
                                         className="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500"
                                         initial={{ width: 0 }}
@@ -681,32 +618,32 @@ const StudySession = () => {
                                 </div>
 
                                 {processingStatus.totalPages > 0 && (
-                                    <p className="text-base text-emerald-600 font-bold">
+                                    <p className="text-sm text-emerald-600 font-semibold">
                                         {processingStatus.processedPages}/{processingStatus.totalPages} pages ready
                                     </p>
                                 )}
 
-                                <p className="text-sm text-gray-500 mt-6">
+                                <p className="text-xs text-gray-500 mt-4">
                                     💡 First page loads in 2-3 seconds
                                 </p>
                             </div>
                         </>
                     ) : (
                         <>
-                            <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center mx-auto">
-                                <BookOpen size={48} className="text-gray-500" />
+                            <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mx-auto">
+                                <BookOpen size={40} className="text-gray-500" />
                             </div>
                             <div>
-                                <h2 className="text-3xl font-black text-gray-900 mb-3">
+                                <h2 className="text-2xl font-bold text-gray-900 mb-2">
                                     No Visual Analysis
                                 </h2>
-                                <p className="text-gray-600 text-lg mb-6">
+                                <p className="text-gray-600 text-sm mb-4">
                                     This document hasn't been processed yet
                                 </p>
                             </div>
                             <button
                                 onClick={handleGoHome}
-                                className="px-10 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-2xl font-bold text-lg hover:shadow-2xl transition-all transform hover:scale-105"
+                                className="px-8 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-semibold text-sm hover:shadow-xl transition-all transform hover:scale-105"
                             >
                                 Back to Dashboard
                             </button>
@@ -722,32 +659,32 @@ const StudySession = () => {
     // ════════════════════════════════════════════════════════════════════════════
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-emerald-50/20">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
             {/* HEADER */}
             <div className={`sticky top-0 z-50 ${DESIGN.header}`}>
                 <div className={DESIGN.container}>
-                    <div className="py-5 flex items-center justify-between gap-6">
+                    <div className="py-4 flex items-center justify-between gap-6">
                         {/* Left: Nav & Title */}
-                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
                             <button
                                 onClick={handleGoHome}
-                                className="p-3 hover:bg-gray-100 rounded-2xl transition-all hover:scale-105 active:scale-95 group"
+                                className="p-2.5 hover:bg-gray-100 rounded-xl transition-all hover:scale-105 active:scale-95 group"
                                 title="Back to Dashboard"
                             >
-                                <Home size={22} className="text-gray-700 group-hover:text-emerald-600 transition-colors" />
+                                <Home size={20} className="text-gray-700 group-hover:text-emerald-600 transition-colors" />
                             </button>
 
                             <div className="min-w-0 flex-1">
-                                <h1 className="text-xl font-black text-gray-900 truncate">
+                                <h1 className="text-lg font-bold text-gray-900 truncate">
                                     {document.title}
                                 </h1>
-                                <div className="flex items-center gap-3 text-sm flex-wrap mt-1">
-                                    <span className="font-bold text-gray-600">
+                                <div className="flex items-center gap-2 text-xs flex-wrap mt-0.5">
+                                    <span className="font-semibold text-gray-600">
                                         Page {currentPageIndex + 1}/{totalPages}
                                     </span>
                                     {processingStatus.isStreaming && (
-                                        <span className="flex items-center gap-1.5 text-emerald-600 font-semibold animate-pulse">
-                                            <Activity size={14} />
+                                        <span className="flex items-center gap-1 text-emerald-600 font-semibold animate-pulse">
+                                            <Activity size={12} />
                                             Streaming {processingStatus.processedPages}/{processingStatus.totalPages}
                                         </span>
                                     )}
@@ -756,14 +693,14 @@ const StudySession = () => {
                         </div>
 
                         {/* Right: Controls */}
-                        <div className="flex items-center gap-3 flex-shrink-0">
+                        <div className="flex items-center gap-2.5 flex-shrink-0">
                             {/* Timer */}
-                            <div className={`px-5 py-3 rounded-2xl flex items-center gap-2.5 transition-all shadow-lg ${sessionPaused
-                                    ? 'bg-gradient-to-r from-orange-50 to-red-50 ring-2 ring-orange-300'
-                                    : 'bg-gradient-to-r from-emerald-50 to-teal-50 ring-2 ring-emerald-300'
+                            <div className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm ${sessionPaused
+                                ? 'bg-gradient-to-r from-orange-50 to-red-50 ring-2 ring-orange-200'
+                                : 'bg-gradient-to-r from-emerald-50 to-teal-50 ring-2 ring-emerald-200'
                                 }`}>
-                                <Clock size={18} className={sessionPaused ? 'text-orange-600' : 'text-emerald-600'} />
-                                <span className="text-lg font-black text-gray-900 tabular-nums min-w-[5rem]">
+                                <Clock size={16} className={sessionPaused ? 'text-orange-600' : 'text-emerald-600'} />
+                                <span className="text-base font-bold text-gray-900 tabular-nums min-w-[4rem]">
                                     {formatTime(studyTime)}
                                 </span>
                             </div>
@@ -772,46 +709,42 @@ const StudySession = () => {
                             <button
                                 onClick={handleTogglePause}
                                 disabled={!sessionId}
-                                className={`p-3.5 rounded-2xl transition-all shadow-lg hover:scale-105 active:scale-95 ${sessionPaused
-                                        ? 'bg-gradient-to-r from-orange-100 to-red-100 hover:from-orange-200 hover:to-red-200 text-orange-600'
-                                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                                className={`p-2.5 rounded-xl transition-all shadow-sm hover:scale-105 active:scale-95 ${sessionPaused
+                                    ? 'bg-gradient-to-r from-orange-100 to-red-100 hover:from-orange-200 hover:to-red-200 text-orange-600'
+                                    : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                                 title={sessionPaused ? 'Resume' : 'Pause'}
                             >
-                                {sessionPaused ? <Play size={20} /> : <Pause size={20} />}
+                                {sessionPaused ? <Play size={18} /> : <Pause size={18} />}
                             </button>
 
                             {/* Progress */}
-                            <div className="px-5 py-3 bg-gradient-to-r from-violet-50 to-purple-50 rounded-2xl flex items-center gap-2.5 shadow-lg ring-2 ring-purple-300">
-                                <Target size={18} className="text-purple-600" />
-                                <span className="text-lg font-black text-gray-900">{progress}%</span>
+                            <div className="px-4 py-2 bg-gradient-to-r from-violet-50 to-purple-50 rounded-xl flex items-center gap-2 shadow-sm ring-2 ring-purple-200">
+                                <Target size={16} className="text-purple-600" />
+                                <span className="text-base font-bold text-gray-900">{progress}%</span>
                             </div>
 
                             {/* Auto-scroll */}
                             <button
                                 onClick={() => {
                                     setAutoScrollToNew(!autoScrollToNew);
-                                    toast(autoScrollToNew ? 'Auto-scroll disabled' : 'Auto-scroll enabled', {
-                                        icon: autoScrollToNew ? '🔕' : '🔔',
-                                        duration: 1500
-                                    });
                                 }}
-                                className={`p-3.5 rounded-2xl transition-all shadow-lg hover:scale-105 active:scale-95 ${autoScrollToNew
-                                        ? 'bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-600 ring-2 ring-emerald-300'
-                                        : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                                className={`p-2.5 rounded-xl transition-all shadow-sm hover:scale-105 active:scale-95 ${autoScrollToNew
+                                    ? 'bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-600 ring-2 ring-emerald-200'
+                                    : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
                                     }`}
                                 title={autoScrollToNew ? 'Auto-scroll ON' : 'Auto-scroll OFF'}
                             >
-                                <Zap size={20} className={autoScrollToNew ? 'animate-pulse' : ''} />
+                                <Zap size={18} className={autoScrollToNew ? 'animate-pulse' : ''} />
                             </button>
                         </div>
                     </div>
 
                     {/* Progress bar */}
-                    <div className="pb-5">
-                        <div className="h-2.5 bg-gradient-to-r from-gray-100 to-gray-200 rounded-full overflow-hidden relative shadow-inner">
+                    <div className="pb-4">
+                        <div className="h-2 bg-gradient-to-r from-gray-100 to-gray-200 rounded-full overflow-hidden relative shadow-inner">
                             <motion.div
-                                className="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 shadow-lg"
+                                className="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 shadow-sm"
                                 initial={{ width: 0 }}
                                 animate={{ width: `${progress}%` }}
                                 transition={{ duration: 0.4, ease: 'easeOut' }}
@@ -831,10 +764,10 @@ const StudySession = () => {
             {/* MAIN CONTENT */}
             <div
                 ref={pageContainerRef}
-                className="h-[calc(100vh-180px)] overflow-y-auto overscroll-contain"
+                className="h-[calc(100vh-160px)] overflow-y-auto overscroll-contain"
                 style={{ scrollBehavior: 'smooth' }}
             >
-                <div className={`${DESIGN.container} py-8 space-y-8 pb-32`}>
+                <div className={`${DESIGN.container} py-6 space-y-6 pb-32`}>
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={currentPageIndex}
@@ -845,77 +778,53 @@ const StudySession = () => {
                         >
                             {currentPage && (
                                 <>
-                                    {/* PAGE HEADER CARD */}
-                                    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 p-10 text-white shadow-2xl">
-                                        {/* New page glow */}
-                                        {newPageAnimation === currentPage.pageNumber && (
-                                            <motion.div
-                                                initial={{ opacity: 0 }}
-                                                animate={{ opacity: [0, 0.4, 0] }}
-                                                transition={{ duration: 1.5 }}
-                                                className="absolute inset-0 bg-yellow-300 pointer-events-none"
-                                            />
-                                        )}
-
-                                        {/* Decorative elements */}
-                                        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32" />
-                                        <div className="absolute bottom-0 left-0 w-96 h-96 bg-cyan-400/20 rounded-full blur-3xl -ml-48 -mb-48" />
-
-                                        <div className="flex items-start justify-between gap-8 relative z-10">
+                                    {/* PAGE HEADER - Minimalist */}
+                                    <div className={DESIGN.card + ' p-6'}>
+                                        <div className="flex items-start justify-between gap-6">
                                             <div className="flex-1">
-                                                <div className="flex items-center gap-5 mb-6">
-                                                    <div className="w-20 h-20 rounded-3xl bg-white/20 backdrop-blur-2xl flex items-center justify-center shadow-2xl">
-                                                        <BookOpen size={40} className="drop-shadow-lg" />
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <div className="flex items-center gap-3 mb-2">
-                                                            <span className="text-base opacity-95 font-bold uppercase tracking-wider">
-                                                                Page {currentPage.pageNumber}
-                                                            </span>
-                                                            {newPageAnimation === currentPage.pageNumber && (
-                                                                <motion.span
-                                                                    initial={{ scale: 0 }}
-                                                                    animate={{ scale: [0, 1.2, 1] }}
-                                                                    className="px-3 py-1 bg-yellow-400 text-yellow-900 text-sm font-black rounded-full shadow-lg"
-                                                                >
-                                                                    NEW!
-                                                                </motion.span>
-                                                            )}
-                                                        </div>
-                                                        <h2 className="text-4xl sm:text-5xl font-black leading-tight drop-shadow-lg">
-                                                            {currentPage.coreConcept}
-                                                        </h2>
-                                                    </div>
+                                                <div className="flex items-center gap-3 mb-3">
+                                                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                                        Page {currentPage.pageNumber}
+                                                    </span>
+                                                    {newPageAnimation === currentPage.pageNumber && (
+                                                        <motion.span
+                                                            initial={{ scale: 0 }}
+                                                            animate={{ scale: 1 }}
+                                                            className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded"
+                                                        >
+                                                            NEW
+                                                        </motion.span>
+                                                    )}
                                                 </div>
+                                                <h2 className="text-2xl font-bold text-gray-900 mb-4 leading-tight">
+                                                    {currentPage.coreConcept}
+                                                </h2>
 
                                                 {/* Key Topics */}
                                                 {currentPage.keyTopics?.length > 0 && (
-                                                    <div className="flex flex-wrap gap-2.5">
+                                                    <div className="flex flex-wrap gap-2">
                                                         {currentPage.keyTopics.map((topic, i) => (
-                                                            <motion.span
+                                                            <span
                                                                 key={i}
-                                                                initial={{ opacity: 0, scale: 0.8 }}
-                                                                animate={{ opacity: 1, scale: 1 }}
-                                                                transition={{ delay: i * 0.05 }}
-                                                                className="px-4 py-2 bg-white/25 backdrop-blur-2xl rounded-full text-base font-bold shadow-xl"
+                                                                className="px-3 py-1 bg-gray-50 text-gray-700 text-sm font-medium rounded-md border border-gray-200"
                                                             >
                                                                 {topic}
-                                                            </motion.span>
+                                                            </span>
                                                         ))}
                                                     </div>
                                                 )}
                                             </div>
 
                                             {/* Metadata */}
-                                            <div className="flex flex-col gap-3 flex-shrink-0">
+                                            <div className="flex flex-col gap-2 flex-shrink-0">
                                                 {currentPage.complexity && (
-                                                    <div className="px-5 py-2.5 bg-white/25 backdrop-blur-2xl rounded-2xl text-base font-bold capitalize shadow-xl">
+                                                    <div className="px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-semibold rounded-md capitalize">
                                                         {currentPage.complexity}
                                                     </div>
                                                 )}
                                                 {currentPage.estimatedTime && (
-                                                    <div className="px-5 py-2.5 bg-white/25 backdrop-blur-2xl rounded-2xl text-base font-bold flex items-center gap-2 shadow-xl">
-                                                        <Clock size={16} />
+                                                    <div className="px-3 py-1.5 bg-purple-50 text-purple-700 text-xs font-semibold rounded-md flex items-center gap-1.5">
+                                                        <Clock size={12} />
                                                         {currentPage.estimatedTime}
                                                     </div>
                                                 )}
@@ -931,51 +840,152 @@ const StudySession = () => {
                                         />
                                     )}
 
-                                    {/* EXPLANATION CARD */}
-                                    <div className={`${DESIGN.card} p-10`}>
-                                        <div className="flex items-center gap-4 mb-6">
-                                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-xl">
-                                                <Brain size={28} className="text-white" />
+                                    {/* EXPLANATION */}
+                                    <div className={DESIGN.card + ' p-6'}>
+                                        <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-gray-100">
+                                            <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
+                                                <Brain size={16} className="text-emerald-600" />
                                             </div>
-                                            <h3 className="text-2xl font-black text-gray-900">Detailed Explanation</h3>
+                                            <h3 className="text-base font-semibold text-gray-900">Explanation</h3>
                                         </div>
-                                        <p className="text-gray-700 leading-relaxed text-lg whitespace-pre-wrap">
-                                            {currentPage.explanation}
-                                        </p>
+                                        <div className="prose prose-sm max-w-none">
+                                            <p className="text-gray-700 leading-relaxed text-sm whitespace-pre-wrap">
+                                                {currentPage.explanation}
+                                            </p>
+                                        </div>
                                     </div>
 
                                     {/* LEARNING PATH */}
                                     {currentPage.learningPath?.length > 0 && (
-                                        <div className={`${DESIGN.card} p-10`}>
-                                            <h3 className="text-2xl font-black text-gray-900 mb-8 flex items-center gap-3">
-                                                <Sparkles size={28} className="text-yellow-500" />
-                                                Learning Path
-                                            </h3>
-                                            <div className="space-y-5">
+                                        <div className={DESIGN.card + ' p-6'}>
+                                            <div className="flex items-center gap-2.5 mb-5 pb-3 border-b border-gray-100">
+                                                <div className="w-8 h-8 rounded-lg bg-yellow-50 flex items-center justify-center flex-shrink-0">
+                                                    <Sparkles size={16} className="text-yellow-600" />
+                                                </div>
+                                                <h3 className="text-base font-semibold text-gray-900">Learning Path</h3>
+                                            </div>
+                                            <div className="space-y-3">
                                                 {currentPage.learningPath.map((step, i) => (
                                                     <motion.div
                                                         key={i}
-                                                        initial={{ opacity: 0, x: -30 }}
+                                                        initial={{ opacity: 0, x: -20 }}
                                                         animate={{ opacity: 1, x: 0 }}
-                                                        transition={{ delay: i * 0.06 }}
-                                                        className="flex gap-5 p-6 bg-gradient-to-r from-gray-50 to-emerald-50/50 rounded-2xl hover:shadow-xl transition-all group border border-gray-100"
+                                                        transition={{ delay: i * 0.05 }}
+                                                        className="flex gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-100"
                                                     >
-                                                        <div className="flex-shrink-0 w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white flex items-center justify-center font-black text-xl shadow-xl group-hover:scale-110 transition-transform">
+                                                        <div className="flex-shrink-0 w-8 h-8 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center font-semibold text-sm">
                                                             {step.step}
                                                         </div>
-                                                        <div className="flex-1">
-                                                            <div className="flex items-center justify-between gap-3 mb-3">
-                                                                <h4 className="font-bold text-gray-900 text-xl">{step.title}</h4>
-                                                                <span className="text-sm font-bold text-gray-500 flex items-center gap-1.5">
-                                                                    <Clock size={16} />
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-start justify-between gap-3 mb-1.5">
+                                                                <h4 className="font-semibold text-gray-900 text-sm">{step.title}</h4>
+                                                                <span className="text-xs font-medium text-gray-500 flex items-center gap-1 flex-shrink-0">
+                                                                    <Clock size={12} />
                                                                     {step.duration}
                                                                 </span>
                                                             </div>
-                                                            <p className="text-gray-600 text-base leading-relaxed">{step.description}</p>
+                                                            <p className="text-gray-600 text-sm leading-relaxed">{step.description}</p>
                                                         </div>
                                                     </motion.div>
                                                 ))}
                                             </div>
+                                        </div>
+                                    )}
+
+                                    {/* KEY CONCEPTS */}
+                                    {currentPage.keyConcepts?.length > 0 && (
+                                        <div className={DESIGN.card + ' p-6'}>
+                                            <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-gray-100">
+                                                <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                                                    <Target size={16} className="text-indigo-600" />
+                                                </div>
+                                                <h3 className="text-base font-semibold text-gray-900">Key Concepts</h3>
+                                            </div>
+                                            <div className="space-y-2.5">
+                                                {currentPage.keyConcepts.map((concept, i) => (
+                                                    <div key={i} className="flex gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                                                        <div className="flex-shrink-0 w-5 h-5 rounded bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-semibold mt-0.5">
+                                                            {i + 1}
+                                                        </div>
+                                                        <p className="text-gray-700 text-sm leading-relaxed">{concept}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* REAL-WORLD APPLICATIONS */}
+                                    {currentPage.applications?.length > 0 && (
+                                        <div className={DESIGN.card + ' p-6'}>
+                                            <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-gray-100">
+                                                <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center flex-shrink-0">
+                                                    <TrendingUp size={16} className="text-orange-600" />
+                                                </div>
+                                                <h3 className="text-base font-semibold text-gray-900">Real-World Applications</h3>
+                                            </div>
+                                            <div className="grid gap-3">
+                                                {currentPage.applications.map((app, i) => (
+                                                    <div key={i} className="p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border border-orange-100">
+                                                        <h4 className="font-semibold text-gray-900 text-sm mb-1.5">{app.title}</h4>
+                                                        <p className="text-gray-600 text-sm leading-relaxed">{app.description}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* PRACTICE QUESTIONS */}
+                                    {currentPage.questions?.length > 0 && (
+                                        <div className={DESIGN.card + ' p-6'}>
+                                            <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-gray-100">
+                                                <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0">
+                                                    <CheckCircle size={16} className="text-violet-600" />
+                                                </div>
+                                                <h3 className="text-base font-semibold text-gray-900">Practice Questions</h3>
+                                            </div>
+                                            <div className="space-y-4">
+                                                {currentPage.questions.map((q, i) => (
+                                                    <div key={i} className="p-4 bg-violet-50/50 rounded-lg border border-violet-100">
+                                                        <p className="font-medium text-gray-900 text-sm mb-2">{q.question}</p>
+                                                        <p className="text-gray-600 text-sm italic">Answer: {q.answer}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* RELATED TOPICS */}
+                                    {currentPage.relatedTopics?.length > 0 && (
+                                        <div className={DESIGN.card + ' p-6'}>
+                                            <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-gray-100">
+                                                <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
+                                                    <Link size={16} className="text-teal-600" />
+                                                </div>
+                                                <h3 className="text-base font-semibold text-gray-900">Related Topics</h3>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {currentPage.relatedTopics.map((topic, i) => (
+                                                    <span
+                                                        key={i}
+                                                        className="px-3 py-1.5 bg-teal-50 text-teal-700 text-sm font-medium rounded-md hover:bg-teal-100 transition-colors cursor-pointer"
+                                                    >
+                                                        {topic}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* SUMMARY */}
+                                    {currentPage.summary && (
+                                        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6 shadow-sm">
+                                            <div className="flex items-center gap-2.5 mb-3">
+                                                <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                                    <Check size={16} className="text-blue-600" />
+                                                </div>
+                                                <h3 className="text-base font-semibold text-gray-900">Summary</h3>
+                                            </div>
+                                            <p className="text-gray-700 text-sm leading-relaxed">{currentPage.summary}</p>
                                         </div>
                                     )}
                                 </>
@@ -986,40 +996,40 @@ const StudySession = () => {
             </div>
 
             {/* BOTTOM NAVIGATION */}
-            <div className={`fixed bottom-0 left-0 right-0 ${DESIGN.header} border-t shadow-2xl z-40`}>
+            <div className={`fixed bottom-0 left-0 right-0 ${DESIGN.header} border-t shadow-xl z-40`}>
                 <div className={DESIGN.container}>
-                    <div className="py-5 flex items-center justify-between gap-6">
+                    <div className="py-4 flex items-center justify-between gap-6">
                         {/* Previous */}
                         <button
                             onClick={handlePrevPage}
                             disabled={!hasPrevPage}
-                            className="flex items-center gap-2.5 px-8 py-4 bg-gray-100 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed rounded-2xl font-bold text-base transition-all hover:scale-105 active:scale-95 shadow-lg"
+                            className="flex items-center gap-2 px-6 py-2.5 bg-gray-100 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl font-semibold text-sm transition-all hover:scale-105 active:scale-95 shadow-sm"
                         >
-                            <ChevronLeft size={22} />
+                            <ChevronLeft size={18} />
                             <span>Previous</span>
                         </button>
 
                         {/* Page dots */}
-                        <div className="flex items-center gap-2.5 overflow-x-auto max-w-2xl scrollbar-hide px-3">
+                        <div className="flex items-center gap-2 overflow-x-auto max-w-2xl scrollbar-hide px-3">
                             {visualPages.slice(0, 15).map((page, index) => (
                                 <button
                                     key={index}
                                     onClick={() => handleJumpToPage(index)}
-                                    className={`h-3 rounded-full transition-all relative group ${index === currentPageIndex
-                                            ? 'bg-gradient-to-r from-emerald-500 to-teal-500 w-12 shadow-lg'
-                                            : newPageAnimation === page.pageNumber
-                                                ? 'bg-yellow-500 w-5 animate-pulse shadow-md'
-                                                : 'bg-gray-300 hover:bg-gray-400 w-3'
+                                    className={`h-2.5 rounded-full transition-all relative group ${index === currentPageIndex
+                                        ? 'bg-gradient-to-r from-emerald-500 to-teal-500 w-10 shadow-md'
+                                        : newPageAnimation === page.pageNumber
+                                            ? 'bg-yellow-500 w-4 animate-pulse shadow-sm'
+                                            : 'bg-gray-300 hover:bg-gray-400 w-2.5'
                                         }`}
                                     title={page.coreConcept || `Page ${index + 1}`}
                                 >
-                                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 px-4 py-2 bg-gray-900 text-white text-sm rounded-xl whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-2xl font-medium">
+                                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl font-medium">
                                         {page.coreConcept || `Page ${index + 1}`}
                                     </span>
                                 </button>
                             ))}
                             {visualPages.length > 15 && (
-                                <span className="text-sm text-gray-500 ml-3 font-bold">
+                                <span className="text-xs text-gray-500 ml-2 font-semibold">
                                     +{visualPages.length - 15}
                                 </span>
                             )}
@@ -1029,10 +1039,10 @@ const StudySession = () => {
                         <button
                             onClick={handleNextPage}
                             disabled={!hasNextPage}
-                            className="flex items-center gap-2.5 px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white disabled:opacity-40 disabled:cursor-not-allowed rounded-2xl font-bold text-base transition-all hover:scale-105 active:scale-95 shadow-xl"
+                            className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white disabled:opacity-40 disabled:cursor-not-allowed rounded-xl font-semibold text-sm transition-all hover:scale-105 active:scale-95 shadow-md"
                         >
                             <span>Next</span>
-                            <ChevronRight size={22} />
+                            <ChevronRight size={18} />
                         </button>
                     </div>
                 </div>
@@ -1045,12 +1055,12 @@ const StudySession = () => {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 20 }}
-                        className="fixed bottom-28 left-6 px-6 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-2xl shadow-2xl flex items-center gap-4 z-40 ring-4 ring-emerald-200"
+                        className="fixed bottom-24 left-6 px-5 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl shadow-xl flex items-center gap-3 z-40 ring-4 ring-emerald-200"
                     >
-                        <Activity size={24} className="animate-spin" />
-                        <div className="text-base">
-                            <p className="font-bold">Processing Pages</p>
-                            <p className="text-sm opacity-95">
+                        <Activity size={20} className="animate-spin" />
+                        <div className="text-sm">
+                            <p className="font-semibold">Processing Pages</p>
+                            <p className="text-xs opacity-95">
                                 {processingStatus.processedPages}/{processingStatus.totalPages} ready
                             </p>
                         </div>
@@ -1066,15 +1076,15 @@ const StudySession = () => {
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.8 }}
                         onClick={() => pageContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
-                        className="fixed bottom-28 right-6 w-16 h-16 rounded-full bg-gray-900 text-white shadow-2xl hover:scale-110 active:scale-95 transition-all flex items-center justify-center z-40 ring-4 ring-gray-300"
+                        className="fixed bottom-24 right-6 w-14 h-14 rounded-full bg-gray-900 text-white shadow-2xl hover:scale-110 active:scale-95 transition-all flex items-center justify-center z-40 ring-4 ring-gray-300"
                         title="Scroll to top"
                     >
-                        <ArrowUp size={28} />
+                        <ArrowUp size={24} />
                     </motion.button>
                 )}
             </AnimatePresence>
 
-            {/* LOMA AI BUTTON - ENHANCED */}
+            {/* LOMA AI BUTTON */}
             <LomaAIButton
                 onModeSelect={setAiMode}
                 isActive={aiMode !== null}

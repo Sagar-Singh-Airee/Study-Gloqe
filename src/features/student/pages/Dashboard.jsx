@@ -17,7 +17,7 @@ import { db } from '@shared/config/firebase';
 import { awardDailyXP, DAILY_ACTIONS } from '@gamification/services/gamificationService';
 import { useGamification } from '@gamification/hooks/useGamification';
 import { updateDailyStreak } from '@shared/services/streakService';
-import { useDashboardSync } from '@shared/services/realtimeSync'; // Added unified sync
+import { useDashboardSync } from '@shared/services/realtimeSync';
 import { calculateLevel, calculateLevelProgress, getNextLevelXp } from '@utils/levelUtils';
 import toast from 'react-hot-toast';
 import logoImage from '@assets/logo/loma.png';
@@ -40,7 +40,7 @@ import Profile from '@student/pages/Profile';
 
 // Analytics Components
 import AnalyticsSection from '@analytics/components/AnalyticsSection';
-import StudentAnalytics from '@analytics/components/StudentAnalytics'; // Keep for legacy if needed or remove
+import StudentAnalytics from '@analytics/components/StudentAnalytics';
 import LeaderboardSection from '@analytics/components/LeaderboardSection';
 import ErrorBoundary from '@shared/components/ErrorBoundary';
 
@@ -63,7 +63,6 @@ const SIDEBAR_ITEMS = [
     { icon: Medal, label: 'Achievements', tab: 'achievements', badge: 'NEW' },
     { icon: Brain, label: 'Quizzes', tab: 'quizzes', badge: null },
     { icon: Layers, label: 'Flashcards', tab: 'flashcards', badge: null },
-    { icon: StickyNote, label: 'Notes', tab: 'notes', badge: null },
     { icon: Video, label: 'Study Rooms', tab: 'rooms', badge: 'LIVE' },
     { icon: Trophy, label: 'Leaderboard', tab: 'leaderboard', badge: null },
     { icon: Clock, label: 'History', tab: 'history', badge: null },
@@ -168,7 +167,6 @@ const AnimatedCounter = ({ value, duration = 1000 }) => {
     return <span>{displayValue.toLocaleString()}</span>;
 };
 
-// ✨ COMPACT XP PROGRESS RING
 const CompactXPRing = ({ progress, size = 56 }) => {
     const strokeWidth = 4;
     const radius = (size - strokeWidth) / 2;
@@ -548,8 +546,7 @@ const MobileSidebar = ({ isOpen, onClose, activeTab, onTabChange, onLogout }) =>
                     <div className="p-6 flex items-center justify-between border-b border-gray-800/50 bg-gradient-to-r from-white/5 to-transparent">
                         <div className="flex items-center gap-3">
                             <div className="relative">
-                                <div className="absolute inset-0 bg-teal-500/30 blur-lg rounded-xl" />
-                                <img src={logoImage} alt="Logo" className="relative h-9 w-17 rounded-xl shadow-lg" />
+                                <img src={logoImage} alt="Logo" className="h-9 w-17 rounded-xl shadow-lg" />
                             </div>
                             <div>
                                 <span className="text-lg font-black text-white block tracking-tight">StudyGloqe</span>
@@ -637,14 +634,11 @@ const Dashboard = () => {
         dismissNotification
     } = useGamification();
 
-    // ✅ UNIFIED METRICS LISTENER (Same as Analytics)
     const { metrics: dashboardMetrics, loading: dashboardLoading } = useDashboardSync(user?.uid);
 
-    // ✅ Always compute highest stats for instant UI feedback & sync consistency
     const streak = Math.max(dashboardMetrics?.gamification?.streak || 0, rawStreak || 0);
     const currentXP = Math.max(dashboardMetrics?.gamification?.xp || 0, rawXP || 0);
 
-    // Recalculate level and progress from the highest XP found to ensure consistency
     const currentLevel = calculateLevel(currentXP);
     const xpProgress = calculateLevelProgress(currentXP);
     const xpForNextLevel = getNextLevelXp(currentXP);
@@ -663,7 +657,6 @@ const Dashboard = () => {
     const [showXPAnimation, setShowXPAnimation] = useState(false);
     const [xpGained, setXpGained] = useState(0);
     const [levelModalOpen, setLevelModalOpen] = useState(false);
-
     const [tutorialActive, setTutorialActive] = useState(false);
     const [currentTutorialStep, setCurrentTutorialStep] = useState(0);
 
@@ -678,7 +671,6 @@ const Dashboard = () => {
         return !hasSeenTutorial && activeTab === 'overview';
     }, [activeTab]);
 
-    // Tutorial navigation
     const handleNextTutorialStep = () => {
         if (currentTutorialStep < TUTORIAL_STEPS.length - 1) {
             setCurrentTutorialStep(prev => prev + 1);
@@ -720,7 +712,6 @@ const Dashboard = () => {
         setCurrentTutorialStep(0);
     };
 
-    // Keyboard shortcuts
     useEffect(() => {
         const handleKeyDown = (e) => {
             if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -767,7 +758,6 @@ const Dashboard = () => {
         });
     }, [notifications, dismissNotification]);
 
-    // Real-time documents listener
     useEffect(() => {
         if (!user?.uid) return;
 
@@ -803,7 +793,6 @@ const Dashboard = () => {
         return () => unsubscribe();
     }, [user?.uid]);
 
-    // Real-time sessions listener
     useEffect(() => {
         if (!user?.uid) return;
 
@@ -840,7 +829,6 @@ const Dashboard = () => {
         return () => unsubscribe();
     }, [user?.uid]);
 
-    // ✅ UPDATED: Daily login bonus + Streak tracking
     useEffect(() => {
         if (!user?.uid) return;
 
@@ -850,18 +838,16 @@ const Dashboard = () => {
             const lastLogin = localStorage.getItem(lastLoginKey);
 
             if (lastLogin === today) {
-                console.log('✅ Already logged in today');
+                console.log('Already logged in today');
                 return;
             }
 
             try {
-                console.log('🔄 Processing daily login and streak...');
+                console.log('Processing daily login and streak...');
 
-                // 1️⃣ UPDATE STREAK FIRST
                 const streakResult = await updateDailyStreak(user.uid);
-
                 if (streakResult.success) {
-                    console.log('📊 Streak result:', streakResult);
+                    console.log('Streak result:', streakResult);
 
                     if (streakResult.isIncremented) {
                         toast.success(`🔥 ${streakResult.streak} day streak!`, {
@@ -875,7 +861,7 @@ const Dashboard = () => {
                             },
                         });
                     } else if (streakResult.wasReset) {
-                        toast(`Streak reset! You missed ${streakResult.daysMissed} day(s). Start fresh! 💪`, {
+                        toast(`Streak reset! You missed ${streakResult.daysMissed} days. Start fresh!`, {
                             duration: 4000,
                             style: {
                                 background: 'linear-gradient(135deg, #64748b 0%, #475569 100%)',
@@ -886,7 +872,7 @@ const Dashboard = () => {
                             },
                         });
                     } else if (streakResult.isNewStreak) {
-                        toast.success('🎉 Streak started! Come back tomorrow to keep it going', {
+                        toast.success('✨ Streak started! Come back tomorrow to keep it going', {
                             duration: 3500,
                             style: {
                                 background: 'linear-gradient(135deg, #14b8a6 0%, #06b6d4 100%)',
@@ -894,16 +880,14 @@ const Dashboard = () => {
                                 fontWeight: 'bold',
                                 borderRadius: '16px',
                                 padding: '16px 24px',
-                            }
+                            },
                         });
                     }
                 }
 
-                // 2️⃣ AWARD DAILY XP
                 const xpResult = await awardDailyXP(user.uid, DAILY_ACTIONS.DAILY_LOGIN, 'Daily Login Bonus');
-
                 if (xpResult.success && isMountedRef.current) {
-                    toast.success(`🎁 Daily bonus: +${xpResult.xpGained} XP!`, {
+                    toast.success(`✨ Daily bonus: +${xpResult.xpGained} XP!`, {
                         duration: 3000,
                         style: {
                             background: 'linear-gradient(135deg, #14b8a6 0%, #06b6d4 100%)',
@@ -915,11 +899,9 @@ const Dashboard = () => {
                     });
                 }
 
-                // 3️⃣ Mark today as logged in
                 localStorage.setItem(lastLoginKey, today);
-
             } catch (error) {
-                console.error('❌ Daily login/streak error:', error);
+                console.error('Daily login/streak error:', error);
                 toast.error('Failed to process daily login');
             }
         };
@@ -994,7 +976,7 @@ const Dashboard = () => {
             path: '/dashboard?tab=flashcards',
             gradient: 'from-gray-500 to-gray-400',
             iconColor: 'text-white'
-        }
+        },
     ], [handleUploadClick]);
 
     const renderContent = useCallback(() => {
@@ -1002,19 +984,12 @@ const Dashboard = () => {
             handleTabChange,
             handleUploadClick,
             navigate,
-            tutorialActive,
+            tutorialActive
         };
 
         switch (activeTab) {
             case 'overview':
-                return (
-                    <OverviewSection
-                        stats={{ streak, ...realtimeStats }}
-                        recentDocuments={recentDocuments}
-                        quickActions={quickActions}
-                        {...commonProps}
-                    />
-                );
+                return <OverviewSection stats={{ streak, ...realtimeStats }} recentDocuments={recentDocuments} quickActions={quickActions} {...commonProps} />;
             case 'analytics':
                 return <AnalyticsSection />;
             case 'classes':
@@ -1038,14 +1013,7 @@ const Dashboard = () => {
             case 'profile':
                 return <Profile embedded />;
             default:
-                return (
-                    <OverviewSection
-                        stats={{ ...realtimeStats, streak }}
-                        recentDocuments={recentDocuments}
-                        quickActions={quickActions}
-                        {...commonProps}
-                    />
-                );
+                return <OverviewSection stats={{ ...realtimeStats, streak }} recentDocuments={recentDocuments} quickActions={quickActions} {...commonProps} />;
         }
     }, [activeTab, realtimeStats, streak, recentDocuments, quickActions, handleTabChange, handleUploadClick, navigate, tutorialActive]);
 
@@ -1056,12 +1024,12 @@ const Dashboard = () => {
                     <div className="relative w-16 h-16 mx-auto mb-6">
                         <motion.div
                             animate={{ rotate: 360 }}
-                            transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
+                            transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
                             className="absolute inset-0 rounded-full border-4 border-gray-100 border-t-teal-500 shadow-lg"
                         />
                         <motion.div
                             animate={{ rotate: -360 }}
-                            transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                            transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
                             className="absolute inset-2 rounded-full border-4 border-gray-50 border-t-cyan-500"
                         />
                     </div>
@@ -1077,7 +1045,6 @@ const Dashboard = () => {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
-            {/* XP GAIN ANIMATION */}
             <AnimatePresence>
                 {showXPAnimation && xpGained > 0 && (
                     <motion.div
@@ -1089,7 +1056,6 @@ const Dashboard = () => {
                     >
                         <div className="relative">
                             <div className="absolute -inset-8 bg-gradient-to-r from-yellow-400/40 via-yellow-300/40 to-yellow-400/40 blur-3xl" />
-
                             <div className="relative bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white px-12 py-6 rounded-2xl font-black text-4xl shadow-2xl border border-yellow-400/30 flex items-center gap-5">
                                 <motion.div
                                     animate={{
@@ -1098,7 +1064,7 @@ const Dashboard = () => {
                                     }}
                                     transition={{ duration: 0.6 }}
                                 >
-                                    <Zap size={40} className="text-yellow-400 drop-shadow-lg" fill="currentColor" />
+                                    <Zap size={40} className="text-yellow-400 drop-shadow-lg fill-current" />
                                 </motion.div>
                                 <span className="drop-shadow-lg">+{xpGained} XP</span>
                                 <motion.div
@@ -1113,9 +1079,8 @@ const Dashboard = () => {
                 )}
             </AnimatePresence>
 
-            {/* ACHIEVEMENT NOTIFICATIONS */}
             <AnimatePresence>
-                {notifications && notifications.length > 0 && notifications.map((notif) => (
+                {notifications && notifications.length > 0 && notifications.map(notif => (
                     <AchievementToast
                         key={notif.id}
                         notification={notif}
@@ -1124,7 +1089,6 @@ const Dashboard = () => {
                 ))}
             </AnimatePresence>
 
-            {/* LEVEL UP MODAL */}
             <LevelModal
                 isOpen={levelModalOpen}
                 onClose={() => setLevelModalOpen(false)}
@@ -1132,7 +1096,6 @@ const Dashboard = () => {
                 xp={currentXP}
             />
 
-            {/* TUTORIAL OVERLAY */}
             <AnimatePresence>
                 {tutorialActive && (
                     <TutorialOverlay
@@ -1146,7 +1109,6 @@ const Dashboard = () => {
                 )}
             </AnimatePresence>
 
-            {/* COMMAND PALETTE */}
             <AnimatePresence>
                 {showCommandPalette && (
                     <CommandPalette
@@ -1158,7 +1120,6 @@ const Dashboard = () => {
                 )}
             </AnimatePresence>
 
-            {/* MOBILE SIDEBAR */}
             <MobileSidebar
                 isOpen={mobileSidebarOpen}
                 onClose={() => setMobileSidebarOpen(false)}
@@ -1167,19 +1128,16 @@ const Dashboard = () => {
                 onLogout={handleLogout}
             />
 
-            {/* COMPACT SIDEBAR (Desktop) */}
             <motion.aside
                 initial={{ x: -240 }}
                 animate={{ x: 0 }}
                 transition={{ duration: 0.5, ease: [0.65, 0, 0.35, 1] }}
                 className="fixed left-0 top-0 h-full w-60 bg-gradient-to-b from-gray-900 via-gray-850 to-gray-900 border-r border-gray-800/50 hidden lg:block overflow-y-auto z-40 shadow-2xl custom-scrollbar"
             >
-                {/* Logo */}
                 <div className="p-4 border-b border-gray-800/50">
                     <div className="flex items-center gap-3">
                         <div className="relative shrink-0">
-                            <div className="absolute inset-0 bg-gradient-to-br from-teal-500/30 to-cyan-500/30 blur-lg rounded-lg" />
-                            <img src={logoImage} alt="StudyGloqe" className="relative h-14 w-18 rounded-lg shadow-lg" />
+                            <img src={logoImage} alt="StudyGloqe" className="h-14 w-18 rounded-lg shadow-lg" />
                         </div>
                         <div className="min-w-0">
                             <h1 className="text-base font-black text-white tracking-tight truncate">StudyGloqe</h1>
@@ -1188,7 +1146,6 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                {/* XP CARD */}
                 <div id="xp-card" className="p-3">
                     <motion.div
                         whileHover={{ scale: 1.02, y: -2 }}
@@ -1207,7 +1164,7 @@ const Dashboard = () => {
                                     >
                                         {currentLevel}
                                     </motion.p>
-                                    <Crown size={14} className="text-yellow-400 mb-1" fill="currentColor" />
+                                    <Crown size={14} className="text-yellow-400 mb-1 fill-current" />
                                 </div>
                             </div>
                             <CompactXPRing progress={xpProgress} />
@@ -1220,10 +1177,11 @@ const Dashboard = () => {
                                     <AnimatedCounter value={currentXP} /> / {xpForNextLevel}
                                 </span>
                             </div>
+
                             <div className="flex items-center justify-between py-2 px-2.5 bg-white/5 rounded-lg">
                                 <span className="text-gray-400 font-medium text-xs">Streak</span>
                                 <span className="flex items-center gap-1.5">
-                                    <Flame size={14} className="text-orange-400" fill="currentColor" />
+                                    <Flame size={14} className="text-orange-400 fill-current" />
                                     <span className="text-orange-400 font-bold text-xs">{streak}d</span>
                                 </span>
                             </div>
@@ -1231,7 +1189,6 @@ const Dashboard = () => {
                     </motion.div>
                 </div>
 
-                {/* NAVIGATION */}
                 <nav id="sidebar-nav" className="p-3 space-y-1">
                     {SIDEBAR_ITEMS.map((item) => (
                         <motion.button
@@ -1268,9 +1225,7 @@ const Dashboard = () => {
                 <div className="p-3 mt-auto"></div>
             </motion.aside>
 
-            {/* MAIN CONTENT */}
             <div className="lg:ml-60">
-                {/* TOP BAR */}
                 <motion.header
                     initial={{ y: -60, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
@@ -1333,22 +1288,71 @@ const Dashboard = () => {
                             <motion.button
                                 id="upload-button"
                                 onClick={handleUploadClick}
-                                whileHover={{ scale: 1.03 }}
-                                whileTap={{ scale: 0.97 }}
-                                className="px-4 py-2 bg-gradient-to-r from-gray-900 to-gray-800 hover:from-black hover:to-gray-900 rounded-lg font-bold text-sm text-white shadow-[0_0_15px_rgba(20,184,166,0.5)] border border-teal-500/30 flex items-center gap-2 transition-all"
+                                whileHover={{ scale: 1.05, boxShadow: '0 0 35px rgba(20, 184, 166, 0.4)' }}
+                                whileTap={{ scale: 0.95 }}
+                                className="relative px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-all overflow-hidden group bg-black border border-white/20 shadow-[0_0_20px_rgba(20,184,166,0.2)]"
                             >
-                                <Upload size={16} />
-                                <span className="hidden sm:inline">Upload</span>
+                                {/* Diffused Glow Layer */}
+                                <div className="absolute inset-0 rounded-xl opacity-90 blur-[3px]" style={{
+                                    padding: '2.5px',
+                                    background: 'linear-gradient(90deg, #14b8a6, #22d3ee, #8b5cf6, #f472b6, #14b8a6)',
+                                    backgroundSize: '200% auto',
+                                    animation: 'borderGlow 1.5s linear infinite, glowPulse 2s ease-in-out infinite',
+                                    mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                                    maskComposite: 'exclude',
+                                    WebkitMaskComposite: 'xor',
+                                }} />
+
+                                {/* Sharp Inner Border */}
+                                <div className="absolute inset-0 rounded-xl" style={{
+                                    padding: '1.2px',
+                                    background: 'linear-gradient(90deg, #14b8a6, #22d3ee, #8b5cf6, #f472b6, #14b8a6)',
+                                    backgroundSize: '200% auto',
+                                    animation: 'borderGlow 1.5s linear infinite',
+                                    mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                                    maskComposite: 'exclude',
+                                    WebkitMaskComposite: 'xor',
+                                }} />
+
+                                <div className="relative z-10 flex items-center gap-2 text-white">
+                                    <Upload size={18} className="text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]" />
+                                    <span className="hidden sm:inline font-black tracking-wider uppercase text-xs">
+                                        Upload
+                                    </span>
+                                </div>
                             </motion.button>
 
                             <motion.button
                                 onClick={() => handleTabChange('profile')}
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
-                                className="p-2 hover:bg-gray-100 rounded-lg transition-all text-gray-700 hover:text-teal-600"
+                                className="relative"
                                 title="Profile"
                             >
-                                <User size={20} />
+                                {userData?.avatar || userData?.photoURL ? (
+                                    <div className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-gray-200 hover:ring-teal-400 transition-all duration-300 shadow-lg">
+                                        <img
+                                            src={userData.avatar || userData.photoURL}
+                                            alt="Profile"
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                                e.target.style.display = 'none';
+                                                e.target.nextElementSibling.style.display = 'flex';
+                                            }}
+                                        />
+                                        <div className="hidden w-full h-full bg-gradient-to-br from-teal-500 to-cyan-500 items-center justify-center">
+                                            <span className="text-white font-bold text-sm">
+                                                {userData?.displayName?.[0]?.toUpperCase() || 'U'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-500 to-cyan-500 flex items-center justify-center ring-2 ring-gray-200 hover:ring-teal-400 transition-all duration-300 shadow-lg">
+                                        <span className="text-white font-bold text-sm">
+                                            {userData?.displayName?.[0]?.toUpperCase() || 'U'}
+                                        </span>
+                                    </div>
+                                )}
                             </motion.button>
 
                             <motion.button
@@ -1370,7 +1374,7 @@ const Dashboard = () => {
                             >
                                 <motion.div
                                     animate={isRefreshing ? { rotate: 360 } : {}}
-                                    transition={{ duration: 1, repeat: isRefreshing ? Infinity : 0, ease: "linear" }}
+                                    transition={{ duration: 1, repeat: isRefreshing ? Infinity : 0, ease: 'linear' }}
                                 >
                                     <RefreshCw size={16} className="text-gray-600" />
                                 </motion.div>
@@ -1379,7 +1383,6 @@ const Dashboard = () => {
                     </div>
                 </motion.header>
 
-                {/* CONTENT AREA */}
                 <main className="p-5">
                     <ErrorBoundary onReset={() => setActiveTab('overview')}>
                         <AnimatePresence mode="wait">
@@ -1397,7 +1400,6 @@ const Dashboard = () => {
                 </main>
             </div>
 
-            {/* CUSTOM STYLES */}
             <style>{`
                 @keyframes shimmer {
                     0% { transform: translateX(-100%); }
@@ -1405,6 +1407,22 @@ const Dashboard = () => {
                 }
                 .animate-shimmer {
                     animation: shimmer 2s infinite;
+                }
+
+                @keyframes borderGlow {
+                    0% { background-position: 0% 50%; }
+                    50% { background-position: 100% 50%; }
+                    100% { background-position: 0% 50%; }
+                }
+
+                @keyframes glowPulse {
+                    0%, 100% { filter: brightness(1) saturate(1); }
+                    50% { filter: brightness(1.5) saturate(1.5); }
+                }
+
+                @keyframes pulseGlow {
+                    0%, 100% { opacity: 0.3; transform: scale(1); }
+                    50% { opacity: 0.6; transform: scale(1.05); }
                 }
 
                 .custom-scrollbar::-webkit-scrollbar {

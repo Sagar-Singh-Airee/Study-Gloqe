@@ -134,26 +134,6 @@ function App() {
         <AuthProvider>
             <ClassProvider>
                 <Router>
-                    <Toaster
-                        position="top-right"
-                        toastOptions={{
-                            duration: 3000,
-                            style: {
-                                background: 'rgba(255, 255, 255, 0.95)',
-                                color: '#1f2937',
-                                border: '1px solid #e5e7eb',
-                                backdropFilter: 'blur(10px)',
-                                fontWeight: '600'
-                            },
-                            success: {
-                                iconTheme: {
-                                    primary: '#374151',
-                                    secondary: '#fff',
-                                },
-                            },
-                        }}
-                    />
-
                     <Routes>
                         {/* PUBLIC ROUTES */}
                         <Route path="/" element={<LandingPage />} />
