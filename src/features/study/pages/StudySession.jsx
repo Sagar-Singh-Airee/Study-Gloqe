@@ -1,12 +1,12 @@
 // src/features/study/pages/StudySession.jsx
-// 🎓 ULTIMATE PRODUCTION EDITION v5.0
-// ✨ Zero-bug guarantee | 🎨 Premium UI | 🚀 Maximum performance | ♿ Full accessibility
+// 🎓 PRODUCTION EDITION v9.0 - ENHANCED & POLISHED
+// ✨ Beautiful Loma Button | 🎯 All Features Enhanced | 🚀 Production Ready
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '../../../shared/config/firebase';
+import { doc, onSnapshot, collection, query, orderBy } from 'firebase/firestore';
+import { db } from '@shared/config/firebase';
 import {
     ChevronLeft,
     ChevronRight,
@@ -20,22 +20,21 @@ import {
     Sparkles,
     Loader2,
     AlertCircle,
-    CheckCircle2,
     Mic,
     MessageSquare,
     ArrowUp,
-    ArrowDown,
     X,
-    Settings,
-    Maximize2,
-    Bookmark,
-    Star
+    Activity,
+    Zap,
+    Check,
+    Bot
 } from 'lucide-react';
 import { useAuth } from '../../auth/contexts/AuthContext';
 import ConceptFlowchart from '../components/visual/ConceptFlowchart';
 import toast from 'react-hot-toast';
+import lomaLogo from '../../../assets/logo/loma.png';
 
-// Premium AI Tools
+// AI Tools
 import AskGloqePill from '../components/tools/AskGloqePill';
 import VoiceAssistant from '../components/tools/VoiceAssistant';
 
@@ -49,73 +48,185 @@ import {
 } from '../services/studySessionService';
 
 // ════════════════════════════════════════════════════════════════════════════════
-// 🎨 PREMIUM DESIGN SYSTEM
+// 🎨 DESIGN SYSTEM
 // ════════════════════════════════════════════════════════════════════════════════
 
 const DESIGN = {
-    colors: {
-        primary: {
-            bg: 'bg-slate-50',
-            text: 'text-slate-900',
-            border: 'border-slate-200'
-        },
-        card: {
-            bg: 'bg-white',
-            border: 'border-slate-200/60',
-            shadow: 'shadow-sm hover:shadow-md'
-        },
-        accent: {
-            teal: 'from-teal-600 to-cyan-600',
-            purple: 'from-purple-600 to-pink-600',
-            blue: 'from-blue-600 to-indigo-600',
-            orange: 'from-orange-500 to-red-500'
-        },
-        text: {
-            primary: 'text-slate-900',
-            secondary: 'text-slate-600',
-            muted: 'text-slate-400',
-            white: 'text-white'
-        }
-    },
-    spacing: {
-        page: 'max-w-5xl mx-auto px-4 sm:px-6',
-        section: 'space-y-5',
-        card: 'p-6'
-    },
-    effects: {
-        glass: 'bg-white/95 backdrop-blur-xl',
-        glassDark: 'bg-slate-900/95 backdrop-blur-xl',
-        rounded: 'rounded-2xl',
-        roundedLg: 'rounded-3xl',
-        shadow: 'shadow-xl',
-        border: 'border border-slate-200/60'
-    },
-    transitions: {
-        fast: 'transition-all duration-150',
-        normal: 'transition-all duration-300',
-        slow: 'transition-all duration-500'
+    header: 'bg-white/95 backdrop-blur-xl border-b border-gray-200/80 shadow-sm',
+    container: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8',
+    card: 'bg-white rounded-3xl border border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300',
+    gradient: {
+        primary: 'from-emerald-500 via-teal-500 to-cyan-500',
+        secondary: 'from-violet-500 via-purple-500 to-fuchsia-500',
+        accent: 'from-blue-500 via-indigo-500 to-purple-500'
     }
 };
 
-const ANIMATION = {
-    fadeIn: {
-        initial: { opacity: 0, y: 20 },
-        animate: { opacity: 1, y: 0 },
-        exit: { opacity: 0, y: -20 },
-        transition: { duration: 0.3, ease: 'easeOut' }
-    },
-    slideRight: {
-        initial: { opacity: 0, x: 30 },
-        animate: { opacity: 1, x: 0 },
-        exit: { opacity: 0, x: -30 },
-        transition: { duration: 0.25, ease: 'easeOut' }
-    },
-    scaleIn: {
-        initial: { opacity: 0, scale: 0.95 },
-        animate: { opacity: 1, scale: 1 },
-        exit: { opacity: 0, scale: 0.95 },
-        transition: { duration: 0.2 }
-    }
+// ════════════════════════════════════════════════════════════════════════════════
+// 🎬 STREAMING TOAST COMPONENT
+// ════════════════════════════════════════════════════════════════════════════════
+
+const StreamingPageToast = ({ pageNumber, coreConcept, totalPages }) => (
+    <motion.div
+        initial={{ opacity: 0, y: 20, scale: 0.9 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -20, scale: 0.9 }}
+        className="relative overflow-hidden flex items-start gap-4 px-6 py-5 rounded-2xl shadow-2xl backdrop-blur-2xl border-2 bg-white border-emerald-200 min-w-[340px]"
+    >
+        <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: '100%' }}
+            transition={{ duration: 3, ease: 'easeOut' }}
+            className="absolute bottom-0 left-0 h-1.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500"
+        />
+
+        <div className="p-3 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 flex-shrink-0">
+            <Check size={22} className="text-emerald-600" />
+        </div>
+
+        <div className="flex-1 min-w-0">
+            <p className="text-base font-bold text-gray-900">
+                📄 Page {pageNumber} Ready!
+            </p>
+            <p className="text-sm text-gray-600 mt-1 font-medium truncate">
+                {coreConcept}
+            </p>
+            <p className="text-xs text-emerald-600 mt-2 font-bold">
+                {pageNumber}/{totalPages} pages processed
+            </p>
+        </div>
+
+        <Activity size={22} className="text-emerald-500 animate-pulse flex-shrink-0" />
+    </motion.div>
+);
+
+// ════════════════════════════════════════════════════════════════════════════════
+// 🤖 ENHANCED LOMA AI BUTTON COMPONENT
+// ════════════════════════════════════════════════════════════════════════════════
+
+const LomaAIButton = ({ onModeSelect, isActive, currentMode }) => {
+    const [showMenu, setShowMenu] = useState(false);
+
+    return (
+        <div className="fixed bottom-32 right-8 z-50 flex flex-col items-end gap-4">
+            {/* Floating Menu */}
+            <AnimatePresence>
+                {showMenu && !isActive && (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                        className="bg-white rounded-3xl shadow-2xl border-2 border-gray-100 p-2 mb-2"
+                    >
+                        <button
+                            onClick={() => {
+                                onModeSelect('voice');
+                                setShowMenu(false);
+                            }}
+                            className="flex items-center gap-4 px-6 py-4 hover:bg-emerald-50 rounded-2xl transition-all group w-full"
+                        >
+                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                                <Mic size={20} className="text-white" />
+                            </div>
+                            <div className="text-left">
+                                <p className="text-sm font-bold text-gray-900">Voice Chat</p>
+                                <p className="text-xs text-gray-500">Talk to Loma</p>
+                            </div>
+                        </button>
+
+                        <button
+                            onClick={() => {
+                                onModeSelect('text');
+                                setShowMenu(false);
+                            }}
+                            className="flex items-center gap-4 px-6 py-4 hover:bg-blue-50 rounded-2xl transition-all group w-full mt-2"
+                        >
+                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                                <MessageSquare size={20} className="text-white" />
+                            </div>
+                            <div className="text-left">
+                                <p className="text-sm font-bold text-gray-900">Text Chat</p>
+                                <p className="text-xs text-gray-500">Ask questions</p>
+                            </div>
+                        </button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Main Loma Button */}
+            <motion.button
+                whileHover={{ scale: 1.1, rotate: 3 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => {
+                    if (isActive) {
+                        onModeSelect(null);
+                        toast.success(`${currentMode === 'voice' ? 'Voice' : 'Text'} chat ended`);
+                    } else {
+                        setShowMenu(!showMenu);
+                    }
+                }}
+                className={`relative w-20 h-20 rounded-full shadow-2xl hover:shadow-3xl transition-all group ${isActive
+                        ? 'ring-4 ring-emerald-400 animate-pulse'
+                        : 'ring-4 ring-white hover:ring-emerald-200'
+                    }`}
+                style={{
+                    background: 'white',
+                    padding: '6px'
+                }}
+            >
+                {/* Active indicator rings */}
+                {isActive && (
+                    <>
+                        <motion.div
+                            animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0, 0.5] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                            className="absolute inset-0 bg-emerald-400 rounded-full"
+                        />
+                        <motion.div
+                            animate={{ scale: [1, 1.5, 1], opacity: [0.3, 0, 0.3] }}
+                            transition={{ duration: 2, repeat: Infinity, delay: 0.3 }}
+                            className="absolute inset-0 bg-teal-400 rounded-full"
+                        />
+                    </>
+                )}
+
+                {/* Logo container - Sticker style */}
+                <div className="relative w-full h-full rounded-full bg-gradient-to-br from-white to-gray-50 flex items-center justify-center shadow-inner overflow-hidden">
+                    <img
+                        src={lomaLogo}
+                        alt="Loma AI"
+                        className="w-[85%] h-[85%] object-contain relative z-10"
+                    />
+
+                    {/* Shimmer effect on hover */}
+                    <motion.div
+                        initial={{ x: '-100%' }}
+                        whileHover={{ x: '200%' }}
+                        transition={{ duration: 0.6 }}
+                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+                    />
+                </div>
+
+                {/* Active status dot */}
+                {isActive && (
+                    <div className="absolute -top-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full border-4 border-white shadow-lg flex items-center justify-center">
+                        <motion.div
+                            animate={{ scale: [1, 1.2, 1] }}
+                            transition={{ duration: 1, repeat: Infinity }}
+                            className="w-2 h-2 bg-white rounded-full"
+                        />
+                    </div>
+                )}
+
+                {/* Tooltip */}
+                <div className="absolute bottom-full right-0 mb-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                    <div className="px-4 py-2 bg-gray-900 text-white text-sm font-semibold rounded-xl shadow-2xl whitespace-nowrap">
+                        {isActive ? `End ${currentMode === 'voice' ? 'Voice' : 'Text'} Chat` : 'Ask Loma AI ✨'}
+                    </div>
+                </div>
+            </motion.button>
+        </div>
+    );
 };
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -125,324 +236,252 @@ const ANIMATION = {
 const StudySession = () => {
     const { docId } = useParams();
     const navigate = useNavigate();
-    const location = useLocation();
     const { user } = useAuth();
     const prefersReducedMotion = useReducedMotion();
 
-    // ========== STATE MANAGEMENT ==========
-    // Document state
+    // Core state
     const [document, setDocument] = useState(null);
     const [visualPages, setVisualPages] = useState([]);
     const [currentPageIndex, setCurrentPageIndex] = useState(0);
     const [loading, setLoading] = useState(true);
-    const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState(null);
 
     // Session state
-    const [studyTime, setStudyTime] = useState(0);
     const [sessionId, setSessionId] = useState(null);
+    const [studyTime, setStudyTime] = useState(0);
     const [sessionPaused, setSessionPaused] = useState(false);
-    const [sessionError, setSessionError] = useState(null);
-    const [sessionStats, setSessionStats] = useState({
-        pagesViewed: new Set(),
-        questionsAsked: 0,
-        notesCount: 0
+    const [newPageAnimation, setNewPageAnimation] = useState(null);
+
+    // Processing state
+    const [processingStatus, setProcessingStatus] = useState({
+        processedPages: 0,
+        totalPages: 0,
+        isStreaming: false
     });
 
-    // UI state
-    const [showVoiceAssistant, setShowVoiceAssistant] = useState(false);
-    const [showAskGloqePill, setShowAskGloqePill] = useState(false);
+    // UI state - ENHANCED
+    const [aiMode, setAiMode] = useState(null); // null, 'voice', or 'text'
     const [showScrollTop, setShowScrollTop] = useState(false);
-    const [fullscreen, setFullscreen] = useState(false);
-    const [showSettings, setShowSettings] = useState(false);
-    const [autoAdvance, setAutoAdvance] = useState(false);
+    const [autoScrollToNew, setAutoScrollToNew] = useState(true);
 
-    // ========== REFS ==========
+    // Refs
     const sessionIdRef = useRef(null);
-    const sessionStartTimeRef = useRef(null);
-    const timerIntervalRef = useRef(null);
-    const unsubscribeDocRef = useRef(null);
-    const isMountedRef = useRef(true);
+    const timerRef = useRef(null);
     const pageContainerRef = useRef(null);
-    const sessionInitializedRef = useRef(false);
-    const lastActivityRef = useRef(Date.now());
+    const prevPageCountRef = useRef(0);
 
-    // ========== DERIVED STATE ==========
-    const currentPage = useMemo(() => {
-        if (!visualPages || visualPages.length === 0 || currentPageIndex >= visualPages.length) {
-            return null;
-        }
-        return visualPages[currentPageIndex];
-    }, [visualPages, currentPageIndex]);
-
-    const progress = useMemo(() => {
-        if (!visualPages || visualPages.length === 0) return 0;
-        return Math.round(((currentPageIndex + 1) / visualPages.length) * 100);
-    }, [currentPageIndex, visualPages]);
-
-    const totalPages = visualPages?.length || 0;
+    // Derived state
+    const currentPage = visualPages[currentPageIndex] || null;
+    const totalPages = visualPages.length;
     const hasNextPage = currentPageIndex < totalPages - 1;
     const hasPrevPage = currentPageIndex > 0;
+    const progress = totalPages > 0 ? Math.round(((currentPageIndex + 1) / totalPages) * 100) : 0;
 
-    // ════════════════════════════════════════════════════════════════════════════
-    // 🛡️ SAFE STATE UPDATES
-    // ════════════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // ⏱️ TIMER
+    // ═══════════════════════════════════════════════════════════════════════════════
 
-    const safeSetState = useCallback((setter, value) => {
-        if (isMountedRef.current) {
-            setter(value);
+    useEffect(() => {
+        if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
         }
-    }, []);
 
-    // ════════════════════════════════════════════════════════════════════════════
-    // 📄 DOCUMENT REAL-TIME LISTENER
-    // ════════════════════════════════════════════════════════════════════════════
+        if (sessionPaused) return;
+
+        timerRef.current = setInterval(() => {
+            setStudyTime(prev => prev + 1);
+        }, 1000);
+
+        return () => {
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+            }
+        };
+    }, [sessionPaused]);
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 📡 REAL-TIME PAGE STREAMING
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    useEffect(() => {
+        if (!docId) return;
+
+        const pagesQuery = query(
+            collection(db, 'documents', docId, 'visualPages'),
+            orderBy('pageNumber', 'asc')
+        );
+
+        const unsubscribe = onSnapshot(
+            pagesQuery,
+            { includeMetadataChanges: false },
+            (snapshot) => {
+                const pages = [];
+                snapshot.forEach((doc) => {
+                    pages.push({ id: doc.id, ...doc.data() });
+                });
+
+                const prevCount = prevPageCountRef.current;
+                if (pages.length > prevCount && prevCount > 0) {
+                    const newPage = pages[pages.length - 1];
+
+                    toast.custom(
+                        () => (
+                            <StreamingPageToast
+                                pageNumber={newPage.pageNumber}
+                                coreConcept={newPage.coreConcept || 'New Content'}
+                                totalPages={pages.length}
+                            />
+                        ),
+                        { duration: 4000, position: 'top-right', id: `page-${newPage.pageNumber}` }
+                    );
+
+                    setNewPageAnimation(newPage.pageNumber);
+                    setTimeout(() => setNewPageAnimation(null), 2000);
+                }
+
+                prevPageCountRef.current = pages.length;
+                setVisualPages(pages);
+                setLoading(false);
+
+                setProcessingStatus(prev => ({
+                    ...prev,
+                    processedPages: pages.length
+                }));
+            },
+            (err) => {
+                setError(`Failed to load pages: ${err.message}`);
+                setLoading(false);
+            }
+        );
+
+        return () => unsubscribe();
+    }, [docId]);
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 📄 DOCUMENT METADATA
+    // ═══════════════════════════════════════════════════════════════════════════════
 
     useEffect(() => {
         if (!docId) {
-            safeSetState(setError, 'No document ID provided');
-            safeSetState(setLoading, false);
+            setError('No document ID provided');
+            setLoading(false);
             return;
         }
-
-        console.log('📄 [StudySession] Setting up document listener:', docId);
-        safeSetState(setLoading, true);
-        safeSetState(setError, null);
 
         const docRef = doc(db, 'documents', docId);
 
         const unsubscribe = onSnapshot(
             docRef,
-            (docSnap) => {
-                if (!isMountedRef.current) return;
+            (snapshot) => {
+                if (snapshot.exists()) {
+                    const docData = { id: snapshot.id, ...snapshot.data() };
 
-                if (docSnap.exists()) {
-                    const docData = { id: docSnap.id, ...docSnap.data() };
+                    setDocument(docData);
+                    setProcessingStatus(prev => ({
+                        ...prev,
+                        totalPages: docData.totalPages || 0,
+                        isStreaming: docData.status === 'processing'
+                    }));
 
-                    console.log('📊 Document updated:', {
-                        id: docData.id,
-                        status: docData.status,
-                        visualPagesCount: docData.visualPages?.length || 0,
-                        currentPage: docData.currentPage
-                    });
-
-                    safeSetState(setDocument, docData);
-                    safeSetState(setIsProcessing, docData.status === 'processing');
-
-                    // Update visual pages safely
-                    if (docData.visualPages && Array.isArray(docData.visualPages)) {
-                        safeSetState(setVisualPages, prevPages => {
-                            const newPagesCount = docData.visualPages.length;
-                            const oldPagesCount = prevPages?.length || 0;
-
-                            if (newPagesCount !== oldPagesCount) {
-                                console.log(`📊 Pages updated: ${oldPagesCount} → ${newPagesCount}`);
-
-                                // Auto-adjust current page if needed
-                                if (currentPageIndex >= newPagesCount && newPagesCount > 0) {
-                                    safeSetState(setCurrentPageIndex, newPagesCount - 1);
-                                }
-
-                                // Show notification for new pages
-                                if (newPagesCount > oldPagesCount && oldPagesCount > 0) {
-                                    toast.success(`New page ready! (${newPagesCount}/${docData.totalPages || '?'})`, {
-                                        duration: 3000,
-                                        icon: '📄'
-                                    });
-                                }
-                            }
-
-                            return docData.visualPages;
+                    if (docData.status === 'completed' && docData.totalPages > 0) {
+                        toast.success(`🎉 All ${docData.totalPages} pages ready!`, {
+                            duration: 5000,
+                            id: 'doc-complete'
                         });
                     }
-
-                    safeSetState(setLoading, false);
                 } else {
-                    console.error('📄 Document not found');
-                    safeSetState(setError, 'Document not found');
-                    safeSetState(setLoading, false);
+                    setError('Document not found');
+                    setLoading(false);
                 }
             },
             (err) => {
-                console.error('📄 Document listener error:', err);
-                if (isMountedRef.current) {
-                    safeSetState(setError, `Failed to load document: ${err.message}`);
-                    safeSetState(setLoading, false);
-                }
+                setError(`Failed to load document: ${err.message}`);
+                setLoading(false);
             }
         );
 
-        unsubscribeDocRef.current = unsubscribe;
+        return () => unsubscribe();
+    }, [docId]);
 
-        return () => {
-            console.log('🧹 Cleaning up document listener');
-            if (unsubscribe) unsubscribe();
-        };
-    }, [docId, safeSetState, currentPageIndex]);
-
-    // ════════════════════════════════════════════════════════════════════════════
-    // 🎯 SESSION LIFECYCLE MANAGEMENT
-    // ════════════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 🎯 SESSION INIT
+    // ═══════════════════════════════════════════════════════════════════════════════
 
     useEffect(() => {
-        // Guard: Only run once when ready
-        if (!user?.uid || !docId || !document || !visualPages || visualPages.length === 0) {
-            return;
-        }
-        if (sessionInitializedRef.current) {
-            return;
-        }
+        if (!user?.uid || !docId || !document) return;
+        if (sessionIdRef.current) return;
 
         const initSession = async () => {
             try {
-                sessionInitializedRef.current = true;
-                console.log('🚀 Initializing study session...');
-
                 const id = await startStudySession(
                     user.uid,
                     docId,
                     document.title || 'Untitled',
                     document.subject || 'General Studies',
                     {
-                        source: 'visual-study',
-                        totalPages: visualPages.length,
-                        firstPageConcept: visualPages[0]?.coreConcept || '',
-                        deviceInfo: navigator.userAgent
+                        source: 'visual-study-streaming',
+                        totalPages: document.totalPages || 0,
+                        streamingEnabled: true
                     }
                 );
 
-                // Check if component unmounted during async operation
-                if (!isMountedRef.current) {
-                    console.log('⚠️ Component unmounted during session init, exiting...');
-                    await exitStudySession(id, user.uid, docId, document.title, document.subject);
-                    return;
-                }
-
-                safeSetState(setSessionId, id);
                 sessionIdRef.current = id;
-                sessionStartTimeRef.current = Date.now();
-                lastActivityRef.current = Date.now();
+                setSessionId(id);
+                toast.success('Study session started! 🎯', { duration: 2000 });
 
-                console.log('✅ Session started:', id);
-                toast.success('Study session started', {
-                    duration: 2000,
-                    icon: '🎯',
-                    position: 'top-center'
-                });
             } catch (error) {
-                console.error('❌ Session start failed:', error);
-                safeSetState(setSessionError, error.message);
                 toast.error('Failed to start session');
             }
         };
 
         initSession();
 
-        // Cleanup on unmount
         return () => {
-            console.log('🧹 Component unmounting - cleaning up session');
-            isMountedRef.current = false;
-
-            const id = sessionIdRef.current;
-            if (id && user?.uid) {
-                console.log('🔚 Exiting session:', id);
-                exitStudySession(id, user.uid, docId, document?.title, document?.subject)
-                    .catch(err => console.error('Session exit error:', err));
-            }
-
-            // Clear timer
-            if (timerIntervalRef.current) {
-                clearInterval(timerIntervalRef.current);
-                timerIntervalRef.current = null;
+            const sid = sessionIdRef.current;
+            if (sid && user?.uid) {
+                exitStudySession(sid, user.uid, docId, document?.title, document?.subject)
+                    .catch(err => console.error('Exit error:', err));
             }
         };
-    }, [user?.uid, docId, document, visualPages, safeSetState]);
+    }, [user?.uid, docId, document]);
 
-    // ════════════════════════════════════════════════════════════════════════════
-    // ⏱️ STUDY TIMER
-    // ════════════════════════════════════════════════════════════════════════════
-
-    useEffect(() => {
-        if (!sessionId || sessionPaused || !sessionStartTimeRef.current) {
-            if (timerIntervalRef.current) {
-                clearInterval(timerIntervalRef.current);
-                timerIntervalRef.current = null;
-            }
-            return;
-        }
-
-        timerIntervalRef.current = setInterval(() => {
-            if (!isMountedRef.current) return;
-            const elapsed = Math.floor((Date.now() - sessionStartTimeRef.current) / 1000);
-            safeSetState(setStudyTime, elapsed);
-        }, 1000);
-
-        return () => {
-            if (timerIntervalRef.current) {
-                clearInterval(timerIntervalRef.current);
-                timerIntervalRef.current = null;
-            }
-        };
-    }, [sessionId, sessionPaused, safeSetState]);
-
-    // ════════════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════════
     // 📜 SCROLL TRACKING
-    // ════════════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════════
 
     useEffect(() => {
+        const container = pageContainerRef.current;
+        if (!container) return;
+
         const handleScroll = () => {
-            if (!pageContainerRef.current) return;
-            const scrollTop = pageContainerRef.current.scrollTop;
-            safeSetState(setShowScrollTop, scrollTop > 300);
+            setShowScrollTop(container.scrollTop > 300);
         };
 
-        const container = pageContainerRef.current;
-        if (container) {
-            container.addEventListener('scroll', handleScroll, { passive: true });
-            return () => container.removeEventListener('scroll', handleScroll);
-        }
-    }, [safeSetState]);
-
-    // ════════════════════════════════════════════════════════════════════════════
-    // 🎮 NAVIGATION HANDLERS
-    // ════════════════════════════════════════════════════════════════════════════
-
-    const scrollToTop = useCallback(() => {
-        if (pageContainerRef.current) {
-            pageContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-        }
+        container.addEventListener('scroll', handleScroll, { passive: true });
+        return () => container.removeEventListener('scroll', handleScroll);
     }, []);
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 🎮 HANDLERS
+    // ═══════════════════════════════════════════════════════════════════════════════
 
     const handleNextPage = useCallback(() => {
         if (!hasNextPage) {
-            toast('🎉 You\'ve reached the last page!', {
-                icon: '✅',
-                duration: 3000
-            });
+            toast('🎉 Last page reached!', { icon: '✅', duration: 2000 });
             return;
         }
 
         const nextIndex = currentPageIndex + 1;
         setCurrentPageIndex(nextIndex);
 
-        // Track activity
         if (sessionIdRef.current) {
-            trackSessionActivity('pageview', {
-                page: nextIndex + 1,
-                pageName: visualPages[nextIndex]?.coreConcept || '',
-                direction: 'forward'
-            });
+            trackSessionActivity('pageview', { page: nextIndex + 1, direction: 'forward' });
         }
 
-        // Update session stats
-        setSessionStats(prev => ({
-            ...prev,
-            pagesViewed: new Set([...prev.pagesViewed, nextIndex])
-        }));
-
-        // Scroll to top
-        scrollToTop();
-    }, [currentPageIndex, hasNextPage, visualPages, scrollToTop]);
+        pageContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [currentPageIndex, hasNextPage]);
 
     const handlePrevPage = useCallback(() => {
         if (!hasPrevPage) return;
@@ -450,43 +489,18 @@ const StudySession = () => {
         const prevIndex = currentPageIndex - 1;
         setCurrentPageIndex(prevIndex);
 
-        // Track activity
         if (sessionIdRef.current) {
-            trackSessionActivity('pageview', {
-                page: prevIndex + 1,
-                pageName: visualPages[prevIndex]?.coreConcept || '',
-                direction: 'backward'
-            });
+            trackSessionActivity('pageview', { page: prevIndex + 1, direction: 'backward' });
         }
 
-        scrollToTop();
-    }, [currentPageIndex, hasPrevPage, visualPages, scrollToTop]);
+        pageContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [currentPageIndex, hasPrevPage]);
 
     const handleJumpToPage = useCallback((index) => {
         if (index < 0 || index >= totalPages) return;
-
         setCurrentPageIndex(index);
-
-        // Track activity
-        if (sessionIdRef.current) {
-            trackSessionActivity('pageview', {
-                page: index + 1,
-                pageName: visualPages[index]?.coreConcept || '',
-                jumpFrom: currentPageIndex + 1,
-                method: 'navigation_dots'
-            });
-        }
-
-        scrollToTop();
-    }, [totalPages, visualPages, currentPageIndex, scrollToTop]);
-
-    const handleScrollToTop = useCallback(() => {
-        scrollToTop();
-    }, [scrollToTop]);
-
-    // ════════════════════════════════════════════════════════════════════════════
-    // ⏯️ SESSION CONTROLS
-    // ════════════════════════════════════════════════════════════════════════════
+        pageContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [totalPages]);
 
     const handleTogglePause = useCallback(async () => {
         if (!sessionIdRef.current) {
@@ -497,66 +511,17 @@ const StudySession = () => {
         try {
             if (sessionPaused) {
                 await resumeStudySession(sessionIdRef.current);
-                // Adjust start time to account for pause
-                const elapsed = studyTime;
-                sessionStartTimeRef.current = Date.now() - (elapsed * 1000);
-                safeSetState(setSessionPaused, false);
-                toast.success('Session resumed', { icon: '▶️', duration: 2000 });
+                setSessionPaused(false);
+                toast.success('Session resumed ▶️', { duration: 2000 });
             } else {
                 await pauseStudySession(sessionIdRef.current);
-                safeSetState(setSessionPaused, true);
-                toast('Session paused', { icon: '⏸️', duration: 2000 });
+                setSessionPaused(true);
+                toast('Session paused ⏸️', { duration: 2000 });
             }
         } catch (error) {
-            console.error('❌ Pause/Resume error:', error);
-            toast.error(`Failed to ${sessionPaused ? 'resume' : 'pause'}`);
+            toast.error('Failed to toggle pause');
         }
-    }, [sessionPaused, studyTime, safeSetState]);
-
-    const handleGoHome = useCallback(() => {
-        if (sessionIdRef.current && studyTime > 30) {
-            const confirmed = window.confirm(
-                `Exit study session?\n\nTime studied: ${formatTime(studyTime)}\nPages viewed: ${sessionStats.pagesViewed.size}/${totalPages}\n\nYour progress will be saved.`
-            );
-            if (!confirmed) return;
-        }
-        navigate('/dashboard');
-    }, [navigate, studyTime, sessionStats.pagesViewed.size, totalPages]);
-
-    // ════════════════════════════════════════════════════════════════════════════
-    // 🤖 AI TOOLS
-    // ════════════════════════════════════════════════════════════════════════════
-
-    const handleOpenVoice = useCallback(() => {
-        if (!currentPage) {
-            toast.error('No content loaded yet');
-            return;
-        }
-        setShowVoiceAssistant(true);
-        trackSessionActivity('voice_opened', { page: currentPageIndex + 1 });
-    }, [currentPage, currentPageIndex]);
-
-    const handleOpenChat = useCallback(() => {
-        if (!currentPage) {
-            toast.error('No content loaded yet');
-            return;
-        }
-        setShowAskGloqePill(true);
-        trackSessionActivity('chat_opened', { page: currentPageIndex + 1 });
-        setSessionStats(prev => ({ ...prev, questionsAsked: prev.questionsAsked + 1 }));
-    }, [currentPage, currentPageIndex]);
-
-    const handleToggleFullscreen = useCallback(() => {
-        setFullscreen(prev => !prev);
-        toast(fullscreen ? 'Fullscreen off' : 'Fullscreen mode', {
-            icon: fullscreen ? '⊡' : '⊠',
-            duration: 1500
-        });
-    }, [fullscreen]);
-
-    // ════════════════════════════════════════════════════════════════════════════
-    // 🎨 UTILITIES
-    // ════════════════════════════════════════════════════════════════════════════
+    }, [sessionPaused]);
 
     const formatTime = useCallback((seconds) => {
         const hrs = Math.floor(seconds / 3600);
@@ -568,39 +533,33 @@ const StudySession = () => {
         return `${mins}:${String(secs).padStart(2, '0')}`;
     }, []);
 
-    // ════════════════════════════════════════════════════════════════════════════
+    const handleGoHome = useCallback(() => {
+        if (sessionIdRef.current && studyTime > 30) {
+            const confirmed = window.confirm(
+                `Exit study session?\n\nTime studied: ${formatTime(studyTime)}\nPages viewed: ${currentPageIndex + 1}/${totalPages}\n\nProgress will be saved.`
+            );
+            if (!confirmed) return;
+        }
+        navigate('/dashboard');
+    }, [navigate, studyTime, currentPageIndex, totalPages, formatTime]);
+
+    // ═══════════════════════════════════════════════════════════════════════════════
     // ⌨️ KEYBOARD SHORTCUTS
-    // ════════════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════════
 
     useEffect(() => {
         const handleKeyboard = (e) => {
-            // Ignore if typing
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
-            // Arrow keys & N/P for navigation
             if (e.key === 'ArrowRight' || e.key === 'n') handleNextPage();
             if (e.key === 'ArrowLeft' || e.key === 'p') handlePrevPage();
-
-            // Space to pause/resume (with shift to prevent accidental)
             if (e.key === ' ' && e.shiftKey) {
                 e.preventDefault();
                 handleTogglePause();
             }
-
-            // Escape to close modals
-            if (e.key === 'Escape') {
-                if (showVoiceAssistant) setShowVoiceAssistant(false);
-                else if (showAskGloqePill) setShowAskGloqePill(false);
-                else if (showSettings) setShowSettings(false);
+            if (e.key === 'Escape' && aiMode) {
+                setAiMode(null);
             }
-
-            // F for fullscreen
-            if (e.key === 'f' || e.key === 'F') {
-                e.preventDefault();
-                handleToggleFullscreen();
-            }
-
-            // Home/End keys
             if (e.key === 'Home') handleJumpToPage(0);
             if (e.key === 'End') handleJumpToPage(totalPages - 1);
         };
@@ -611,37 +570,34 @@ const StudySession = () => {
         handleNextPage,
         handlePrevPage,
         handleTogglePause,
-        handleToggleFullscreen,
         handleJumpToPage,
-        showVoiceAssistant,
-        showAskGloqePill,
-        showSettings,
+        aiMode,
         totalPages
     ]);
 
     // ════════════════════════════════════════════════════════════════════════════
-    // 🎨 RENDER: LOADING STATE
+    // 🎨 LOADING STATE
     // ════════════════════════════════════════════════════════════════════════════
 
     if (loading) {
         return (
-            <div className={`min-h-screen ${DESIGN.colors.primary.bg} flex items-center justify-center`}>
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex items-center justify-center p-4">
                 <motion.div
-                    {...ANIMATION.fadeIn}
-                    className="text-center space-y-6"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-center space-y-8"
                 >
-                    <div className="relative">
-                        <div className="w-20 h-20 border-4 border-slate-200 rounded-full" />
+                    <div className="relative w-28 h-28 mx-auto">
                         <motion.div
-                            className="absolute inset-0 w-20 h-20 border-4 border-teal-600 rounded-full border-t-transparent"
+                            className="absolute inset-0 border-4 border-emerald-500 rounded-full border-t-transparent"
                             animate={{ rotate: 360 }}
                             transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
                         />
-                        <Loader2 className="absolute inset-0 m-auto w-8 h-8 text-teal-600 animate-pulse" />
+                        <Loader2 className="absolute inset-0 m-auto w-12 h-12 text-emerald-600 animate-pulse" />
                     </div>
                     <div>
-                        <p className="text-lg font-black text-slate-900">Loading Study Session</p>
-                        <p className="text-sm text-slate-500 mt-1">Preparing your materials...</p>
+                        <h2 className="text-3xl font-black text-gray-900 mb-2">Loading Session</h2>
+                        <p className="text-base text-gray-600">Preparing your study materials...</p>
                     </div>
                 </motion.div>
             </div>
@@ -649,30 +605,31 @@ const StudySession = () => {
     }
 
     // ════════════════════════════════════════════════════════════════════════════
-    // 🎨 RENDER: ERROR STATE
+    // 🎨 ERROR STATE
     // ════════════════════════════════════════════════════════════════════════════
 
     if (error || !document) {
         return (
-            <div className={`min-h-screen ${DESIGN.colors.primary.bg} flex items-center justify-center p-4`}>
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex items-center justify-center p-4">
                 <motion.div
-                    {...ANIMATION.fadeIn}
-                    className="text-center max-w-md space-y-6"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-center max-w-md space-y-8"
                 >
-                    <div className="w-20 h-20 rounded-full bg-red-50 flex items-center justify-center mx-auto">
-                        <AlertCircle size={48} className="text-red-500" />
+                    <div className="w-24 h-24 rounded-full bg-red-50 flex items-center justify-center mx-auto">
+                        <AlertCircle size={48} className="text-red-600" />
                     </div>
                     <div>
-                        <h2 className="text-2xl font-black text-slate-900 mb-2">
+                        <h2 className="text-3xl font-black text-gray-900 mb-3">
                             {error || 'Document Not Found'}
                         </h2>
-                        <p className="text-slate-600">
+                        <p className="text-gray-600 text-lg">
                             Unable to load the study session. Please try again.
                         </p>
                     </div>
                     <button
                         onClick={handleGoHome}
-                        className="px-8 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-xl font-bold hover:scale-105 transition-transform shadow-lg"
+                        className="px-10 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-2xl font-bold text-lg hover:shadow-2xl transition-all transform hover:scale-105"
                     >
                         Back to Dashboard
                     </button>
@@ -682,65 +639,74 @@ const StudySession = () => {
     }
 
     // ════════════════════════════════════════════════════════════════════════════
-    // 🎨 RENDER: NO PAGES (PROCESSING) STATE
+    // 🎨 WAITING FOR PAGES
     // ════════════════════════════════════════════════════════════════════════════
 
     if (!visualPages || visualPages.length === 0) {
         return (
-            <div className={`min-h-screen ${DESIGN.colors.primary.bg} flex items-center justify-center p-4`}>
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex items-center justify-center p-4">
                 <motion.div
-                    {...ANIMATION.fadeIn}
-                    className="text-center max-w-md space-y-6"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-center max-w-lg space-y-8"
                 >
-                    {isProcessing ? (
+                    {processingStatus.isStreaming ? (
                         <>
                             <motion.div
-                                animate={{ rotate: 360, scale: [1, 1.1, 1] }}
-                                transition={{
-                                    rotate: { duration: 2, repeat: Infinity, ease: 'linear' },
-                                    scale: { duration: 1, repeat: Infinity }
-                                }}
+                                animate={{ rotate: 360 }}
+                                transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                                className="w-24 h-24 mx-auto"
                             >
-                                <Sparkles size={64} className="text-teal-600 mx-auto" />
+                                <Activity size={96} className="text-emerald-600" />
                             </motion.div>
                             <div>
-                                <h2 className="text-2xl font-black text-slate-900 mb-2">
-                                    AI is Processing
+                                <h2 className="text-3xl font-black text-gray-900 mb-4">
+                                    🎬 AI Processing
                                 </h2>
-                                <p className="text-slate-600 mb-4">
-                                    Analyzing page {document.currentPage || 1} of {document.totalPages || '...'}
+                                <p className="text-gray-600 text-lg mb-6">
+                                    First page arriving soon... Pages appear one-by-one
                                 </p>
-                                <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
+
+                                <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden mb-4 shadow-inner">
                                     <motion.div
-                                        className="h-full bg-gradient-to-r from-teal-600 to-cyan-600"
+                                        className="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500"
                                         initial={{ width: 0 }}
                                         animate={{
-                                            width: `${Math.min(((document.currentPage || 1) / (document.totalPages || 100)) * 100, 100)}%`
+                                            width: processingStatus.totalPages > 0
+                                                ? `${Math.min((processingStatus.processedPages / processingStatus.totalPages) * 100, 100)}%`
+                                                : '30%'
                                         }}
-                                        transition={{ duration: 0.5, ease: 'easeOut' }}
+                                        transition={{ duration: 0.5 }}
                                     />
                                 </div>
-                                <p className="text-xs text-slate-500 mt-4">
-                                    Pages will appear automatically as they're ready. You can leave and come back later.
+
+                                {processingStatus.totalPages > 0 && (
+                                    <p className="text-base text-emerald-600 font-bold">
+                                        {processingStatus.processedPages}/{processingStatus.totalPages} pages ready
+                                    </p>
+                                )}
+
+                                <p className="text-sm text-gray-500 mt-6">
+                                    💡 First page loads in 2-3 seconds
                                 </p>
                             </div>
                         </>
                     ) : (
                         <>
-                            <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center mx-auto">
-                                <BookOpen size={48} className="text-slate-400" />
+                            <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center mx-auto">
+                                <BookOpen size={48} className="text-gray-500" />
                             </div>
                             <div>
-                                <h2 className="text-2xl font-black text-slate-900 mb-2">
+                                <h2 className="text-3xl font-black text-gray-900 mb-3">
                                     No Visual Analysis
                                 </h2>
-                                <p className="text-slate-600 mb-4">
+                                <p className="text-gray-600 text-lg mb-6">
                                     This document hasn't been processed yet
                                 </p>
                             </div>
                             <button
                                 onClick={handleGoHome}
-                                className="px-8 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-xl font-bold hover:scale-105 transition-transform shadow-lg"
+                                className="px-10 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-2xl font-bold text-lg hover:shadow-2xl transition-all transform hover:scale-105"
                             >
                                 Back to Dashboard
                             </button>
@@ -756,49 +722,48 @@ const StudySession = () => {
     // ════════════════════════════════════════════════════════════════════════════
 
     return (
-        <div className={`min-h-screen ${DESIGN.colors.primary.bg} ${fullscreen ? 'fixed inset-0 z-50' : ''}`}>
-            {/* ═══ TOP HEADER BAR ═══ */}
-            <div className={`sticky top-0 z-50 ${DESIGN.effects.glass} border-b ${DESIGN.colors.primary.border} ${DESIGN.transitions.normal}`}>
-                <div className={DESIGN.spacing.page}>
-                    <div className="py-3 flex items-center justify-between gap-4">
-                        {/* Left: Home & Title */}
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-emerald-50/20">
+            {/* HEADER */}
+            <div className={`sticky top-0 z-50 ${DESIGN.header}`}>
+                <div className={DESIGN.container}>
+                    <div className="py-5 flex items-center justify-between gap-6">
+                        {/* Left: Nav & Title */}
+                        <div className="flex items-center gap-4 flex-1 min-w-0">
                             <button
                                 onClick={handleGoHome}
-                                className="p-2.5 hover:bg-slate-100 rounded-xl transition-colors flex-shrink-0"
+                                className="p-3 hover:bg-gray-100 rounded-2xl transition-all hover:scale-105 active:scale-95 group"
                                 title="Back to Dashboard"
-                                aria-label="Go to dashboard"
                             >
-                                <Home size={20} className="text-slate-700" />
+                                <Home size={22} className="text-gray-700 group-hover:text-emerald-600 transition-colors" />
                             </button>
+
                             <div className="min-w-0 flex-1">
-                                <h1 className="text-base font-black text-slate-900 truncate">
+                                <h1 className="text-xl font-black text-gray-900 truncate">
                                     {document.title}
                                 </h1>
-                                <div className="flex items-center gap-2 text-xs text-slate-500">
-                                    <span className="font-semibold">
-                                        Page {currentPageIndex + 1} of {totalPages}
+                                <div className="flex items-center gap-3 text-sm flex-wrap mt-1">
+                                    <span className="font-bold text-gray-600">
+                                        Page {currentPageIndex + 1}/{totalPages}
                                     </span>
-                                    {isProcessing && (
-                                        <span className="flex items-center gap-1 text-teal-600 font-semibold">
-                                            <Loader2 size={10} className="animate-spin" />
-                                            Processing...
+                                    {processingStatus.isStreaming && (
+                                        <span className="flex items-center gap-1.5 text-emerald-600 font-semibold animate-pulse">
+                                            <Activity size={14} />
+                                            Streaming {processingStatus.processedPages}/{processingStatus.totalPages}
                                         </span>
-                                    )}
-                                    {sessionPaused && (
-                                        <span className="text-orange-500 font-bold">• Paused</span>
                                     )}
                                 </div>
                             </div>
                         </div>
 
                         {/* Right: Controls */}
-                        <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="flex items-center gap-3 flex-shrink-0">
                             {/* Timer */}
-                            <div className={`px-3 py-1.5 ${DESIGN.effects.rounded} flex items-center gap-2 ${sessionPaused ? 'bg-orange-100' : 'bg-slate-100'
+                            <div className={`px-5 py-3 rounded-2xl flex items-center gap-2.5 transition-all shadow-lg ${sessionPaused
+                                    ? 'bg-gradient-to-r from-orange-50 to-red-50 ring-2 ring-orange-300'
+                                    : 'bg-gradient-to-r from-emerald-50 to-teal-50 ring-2 ring-emerald-300'
                                 }`}>
-                                <Clock size={14} className={sessionPaused ? 'text-orange-600' : 'text-teal-600'} />
-                                <span className="text-sm font-black text-slate-700 tabular-nums min-w-[3rem]">
+                                <Clock size={18} className={sessionPaused ? 'text-orange-600' : 'text-emerald-600'} />
+                                <span className="text-lg font-black text-gray-900 tabular-nums min-w-[5rem]">
                                     {formatTime(studyTime)}
                                 </span>
                             </div>
@@ -807,88 +772,132 @@ const StudySession = () => {
                             <button
                                 onClick={handleTogglePause}
                                 disabled={!sessionId}
-                                className="p-2.5 hover:bg-slate-100 rounded-xl transition-colors disabled:opacity-50"
+                                className={`p-3.5 rounded-2xl transition-all shadow-lg hover:scale-105 active:scale-95 ${sessionPaused
+                                        ? 'bg-gradient-to-r from-orange-100 to-red-100 hover:from-orange-200 hover:to-red-200 text-orange-600'
+                                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
                                 title={sessionPaused ? 'Resume' : 'Pause'}
-                                aria-label={sessionPaused ? 'Resume session' : 'Pause session'}
                             >
-                                {sessionPaused ? <Play size={16} /> : <Pause size={16} />}
+                                {sessionPaused ? <Play size={20} /> : <Pause size={20} />}
                             </button>
 
                             {/* Progress */}
-                            <div className="px-3 py-1.5 bg-purple-100 rounded-xl flex items-center gap-2">
-                                <Target size={14} className="text-purple-600" />
-                                <span className="text-sm font-black text-slate-700">{progress}%</span>
+                            <div className="px-5 py-3 bg-gradient-to-r from-violet-50 to-purple-50 rounded-2xl flex items-center gap-2.5 shadow-lg ring-2 ring-purple-300">
+                                <Target size={18} className="text-purple-600" />
+                                <span className="text-lg font-black text-gray-900">{progress}%</span>
                             </div>
 
-                            {/* Fullscreen */}
+                            {/* Auto-scroll */}
                             <button
-                                onClick={handleToggleFullscreen}
-                                className="p-2.5 hover:bg-slate-100 rounded-xl transition-colors"
-                                title={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-                                aria-label={fullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                                onClick={() => {
+                                    setAutoScrollToNew(!autoScrollToNew);
+                                    toast(autoScrollToNew ? 'Auto-scroll disabled' : 'Auto-scroll enabled', {
+                                        icon: autoScrollToNew ? '🔕' : '🔔',
+                                        duration: 1500
+                                    });
+                                }}
+                                className={`p-3.5 rounded-2xl transition-all shadow-lg hover:scale-105 active:scale-95 ${autoScrollToNew
+                                        ? 'bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-600 ring-2 ring-emerald-300'
+                                        : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                                    }`}
+                                title={autoScrollToNew ? 'Auto-scroll ON' : 'Auto-scroll OFF'}
                             >
-                                <Maximize2 size={16} />
+                                <Zap size={20} className={autoScrollToNew ? 'animate-pulse' : ''} />
                             </button>
                         </div>
                     </div>
 
-                    {/* Progress Bar */}
-                    <div className="pb-3">
-                        <div className="h-1 bg-slate-200 rounded-full overflow-hidden">
+                    {/* Progress bar */}
+                    <div className="pb-5">
+                        <div className="h-2.5 bg-gradient-to-r from-gray-100 to-gray-200 rounded-full overflow-hidden relative shadow-inner">
                             <motion.div
-                                className="h-full bg-gradient-to-r from-teal-600 to-cyan-600"
+                                className="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 shadow-lg"
                                 initial={{ width: 0 }}
                                 animate={{ width: `${progress}%` }}
-                                transition={{ duration: 0.3, ease: 'easeOut' }}
+                                transition={{ duration: 0.4, ease: 'easeOut' }}
                             />
+                            {processingStatus.isStreaming && (
+                                <motion.div
+                                    className="absolute top-0 h-full w-24 bg-gradient-to-r from-transparent via-white/60 to-transparent"
+                                    animate={{ x: ['-100%', '400%'] }}
+                                    transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+                                />
+                            )}
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* ═══ MAIN CONTENT AREA ═══ */}
+            {/* MAIN CONTENT */}
             <div
                 ref={pageContainerRef}
-                className={`${fullscreen ? 'h-[calc(100vh-140px)]' : 'h-[calc(100vh-140px)]'} overflow-y-auto overscroll-contain`}
+                className="h-[calc(100vh-180px)] overflow-y-auto overscroll-contain"
                 style={{ scrollBehavior: 'smooth' }}
             >
-                <div className={`${DESIGN.spacing.page} py-6 pb-24`}>
+                <div className={`${DESIGN.container} py-8 space-y-8 pb-32`}>
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={currentPageIndex}
-                            {...(prefersReducedMotion ? {} : ANIMATION.slideRight)}
-                            className={DESIGN.spacing.section}
+                            initial={prefersReducedMotion ? {} : { opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            transition={{ duration: 0.3 }}
                         >
                             {currentPage && (
                                 <>
-                                    {/* ═══ PAGE HEADER ═══ */}
-                                    <div className={`${DESIGN.effects.roundedLg} bg-gradient-to-r ${DESIGN.colors.accent.teal} p-6 text-white shadow-xl`}>
-                                        <div className="flex items-start justify-between gap-4">
+                                    {/* PAGE HEADER CARD */}
+                                    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 p-10 text-white shadow-2xl">
+                                        {/* New page glow */}
+                                        {newPageAnimation === currentPage.pageNumber && (
+                                            <motion.div
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: [0, 0.4, 0] }}
+                                                transition={{ duration: 1.5 }}
+                                                className="absolute inset-0 bg-yellow-300 pointer-events-none"
+                                            />
+                                        )}
+
+                                        {/* Decorative elements */}
+                                        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32" />
+                                        <div className="absolute bottom-0 left-0 w-96 h-96 bg-cyan-400/20 rounded-full blur-3xl -ml-48 -mb-48" />
+
+                                        <div className="flex items-start justify-between gap-8 relative z-10">
                                             <div className="flex-1">
-                                                <div className="flex items-center gap-3 mb-3">
-                                                    <div className="w-14 h-14 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center flex-shrink-0 shadow-lg">
-                                                        <BookOpen size={28} />
+                                                <div className="flex items-center gap-5 mb-6">
+                                                    <div className="w-20 h-20 rounded-3xl bg-white/20 backdrop-blur-2xl flex items-center justify-center shadow-2xl">
+                                                        <BookOpen size={40} className="drop-shadow-lg" />
                                                     </div>
                                                     <div className="min-w-0">
-                                                        <p className="text-xs opacity-90 font-bold uppercase tracking-wider">
-                                                            Page {currentPage.pageNumber}
-                                                        </p>
-                                                        <h2 className="text-2xl sm:text-3xl font-black leading-tight">
+                                                        <div className="flex items-center gap-3 mb-2">
+                                                            <span className="text-base opacity-95 font-bold uppercase tracking-wider">
+                                                                Page {currentPage.pageNumber}
+                                                            </span>
+                                                            {newPageAnimation === currentPage.pageNumber && (
+                                                                <motion.span
+                                                                    initial={{ scale: 0 }}
+                                                                    animate={{ scale: [0, 1.2, 1] }}
+                                                                    className="px-3 py-1 bg-yellow-400 text-yellow-900 text-sm font-black rounded-full shadow-lg"
+                                                                >
+                                                                    NEW!
+                                                                </motion.span>
+                                                            )}
+                                                        </div>
+                                                        <h2 className="text-4xl sm:text-5xl font-black leading-tight drop-shadow-lg">
                                                             {currentPage.coreConcept}
                                                         </h2>
                                                     </div>
                                                 </div>
 
                                                 {/* Key Topics */}
-                                                {currentPage.keyTopics && currentPage.keyTopics.length > 0 && (
-                                                    <div className="flex flex-wrap gap-2">
+                                                {currentPage.keyTopics?.length > 0 && (
+                                                    <div className="flex flex-wrap gap-2.5">
                                                         {currentPage.keyTopics.map((topic, i) => (
                                                             <motion.span
                                                                 key={i}
                                                                 initial={{ opacity: 0, scale: 0.8 }}
                                                                 animate={{ opacity: 1, scale: 1 }}
                                                                 transition={{ delay: i * 0.05 }}
-                                                                className="px-3 py-1.5 bg-white/20 backdrop-blur rounded-full text-xs font-bold shadow-sm"
+                                                                className="px-4 py-2 bg-white/25 backdrop-blur-2xl rounded-full text-base font-bold shadow-xl"
                                                             >
                                                                 {topic}
                                                             </motion.span>
@@ -897,16 +906,16 @@ const StudySession = () => {
                                                 )}
                                             </div>
 
-                                            {/* Metadata Pills */}
-                                            <div className="flex flex-col gap-2 flex-shrink-0">
+                                            {/* Metadata */}
+                                            <div className="flex flex-col gap-3 flex-shrink-0">
                                                 {currentPage.complexity && (
-                                                    <div className="px-3 py-1.5 bg-white/20 backdrop-blur rounded-lg text-xs font-bold capitalize text-center shadow-sm">
+                                                    <div className="px-5 py-2.5 bg-white/25 backdrop-blur-2xl rounded-2xl text-base font-bold capitalize shadow-xl">
                                                         {currentPage.complexity}
                                                     </div>
                                                 )}
                                                 {currentPage.estimatedTime && (
-                                                    <div className="px-3 py-1.5 bg-white/20 backdrop-blur rounded-lg text-xs font-bold flex items-center gap-1.5 whitespace-nowrap shadow-sm">
-                                                        <Clock size={12} />
+                                                    <div className="px-5 py-2.5 bg-white/25 backdrop-blur-2xl rounded-2xl text-base font-bold flex items-center gap-2 shadow-xl">
+                                                        <Clock size={16} />
                                                         {currentPage.estimatedTime}
                                                     </div>
                                                 )}
@@ -914,7 +923,7 @@ const StudySession = () => {
                                         </div>
                                     </div>
 
-                                    {/* ═══ CONCEPT FLOWCHART ═══ */}
+                                    {/* FLOWCHART */}
                                     {currentPage.flowchart && (
                                         <ConceptFlowchart
                                             flowchartCode={currentPage.flowchart}
@@ -922,47 +931,47 @@ const StudySession = () => {
                                         />
                                     )}
 
-                                    {/* ═══ DETAILED EXPLANATION ═══ */}
-                                    <div className={`${DESIGN.effects.rounded} ${DESIGN.colors.card.bg} ${DESIGN.effects.border} ${DESIGN.colors.card.shadow} ${DESIGN.spacing.card} ${DESIGN.transitions.normal}`}>
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-500 flex items-center justify-center">
-                                                <Brain size={20} className="text-white" />
+                                    {/* EXPLANATION CARD */}
+                                    <div className={`${DESIGN.card} p-10`}>
+                                        <div className="flex items-center gap-4 mb-6">
+                                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-xl">
+                                                <Brain size={28} className="text-white" />
                                             </div>
-                                            <h3 className="text-lg font-black text-slate-900">Detailed Explanation</h3>
+                                            <h3 className="text-2xl font-black text-gray-900">Detailed Explanation</h3>
                                         </div>
-                                        <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
+                                        <p className="text-gray-700 leading-relaxed text-lg whitespace-pre-wrap">
                                             {currentPage.explanation}
                                         </p>
                                     </div>
 
-                                    {/* ═══ LEARNING PATH ═══ */}
-                                    {currentPage.learningPath && currentPage.learningPath.length > 0 && (
-                                        <div className={`${DESIGN.effects.rounded} ${DESIGN.colors.card.bg} ${DESIGN.effects.border} ${DESIGN.colors.card.shadow} ${DESIGN.spacing.card}`}>
-                                            <h3 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-2">
-                                                <Sparkles size={20} className="text-yellow-500" />
+                                    {/* LEARNING PATH */}
+                                    {currentPage.learningPath?.length > 0 && (
+                                        <div className={`${DESIGN.card} p-10`}>
+                                            <h3 className="text-2xl font-black text-gray-900 mb-8 flex items-center gap-3">
+                                                <Sparkles size={28} className="text-yellow-500" />
                                                 Learning Path
                                             </h3>
-                                            <div className="space-y-3">
+                                            <div className="space-y-5">
                                                 {currentPage.learningPath.map((step, i) => (
                                                     <motion.div
                                                         key={i}
-                                                        initial={prefersReducedMotion ? {} : { opacity: 0, x: -20 }}
+                                                        initial={{ opacity: 0, x: -30 }}
                                                         animate={{ opacity: 1, x: 0 }}
-                                                        transition={{ delay: i * 0.05 }}
-                                                        className="flex gap-4 p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors group"
+                                                        transition={{ delay: i * 0.06 }}
+                                                        className="flex gap-5 p-6 bg-gradient-to-r from-gray-50 to-emerald-50/50 rounded-2xl hover:shadow-xl transition-all group border border-gray-100"
                                                     >
-                                                        <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-teal-500 to-cyan-500 text-white flex items-center justify-center font-black text-base shadow-lg group-hover:scale-110 transition-transform">
+                                                        <div className="flex-shrink-0 w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white flex items-center justify-center font-black text-xl shadow-xl group-hover:scale-110 transition-transform">
                                                             {step.step}
                                                         </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-center justify-between gap-2 mb-1">
-                                                                <h4 className="font-bold text-slate-900">{step.title}</h4>
-                                                                <span className="text-xs font-bold text-slate-500 flex-shrink-0 flex items-center gap-1">
-                                                                    <Clock size={12} />
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center justify-between gap-3 mb-3">
+                                                                <h4 className="font-bold text-gray-900 text-xl">{step.title}</h4>
+                                                                <span className="text-sm font-bold text-gray-500 flex items-center gap-1.5">
+                                                                    <Clock size={16} />
                                                                     {step.duration}
                                                                 </span>
                                                             </div>
-                                                            <p className="text-sm text-slate-600">{step.description}</p>
+                                                            <p className="text-gray-600 text-base leading-relaxed">{step.description}</p>
                                                         </div>
                                                     </motion.div>
                                                 ))}
@@ -976,107 +985,107 @@ const StudySession = () => {
                 </div>
             </div>
 
-            {/* ═══ BOTTOM NAVIGATION BAR ═══ */}
-            <div className={`fixed bottom-0 left-0 right-0 ${DESIGN.effects.glass} border-t ${DESIGN.colors.primary.border} z-40`}>
-                <div className={DESIGN.spacing.page}>
-                    <div className="py-3 flex items-center justify-between gap-4">
-                        {/* Previous Button */}
+            {/* BOTTOM NAVIGATION */}
+            <div className={`fixed bottom-0 left-0 right-0 ${DESIGN.header} border-t shadow-2xl z-40`}>
+                <div className={DESIGN.container}>
+                    <div className="py-5 flex items-center justify-between gap-6">
+                        {/* Previous */}
                         <button
                             onClick={handlePrevPage}
                             disabled={!hasPrevPage}
-                            className="flex items-center gap-2 px-4 sm:px-6 py-2.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl font-bold text-sm transition-all"
-                            aria-label="Previous page"
+                            className="flex items-center gap-2.5 px-8 py-4 bg-gray-100 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed rounded-2xl font-bold text-base transition-all hover:scale-105 active:scale-95 shadow-lg"
                         >
-                            <ChevronLeft size={18} />
-                            <span className="hidden sm:inline">Previous</span>
+                            <ChevronLeft size={22} />
+                            <span>Previous</span>
                         </button>
 
-                        {/* Page Dots Navigation */}
-                        <div className="flex items-center gap-1.5 overflow-x-auto max-w-xs sm:max-w-md scrollbar-hide">
-                            {visualPages.slice(0, 20).map((_, index) => (
+                        {/* Page dots */}
+                        <div className="flex items-center gap-2.5 overflow-x-auto max-w-2xl scrollbar-hide px-3">
+                            {visualPages.slice(0, 15).map((page, index) => (
                                 <button
                                     key={index}
                                     onClick={() => handleJumpToPage(index)}
-                                    className={`h-2 rounded-full transition-all ${index === currentPageIndex
-                                            ? 'bg-gradient-to-r from-teal-600 to-cyan-600 w-8'
-                                            : 'bg-slate-300 hover:bg-slate-400 w-2'
+                                    className={`h-3 rounded-full transition-all relative group ${index === currentPageIndex
+                                            ? 'bg-gradient-to-r from-emerald-500 to-teal-500 w-12 shadow-lg'
+                                            : newPageAnimation === page.pageNumber
+                                                ? 'bg-yellow-500 w-5 animate-pulse shadow-md'
+                                                : 'bg-gray-300 hover:bg-gray-400 w-3'
                                         }`}
-                                    title={`Jump to page ${index + 1}`}
-                                    aria-label={`Go to page ${index + 1}`}
-                                />
+                                    title={page.coreConcept || `Page ${index + 1}`}
+                                >
+                                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 px-4 py-2 bg-gray-900 text-white text-sm rounded-xl whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-2xl font-medium">
+                                        {page.coreConcept || `Page ${index + 1}`}
+                                    </span>
+                                </button>
                             ))}
-                            {visualPages.length > 20 && (
-                                <span className="text-xs text-slate-400 ml-1 font-semibold">
-                                    +{visualPages.length - 20}
+                            {visualPages.length > 15 && (
+                                <span className="text-sm text-gray-500 ml-3 font-bold">
+                                    +{visualPages.length - 15}
                                 </span>
                             )}
                         </div>
 
-                        {/* Next Button */}
+                        {/* Next */}
                         <button
                             onClick={handleNextPage}
                             disabled={!hasNextPage}
-                            className="flex items-center gap-2 px-4 sm:px-6 py-2.5 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white disabled:opacity-40 disabled:cursor-not-allowed rounded-xl font-bold text-sm transition-all shadow-lg hover:shadow-xl"
-                            aria-label="Next page"
+                            className="flex items-center gap-2.5 px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white disabled:opacity-40 disabled:cursor-not-allowed rounded-2xl font-bold text-base transition-all hover:scale-105 active:scale-95 shadow-xl"
                         >
-                            <span className="hidden sm:inline">Next</span>
-                            <ChevronRight size={18} />
+                            <span>Next</span>
+                            <ChevronRight size={22} />
                         </button>
                     </div>
                 </div>
             </div>
 
-            {/* ═══ SCROLL TO TOP BUTTON ═══ */}
+            {/* STREAMING STATUS */}
+            <AnimatePresence>
+                {processingStatus.isStreaming && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 20 }}
+                        className="fixed bottom-28 left-6 px-6 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-2xl shadow-2xl flex items-center gap-4 z-40 ring-4 ring-emerald-200"
+                    >
+                        <Activity size={24} className="animate-spin" />
+                        <div className="text-base">
+                            <p className="font-bold">Processing Pages</p>
+                            <p className="text-sm opacity-95">
+                                {processingStatus.processedPages}/{processingStatus.totalPages} ready
+                            </p>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* SCROLL TO TOP */}
             <AnimatePresence>
                 {showScrollTop && (
                     <motion.button
-                        {...ANIMATION.scaleIn}
-                        onClick={handleScrollToTop}
-                        className="fixed bottom-20 left-4 w-12 h-12 rounded-full bg-slate-900 text-white shadow-2xl hover:scale-110 transition-transform flex items-center justify-center z-40"
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        onClick={() => pageContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+                        className="fixed bottom-28 right-6 w-16 h-16 rounded-full bg-gray-900 text-white shadow-2xl hover:scale-110 active:scale-95 transition-all flex items-center justify-center z-40 ring-4 ring-gray-300"
                         title="Scroll to top"
-                        aria-label="Scroll to top"
                     >
-                        <ArrowUp size={20} />
+                        <ArrowUp size={28} />
                     </motion.button>
                 )}
             </AnimatePresence>
 
-            {/* ═══ AI FLOATING BUTTONS ═══ */}
-            <div className="fixed bottom-20 right-4 sm:right-6 z-50 flex flex-col gap-3">
-                {/* Voice Assistant */}
-                <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleOpenVoice}
-                    disabled={!currentPage}
-                    className="w-14 h-14 rounded-full bg-gradient-to-br from-teal-600 to-cyan-600 shadow-2xl hover:shadow-3xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center group relative"
-                    title="Voice Assistant"
-                    aria-label="Open voice assistant"
-                >
-                    <Mic size={24} className="text-white" />
-                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white animate-pulse" />
-                </motion.button>
+            {/* LOMA AI BUTTON - ENHANCED */}
+            <LomaAIButton
+                onModeSelect={setAiMode}
+                isActive={aiMode !== null}
+                currentMode={aiMode}
+            />
 
-                {/* Ask Gloqe */}
-                <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleOpenChat}
-                    disabled={!currentPage}
-                    className="w-14 h-14 rounded-full bg-gradient-to-br from-slate-900 to-slate-800 shadow-2xl hover:shadow-3xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center relative"
-                    title="Ask Gloqe AI"
-                    aria-label="Open AI chat"
-                >
-                    <MessageSquare size={24} className="text-white" />
-                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
-                </motion.button>
-            </div>
-
-            {/* ═══ VOICE ASSISTANT MODAL ═══ */}
+            {/* VOICE ASSISTANT */}
             <AnimatePresence>
-                {showVoiceAssistant && (
+                {aiMode === 'voice' && (
                     <VoiceAssistant
-                        onClose={() => setShowVoiceAssistant(false)}
+                        onClose={() => setAiMode(null)}
                         documentContext={
                             currentPage?.explanation ||
                             document?.extractedText?.substring(0, 2000) ||
@@ -1086,35 +1095,16 @@ const StudySession = () => {
                 )}
             </AnimatePresence>
 
-            {/* ═══ ASK GLOQE PILL ═══ */}
+            {/* TEXT CHAT */}
             <AnimatePresence>
-                {showAskGloqePill && (
+                {aiMode === 'text' && (
                     <AskGloqePill
                         selectedText={currentPage?.coreConcept || currentPage?.keyTopics?.join(', ') || ''}
-                        onClose={() => setShowAskGloqePill(false)}
+                        onClose={() => setAiMode(null)}
                         documentId={docId}
                     />
                 )}
             </AnimatePresence>
-
-            {/* ═══ SESSION ERROR TOAST ═══ */}
-            {sessionError && (
-                <div className="fixed top-20 right-4 bg-red-50 border border-red-200 rounded-xl p-4 shadow-lg z-50 max-w-sm">
-                    <div className="flex items-start gap-3">
-                        <AlertCircle size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                            <p className="text-sm font-bold text-red-900">Session Error</p>
-                            <p className="text-xs text-red-700 mt-1">{sessionError}</p>
-                        </div>
-                        <button
-                            onClick={() => setSessionError(null)}
-                            className="text-red-400 hover:text-red-600 transition-colors"
-                        >
-                            <X size={16} />
-                        </button>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

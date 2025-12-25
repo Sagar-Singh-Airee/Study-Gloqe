@@ -128,7 +128,8 @@ const StudentAnalytics = () => {
         xp,
         level,
         streak: gamificationStreak,
-        loading: gamificationLoading
+        loading: gamificationLoading,
+        recentlyUnlocked
     } = useGamification();
 
     // Compute metrics
@@ -355,6 +356,40 @@ const StudentAnalytics = () => {
                                 score={Math.round(item.avgScore || 0)}
                                 delay={idx * 0.05}
                             />
+                        ))}
+                    </div>
+                </motion.div>
+            )}
+
+            {/* Recent Achievements */}
+            {recentlyUnlocked.length > 0 && (
+                <motion.div
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="bg-white rounded-2xl p-6 border border-slate-200/60 shadow-sm"
+                >
+                    <div className="flex items-center gap-3 mb-5">
+                        <div className="p-2 rounded-lg bg-indigo-50">
+                            <Zap size={18} className="text-indigo-600" strokeWidth={2.5} />
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-800">Recent Achievements</h3>
+                    </div>
+                    <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
+                        {recentlyUnlocked.map((badge, idx) => (
+                            <motion.div
+                                key={badge.id}
+                                initial={{ opacity: 0, scale: 0.8 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                transition={{ delay: 0.1 * idx }}
+                                className="flex-shrink-0 flex flex-col items-center p-3 bg-slate-50 border border-slate-100 rounded-xl min-w-[100px] text-center"
+                            >
+                                <div className={`w-12 h-12 rounded-full mb-2 bg-gradient-to-br ${badge.color || 'from-blue-400 to-indigo-500'} flex items-center justify-center text-2xl shadow-sm`}>
+                                    {badge.iconName === 'Zap' ? '⚡' : badge.iconName === 'Star' ? '⭐' : '🏆'}
+                                </div>
+                                <span className="text-xs font-bold text-slate-800 line-clamp-1">{badge.name}</span>
+                                <span className="text-[10px] text-slate-500 font-medium">+{badge.xpReward} XP</span>
+                            </motion.div>
                         ))}
                     </div>
                 </motion.div>

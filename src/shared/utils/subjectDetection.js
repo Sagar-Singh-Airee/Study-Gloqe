@@ -660,10 +660,16 @@ export const detectSubjectFromContent = (content) => {
 };
 
 export const categorizeQuizSession = (quizData) => {
-    const { questions = [], title = '', subject = '' } = quizData;
+    const { questions = [], title = '', subject = '', quizSnapshot } = quizData;
 
+    // 1. Prefer top-level subject if valid
     if (subject && subject !== 'General Studies') {
         return subject;
+    }
+
+    // 2. Check snapshot from history (optimized path)
+    if (quizSnapshot?.subject && quizSnapshot.subject !== 'General Studies') {
+        return quizSnapshot.subject;
     }
 
     const content = questions

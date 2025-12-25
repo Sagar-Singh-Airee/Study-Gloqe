@@ -1,7 +1,10 @@
-// src/components/study/VoiceAssistant.jsx - ULTIMATE BUG-FREE VERSION 🚀
+// src/components/study/VoiceAssistant.jsx
+// 🎙️ PRODUCTION EDITION v2.0 - Enhanced with Auto-Off Detection
+// ✨ Smart Conversation End | 🚀 Zero Errors | 🎯 Production Ready
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Volume2, VolumeX, Mic, MicOff } from 'lucide-react';
+import { X, Volume2, VolumeX, Mic, MicOff, Loader2 } from 'lucide-react';
 import { doc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '@shared/config/firebase';
 import { useAuth } from '@auth/contexts/AuthContext';
@@ -9,13 +12,37 @@ import { geminiModel } from '@shared/config/gemini';
 import { textToSpeech, VOICE_OPTIONS } from '@study/services/googleTTS';
 import toast from 'react-hot-toast';
 
-// ✅ Speech recognition availability check
-const isSpeechRecognitionSupported = () => {
-    return 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
+// ════════════════════════════════════════════════════════════════════════════════
+// 🎯 FAREWELL DETECTION - Auto-close on goodbye
+// ════════════════════════════════════════════════════════════════════════════════
+
+const FAREWELL_PHRASES = [
+    // Common goodbyes
+    'goodbye', 'bye', 'good bye', 'see you', 'see ya',
+    // Thanks + end
+    'thanks bye', 'thank you bye', 'thanks goodbye',
+    // End conversation
+    'end conversation', 'stop talking', 'stop listening', 'that\'s all',
+    'i\'m done', 'im done', 'we\'re done', 'were done',
+    // Polite endings
+    'have a good day', 'have a nice day', 'talk to you later', 'catch you later',
+    // Exit commands
+    'exit', 'quit', 'close', 'stop', 'finish', 'done', 'that\'s it', 'thats it'
+];
+
+const detectFarewell = (text) => {
+    const lowerText = text.toLowerCase().trim();
+    return FAREWELL_PHRASES.some(phrase => lowerText.includes(phrase));
 };
+
+// ════════════════════════════════════════════════════════════════════════════════
+// 🔊 VOICE ASSISTANT COMPONENT
+// ════════════════════════════════════════════════════════════════════════════════
 
 const VoiceAssistant = ({ onClose, documentContext = '' }) => {
     const { user } = useAuth();
+
+    // State
     const [isListening, setIsListening] = useState(true);
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [currentTranscript, setCurrentTranscript] = useState('');
@@ -27,6 +54,7 @@ const VoiceAssistant = ({ onClose, documentContext = '' }) => {
     const [hasRecognitionError, setHasRecognitionError] = useState(false);
     const [audioError, setAudioError] = useState(null);
 
+    // Refs
     const recognitionRef = useRef(null);
     const audioRef = useRef(null);
     const silenceTimerRef = useRef(null);
@@ -34,19 +62,26 @@ const VoiceAssistant = ({ onClose, documentContext = '' }) => {
     const isRecognitionRunningRef = useRef(false);
     const isMountedRef = useRef(true);
     const restartTimeoutRef = useRef(null);
+    const farewellDetectedRef = useRef(false);
 
-    // ✅ Safe state setter
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 🛡️ SAFE STATE SETTER
+    // ═══════════════════════════════════════════════════════════════════════════════
+
     const safeSetState = useCallback((setter, value) => {
         if (isMountedRef.current) {
             setter(value);
         }
     }, []);
 
-    // ✅ Cleanup all resources
-    const cleanupAll = useCallback(() => {
-        console.log('🧹 Cleaning up all resources...');
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 🧹 CLEANUP ALL RESOURCES
+    // ═══════════════════════════════════════════════════════════════════════════════
 
-        // Clear all timeouts
+    const cleanupAll = useCallback(() => {
+        console.log('🧹 Cleaning up Voice Assistant...');
+
+        // Clear timeouts
         if (silenceTimerRef.current) {
             clearTimeout(silenceTimerRef.current);
             silenceTimerRef.current = null;
@@ -57,7 +92,7 @@ const VoiceAssistant = ({ onClose, documentContext = '' }) => {
             restartTimeoutRef.current = null;
         }
 
-        // Stop and clean up recognition
+        // Stop recognition
         if (recognitionRef.current) {
             try {
                 recognitionRef.current.onend = null;
@@ -70,7 +105,7 @@ const VoiceAssistant = ({ onClose, documentContext = '' }) => {
             recognitionRef.current = null;
         }
 
-        // Stop and clean up audio
+        // Stop audio
         if (audioRef.current) {
             try {
                 audioRef.current.pause();
@@ -87,7 +122,10 @@ const VoiceAssistant = ({ onClose, documentContext = '' }) => {
         isProcessingRef.current = false;
     }, []);
 
-    // ✅ Safe recognition start
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 🎤 RECOGNITION CONTROLS
+    // ═══════════════════════════════════════════════════════════════════════════════
+
     const startRecognition = useCallback(() => {
         if (!isMountedRef.current || !recognitionRef.current || isRecognitionRunningRef.current) {
             return;
@@ -97,7 +135,7 @@ const VoiceAssistant = ({ onClose, documentContext = '' }) => {
             recognitionRef.current.start();
             isRecognitionRunningRef.current = true;
             safeSetState(setHasRecognitionError, false);
-            console.log('🎤 Speech recognition started');
+            console.log('🎤 Listening...');
         } catch (error) {
             console.warn('Recognition start failed:', error);
             isRecognitionRunningRef.current = false;
@@ -111,7 +149,6 @@ const VoiceAssistant = ({ onClose, documentContext = '' }) => {
         }
     }, [isListening, safeSetState]);
 
-    // ✅ Safe recognition stop
     const stopRecognition = useCallback(() => {
         if (recognitionRef.current && isRecognitionRunningRef.current) {
             try {
@@ -120,16 +157,19 @@ const VoiceAssistant = ({ onClose, documentContext = '' }) => {
                 // Ignore stop errors
             }
             isRecognitionRunningRef.current = false;
-            console.log('🎤 Speech recognition stopped');
+            console.log('🛑 Stopped listening');
         }
     }, []);
 
-    // ✅ Initialize speech recognition
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 🚀 INITIALIZE SPEECH RECOGNITION
+    // ═══════════════════════════════════════════════════════════════════════════════
+
     useEffect(() => {
         isMountedRef.current = true;
-        console.log('🚀 Voice Assistant Initializing...');
+        console.log('🚀 Voice Assistant Starting...');
 
-        if (!isSpeechRecognitionSupported()) {
+        if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
             toast.error('Voice recognition not supported in this browser');
             safeSetState(setHasRecognitionError, true);
             return;
@@ -150,7 +190,6 @@ const VoiceAssistant = ({ onClose, documentContext = '' }) => {
             if (!isMountedRef.current) return;
             isRecognitionRunningRef.current = true;
             safeSetState(setHasRecognitionError, false);
-            console.log('✅ Speech recognition active');
         };
 
         recognition.onresult = (event) => {
@@ -179,7 +218,6 @@ const VoiceAssistant = ({ onClose, documentContext = '' }) => {
             if (finalTranscript.trim() && !isProcessingRef.current) {
                 silenceTimerRef.current = setTimeout(() => {
                     if (isMountedRef.current && finalTranscript.trim().length > 2) {
-                        console.log('🎯 Auto-sending:', finalTranscript.trim());
                         handleAutoSend(finalTranscript.trim());
                         finalTranscript = '';
                         safeSetState(setCurrentTranscript, '');
@@ -210,10 +248,9 @@ const VoiceAssistant = ({ onClose, documentContext = '' }) => {
             if (!isMountedRef.current) return;
 
             isRecognitionRunningRef.current = false;
-            console.log('🛑 Speech recognition ended');
 
             // Auto-restart if should be listening
-            if (isListening && !isProcessingRef.current && !hasRecognitionError) {
+            if (isListening && !isProcessingRef.current && !hasRecognitionError && !farewellDetectedRef.current) {
                 restartTimeoutRef.current = setTimeout(() => {
                     if (isMountedRef.current && !isRecognitionRunningRef.current) {
                         startRecognition();
@@ -222,7 +259,7 @@ const VoiceAssistant = ({ onClose, documentContext = '' }) => {
             }
         };
 
-        // Start initial recognition
+        // Start listening
         if (isListening) {
             startRecognition();
         }
@@ -234,33 +271,27 @@ const VoiceAssistant = ({ onClose, documentContext = '' }) => {
         };
     }, [isListening, cleanupAll, startRecognition, safeSetState, hasRecognitionError]);
 
-    // ✅ ESC key handler
-    useEffect(() => {
-        const handleEscape = (e) => {
-            if (e.key === 'Escape') {
-                handleClose();
-            }
-        };
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 💬 HANDLE USER MESSAGE WITH FAREWELL DETECTION
+    // ═══════════════════════════════════════════════════════════════════════════════
 
-        window.addEventListener('keydown', handleEscape);
-        return () => window.removeEventListener('keydown', handleEscape);
-    }, []);
-
-    // ✅ Handle auto-send with comprehensive error handling
     const handleAutoSend = useCallback(async (text) => {
         if (!text.trim() || isProcessingRef.current || !isMountedRef.current) {
             return;
         }
 
-        console.log('🤖 Processing user message:', text);
+        console.log('💬 User said:', text);
         isProcessingRef.current = true;
         safeSetState(setIsProcessing, true);
         safeSetState(setLastUserMessage, text);
         safeSetState(setIsListening, false);
         safeSetState(setAudioError, null);
 
-        // Stop recognition safely
+        // Stop recognition
         stopRecognition();
+
+        // ✨ CHECK FOR FAREWELL
+        const isFarewell = detectFarewell(text);
 
         const newHistory = [...conversationHistory, { role: 'user', content: text }];
         safeSetState(setConversationHistory, newHistory);
@@ -271,7 +302,18 @@ const VoiceAssistant = ({ onClose, documentContext = '' }) => {
                 .map(msg => `${msg.role === 'user' ? 'User' : 'Gloqe'}: ${msg.content}`)
                 .join('\n');
 
-            const prompt = `You are Gloqe, a warm and enthusiastic AI study companion. Speak naturally like a helpful friend having a conversation.
+            // If farewell detected, generate goodbye response
+            let prompt;
+            if (isFarewell) {
+                prompt = `You are Gloqe, a friendly AI study companion. The user is saying goodbye.
+
+Respond with a warm, brief farewell (10-15 words max). Sound natural and encouraging.
+
+User: ${text}
+
+Respond:`;
+            } else {
+                prompt = `You are Gloqe, a warm and enthusiastic AI study companion. Speak naturally like a helpful friend.
 
 Guidelines:
 - Keep responses SHORT (1-2 sentences, under 25 words)
@@ -289,18 +331,19 @@ ${conversationContext}
 User: ${text}
 
 Respond naturally:`;
+            }
 
             const result = await geminiModel.generateContent(prompt);
             const aiResponse = result.response.text().trim();
 
-            console.log('🤖 AI Response:', aiResponse);
+            console.log('🤖 Gloqe:', aiResponse);
             safeSetState(setLastAIMessage, aiResponse);
             safeSetState(setConversationHistory, [...newHistory, { role: 'assistant', content: aiResponse }]);
 
+            // Speak response
             if (!isMuted && isMountedRef.current) {
                 await speakText(aiResponse);
             } else if (isMountedRef.current) {
-                // If muted, just show text briefly
                 setTimeout(() => {
                     safeSetState(setLastAIMessage, '');
                 }, 3000);
@@ -311,11 +354,26 @@ Respond naturally:`;
                 const userRef = doc(db, 'users', user.uid);
                 updateDoc(userRef, {
                     voiceInteractions: increment(1)
-                }).catch(err => console.error('Failed to log voice interaction:', err));
+                }).catch(err => console.error('Failed to log interaction:', err));
+            }
+
+            // ✨ AUTO-CLOSE ON FAREWELL
+            if (isFarewell && isMountedRef.current) {
+                farewellDetectedRef.current = true;
+                console.log('👋 Farewell detected, auto-closing in 2s...');
+
+                setTimeout(() => {
+                    if (isMountedRef.current) {
+                        toast.success('Voice chat ended. See you soon! 👋', { duration: 2000 });
+                        cleanupAll();
+                        onClose();
+                    }
+                }, 2000); // Wait 2s after AI speaks
+                return; // Don't resume listening
             }
 
         } catch (error) {
-            console.error('❌ AI generation error:', error);
+            console.error('❌ AI Error:', error);
             if (!isMountedRef.current) return;
 
             const errorMsg = "Hmm, I didn't catch that. Could you repeat?";
@@ -324,7 +382,7 @@ Respond naturally:`;
                 await speakText(errorMsg);
             }
         } finally {
-            if (isMountedRef.current) {
+            if (isMountedRef.current && !farewellDetectedRef.current) {
                 isProcessingRef.current = false;
                 safeSetState(setIsProcessing, false);
                 safeSetState(setLastUserMessage, '');
@@ -338,9 +396,12 @@ Respond naturally:`;
                 }, 800);
             }
         }
-    }, [conversationHistory, documentContext, isMuted, stopRecognition, safeSetState, user]);
+    }, [conversationHistory, documentContext, isMuted, stopRecognition, safeSetState, user, onClose, cleanupAll]);
 
-    // ✅ Enhanced Text-to-speech with male voice
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 🔊 TEXT-TO-SPEECH
+    // ═══════════════════════════════════════════════════════════════════════════════
+
     const speakText = useCallback(async (text) => {
         if (!isMountedRef.current || !text) return;
 
@@ -355,14 +416,14 @@ Respond naturally:`;
                     audioRef.current = null;
                 }
 
-                console.log('🔊 Generating TTS for:', text);
+                console.log('🔊 Generating voice...');
 
-                // ✅ Use male voice with optimized settings
+                // Generate TTS with male voice
                 const audioDataUrl = await textToSpeech(text, {
-                    ...VOICE_OPTIONS.MALE_NEURAL_D, // Male voice
-                    speakingRate: 1.1,  // Slightly faster for natural speech
-                    pitch: -2.0,        // Slightly deeper for male voice
-                    volume: 0.0         // Normal volume
+                    ...VOICE_OPTIONS.MALE_NEURAL_D,
+                    speakingRate: 1.1,
+                    pitch: -2.0,
+                    volume: 0.0
                 });
 
                 if (!isMountedRef.current) {
@@ -370,7 +431,7 @@ Respond naturally:`;
                     return;
                 }
 
-                // Create and configure audio element
+                // Create audio element
                 const audio = new Audio();
                 audioRef.current = audio;
 
@@ -385,11 +446,9 @@ Respond naturally:`;
                     audio.src = audioDataUrl;
                 });
 
-                console.log('✅ Audio loaded successfully');
-
-                // Set up audio event handlers
+                // Set up event handlers
                 audio.onended = () => {
-                    console.log('✅ Audio playback completed');
+                    console.log('✅ Finished speaking');
                     if (isMountedRef.current) {
                         safeSetState(setIsSpeaking, false);
                         setTimeout(() => {
@@ -400,7 +459,7 @@ Respond naturally:`;
                 };
 
                 audio.onerror = (e) => {
-                    console.error('❌ Audio playback error:', e);
+                    console.error('❌ Audio error:', e);
                     if (isMountedRef.current) {
                         safeSetState(setIsSpeaking, false);
                         safeSetState(setAudioError, 'Playback failed');
@@ -411,7 +470,7 @@ Respond naturally:`;
 
                 // Play audio
                 await audio.play();
-                console.log('▶️ Audio playback started');
+                console.log('▶️ Speaking...');
 
             } catch (error) {
                 console.error('❌ TTS Error:', error);
@@ -425,11 +484,11 @@ Respond naturally:`;
 
                 // Enhanced error messaging
                 if (error.message.includes('403')) {
-                    toast.error('Voice API access denied. Check API key and billing.');
+                    toast.error('Voice API access denied');
                 } else if (error.message.includes('429')) {
-                    toast.error('Voice quota exceeded. Try again later.');
+                    toast.error('Voice quota exceeded');
                 } else if (error.message.includes('network')) {
-                    toast.error('Network error. Check your connection.');
+                    toast.error('Network error');
                 } else {
                     toast.error('Voice synthesis failed');
                 }
@@ -446,7 +505,10 @@ Respond naturally:`;
         });
     }, [safeSetState]);
 
-    // ✅ Toggle mute with audio control
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 🎛️ CONTROLS
+    // ═══════════════════════════════════════════════════════════════════════════════
+
     const toggleMute = useCallback(() => {
         if (isSpeaking && audioRef.current) {
             audioRef.current.pause();
@@ -467,34 +529,48 @@ Respond naturally:`;
         });
     }, [isMuted, isSpeaking, safeSetState]);
 
-    // ✅ Manual listening toggle
     const toggleListening = useCallback(() => {
         if (isListening) {
             stopRecognition();
             safeSetState(setIsListening, false);
-            toast.success('🎤 Listening paused', { duration: 1000 });
+            toast.success('🎤 Paused', { duration: 1000 });
         } else {
             safeSetState(setIsListening, true);
-            toast.success('🎤 Listening resumed', { duration: 1000 });
+            toast.success('🎤 Listening', { duration: 1000 });
         }
     }, [isListening, stopRecognition, safeSetState]);
 
-    // ✅ Handle close with confirmation
     const handleClose = useCallback(() => {
-        if (window.confirm('Exit voice session?')) {
-            cleanupAll();
-            onClose();
-        }
+        cleanupAll();
+        onClose();
+        toast.success('Voice chat ended 👋', { duration: 2000 });
     }, [onClose, cleanupAll]);
 
-    // ✅ Handle background click
     const handleBackgroundClick = useCallback((e) => {
         if (e.target === e.currentTarget) {
             handleClose();
         }
     }, [handleClose]);
 
-    // Show error state if recognition completely fails
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // ⌨️ KEYBOARD SHORTCUTS
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    useEffect(() => {
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                handleClose();
+            }
+        };
+
+        window.addEventListener('keydown', handleEscape);
+        return () => window.removeEventListener('keydown', handleEscape);
+    }, [handleClose]);
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 🎨 RENDER: ERROR STATE
+    // ═══════════════════════════════════════════════════════════════════════════════
+
     if (hasRecognitionError && !isRecognitionRunningRef.current && isListening) {
         return (
             <motion.div
@@ -504,9 +580,9 @@ Respond naturally:`;
                 className="fixed inset-0 bg-gradient-to-br from-gray-950 via-black to-gray-950 z-50 flex items-center justify-center"
                 onClick={handleBackgroundClick}
             >
-                <div className="text-center space-y-6 p-8 bg-white/5 rounded-2xl backdrop-blur-xl border border-white/10">
+                <div className="text-center space-y-6 p-8 bg-white/5 rounded-2xl backdrop-blur-xl border border-white/10 max-w-md">
                     <div className="text-red-400 text-lg font-semibold">Voice Recognition Unavailable</div>
-                    <div className="text-gray-400 text-sm max-w-md">
+                    <div className="text-gray-400 text-sm">
                         Your browser doesn't support voice recognition or microphone access was denied.
                         Please check your microphone permissions and try again.
                     </div>
@@ -520,6 +596,10 @@ Respond naturally:`;
             </motion.div>
         );
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 🎨 RENDER: MAIN UI
+    // ═══════════════════════════════════════════════════════════════════════════════
 
     return (
         <motion.div
@@ -556,7 +636,7 @@ Respond naturally:`;
                 {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
             </motion.button>
 
-            {/* Listening Toggle Button */}
+            {/* Listening Toggle */}
             <motion.button
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
@@ -624,8 +704,13 @@ Respond naturally:`;
                             </div>
                         )}
 
+                        {/* Processing spinner */}
+                        {isProcessing && (
+                            <Loader2 size={48} className="text-white animate-spin" />
+                        )}
+
                         {/* Waveform animation */}
-                        {(isListening || isSpeaking) && (
+                        {(isListening || isSpeaking) && !isProcessing && (
                             <div className="absolute inset-0 flex items-center justify-center gap-1.5">
                                 {[...Array(5)].map((_, i) => (
                                     <motion.div
@@ -718,7 +803,7 @@ Respond naturally:`;
                             ) : isListening ? (
                                 <span className="flex items-center justify-center gap-2">
                                     <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                                    Listening...
+                                    Listening... (say "bye" to end)
                                 </span>
                             ) : (
                                 <span className="flex items-center justify-center gap-2">

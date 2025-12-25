@@ -42,6 +42,7 @@ import Profile from '@student/pages/Profile';
 import AnalyticsSection from '@analytics/components/AnalyticsSection';
 import StudentAnalytics from '@analytics/components/StudentAnalytics'; // Keep for legacy if needed or remove
 import LeaderboardSection from '@analytics/components/LeaderboardSection';
+import ErrorBoundary from '@shared/components/ErrorBoundary';
 
 // ============================================
 // CONSTANTS
@@ -548,7 +549,7 @@ const MobileSidebar = ({ isOpen, onClose, activeTab, onTabChange, onLogout }) =>
                         <div className="flex items-center gap-3">
                             <div className="relative">
                                 <div className="absolute inset-0 bg-teal-500/30 blur-lg rounded-xl" />
-                                <img src={logoImage} alt="Logo" className="relative h-16 w-16 rounded-xl shadow-lg" />
+                                <img src={logoImage} alt="Logo" className="relative h-9 w-17 rounded-xl shadow-lg" />
                             </div>
                             <div>
                                 <span className="text-lg font-black text-white block tracking-tight">StudyGloqe</span>
@@ -1178,7 +1179,7 @@ const Dashboard = () => {
                     <div className="flex items-center gap-3">
                         <div className="relative shrink-0">
                             <div className="absolute inset-0 bg-gradient-to-br from-teal-500/30 to-cyan-500/30 blur-lg rounded-lg" />
-                            <img src={logoImage} alt="StudyGloqe" className="relative h-14 w-14 rounded-lg shadow-lg" />
+                            <img src={logoImage} alt="StudyGloqe" className="relative h-14 w-18 rounded-lg shadow-lg" />
                         </div>
                         <div className="min-w-0">
                             <h1 className="text-base font-black text-white tracking-tight truncate">StudyGloqe</h1>
@@ -1380,17 +1381,19 @@ const Dashboard = () => {
 
                 {/* CONTENT AREA */}
                 <main className="p-5">
-                    <AnimatePresence mode="wait">
-                        <motion.div
-                            key={activeTab}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.2 }}
-                        >
-                            {renderContent()}
-                        </motion.div>
-                    </AnimatePresence>
+                    <ErrorBoundary onReset={() => setActiveTab('overview')}>
+                        <AnimatePresence mode="wait">
+                            <motion.div
+                                key={activeTab}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                transition={{ duration: 0.2 }}
+                            >
+                                {renderContent()}
+                            </motion.div>
+                        </AnimatePresence>
+                    </ErrorBoundary>
                 </main>
             </div>
 

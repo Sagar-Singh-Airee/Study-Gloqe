@@ -1,36 +1,19 @@
-// src/components/gamification/DailyChallenges.jsx - ✅ FIXED VERSION
-import { useState, useEffect } from 'react';
+// src/components/gamification/DailyChallenges.jsx
+// ✨ MINIMALIST DESIGN - Teal/Royal Blue/Black/White
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-    Target, Trophy, Flame, Clock, Brain, Zap, Award,
-    Crown, Layers, Timer, CheckCircle2, Sparkles, AlertCircle, RefreshCw
-} from 'lucide-react';
+import { Target, Clock, CheckCircle2, Zap, TrendingUp } from 'lucide-react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@shared/config/firebase';
 import { useAuth } from '@auth/contexts/AuthContext';
-import { getDailyChallenges, getChallengeStreak } from '@gamification/services/challengeService';
-import Confetti from 'react-confetti';  // npm install react-confetti
+import {
+    getDailyChallenges,
+    getChallengeStreak,
+    updateChallengeProgress
+} from '@gamification/services/challengeService';
+import toast from 'react-hot-toast';
 
-// Icon map for dynamic rendering
-const ICON_MAP = {
-    Brain: Brain,
-    Clock: Clock,
-    Layers: Layers,
-    Target: Target,
-    Timer: Timer,
-    Zap: Zap,
-    Award: Award,
-    Trophy: Trophy,
-    Flame: Flame,
-    Crown: Crown,
-    CheckCircle2: CheckCircle2,
-    BookOpen: Brain // Or actual BookOpen if imported
-};
-
-// ✅ Bonus XP constant
-const ALL_COMPLETE_BONUS = 100;
-
-const DailyChallenges = ({ compact = false }) => {
+const DailyChallenges = ({ compact = false, onChallengesLoaded }) => {
     const { user } = useAuth();
     const [challenges, setChallenges] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -38,17 +21,14 @@ const DailyChallenges = ({ compact = false }) => {
     const [allCompleted, setAllCompleted] = useState(false);
     const [streak, setStreak] = useState(0);
     const [timeLeft, setTimeLeft] = useState('');
-    const [showConfetti, setShowConfetti] = useState(false);
-    const [justCompleted, setJustCompleted] = useState(null);
 
-    // ✅ FIXED: Get today's date string in UTC (matching challengeService)
-    const getTodayString = () => {
+    const getTodayString = useCallback(() => {
         const now = new Date();
         const utcDate = new Date(now.getTime() + now.getTimezoneOffset() * 60000);
         return utcDate.toISOString().split('T')[0];
-    };
+    }, []);
 
-    // ✅ FIXED: Real-time challenges listener
+    // Real-time listener
     useEffect(() => {
         if (!user?.uid) {
             setLoading(false);
@@ -58,74 +38,50 @@ const DailyChallenges = ({ compact = false }) => {
         const today = getTodayString();
         const challengesRef = doc(db, 'gamification', user.uid, 'dailyChallenges', today);
 
-        console.log('🔄 Setting up daily challenges listener');
-
         const unsubscribe = onSnapshot(
             challengesRef,
             async (snapshot) => {
                 try {
+                    let loadedChallenges = [];
                     if (snapshot.exists()) {
                         const data = snapshot.data();
-                        const fetchedChallenges = data.challenges || [];
-                        const wasAllCompleted = allCompleted;
-                        const newAllCompleted = data.allCompleted || false;
-
-                        setChallenges(fetchedChallenges);
-                        setAllCompleted(newAllCompleted);
-
-                        // ✅ Show confetti when all challenges just completed
-                        if (newAllCompleted && !wasAllCompleted) {
-                            setShowConfetti(true);
-                            setTimeout(() => setShowConfetti(false), 5000);
-                        }
-
-                        // ✅ Detect newly completed challenge
-                        const newlyCompleted = fetchedChallenges.find(
-                            (c, idx) => c.completed && !challenges[idx]?.completed
-                        );
-                        if (newlyCompleted) {
-                            setJustCompleted(newlyCompleted.id);
-                            setTimeout(() => setJustCompleted(null), 2000);
-                        }
-
-                        setError(null);
-                        console.log('✅ Challenges updated:', fetchedChallenges.length);
+                        loadedChallenges = data.challenges || [];
+                        setChallenges(loadedChallenges);
+                        setAllCompleted(data.allCompleted || false);
                     } else {
-                        // No challenges exist yet, generate them
-                        console.log('⚠️ No challenges found, generating...');
-                        const { challenges: newChallenges, allCompleted: completed } =
-                            await getDailyChallenges(user.uid);
-                        setChallenges(newChallenges);
-                        setAllCompleted(completed);
+                        const result = await getDailyChallenges(user.uid);
+                        loadedChallenges = result.challenges || [];
+                        setChallenges(loadedChallenges);
+                        setAllCompleted(result.allCompleted);
                     }
 
-                    // Load streak
+                    if (onChallengesLoaded) {
+                        onChallengesLoaded(loadedChallenges.length);
+                    }
+
                     const currentStreak = await getChallengeStreak(user.uid);
                     setStreak(currentStreak);
-
                     setLoading(false);
+                    setError(null);
                 } catch (err) {
-                    console.error('❌ Error loading challenges:', err);
-                    setError('Failed to load challenges');
+                    console.error('Error loading challenges:', err);
+                    setError('Failed to load');
                     setLoading(false);
                 }
             },
             (err) => {
-                console.error('❌ Challenges listener error:', err);
-                setError('Failed to connect to challenges');
+                console.error('Listener error:', err);
+                setError('Connection failed');
                 setLoading(false);
             }
         );
 
-        return () => {
-            console.log('🔌 Unsubscribing from challenges listener');
-            unsubscribe();
-        };
-    }, [user?.uid]);
+        return () => unsubscribe();
+    }, [user?.uid, getTodayString]);
 
-    // ✅ FIXED: Calculate time until reset (UTC-based)
+    // Timer
     useEffect(() => {
-        const updateTimeLeft = () => {
+        const updateTime = () => {
             const now = new Date();
             const tomorrow = new Date(now);
             tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
@@ -138,394 +94,237 @@ const DailyChallenges = ({ compact = false }) => {
             setTimeLeft(`${hours}h ${minutes}m`);
         };
 
-        updateTimeLeft();
-        const interval = setInterval(updateTimeLeft, 60000);
+        updateTime();
+        const interval = setInterval(updateTime, 60000);
         return () => clearInterval(interval);
     }, []);
 
-    // ✅ Retry loading challenges
-    const handleRetry = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const { challenges: newChallenges, allCompleted: completed } =
-                await getDailyChallenges(user.uid);
-            setChallenges(newChallenges);
-            setAllCompleted(completed);
-            const currentStreak = await getChallengeStreak(user.uid);
-            setStreak(currentStreak);
-        } catch (err) {
-            setError('Failed to load challenges');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const getDifficultyColor = (difficulty) => {
-        switch (difficulty) {
-            case 'easy': return 'from-green-500 to-emerald-500';
-            case 'medium': return 'from-yellow-500 to-orange-500';
-            case 'hard': return 'from-red-500 to-rose-500';
-            default: return 'from-gray-500 to-gray-600';
-        }
-    };
-
-    const getDifficultyBg = (difficulty) => {
-        switch (difficulty) {
-            case 'easy': return 'bg-green-500/10 border-green-500/30';
-            case 'medium': return 'bg-yellow-500/10 border-yellow-500/30';
-            case 'hard': return 'bg-red-500/10 border-red-500/30';
-            default: return 'bg-gray-500/10 border-gray-500/30';
-        }
-    };
-
-    // ✅ FIXED: Smart progress calculation
-    const calculateProgress = (challenge) => {
-        // For quiz_score type, check if achieved target
-        if (challenge.type === 'quiz_score') {
-            return challenge.progress >= challenge.target ? 100 :
-                (challenge.progress / challenge.target) * 100;
-        }
-        // For count/time challenges, normal calculation
+    const calculateProgress = useCallback((challenge) => {
         return Math.min((challenge.progress / challenge.target) * 100, 100);
-    };
+    }, []);
 
-    // ✅ Loading state
+    // Loading
     if (loading) {
         return (
-            <div className="bg-white rounded-2xl border border-gray-200 p-6">
-                <div className="animate-pulse space-y-4">
-                    <div className="h-6 bg-gray-200 rounded w-1/3"></div>
-                    <div className="h-20 bg-gray-100 rounded-xl"></div>
-                    <div className="h-20 bg-gray-100 rounded-xl"></div>
-                    <div className="h-20 bg-gray-100 rounded-xl"></div>
+            <div className="bg-white rounded-lg border border-slate-200 p-4">
+                <div className="animate-pulse space-y-3">
+                    <div className="h-4 bg-slate-100 rounded w-32"></div>
+                    <div className="h-2 bg-slate-100 rounded"></div>
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className="h-16 bg-slate-50 rounded border border-slate-100"></div>
+                    ))}
                 </div>
             </div>
         );
     }
 
-    // ✅ Error state
+    // Error
     if (error) {
         return (
-            <div className="bg-white rounded-2xl border border-red-200 p-6">
-                <div className="flex items-center gap-3 mb-4">
-                    <AlertCircle size={24} className="text-red-500" />
-                    <div>
-                        <h3 className="font-bold text-red-900">Failed to Load Challenges</h3>
-                        <p className="text-sm text-red-600">{error}</p>
-                    </div>
-                </div>
-                <button
-                    onClick={handleRetry}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-                >
-                    <RefreshCw size={16} />
-                    <span>Retry</span>
-                </button>
+            <div className="bg-white rounded-lg border border-red-200 p-4">
+                <p className="text-xs text-red-600">{error}</p>
             </div>
         );
     }
 
-    // ✅ Empty state
+    // Empty
     if (challenges.length === 0) {
         return (
-            <div className="bg-white rounded-2xl border border-gray-200 p-6">
-                <div className="text-center py-8">
-                    <Target size={48} className="text-gray-300 mx-auto mb-3" />
-                    <h3 className="font-bold text-gray-900 mb-2">No Challenges Available</h3>
-                    <p className="text-sm text-gray-500">Check back tomorrow for new challenges!</p>
-                </div>
+            <div className="bg-white rounded-lg border border-slate-200 p-4 text-center">
+                <Target size={20} className="text-slate-300 mx-auto mb-2" />
+                <p className="text-xs text-slate-500">No challenges today</p>
             </div>
         );
     }
 
-    // ✅ Compact version
+    const completedCount = challenges.filter(c => c.completed).length;
+    const totalXP = challenges.reduce((sum, c) => sum + (c.completed ? c.xpReward : 0), 0) +
+        (allCompleted ? 100 : 0);
+
+    // Compact view
     if (compact) {
-        const completedCount = challenges.filter(c => c.completed).length;
         return (
             <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl p-4 text-white shadow-lg"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="bg-white rounded-lg border border-slate-200 p-3 hover:border-teal-500 transition-colors"
             >
-                <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                        <Target size={18} />
-                        <span className="font-bold text-sm">Daily Challenges</span>
-                    </div>
-                    <span className="text-xs opacity-80">{timeLeft} left</span>
+                <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-slate-900">Daily Goals</span>
+                    <span className="text-[10px] text-slate-500">{timeLeft}</span>
                 </div>
 
-                <div className="flex items-center gap-2 mb-3">
-                    {challenges.map((challenge, idx) => (
-                        <motion.div
-                            key={idx}
-                            className={`flex-1 h-2 rounded-full transition-all ${challenge.completed ? 'bg-white' : 'bg-white/30'
+                <div className="flex items-center gap-1.5 mb-2">
+                    {challenges.slice(0, 5).map((c, i) => (
+                        <div
+                            key={i}
+                            className={`flex-1 h-1.5 rounded-full transition-all ${c.completed ? 'bg-teal-500' : 'bg-slate-200'
                                 }`}
-                            initial={{ scale: 0.8 }}
-                            animate={{ scale: challenge.completed ? 1.1 : 1 }}
                         />
                     ))}
                 </div>
 
                 <div className="flex items-center justify-between">
-                    <span className="text-sm font-bold">{completedCount}/{challenges.length} Complete</span>
-                    {streak > 0 && (
-                        <div className="flex items-center gap-1">
-                            <Flame size={14} className="text-yellow-300" />
-                            <span className="text-xs font-bold">{streak} day streak</span>
-                        </div>
-                    )}
+                    <span className="text-[11px] text-slate-600">
+                        {completedCount}/{challenges.length} complete
+                    </span>
+                    <div className="flex items-center gap-1">
+                        <Zap size={12} className="text-amber-500" />
+                        <span className="text-xs font-bold text-slate-900">{totalXP}</span>
+                    </div>
                 </div>
-
-                {allCompleted && (
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="mt-3 p-2 bg-white/20 rounded-lg flex items-center gap-2"
-                    >
-                        <Trophy size={14} />
-                        <span className="text-xs font-bold">All Done! +{ALL_COMPLETE_BONUS} XP</span>
-                    </motion.div>
-                )}
             </motion.div>
         );
     }
 
-    const completedCount = challenges.filter(c => c.completed).length;
-
+    // Full view
     return (
-        <>
-            {/* ✅ Confetti on all complete */}
-            {showConfetti && (
-                <Confetti
-                    width={window.innerWidth}
-                    height={window.innerHeight}
-                    recycle={false}
-                    numberOfPieces={200}
-                    gravity={0.3}
-                />
-            )}
-
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm"
-            >
-                {/* Header */}
-                <div className="p-6 border-b border-gray-100">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <motion.div
-                                className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center"
-                                animate={allCompleted ? { rotate: [0, 10, -10, 0] } : {}}
-                                transition={{ duration: 0.5 }}
-                            >
-                                <Target size={24} className="text-white" />
-                            </motion.div>
-                            <div>
-                                <h2 className="text-xl font-black text-black">Daily Challenges</h2>
-                                <p className="text-gray-500 text-sm">
-                                    {allCompleted ? 'All complete! 🎉' : 'Complete for bonus XP'}
-                                </p>
-                            </div>
+        <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-lg border border-slate-200 overflow-hidden"
+        >
+            {/* Header */}
+            <div className="p-4 border-b border-slate-100">
+                <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-gradient-to-br from-teal-500 to-blue-600 rounded-lg flex items-center justify-center">
+                            <Target size={16} className="text-white" />
                         </div>
-                        <div className="text-right">
-                            <div className="flex items-center gap-2 text-sm text-gray-500">
-                                <Clock size={14} />
-                                <span>Resets in {timeLeft}</span>
-                            </div>
-                            {streak > 0 && (
-                                <motion.div
-                                    className="flex items-center gap-1 mt-1 justify-end"
-                                    animate={{ scale: [1, 1.05, 1] }}
-                                    transition={{ duration: 2, repeat: Infinity }}
-                                >
-                                    <Flame size={14} className="text-orange-500" />
-                                    <span className="text-sm font-bold text-orange-500">
-                                        {streak} day streak!
-                                    </span>
-                                </motion.div>
-                            )}
+                        <div>
+                            <h3 className="text-sm font-bold text-slate-900">Daily Challenges</h3>
+                            <p className="text-[11px] text-slate-500">{completedCount}/5 complete</p>
                         </div>
                     </div>
 
-                    {/* Progress bar */}
-                    <div className="mt-4">
-                        <div className="flex items-center justify-between text-sm mb-2">
-                            <span className="text-gray-600">Progress</span>
-                            <span className="font-bold text-black">
-                                {completedCount}/{challenges.length}
+                    <div className="text-right">
+                        <div className="flex items-center gap-1 text-[11px] text-slate-500 mb-1">
+                            <Clock size={10} />
+                            <span>{timeLeft}</span>
+                        </div>
+                        {streak > 0 && (
+                            <div className="text-[11px] font-semibold text-orange-600">
+                                {streak} day streak
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Progress bar */}
+                <div className="space-y-1.5">
+                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${(completedCount / 5) * 100}%` }}
+                            className="h-full bg-gradient-to-r from-teal-500 to-blue-600"
+                            transition={{ duration: 0.5 }}
+                        />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-slate-500">Progress</span>
+                        <div className="flex items-center gap-1">
+                            <Zap size={11} className="text-amber-500" />
+                            <span className="text-xs font-bold text-slate-900">{totalXP} XP</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* All complete banner */}
+                {allCompleted && (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="mt-3 p-2 bg-gradient-to-r from-teal-50 to-blue-50 rounded-lg border border-teal-200"
+                    >
+                        <div className="flex items-center gap-2">
+                            <CheckCircle2 size={14} className="text-teal-600" />
+                            <span className="text-[11px] font-semibold text-teal-700">
+                                All done! +100 XP bonus
                             </span>
                         </div>
-                        <div className="h-3 bg-gray-100 rounded-full overflow-hidden border border-gray-200">
+                    </motion.div>
+                )}
+            </div>
+
+            {/* Challenges list */}
+            <div className="p-3 space-y-2">
+                <AnimatePresence mode="popLayout">
+                    {challenges.slice(0, 5).map((challenge, idx) => {
+                        const progress = calculateProgress(challenge);
+
+                        return (
                             <motion.div
-                                initial={{ width: 0 }}
-                                animate={{
-                                    width: `${(completedCount / challenges.length) * 100}%`
-                                }}
-                                className="h-full bg-gradient-to-r from-purple-500 via-indigo-500 to-purple-600 relative"
-                                transition={{ duration: 0.5, ease: 'easeOut' }}
+                                key={challenge.id}
+                                layout
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: 10 }}
+                                transition={{ delay: idx * 0.03 }}
+                                className={`group p-3 rounded-lg border transition-all ${challenge.completed
+                                    ? 'bg-teal-50/50 border-teal-200'
+                                    : 'bg-slate-50/30 border-slate-200 hover:border-slate-300'
+                                    }`}
                             >
-                                {/* Shimmer effect */}
-                                <motion.div
-                                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
-                                    animate={{ x: ['-100%', '200%'] }}
-                                    transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-                                />
-                            </motion.div>
-                        </div>
-                    </div>
+                                <div className="flex items-center gap-3">
+                                    {/* Icon */}
+                                    <div
+                                        className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${challenge.completed
+                                            ? 'bg-gradient-to-br from-teal-500 to-blue-600'
+                                            : 'bg-slate-200'
+                                            }`}
+                                    >
+                                        {challenge.completed ? (
+                                            <CheckCircle2 size={18} className="text-white" />
+                                        ) : (
+                                            <Target size={18} className="text-slate-500" />
+                                        )}
+                                    </div>
 
-                    {/* ✅ All completed bonus with correct XP */}
-                    {allCompleted && (
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            className="mt-4 p-4 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 rounded-xl flex items-center gap-3 shadow-lg"
-                        >
-                            <motion.div
-                                animate={{ rotate: [0, 360] }}
-                                transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                            >
-                                <Sparkles size={24} className="text-white" />
-                            </motion.div>
-                            <div className="flex-1">
-                                <span className="text-white font-black text-sm">
-                                    All challenges complete! 🎉
-                                </span>
-                                <div className="flex items-center gap-1 mt-1">
-                                    <Zap size={14} className="text-yellow-200" />
-                                    <span className="text-yellow-100 font-bold text-xs">
-                                        +{ALL_COMPLETE_BONUS} XP Bonus Earned!
-                                    </span>
-                                </div>
-                            </div>
-                            <Trophy size={24} className="text-yellow-200" />
-                        </motion.div>
-                    )}
-                </div>
-
-                {/* Challenges List */}
-                <div className="p-4 space-y-3">
-                    <AnimatePresence mode="popLayout">
-                        {challenges.map((challenge, idx) => {
-                            const IconComponent = ICON_MAP[challenge.icon] || Target;
-                            const progress = calculateProgress(challenge);
-                            const isJustCompleted = justCompleted === challenge.id;
-
-                            return (
-                                <motion.div
-                                    key={challenge.id}
-                                    layout
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{
-                                        opacity: 1,
-                                        x: 0,
-                                        scale: isJustCompleted ? [1, 1.02, 1] : 1
-                                    }}
-                                    exit={{ opacity: 0, x: 20 }}
-                                    transition={{ delay: idx * 0.05 }}
-                                    className={`p-4 rounded-xl border-2 transition-all ${challenge.completed
-                                        ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-300 shadow-sm'
-                                        : getDifficultyBg(challenge.difficulty)
-                                        }`}
-                                >
-                                    <div className="flex items-center gap-4">
-                                        {/* Icon */}
-                                        <motion.div
-                                            className={`w-14 h-14 rounded-xl flex items-center justify-center shadow-md ${challenge.completed
-                                                ? 'bg-gradient-to-br from-green-500 to-emerald-600'
-                                                : `bg-gradient-to-br ${getDifficultyColor(challenge.difficulty)}`
-                                                }`}
-                                            animate={
-                                                isJustCompleted
-                                                    ? { rotate: [0, -10, 10, -10, 0], scale: [1, 1.2, 1] }
-                                                    : {}
-                                            }
-                                        >
-                                            {challenge.completed ? (
-                                                <CheckCircle2 size={28} className="text-white" strokeWidth={2.5} />
-                                            ) : (
-                                                <IconComponent size={28} className="text-white" strokeWidth={2.5} />
-                                            )}
-                                        </motion.div>
-
-                                        {/* Details */}
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                                <h3
-                                                    className={`font-black text-base ${challenge.completed ? 'text-green-700' : 'text-black'
-                                                        }`}
-                                                >
-                                                    {challenge.title}
-                                                </h3>
-                                                <span
-                                                    className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${challenge.difficulty === 'easy'
-                                                        ? 'bg-green-100 text-green-700'
-                                                        : challenge.difficulty === 'medium'
-                                                            ? 'bg-yellow-100 text-yellow-700'
-                                                            : 'bg-red-100 text-red-700'
-                                                        }`}
-                                                >
-                                                    {challenge.difficulty}
-                                                </span>
-                                            </div>
-                                            <p className="text-sm text-gray-600 mb-3">
-                                                {challenge.description}
-                                            </p>
-
-                                            {/* Progress bar */}
-                                            <div className="flex items-center gap-3">
-                                                <div className="flex-1 h-2.5 bg-gray-200 rounded-full overflow-hidden border border-gray-300">
-                                                    <motion.div
-                                                        initial={{ width: 0 }}
-                                                        animate={{ width: `${progress}%` }}
-                                                        className={`h-full relative ${challenge.completed
-                                                            ? 'bg-gradient-to-r from-green-500 to-emerald-600'
-                                                            : `bg-gradient-to-r ${getDifficultyColor(challenge.difficulty)}`
-                                                            }`}
-                                                        transition={{ duration: 0.5, ease: 'easeOut' }}
-                                                    >
-                                                        {/* Shimmer */}
-                                                        {!challenge.completed && (
-                                                            <motion.div
-                                                                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
-                                                                animate={{ x: ['-100%', '200%'] }}
-                                                                transition={{
-                                                                    duration: 1.5,
-                                                                    repeat: Infinity,
-                                                                    ease: 'linear'
-                                                                }}
-                                                            />
-                                                        )}
-                                                    </motion.div>
-                                                </div>
-                                                <span className="text-xs font-black text-gray-600 min-w-[60px] text-right">
-                                                    {challenge.progress}/{challenge.target}
+                                    {/* Details */}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <h4 className={`text-xs font-semibold ${challenge.completed ? 'text-teal-700' : 'text-slate-900'
+                                                }`}>
+                                                {challenge.title}
+                                            </h4>
+                                            <div className="flex items-center gap-1">
+                                                <Zap size={11} className={challenge.completed ? 'text-teal-600' : 'text-amber-500'} />
+                                                <span className="text-[11px] font-bold text-slate-700">
+                                                    {challenge.xpReward}
                                                 </span>
                                             </div>
                                         </div>
 
-                                        {/* Reward */}
-                                        <div className="text-right flex-shrink-0">
-                                            <div
-                                                className={`flex items-center gap-1 justify-end ${challenge.completed ? 'text-green-600' : 'text-yellow-600'
-                                                    }`}
-                                            >
-                                                <Zap size={18} strokeWidth={2.5} />
-                                                <span className="font-black text-lg">{challenge.xpReward}</span>
+                                        <p className="text-[10px] text-slate-500 mb-2">
+                                            {challenge.description}
+                                        </p>
+
+                                        {/* Progress */}
+                                        <div className="flex items-center gap-2">
+                                            <div className="flex-1 h-1 bg-slate-200 rounded-full overflow-hidden">
+                                                <motion.div
+                                                    initial={{ width: 0 }}
+                                                    animate={{ width: `${progress}%` }}
+                                                    className={`h-full ${challenge.completed
+                                                        ? 'bg-gradient-to-r from-teal-500 to-blue-600'
+                                                        : 'bg-slate-400'
+                                                        }`}
+                                                    transition={{ duration: 0.4 }}
+                                                />
                                             </div>
-                                            <span className="text-xs text-gray-500 font-semibold">XP</span>
+                                            <span className="text-[10px] font-medium text-slate-600 min-w-[40px] text-right">
+                                                {challenge.progress}/{challenge.target}
+                                            </span>
                                         </div>
                                     </div>
-                                </motion.div>
-                            );
-                        })}
-                    </AnimatePresence>
-                </div>
-            </motion.div>
-        </>
+                                </div>
+                            </motion.div>
+                        );
+                    })}
+                </AnimatePresence>
+            </div>
+        </motion.div>
     );
 };
 

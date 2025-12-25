@@ -218,6 +218,16 @@ service cloud.firestore {
         allow write: if isSignedIn() && 
                         get(/databases/$(database)/documents/documents/$(docId)).data.userId == request.auth.uid;
       }
+      
+      // 🔥 NEW: Visual Pages Subcollection for Real-time Streaming
+      match /visualPages/{pageId} {
+        allow read: if isSignedIn();
+        allow create, update: if isSignedIn() && 
+                               (get(/databases/$(database)/documents/documents/$(docId)).data.userId == request.auth.uid ||
+                                get(/databases/$(database)/documents/documents/$(docId)).data.uploaderId == request.auth.uid);
+        allow delete: if isSignedIn() && 
+                         get(/databases/$(database)/documents/documents/$(docId)).data.userId == request.auth.uid;
+      }
     }
     
     // ==========================================

@@ -213,6 +213,13 @@ export const useAnalyticsData = (userId, timeRangeDays = 30) => {
             ? Math.round(studySessions.reduce((sum, s) => sum + (s.totalTime || 0), 0) / studySessions.length)
             : 0;
 
+        // ✅ FIXED: Calculate unique active days from sessions
+        const uniqueDates = new Set(
+            [...quizSessions, ...studySessions]
+                .map(s => (s.completedAt || s.startTime)?.toDateString?.() || null)
+                .filter(Boolean)
+        );
+
         return {
             totalStudyTime,
             totalQuizzes,
@@ -224,7 +231,7 @@ export const useAnalyticsData = (userId, timeRangeDays = 30) => {
             totalCorrect,
             totalQuestions,
             avgSessionLength,
-            activeDays: uniqueDates.length
+            activeDays: uniqueDates.size  // ✅ Use .size for Set
         };
     }, [quizSessions, studySessions, documents, flashcards]);
 

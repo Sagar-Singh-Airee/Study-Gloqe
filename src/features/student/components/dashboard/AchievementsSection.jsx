@@ -29,6 +29,9 @@ const AchievementsSection = () => {
         xpToNextLevel, badgeCompletionRate, syncing
     } = useGamification();
 
+    // State for dynamic challenge count
+    const [challengeCount, setChallengeCount] = useState(0);
+
     // ✅ CLEANUP ON UNMOUNT
     useEffect(() => {
         isMountedRef.current = true;
@@ -116,10 +119,7 @@ const AchievementsSection = () => {
                         <div className="px-3 py-1.5 bg-gradient-to-r from-teal-500 to-blue-600 text-white rounded-lg text-xs font-bold tracking-wide shadow-sm">
                             LEVEL {safeLevel}
                         </div>
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
-                            <Trophy size={12} className="text-teal-600" strokeWidth={2.5} />
-                            <span className="text-xs font-bold text-slate-900">#{safeGlobalRank}</span>
-                        </div>
+
                         <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
                             <Crown size={12} className="text-teal-600" strokeWidth={2.5} />
                             <span className="text-xs font-bold text-slate-900 truncate max-w-[120px]">{safeEquippedTitle}</span>
@@ -189,10 +189,9 @@ const AchievementsSection = () => {
                 >
                     <div className="flex gap-1 border-b border-slate-200">
                         {[
-                            { key: 'challenges', label: 'Challenges', count: 0 },
+                            { key: 'challenges', label: 'Challenges', count: challengeCount },
                             { key: 'badges', label: 'Badges', count: unlockedBadges },
-                            { key: 'titles', label: 'Titles', count: unlockedTitles },
-                            { key: 'gifts', label: 'Gifts', count: 0 }
+                            { key: 'titles', label: 'Titles', count: unlockedTitles }
                         ].map((tab) => (
                             <button
                                 key={tab.key}
@@ -256,7 +255,7 @@ const AchievementsSection = () => {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.3 }}
                         >
-                            <DailyChallenges />
+                            <DailyChallenges onChallengesLoaded={setChallengeCount} />
                         </motion.div>
                     )}
 
@@ -389,21 +388,7 @@ const AchievementsSection = () => {
                     )}
 
                     {/* GIFTS */}
-                    {activeTab === 'gifts' && (
-                        <motion.div
-                            key="gifts"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.3 }}
-                            className="text-center py-16"
-                        >
-                            <Gift size={48} className="mx-auto mb-4 text-slate-300" strokeWidth={2} />
-                            <h3 className="text-lg font-bold text-slate-900 mb-1">No gifts yet</h3>
-                            <p className="text-xs text-slate-600 font-medium max-w-md mx-auto leading-relaxed">
-                                Impress your teachers with great work to receive special rewards
-                            </p>
-                        </motion.div>
-                    )}
+
                 </div>
             </div>
         </div>

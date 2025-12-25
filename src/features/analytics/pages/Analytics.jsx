@@ -238,11 +238,56 @@ const Analytics = ({ embedded = false }) => {
   const prevAnalytics = useRealtimeAnalytics(user?.uid, timeframe * 2);
   const aiReport = useAIReport(user?.uid, analytics);
 
-  const generateSparkData = (value) => {
-    return Array.from({ length: 7 }, (_, i) => ({
-      value: Math.max(0, value * (0.7 + Math.random() * 0.5))
-    }));
-  };
+  // ✅ AUTO-AGGREGATE DAILY DATA FOR SPARKLINES
+  const dailyActivity = useMemo(() => {
+    if (analytics.loading || !analytics.raw) return { study: [], score: [], streak: [], xp: [] };
+
+    const days = 7;
+    const now = new Date();
+    const map = new Map();
+
+    // Initialize last 7 days with 0
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      map.set(d.toDateString(), { study: 0, score: [], xp: 0, streak: 0 });
+    }
+
+    // Aggregate Study Time
+    analytics.raw.studySessions?.forEach(s => {
+      const d = s.startTime?.toDate?.() || new Date(s.startTime);
+      const key = d.toDateString();
+      if (map.has(key)) {
+        const entry = map.get(key);
+        entry.study += (s.totalTime || 0) / 60; // Minutes
+        map.set(key, entry);
+      }
+    });
+
+    // Aggregate Quiz Scores
+    analytics.raw.quizSessions?.forEach(q => {
+      const d = q.completedAt?.toDate?.() || new Date(q.completedAt);
+      const key = d.toDateString();
+      if (map.has(key)) {
+        const entry = map.get(key);
+        entry.score.push(q.score || 0);
+        entry.xp += (q.xpEarned || 0); // Assuming XP on quiz
+        map.set(key, entry);
+      }
+    });
+
+    // Convert to arrays for Recharts
+    const result = { study: [], score: [], xp: [] };
+    map.forEach((val) => {
+      result.study.push({ value: Math.round(val.study) });
+      result.score.push({
+        value: val.score.length ? Math.round(val.score.reduce((a, b) => a + b, 0) / val.score.length) : 0
+      });
+      result.xp.push({ value: val.xp });
+    });
+
+    return result;
+  }, [analytics.raw]);
 
   const metrics = useMemo(() => {
     const studyTime = formatStudyTime(analytics.studyTime.totalMinutes);
@@ -385,7 +430,7 @@ const Analytics = ({ embedded = false }) => {
                   label="Study Time"
                   value={metrics.studyTime.display}
                   trend={metrics.studyTrend}
-                  sparkData={generateSparkData(metrics.studyTime.totalMinutes || 50)}
+                  sparkData={dailyActivity.study}
                   onClick={() => navigate('/dashboard?tab=study-sessions')}
                 />
                 <StatCard
@@ -393,7 +438,7 @@ const Analytics = ({ embedded = false }) => {
                   label="Avg Score"
                   value={`${metrics.avgScore.toFixed(0)}%`}
                   trend={metrics.scoreTrend}
-                  sparkData={generateSparkData(metrics.avgScore)}
+                  sparkData={dailyActivity.score}
                   onClick={() => navigate('/dashboard?tab=quizzes')}
                 />
                 <StatCard
@@ -401,14 +446,14 @@ const Analytics = ({ embedded = false }) => {
                   label="Streak"
                   value={`${metrics.streak} Days`}
                   trend={{ dir: 'up', val: 'Active' }}
-                  sparkData={generateSparkData(metrics.streak * 8)}
+                  sparkData={dailyActivity.study} /* Fallback to study activity for streak vis */
                 />
                 <StatCard
                   icon={Zap}
                   label="Total XP"
                   value={(metrics.xp / 1000).toFixed(1) + 'k'}
                   trend={{ dir: 'up', val: `L${metrics.level}` }}
-                  sparkData={generateSparkData(metrics.xp / 8)}
+                  sparkData={dailyActivity.xp}
                 />
               </div>
 
@@ -704,7 +749,8 @@ const useRealtimeAnalytics = (userId, timeframe) => {
 
     const subStats = {};
     raw.quizSessions.forEach((q) => {
-      const s = q.subject || 'General';
+      // ✅ FIXED: Check quizSnapshot for history items
+      const s = q.subject || q.quizSnapshot?.subject || 'General';
       if (!subStats[s]) subStats[s] = { scores: [], count: 0 };
       let score = q.score || 0;
       if (q.answers && score === 0) {

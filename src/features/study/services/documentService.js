@@ -34,7 +34,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import toast from 'react-hot-toast';
 
 // Visual analysis service
-import { analyzePageVisually } from './visualAnalysisService';
+import { analyzePageVisually, savePageAnalysis } from './visualAnalysisService';
 
 // ════════════════════════════════════════════════════════════════════════════════
 // 🔧 CONFIGURATION & INITIALIZATION
@@ -784,22 +784,26 @@ const processRemainingPagesBackground = async (
                         }
                     }
 
-                    // Real-time update to Firestore
-                    const updates = {
-                        currentPage: pageNum,
-                        updatedAt: serverTimestamp()
-                    };
-
+                    // 🔥 STREAMING: Save page to subcollection for real-time updates
                     if (visualPage) {
-                        updates.visualPages = arrayUnion(visualPage);
-                        updates.hasVisualAnalysis = true;
-                        updates.visualPagesCount = increment(1);
+                        try {
+                            await savePageAnalysis(userId, docId, visualPage);
+                            console.log(`📡 [${processingId}] Page ${pageNum} saved to streaming subcollection`);
+                        } catch (saveErr) {
+                            console.warn(`⚠️ [${processingId}] Failed to stream page ${pageNum}:`, saveErr.message);
+                        }
                     }
 
-                    await safeUpdateDoc(docRef, updates, `Page ${pageNum} update`);
+                    // Update document metadata
+                    await safeUpdateDoc(docRef, {
+                        currentPage: pageNum,
+                        processedPages: increment(1),
+                        hasVisualAnalysis: true,
+                        updatedAt: serverTimestamp()
+                    }, `Page ${pageNum} metadata update`);
 
                     processedCount++;
-                    console.log(`✅ [${processingId}] Page ${pageNum} saved (${processedCount} total)`);
+                    console.log(`✅ [${processingId}] Page ${pageNum} complete (${processedCount} total)`);
                 }
 
                 // Rate limiting

@@ -444,6 +444,10 @@ export const useGamification = () => {
         totalBadges: computedValues.totalBadges,
         allBadges,
         unlockedBadges: gamificationData.unlockedBadges,
+        recentlyUnlocked: allBadges
+            .filter(b => b.unlocked)
+            .reverse() // Assume arrayUnion appends, so reverse to get newest first
+            .slice(0, 5),
 
         allTitles,
         unlockedTitles: gamificationData.unlockedTitles,

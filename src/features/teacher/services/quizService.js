@@ -413,14 +413,7 @@ export const completeQuizSession = async (sessionId) => {
     });
 
     // D. Side Effects (Gamification Service)
-    // Called after transaction succeeds
-    if (result.xpAwarded > 0) {
-      await awardDailyXP(
-        result.userId,
-        DAILY_ACTIONS.COMPLETE_QUIZ,
-        `Quiz Score: ${result.scorePercent}%`
-      ).catch(e => console.warn("⚠️ XP Award failed:", e));
-    }
+    // frontend handles this via trackAction now to prevent double counting
 
     console.log('✅ Quiz completed:', result);
     return result;

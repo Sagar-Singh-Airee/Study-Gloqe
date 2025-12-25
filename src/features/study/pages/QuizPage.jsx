@@ -294,7 +294,8 @@ const QuizPage = () => {
       await trackAction(user.uid, 'QUIZ_COMPLETED', {
         score: result.score,
         perfect: result.score === 100,
-        quizId: quizId
+        quizId: quizId,
+        subject: quiz.subject
       });
 
       toast.success(`🎉 Score: ${result.score}%`, { id: toastId, duration: 4000 });
