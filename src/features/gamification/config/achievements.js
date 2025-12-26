@@ -7,7 +7,7 @@ export const BADGE_DEFINITIONS = {
         description: 'Study for 3 days in a row',
         iconName: 'Flame',
         type: 'streak',
-        condition: (userData) => userData.streakData?.currentStreak >= 3,
+        condition: (userData) => (userData.streakData?.currentStreak || userData.streak || 0) >= 3,
         xpReward: 50
     },
     STREAK_7: {
@@ -16,7 +16,7 @@ export const BADGE_DEFINITIONS = {
         description: 'Maintain a 7-day study streak',
         iconName: 'Flame',
         type: 'streak',
-        condition: (userData) => userData.streakData?.currentStreak >= 7,
+        condition: (userData) => (userData.streakData?.currentStreak || userData.streak || 0) >= 7,
         xpReward: 100
     },
     STREAK_30: {
@@ -25,7 +25,7 @@ export const BADGE_DEFINITIONS = {
         description: 'Study for 30 days straight',
         iconName: 'Flame',
         type: 'streak',
-        condition: (userData) => userData.streakData?.currentStreak >= 30,
+        condition: (userData) => (userData.streakData?.currentStreak || userData.streak || 0) >= 30,
         xpReward: 500
     },
 
@@ -36,7 +36,7 @@ export const BADGE_DEFINITIONS = {
         description: 'Study for 1 hour total',
         iconName: 'BookOpen',
         type: 'time',
-        condition: (userData) => userData.totalStudyTime >= 3600, // 1 hour in seconds
+        condition: (userData) => (userData.totalStudyTime || 0) >= 60, // Minutes
         xpReward: 50
     },
     STUDY_10HR: {
@@ -45,7 +45,7 @@ export const BADGE_DEFINITIONS = {
         description: 'Study for 10 hours total',
         iconName: 'BookOpen',
         type: 'time',
-        condition: (userData) => userData.totalStudyTime >= 36000,
+        condition: (userData) => (userData.totalStudyTime || 0) >= 600,
         xpReward: 200
     },
     STUDY_50HR: {
@@ -54,7 +54,7 @@ export const BADGE_DEFINITIONS = {
         description: 'Study for 50 hours total',
         iconName: 'BookOpen',
         type: 'time',
-        condition: (userData) => userData.totalStudyTime >= 180000,
+        condition: (userData) => (userData.totalStudyTime || 0) >= 3000,
         xpReward: 1000
     },
 
@@ -65,7 +65,7 @@ export const BADGE_DEFINITIONS = {
         description: 'Complete your first quiz',
         iconName: 'Target',
         type: 'quiz',
-        condition: (userData) => userData.quizzesCompleted >= 1,
+        condition: (userData) => (userData.quizzesCompleted || userData.totalQuizzes || 0) >= 1,
         xpReward: 25
     },
     QUIZ_10: {
@@ -74,7 +74,7 @@ export const BADGE_DEFINITIONS = {
         description: 'Complete 10 quizzes',
         iconName: 'Target',
         type: 'quiz',
-        condition: (userData) => userData.quizzesCompleted >= 10,
+        condition: (userData) => (userData.quizzesCompleted || userData.totalQuizzes || 0) >= 10,
         xpReward: 150
     },
     QUIZ_PERFECT: {
@@ -83,7 +83,7 @@ export const BADGE_DEFINITIONS = {
         description: 'Score 100% on any quiz',
         iconName: 'Star',
         type: 'quiz',
-        condition: (userData) => userData.perfectQuizzes >= 1,
+        condition: (userData) => (userData.perfectQuizzes || 0) >= 1,
         xpReward: 100
     },
 
@@ -94,7 +94,7 @@ export const BADGE_DEFINITIONS = {
         description: 'Review 50 flashcards',
         iconName: 'Zap',
         type: 'flashcard',
-        condition: (userData) => userData.flashcardsReviewed >= 50,
+        condition: (userData) => (userData.flashcardsReviewed || 0) >= 50,
         xpReward: 75
     },
     FLASHCARD_MASTER: {
@@ -103,7 +103,7 @@ export const BADGE_DEFINITIONS = {
         description: 'Fully master 20 flashcards',
         iconName: 'Award',
         type: 'flashcard',
-        condition: (userData) => userData.flashcardsMastered >= 20,
+        condition: (userData) => (userData.flashcardsMastered || 0) >= 20,
         xpReward: 200
     },
 
@@ -114,7 +114,7 @@ export const BADGE_DEFINITIONS = {
         description: 'Upload your first document',
         iconName: 'BookOpen',
         type: 'document',
-        condition: (userData) => userData.documentsUploaded >= 1,
+        condition: (userData) => (userData.documentsUploaded || userData.totalDocuments || 0) >= 1,
         xpReward: 25
     },
     DOC_10: {
@@ -123,7 +123,7 @@ export const BADGE_DEFINITIONS = {
         description: 'Upload 10 documents',
         iconName: 'BookOpen',
         type: 'document',
-        condition: (userData) => userData.documentsUploaded >= 10,
+        condition: (userData) => (userData.documentsUploaded || userData.totalDocuments || 0) >= 10,
         xpReward: 150
     },
 
@@ -134,7 +134,8 @@ export const BADGE_DEFINITIONS = {
         description: 'Reach Level 5',
         iconName: 'Trophy',
         type: 'level',
-        condition: (userData) => userData.level >= 5,
+        requiredLevel: 5,
+        condition: (userData) => (userData.level || 1) >= 5,
         xpReward: 100
     },
     LEVEL_10: {
@@ -143,7 +144,8 @@ export const BADGE_DEFINITIONS = {
         description: 'Reach Level 10',
         iconName: 'Crown',
         type: 'level',
-        condition: (userData) => userData.level >= 10,
+        requiredLevel: 10,
+        condition: (userData) => (userData.level || 1) >= 10,
         xpReward: 300
     },
     LEVEL_25: {
@@ -152,7 +154,8 @@ export const BADGE_DEFINITIONS = {
         description: 'Reach Level 25',
         iconName: 'Medal',
         type: 'level',
-        condition: (userData) => userData.level >= 25,
+        requiredLevel: 25,
+        condition: (userData) => (userData.level || 1) >= 25,
         xpReward: 1000
     },
 
@@ -163,87 +166,58 @@ export const BADGE_DEFINITIONS = {
         description: 'Join your first class',
         iconName: 'UsersIcon',
         type: 'social',
-        condition: (userData) => userData.classesJoined >= 1,
+        condition: (userData) => (userData.classesJoined || userData.totalRoomsJoined || 0) >= 1,
         xpReward: 50
     }
 };
 
 export const TITLE_DEFINITIONS = {
-    // Starter titles (everyone gets)
     NEWBIE: {
         id: 'title_newbie',
-        text: 'Newbie Scholar',
+        text: 'Novice Learner',
         requiredLevel: 1,
-        requiredBadges: 0,
-        condition: () => true
+        condition: () => true,
+        rarity: 'common',
+        color: 'text-gray-600'
     },
-
-    // Level-based titles
     APPRENTICE: {
         id: 'title_apprentice',
         text: 'Knowledge Apprentice',
         requiredLevel: 5,
-        requiredBadges: 0,
-        condition: (userData) => userData.level >= 5
+        condition: (userData) => (userData.level || 1) >= 5,
+        rarity: 'common',
+        color: 'text-blue-600'
     },
     SCHOLAR: {
         id: 'title_scholar',
         text: 'Dedicated Scholar',
         requiredLevel: 10,
-        requiredBadges: 5,
-        condition: (userData) => userData.level >= 10 && userData.badgesUnlocked >= 5
+        condition: (userData) => (userData.level || 1) >= 10 && (userData.unlockedBadges?.length || 0) >= 5,
+        rarity: 'rare',
+        color: 'text-green-600'
     },
     MASTER: {
         id: 'title_master',
         text: 'Master Student',
         requiredLevel: 15,
-        requiredBadges: 10,
-        condition: (userData) => userData.level >= 15 && userData.badgesUnlocked >= 10
+        condition: (userData) => (userData.level || 1) >= 15 && (userData.unlockedBadges?.length || 0) >= 10,
+        rarity: 'rare',
+        color: 'text-indigo-600'
+    },
+    SAGE: {
+        id: 'title_sage',
+        text: 'Sage',
+        requiredLevel: 20,
+        condition: (userData) => (userData.level || 1) >= 20,
+        rarity: 'epic',
+        color: 'text-yellow-600'
     },
     LEGEND: {
         id: 'title_legend',
         text: 'Living Legend',
         requiredLevel: 25,
-        requiredBadges: 20,
-        condition: (userData) => userData.level >= 25 && userData.badgesUnlocked >= 20
-    },
-
-    // Streak-based titles
-    CONSISTENT: {
-        id: 'title_consistent',
-        text: 'Consistent Learner',
-        requiredLevel: 0,
-        requiredBadges: 0,
-        condition: (userData) => userData.streakData?.longestStreak >= 7
-    },
-    UNSTOPPABLE: {
-        id: 'title_unstoppable',
-        text: 'Unstoppable Force',
-        requiredLevel: 0,
-        requiredBadges: 0,
-        condition: (userData) => userData.streakData?.longestStreak >= 30
-    },
-
-    // Achievement-based titles
-    QUIZ_MASTER: {
-        id: 'title_quiz_master',
-        text: 'Quiz Master',
-        requiredLevel: 0,
-        requiredBadges: 0,
-        condition: (userData) => userData.quizzesCompleted >= 20 && userData.perfectQuizzes >= 5
-    },
-    PERFECTIONIST: {
-        id: 'title_perfectionist',
-        text: 'The Perfectionist',
-        requiredLevel: 0,
-        requiredBadges: 0,
-        condition: (userData) => userData.perfectQuizzes >= 10
-    },
-    BOOKWORM: {
-        id: 'title_bookworm',
-        text: 'Certified Bookworm',
-        requiredLevel: 0,
-        requiredBadges: 0,
-        condition: (userData) => userData.documentsUploaded >= 20
+        condition: (userData) => (userData.level || 1) >= 25 && (userData.unlockedBadges?.length || 0) >= 20,
+        rarity: 'legendary',
+        color: 'text-gold-600'
     }
 };

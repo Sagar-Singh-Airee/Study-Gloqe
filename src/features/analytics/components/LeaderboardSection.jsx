@@ -181,8 +181,8 @@ const LeaderboardSection = () => {
                     <button
                         onClick={() => setScope('global')}
                         className={`px-5 py-2 text-sm font-medium rounded-md transition-all ${scope === 'global'
-                                ? 'bg-white text-gray-900 shadow-sm'
-                                : 'text-gray-600 hover:text-gray-900'
+                            ? 'bg-white text-gray-900 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-900'
                             }`}
                     >
                         Global
@@ -190,8 +190,8 @@ const LeaderboardSection = () => {
                     <button
                         onClick={() => setScope('class')}
                         className={`px-5 py-2 text-sm font-medium rounded-md transition-all ${scope === 'class'
-                                ? 'bg-white text-gray-900 shadow-sm'
-                                : 'text-gray-600 hover:text-gray-900'
+                            ? 'bg-white text-gray-900 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-900'
                             }`}
                     >
                         Class
@@ -401,8 +401,8 @@ const LeaderboardSection = () => {
 
                                     {/* Avatar */}
                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0 overflow-hidden ${isCurrentUser
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-gray-100 text-gray-700 border border-gray-200'
+                                        ? 'bg-blue-600 text-white'
+                                        : 'bg-gray-100 text-gray-700 border border-gray-200'
                                         }`}>
                                         {user.photoURL ? (
                                             <img
@@ -426,8 +426,14 @@ const LeaderboardSection = () => {
                                                 </span>
                                             )}
                                         </div>
-                                        <div className="text-xs text-gray-500 mt-0.5">
-                                            Level {user.level || 1}
+                                        <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                                            <span>Level {user.level || 1}</span>
+                                            {user.equippedTitle && (
+                                                <>
+                                                    <span className="text-gray-300">•</span>
+                                                    <span className="text-blue-600 font-medium">{user.equippedTitle}</span>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
 

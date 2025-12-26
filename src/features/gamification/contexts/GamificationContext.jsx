@@ -1,8 +1,9 @@
+// src/features/gamification/contexts/GamificationContext.jsx
 import { createContext, useContext, useEffect, useReducer, useMemo } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '../../../shared/config/firebase'; // Adjust path as needed
+import { db } from '../../../shared/config/firebase';
 import { useAuth } from '../../auth/contexts/AuthContext';
-import { BADGE_DEFINITIONS, TITLE_DEFINITIONS } from '../config/achievements'; // Adjust path
+import { BADGE_DEFINITIONS, TITLE_DEFINITIONS } from '../config/achievements';
 import toast from 'react-hot-toast';
 import confetti from 'canvas-confetti';
 import { calculateLevel, calculateLevelProgress, getNextLevelXp, LEVEL_THRESHOLDS } from '../../../shared/utils/levelUtils';
@@ -15,9 +16,9 @@ const initialState = {
     level: 1,
     streak: 0,
     unlockedBadges: [],
-    unlockedTitles: [],
+    unlockedTitles: ['title_newbie'],
     equippedTitle: 'Novice Learner',
-    equippedTitleId: 'novice',
+    equippedTitleId: 'title_newbie',
     stats: {
         totalStudyTime: 0,
         quizzesCompleted: 0,
@@ -50,11 +51,6 @@ export const GamificationProvider = ({ children }) => {
     const { user } = useAuth();
     const [state, dispatch] = useReducer(gamificationReducer, initialState);
 
-    // Track previous level for level-up detection
-    // stored in a ref to avoid re-triggering effects
-    // However, we want to trigger side effects (confetti) when state changes.
-    // We'll handle this in the snapshot listener logic or a separate effect.
-
     useEffect(() => {
         if (!user?.uid) {
             dispatch({ type: 'SET_LOADING', payload: false });
@@ -71,7 +67,7 @@ export const GamificationProvider = ({ children }) => {
             if (snapshot.exists()) {
                 const data = snapshot.data();
                 const xp = data.xp || 0;
-                const level = calculateLevel(xp);
+                const level = data.level || calculateLevel(xp);
 
                 // Detect Level Up
                 if (previousLevel !== null && level > previousLevel) {
@@ -91,12 +87,12 @@ export const GamificationProvider = ({ children }) => {
                 // Detect XP Gain
                 if (previousXP !== null && xp > previousXP) {
                     const gained = xp - previousXP;
-                    if (gained < 1000) { // Avoid spam on huge jumps
+                    if (gained < 1000) {
                         toast.success(`+${gained} XP`, {
                             icon: '⚡',
                             duration: 2000,
                             position: 'bottom-right',
-                            id: 'xp-gain'
+                            id: 'xp-gain-ctx'
                         });
                     }
                 }
@@ -111,26 +107,26 @@ export const GamificationProvider = ({ children }) => {
                         level,
                         streak: data.streak || 0,
                         unlockedBadges: data.unlockedBadges || [],
-                        unlockedTitles: data.unlockedTitles || ['novice'],
+                        unlockedTitles: data.unlockedTitles || ['title_newbie'],
                         equippedTitle: data.equippedTitle || 'Novice Learner',
-                        equippedTitleId: data.equippedTitleId || 'novice',
+                        equippedTitleId: data.equippedTitleId || 'title_newbie',
                         globalRank: data.globalRank || 999,
                         stats: {
                             totalStudyTime: data.totalStudyTime || 0,
-                            quizzesCompleted: data.totalQuizzes || 0,
+                            quizzesCompleted: data.quizzesCompleted || 0,
                             perfectQuizzes: data.perfectQuizzes || 0,
                             flashcardsReviewed: data.flashcardsReviewed || 0,
                             flashcardsMastered: data.flashcardsMastered || 0,
-                            documentsUploaded: data.totalDocuments || 0,
-                            classesJoined: data.totalRoomsJoined || 0
+                            documentsUploaded: data.documentsUploaded || 0,
+                            classesJoined: data.classesJoined || 0
                         }
                     }
                 });
             } else {
-                dispatch({ type: 'SET_ERROR', payload: 'User data not found' });
+                dispatch({ type: 'SET_LOADING', payload: false });
             }
         }, (error) => {
-            console.error('Gamification sync error:', error);
+            console.error('Gamification context sync error:', error);
             dispatch({ type: 'SET_ERROR', payload: error.message });
         });
 

@@ -4,7 +4,7 @@ import { TrendingUp, Zap, Award, Flame, Crown, Trophy, ChevronRight } from 'luci
 import { useState } from 'react';
 import { TITLE_DEFINITIONS, BADGE_DEFINITIONS } from '@gamification/services/gamificationService';
 
-const LevelProgress = ({ 
+const LevelProgress = ({
   level = 1,
   currentXP = 0,
   nextLevelXP = 100,
@@ -26,12 +26,12 @@ const LevelProgress = ({
   // ✅ Get next level rewards
   const getNextRewards = () => {
     const nextLevel = level + 1;
-    
+
     const nextTitle = Object.values(TITLE_DEFINITIONS)
       .find(t => t.requiredLevel === nextLevel);
 
     const nextBadge = Object.values(BADGE_DEFINITIONS)
-      .find(b => b.requirement.type === 'level' && b.requirement.value === nextLevel);
+      .find(b => b.type === 'level' && b.requiredLevel === nextLevel);
 
     return { nextTitle, nextBadge };
   };
@@ -112,9 +112,8 @@ const LevelProgress = ({
   // ✅ Full variant
   return (
     <motion.div
-      className={`bg-white rounded-2xl border-2 border-gray-200 p-6 transition-all ${
-        onClick ? 'cursor-pointer hover:border-gray-300 hover:shadow-lg' : ''
-      } ${className}`}
+      className={`bg-white rounded-2xl border-2 border-gray-200 p-6 transition-all ${onClick ? 'cursor-pointer hover:border-gray-300 hover:shadow-lg' : ''
+        } ${className}`}
       whileHover={onClick ? { y: -4, scale: 1.01 } : {}}
       whileTap={onClick ? { scale: 0.99 } : {}}
       onClick={onClick}
@@ -171,7 +170,7 @@ const LevelProgress = ({
             {Math.round(safeLevelProgress)}%
           </span>
         </div>
-        
+
         <div className="relative h-4 bg-gray-200 rounded-full overflow-hidden border-2 border-gray-300 shadow-inner">
           <motion.div
             initial={{ width: 0 }}

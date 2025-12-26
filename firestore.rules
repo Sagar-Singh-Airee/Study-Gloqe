@@ -310,6 +310,53 @@ service cloud.firestore {
     }
     
     // ==========================================
+    // 🆕 LIVE SESSIONS COLLECTION - GOOGLE MEET INTEGRATION
+    // ==========================================
+    match /live_sessions/{sessionId} {
+      // Teachers can read their own sessions
+      // Students can read sessions for classes they're enrolled in
+      allow read: if isSignedIn() && (
+        resource.data.teacherId == request.auth.uid ||
+        isAdmin() ||
+        (isStudent() && exists(/databases/$(database)/documents/classes/$(resource.data.classId)) &&
+         request.auth.uid in get(/databases/$(database)/documents/classes/$(resource.data.classId)).data.students)
+      );
+      
+      // Only teachers can create sessions with their teacherId
+      allow create: if isSignedIn() && 
+                       isTeacher() && 
+                       request.resource.data.teacherId == request.auth.uid &&
+                       isValidSize();
+      
+      // Teachers can update their own sessions
+      allow update: if isSignedIn() && 
+                       resource.data.teacherId == request.auth.uid &&
+                       isValidSize();
+      
+      // Teachers can delete their own sessions
+      allow delete: if isSignedIn() && (
+        resource.data.teacherId == request.auth.uid ||
+        isAdmin()
+      );
+      
+      // Subcollection for session participants/attendance
+      match /participants/{participantId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && (
+          get(/databases/$(database)/documents/live_sessions/$(sessionId)).data.teacherId == request.auth.uid ||
+          participantId == request.auth.uid
+        );
+      }
+      
+      // Subcollection for session recordings
+      match /recordings/{recordingId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && 
+                        get(/databases/$(database)/documents/live_sessions/$(sessionId)).data.teacherId == request.auth.uid;
+      }
+    }
+    
+    // ==========================================
     // ASSIGNMENTS COLLECTION
     // ==========================================
     match /assignments/{assignmentId} {

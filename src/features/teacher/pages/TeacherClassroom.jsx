@@ -22,6 +22,11 @@ import {
   gradeSubmission, deleteAssignment, assignQuizToClass
 } from '@teacher/services/assignmentService';
 import { getUserQuizzes } from '@teacher/services/quizService';
+import MaterialsList from '@teacher/components/dashboard/MaterialsList';
+import AssignmentCreator from '@teacher/components/dashboard/AssignmentCreator';
+import Announcements from '@teacher/components/dashboard/Announcements';
+import LiveSessionList from '@teacher/components/dashboard/LiveSessionList';
+import { BookOpen as MaterialsIcon } from 'lucide-react';
 
 const TeacherClassroom = () => {
   const { classId } = useParams();
@@ -122,7 +127,7 @@ const TeacherClassroom = () => {
 
   const calculateStats = () => {
     const totalStudents = students.length;
-    const activeStudents = students.filter(s => s.lastActive && 
+    const activeStudents = students.filter(s => s.lastActive &&
       (Date.now() - new Date(s.lastActive).getTime()) < 7 * 24 * 60 * 60 * 1000
     ).length;
 
@@ -136,11 +141,11 @@ const TeacherClassroom = () => {
 
     const totalSubmissions = assignments.reduce((sum, a) => sum + (a.submissionCount || 0), 0);
     const expectedSubmissions = assignments.length * students.length;
-    const completionRate = expectedSubmissions > 0 
-      ? (totalSubmissions / expectedSubmissions) * 100 
+    const completionRate = expectedSubmissions > 0
+      ? (totalSubmissions / expectedSubmissions) * 100
       : 0;
 
-    const pendingGrading = assignments.reduce((sum, a) => 
+    const pendingGrading = assignments.reduce((sum, a) =>
       sum + (a.submissionCount || 0) - (a.gradedCount || 0), 0
     );
 
@@ -155,31 +160,8 @@ const TeacherClassroom = () => {
     });
   };
 
-  const handleCreateAssignment = async (e) => {
-    e.preventDefault();
-    try {
-      await createAssignment({
-        ...newAssignment,
-        teacherId: user.uid,
-        classId,
-        createdAt: new Date().toISOString()
-      });
-
-      toast.success('✅ Assignment created!');
-      setShowCreateModal(false);
-      setNewAssignment({
-        title: '',
-        description: '',
-        dueDate: '',
-        totalPoints: 100,
-        type: 'assignment',
-        attachments: []
-      });
-      loadClassData();
-    } catch (error) {
-      console.error('Error creating assignment:', error);
-      toast.error('❌ Failed to create assignment');
-    }
+  const handleCreateAssignment = () => {
+    setShowCreateModal(true);
   };
 
   const handleViewSubmissions = async (assignment) => {
@@ -461,6 +443,9 @@ const TeacherClassroom = () => {
           {[
             { id: 'overview', icon: Home, label: 'Overview' },
             { id: 'assignments', icon: FileText, label: 'Assignments', badge: assignments.length },
+            { id: 'materials', icon: MaterialsIcon, label: 'Materials' },
+            { id: 'announcements', icon: Bell, label: 'Announcements' },
+            { id: 'live', icon: Video, label: 'Live' },
             { id: 'students', icon: Users, label: 'Students', badge: students.length },
             { id: 'analytics', icon: BarChart3, label: 'Analytics' },
             { id: 'settings', icon: Settings, label: 'Settings' }
@@ -468,18 +453,16 @@ const TeacherClassroom = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold transition-all ${
-                activeTab === tab.id
-                  ? 'bg-gray-900 text-white shadow-lg scale-105'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold transition-all ${activeTab === tab.id
+                ? 'bg-gray-900 text-white shadow-lg scale-105'
+                : 'text-gray-700 hover:bg-gray-100'
+                }`}
             >
               <tab.icon size={18} />
               <span>{tab.label}</span>
               {tab.badge !== undefined && (
-                <span className={`px-2 py-0.5 rounded-full text-xs font-black ${
-                  activeTab === tab.id ? 'bg-white text-gray-900' : 'bg-gray-900 text-white'
-                }`}>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-black ${activeTab === tab.id ? 'bg-white text-gray-900' : 'bg-gray-900 text-white'
+                  }`}>
                   {tab.badge}
                 </span>
               )}
@@ -601,12 +584,11 @@ const TeacherClassroom = () => {
                           }}
                         >
                           <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white ${
-                              index === 0 ? 'bg-gradient-to-r from-gray-800 to-gray-900' :
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white ${index === 0 ? 'bg-gradient-to-r from-gray-800 to-gray-900' :
                               index === 1 ? 'bg-gradient-to-r from-gray-600 to-gray-700' :
-                              index === 2 ? 'bg-gradient-to-r from-gray-500 to-gray-600' :
-                              'bg-gradient-to-r from-gray-400 to-gray-500'
-                            }`}>
+                                index === 2 ? 'bg-gradient-to-r from-gray-500 to-gray-600' :
+                                  'bg-gradient-to-r from-gray-400 to-gray-500'
+                              }`}>
                               {index + 1}
                             </div>
                             <div>
@@ -623,6 +605,39 @@ const TeacherClassroom = () => {
                   </div>
                 </div>
               </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'materials' && (
+            <motion.div
+              key="materials"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              <MaterialsList classId={classId} />
+            </motion.div>
+          )}
+
+          {activeTab === 'announcements' && (
+            <motion.div
+              key="announcements"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              <Announcements classes={[classData]} classId={classId} />
+            </motion.div>
+          )}
+
+          {activeTab === 'live' && (
+            <motion.div
+              key="live"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              <LiveSessionList classId={classId} />
             </motion.div>
           )}
 
@@ -669,17 +684,15 @@ const TeacherClassroom = () => {
                 <div className="flex gap-2">
                   <button
                     onClick={() => setViewMode('grid')}
-                    className={`p-3 rounded-xl transition-all ${
-                      viewMode === 'grid' ? 'bg-gray-900 text-white' : 'bg-white text-gray-900 border-2 border-gray-300'
-                    }`}
+                    className={`p-3 rounded-xl transition-all ${viewMode === 'grid' ? 'bg-gray-900 text-white' : 'bg-white text-gray-900 border-2 border-gray-300'
+                      }`}
                   >
                     <Grid size={20} />
                   </button>
                   <button
                     onClick={() => setViewMode('list')}
-                    className={`p-3 rounded-xl transition-all ${
-                      viewMode === 'list' ? 'bg-gray-900 text-white' : 'bg-white text-gray-900 border-2 border-gray-300'
-                    }`}
+                    className={`p-3 rounded-xl transition-all ${viewMode === 'list' ? 'bg-gray-900 text-white' : 'bg-white text-gray-900 border-2 border-gray-300'
+                      }`}
                   >
                     <List size={20} />
                   </button>
@@ -703,8 +716,8 @@ const TeacherClassroom = () => {
                   </button>
                 </div>
               ) : (
-                <div className={viewMode === 'grid' 
-                  ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' 
+                <div className={viewMode === 'grid'
+                  ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
                   : 'space-y-4'
                 }>
                   {getFilteredAssignments().map((assignment, index) => (
@@ -722,19 +735,17 @@ const TeacherClassroom = () => {
                         {/* Header */}
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex items-center gap-3">
-                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-white ${
-                              assignment.type === 'quiz' 
-                                ? 'bg-gradient-to-br from-gray-700 to-gray-800' 
-                                : 'bg-gradient-to-br from-gray-800 to-gray-900'
-                            } border border-gray-600`}>
+                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-white ${assignment.type === 'quiz'
+                              ? 'bg-gradient-to-br from-gray-700 to-gray-800'
+                              : 'bg-gradient-to-br from-gray-800 to-gray-900'
+                              } border border-gray-600`}>
                               {assignment.type === 'quiz' ? <Brain size={24} /> : <FileText size={24} />}
                             </div>
                             <div>
-                              <span className={`px-2 py-1 rounded-lg text-xs font-black ${
-                                assignment.type === 'quiz'
-                                  ? 'bg-gray-100 text-gray-800'
-                                  : 'bg-gray-100 text-gray-800'
-                              }`}>
+                              <span className={`px-2 py-1 rounded-lg text-xs font-black ${assignment.type === 'quiz'
+                                ? 'bg-gray-100 text-gray-800'
+                                : 'bg-gray-100 text-gray-800'
+                                }`}>
                                 {assignment.type.toUpperCase()}
                               </span>
                             </div>
@@ -962,7 +973,7 @@ const TeacherClassroom = () => {
                       {/* Last Active */}
                       <div className="mt-4 pt-4 border-t border-gray-200 text-xs text-gray-500 flex items-center gap-2">
                         <Clock size={12} />
-                        Last active: {student.lastActive 
+                        Last active: {student.lastActive
                           ? new Date(student.lastActive).toLocaleDateString()
                           : 'Never'}
                       </div>
@@ -1106,125 +1117,13 @@ const TeacherClassroom = () => {
       {/* Create Assignment Modal */}
       <AnimatePresence>
         {showCreateModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            onClick={() => setShowCreateModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-2xl border-2 border-gray-300 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
-            >
-              <div className="sticky top-0 bg-white border-b-2 border-gray-300 px-6 py-4 flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-black text-gray-900">Create New Assignment</h2>
-                  <p className="text-sm text-gray-600 mt-1">Fill in the details below</p>
-                </div>
-                <button
-                  onClick={() => setShowCreateModal(false)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-all"
-                >
-                  <X size={24} className="text-gray-600" />
-                </button>
-              </div>
-
-              <form onSubmit={handleCreateAssignment} className="p-6 space-y-5">
-                <div>
-                  <label className="block text-sm font-bold text-gray-900 mb-2">
-                    Assignment Title *
-                  </label>
-                  <input
-                    type="text"
-                    value={newAssignment.title}
-                    onChange={(e) => setNewAssignment({ ...newAssignment, title: e.target.value })}
-                    className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-gray-200 font-semibold text-gray-900 placeholder-gray-500"
-                    placeholder="e.g., Chapter 5 Essay"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-gray-900 mb-2">
-                    Description
-                  </label>
-                  <textarea
-                    value={newAssignment.description}
-                    onChange={(e) => setNewAssignment({ ...newAssignment, description: e.target.value })}
-                    rows={4}
-                    className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-gray-200 font-semibold resize-none text-gray-900 placeholder-gray-500"
-                    placeholder="Describe the assignment requirements..."
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-bold text-gray-900 mb-2">
-                      Due Date *
-                    </label>
-                    <input
-                      type="datetime-local"
-                      value={newAssignment.dueDate}
-                      onChange={(e) => setNewAssignment({ ...newAssignment, dueDate: e.target.value })}
-                      className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-gray-200 font-semibold text-gray-900"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-bold text-gray-900 mb-2">
-                      Total Points *
-                    </label>
-                    <input
-                      type="number"
-                      value={newAssignment.totalPoints}
-                      onChange={(e) => setNewAssignment({ ...newAssignment, totalPoints: parseInt(e.target.value) })}
-                      min="1"
-                      className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-gray-200 font-semibold text-gray-900"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-gray-900 mb-2">
-                    Assignment Type
-                  </label>
-                  <select
-                    value={newAssignment.type}
-                    onChange={(e) => setNewAssignment({ ...newAssignment, type: e.target.value })}
-                    className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-gray-200 font-bold text-gray-900"
-                  >
-                    <option value="assignment">Assignment</option>
-                    <option value="project">Project</option>
-                    <option value="homework">Homework</option>
-                    <option value="reading">Reading</option>
-                  </select>
-                </div>
-
-                <div className="flex gap-3 pt-4">
-                  <button
-                    type="submit"
-                    className="flex-1 px-6 py-4 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-all flex items-center justify-center gap-2"
-                  >
-                    <CheckCircle2 size={20} />
-                    Create Assignment
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowCreateModal(false)}
-                    className="px-6 py-4 bg-white border-2 border-gray-300 text-gray-900 rounded-xl font-bold hover:bg-gray-50 transition-all"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </motion.div>
+          <AssignmentCreator
+            onClose={() => {
+              setShowCreateModal(false);
+              loadClassData();
+            }}
+            classId={classId}
+          />
         )}
       </AnimatePresence>
 

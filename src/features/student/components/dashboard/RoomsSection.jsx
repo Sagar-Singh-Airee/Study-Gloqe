@@ -133,9 +133,9 @@ const RoomsSection = () => {
             };
 
             const docRef = await addDoc(collection(db, 'rooms'), roomData);
-            await awardXP(user.uid, 15, 'Created Study Room');
+            await awardXP(user.uid, XP_REWARDS.CREATE_ROOM, 'Created Study Room');
 
-            toast.success('Room created! +15 XP');
+            toast.success(`Room created! +${XP_REWARDS.CREATE_ROOM} XP`);
             navigate(`/study-room/${docRef.id}`);
 
             setNewRoom({ name: '', topic: '', maxMembers: 10, isPrivate: false });
@@ -232,7 +232,7 @@ const RoomsSection = () => {
                                     <h2 className="text-lg font-bold text-slate-900">Create Study Room</h2>
                                     <div className="px-2 py-1 bg-teal-50 text-teal-700 rounded-lg flex items-center gap-1 text-[10px] font-bold border border-teal-200">
                                         <Zap size={10} />
-                                        +15 XP
+                                        +{XP_REWARDS.CREATE_ROOM} XP
                                     </div>
                                 </div>
 
@@ -448,7 +448,7 @@ const RoomsSection = () => {
                         <p className="text-xs text-slate-600 mb-1">Create your first room to start studying with others</p>
                         <p className="text-[11px] text-teal-600 font-bold mb-5 flex items-center justify-center gap-1">
                             <Zap size={12} />
-                            Earn +15 XP for creating your first room!
+                            Earn +{XP_REWARDS.CREATE_ROOM} XP for creating your first room!
                         </p>
                         <button
                             onClick={() => setShowCreateModal(true)}

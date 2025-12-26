@@ -20,7 +20,7 @@ import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestor
 import toast from 'react-hot-toast';
 import ClassCard from './ClassCard';
 
-const ClassManagement = () => {
+const ClassManagement = ({ triggerCreate }) => {
     const { user, userData } = useAuth();
     const navigate = useNavigate(); // ✅ ADD THIS
     const [classes, setClasses] = useState([]);
@@ -43,6 +43,12 @@ const ClassManagement = () => {
         schedule: ''
     });
     const [formLoading, setFormLoading] = useState(false);
+
+    useEffect(() => {
+        if (triggerCreate) {
+            setShowCreateModal(true);
+        }
+    }, [triggerCreate]);
 
     useEffect(() => {
         if (!user?.uid) return;

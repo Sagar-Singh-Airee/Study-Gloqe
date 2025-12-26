@@ -62,14 +62,13 @@ const LevelModal = ({ isOpen, onClose, levelUpData = null, xp: propXP, level: pr
 
     // Get next unlockable rewards
     const getNextRewards = () => {
-        const nextLevel = level + 1;
+        const nextLevel = level_unified + 1;
 
         const nextTitle = Object.values(TITLE_DEFINITIONS)
-            .filter(t => t.requiredLevel === nextLevel)
-            .sort((a, b) => a.requiredLevel - b.requiredLevel)[0];
+            .find(t => t.requiredLevel === nextLevel);
 
         const nextBadge = Object.values(BADGE_DEFINITIONS)
-            .filter(b => b.requirement.type === 'level' && b.requirement.value === nextLevel)[0];
+            .find(b => b.type === 'level' && b.requiredLevel === nextLevel);
 
         return { nextTitle, nextBadge };
     };

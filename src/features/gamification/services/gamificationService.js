@@ -1,4 +1,4 @@
-// src/services/gamificationService.js - ✅ FIXED PRODUCTION VERSION
+// src/features/gamification/services/gamificationService.js - ✅ CONSOLIDATED SYNC VERSION
 import {
     doc,
     updateDoc,
@@ -11,352 +11,77 @@ import {
     runTransaction
 } from 'firebase/firestore';
 import { db } from '@shared/config/firebase';
-import { calculateLevel, getNextLevelXp, LEVEL_THRESHOLDS } from '@shared/utils/levelUtils';
+import { calculateLevel, getNextLevelXp } from '@shared/utils/levelUtils';
+// Achievement Definitions
+import { BADGE_DEFINITIONS, TITLE_DEFINITIONS } from '../config/achievements';
 
-// ✅ Commented out event bus until implemented
-// import { eventBus, EVENT_TYPES } from '@shared/services/eventBus';
-
-// ==========================================
-// CONFIGURATION
-// ==========================================
-
-const XP_REWARDS = {
+// Reward Constants
+export const XP_REWARDS = {
     // One-time per day actions
-    UPLOAD_DOCUMENT: 15,
-    STUDY_SESSION: 8,
+    UPLOAD_DOCUMENT: 25,
+    STUDY_SESSION: 20,
     USE_AI_CHAT: 5,
-    ADD_NOTES: 3,
-    JOIN_ROOM: 8,
-    CREATE_FLASHCARD: 6,
+    ADD_NOTES: 5,
+    JOIN_ROOM: 10,
+    CREATE_ROOM: 15,
+    CREATE_FLASHCARD: 10,
     DAILY_LOGIN: 10,
     STREAK_BONUS: 15,
 
     // Multiple times actions
-    COMPLETE_QUIZ: 25,
-    CORRECT_ANSWER: 8,
-    COMPLETE_MISSION: 75,
+    COMPLETE_QUIZ: 50,
+    CORRECT_ANSWER: 5,
+    CONTENT_GENERATED: 15,
 
     // Enhanced rewards
     PERFECT_QUIZ: 50,
-    FAST_LEARNER: 20,
-    CONSISTENT_LEARNER: 30,
     KNOWLEDGE_MASTER: 100,
 };
 
-const DAILY_ACTIONS = {
-    UPLOAD_DOCUMENT: 'upload_document',
-    STUDY_SESSION: 'study_session',
-    USE_AI_CHAT: 'use_ai_chat',
-    ADD_NOTES: 'add_notes',
-    JOIN_ROOM: 'join_room',
-    CREATE_FLASHCARD: 'create_flashcard',
-    DAILY_LOGIN: 'daily_login',
+export const DAILY_ACTIONS = {
+    UPLOAD_DOCUMENT: 'UPLOAD_DOCUMENT',
+    STUDY_SESSION: 'STUDY_SESSION',
+    USE_AI_CHAT: 'USE_AI_CHAT',
+    ADD_NOTES: 'ADD_NOTES',
+    JOIN_ROOM: 'JOIN_ROOM',
+    CREATE_FLASHCARD: 'CREATE_FLASHCARD',
+    DAILY_LOGIN: 'DAILY_LOGIN',
+    STREAK_BONUS: 'STREAK_BONUS',
+    COMPLETE_QUIZ: 'COMPLETE_QUIZ',
+    CORRECT_ANSWER: 'CORRECT_ANSWER',
+    CONTENT_GENERATED: 'CONTENT_GENERATED'
 };
 
-
-// ✅ Daily XP goal constant
 const DAILY_XP_GOAL = 100;
 
-// ==========================================
-// BADGE DEFINITIONS (unchanged)
-// ==========================================
-const BADGE_DEFINITIONS = {
-    first_steps: {
-        id: 'first_steps',
-        name: 'First Steps',
-        desc: 'Complete your first quiz',
-        iconName: 'Star',
-        color: 'from-yellow-100/50',
-        category: 'learning',
-        rarity: 'common',
-        requirement: { type: 'quiz_count', value: 1 },
-        xpReward: 50
-    },
-    quick_learner: {
-        id: 'quick_learner',
-        name: 'Quick Learner',
-        desc: 'Complete 10 quizzes',
-        iconName: 'Zap',
-        color: 'from-blue-100/50',
-        category: 'learning',
-        rarity: 'common',
-        requirement: { type: 'quiz_count', value: 10 },
-        xpReward: 100
-    },
-    quiz_master: {
-        id: 'quiz_master',
-        name: 'Quiz Master',
-        desc: 'Complete 50 quizzes',
-        iconName: 'Trophy',
-        color: 'from-purple-100/50',
-        category: 'learning',
-        rarity: 'rare',
-        requirement: { type: 'quiz_count', value: 50 },
-        xpReward: 250
-    },
-    dedicated_scholar: {
-        id: 'dedicated_scholar',
-        name: 'Dedicated Scholar',
-        desc: 'Study for 100 minutes total',
-        iconName: 'BookOpen',
-        color: 'from-green-100/50',
-        category: 'dedication',
-        rarity: 'common',
-        requirement: { type: 'study_time', value: 100 },
-        xpReward: 100
-    },
-    knowledge_seeker: {
-        id: 'knowledge_seeker',
-        name: 'Knowledge Seeker',
-        desc: 'Study for 500 minutes total',
-        iconName: 'Target',
-        color: 'from-indigo-100/50',
-        category: 'dedication',
-        rarity: 'rare',
-        requirement: { type: 'study_time', value: 500 },
-        xpReward: 300
-    },
-    streak_starter: {
-        id: 'streak_starter',
-        name: 'Streak Starter',
-        desc: 'Maintain a 3-day streak',
-        iconName: 'Zap',
-        color: 'from-orange-100/50',
-        category: 'consistency',
-        rarity: 'common',
-        requirement: { type: 'streak', value: 3 },
-        xpReward: 75
-    },
-    on_fire: {
-        id: 'on_fire',
-        name: 'On Fire!',
-        desc: 'Maintain a 7-day streak',
-        iconName: 'Zap',
-        color: 'from-red-100/50',
-        category: 'consistency',
-        rarity: 'rare',
-        requirement: { type: 'streak', value: 7 },
-        xpReward: 200
-    },
-    unstoppable: {
-        id: 'unstoppable',
-        name: 'Unstoppable',
-        desc: 'Maintain a 30-day streak',
-        iconName: 'Crown',
-        color: 'from-yellow-100/50',
-        category: 'consistency',
-        rarity: 'epic',
-        requirement: { type: 'streak', value: 30 },
-        xpReward: 500
-    },
-    content_creator: {
-        id: 'content_creator',
-        name: 'Content Creator',
-        desc: 'Upload 5 documents',
-        iconName: 'BookOpen',
-        color: 'from-cyan-100/50',
-        category: 'content',
-        rarity: 'common',
-        requirement: { type: 'documents', value: 5 },
-        xpReward: 100
-    },
-    library_builder: {
-        id: 'library_builder',
-        name: 'Library Builder',
-        desc: 'Upload 25 documents',
-        iconName: 'BookOpen',
-        color: 'from-blue-100/50',
-        category: 'content',
-        rarity: 'rare',
-        requirement: { type: 'documents', value: 25 },
-        xpReward: 300
-    },
-    social_learner: {
-        id: 'social_learner',
-        name: 'Social Learner',
-        desc: 'Join 5 study rooms',
-        iconName: 'UsersIcon',
-        color: 'from-pink-100/50',
-        category: 'collaboration',
-        rarity: 'common',
-        requirement: { type: 'rooms_joined', value: 5 },
-        xpReward: 100
-    },
-    community_champion: {
-        id: 'community_champion',
-        name: 'Community Champion',
-        desc: 'Join 20 study rooms',
-        iconName: 'UsersIcon',
-        color: 'from-purple-100/50',
-        category: 'collaboration',
-        rarity: 'rare',
-        requirement: { type: 'rooms_joined', value: 20 },
-        xpReward: 250
-    },
-    ai_enthusiast: {
-        id: 'ai_enthusiast',
-        name: 'AI Enthusiast',
-        desc: 'Use AI chat 10 times',
-        iconName: 'Zap',
-        color: 'from-violet-100/50',
-        category: 'assistance',
-        rarity: 'common',
-        requirement: { type: 'ai_chats', value: 10 },
-        xpReward: 75
-    },
-    level_10: {
-        id: 'level_10',
-        name: 'Rising Star',
-        desc: 'Reach Level 10',
-        iconName: 'Star',
-        color: 'from-yellow-100/50',
-        category: 'progression',
-        rarity: 'rare',
-        requirement: { type: 'level', value: 10 },
-        xpReward: 200
-    },
-    level_25: {
-        id: 'level_25',
-        name: 'Elite Scholar',
-        desc: 'Reach Level 25',
-        iconName: 'Crown',
-        color: 'from-gold-100/50',
-        category: 'progression',
-        rarity: 'epic',
-        requirement: { type: 'level', value: 25 },
-        xpReward: 500
-    },
-    level_50: {
-        id: 'level_50',
-        name: 'Legendary Master',
-        desc: 'Reach Level 50',
-        iconName: 'Trophy',
-        color: 'from-purple-100/50',
-        category: 'progression',
-        rarity: 'legendary',
-        requirement: { type: 'level', value: 50 },
-        xpReward: 1000
-    }
-};
-
-// ==========================================
-// TITLE DEFINITIONS (unchanged)
-// ==========================================
-const TITLE_DEFINITIONS = {
-    novice: {
-        id: 'novice',
-        text: 'Novice Learner',
-        requiredLevel: 1,
-        description: 'Just getting started',
-        rarity: 'common',
-        color: 'text-gray-600'
-    },
-    student: {
-        id: 'student',
-        text: 'Student',
-        requiredLevel: 3,
-        description: 'Making progress',
-        rarity: 'common',
-        color: 'text-blue-600'
-    },
-    scholar: {
-        id: 'scholar',
-        text: 'Scholar',
-        requiredLevel: 5,
-        description: 'Dedicated to learning',
-        rarity: 'common',
-        color: 'text-green-600'
-    },
-    expert: {
-        id: 'expert',
-        text: 'Expert',
-        requiredLevel: 10,
-        description: 'Highly skilled',
-        rarity: 'rare',
-        color: 'text-purple-600'
-    },
-    master: {
-        id: 'master',
-        text: 'Master',
-        requiredLevel: 15,
-        description: 'Top of the class',
-        rarity: 'rare',
-        color: 'text-indigo-600'
-    },
-    sage: {
-        id: 'sage',
-        text: 'Sage',
-        requiredLevel: 20,
-        description: 'Wise beyond years',
-        rarity: 'epic',
-        color: 'text-yellow-600'
-    },
-    virtuoso: {
-        id: 'virtuoso',
-        text: 'Virtuoso',
-        requiredLevel: 25,
-        description: 'Elite performer',
-        rarity: 'epic',
-        color: 'text-orange-600'
-    },
-    prodigy: {
-        id: 'prodigy',
-        text: 'Prodigy',
-        requiredLevel: 30,
-        description: 'Exceptional talent',
-        rarity: 'epic',
-        color: 'text-red-600'
-    },
-    legend: {
-        id: 'legend',
-        text: 'Legend',
-        requiredLevel: 40,
-        description: 'Legendary status',
-        rarity: 'legendary',
-        color: 'text-gold-600'
-    },
-    immortal: {
-        id: 'immortal',
-        text: 'Immortal Scholar',
-        requiredLevel: 50,
-        description: 'Eternal wisdom',
-        rarity: 'legendary',
-        color: 'text-purple-900'
-    }
-};
-
-// ==========================================
-// HELPER FUNCTIONS
-// ==========================================
-
-const getTodayString = () => new Date().toISOString().split('T')[0];
-
+// Re-exports for backward compatibility
+export { BADGE_DEFINITIONS, TITLE_DEFINITIONS };
 
 // ==========================================
 // CORE XP FUNCTIONS
 // ==========================================
 
 /**
- * ✅ FIXED: Award XP using atomic operations
+ * Award XP using atomic operations to both users and gamification docs
  */
 export const awardXP = async (userId, xpAmount, reason) => {
+    if (!userId || !xpAmount) return null;
+
     try {
         const userRef = doc(db, 'users', userId);
+        const gamificationRef = doc(db, 'gamification', userId);
 
-        // ✅ Use transaction for atomic XP update
         const result = await runTransaction(db, async (transaction) => {
             const userSnap = await transaction.get(userRef);
+            const gamificationSnap = await transaction.get(gamificationRef);
 
             if (!userSnap.exists()) {
-                await initializeGamification(userId);
-                // Re-fetch after initialization
-                const newSnap = await transaction.get(userRef);
-                if (!newSnap.exists()) {
-                    throw new Error('Failed to initialize user');
-                }
+                throw new Error('User not found');
             }
 
-            const userData = userSnap.exists() ? userSnap.data() : {};
+            const userData = userSnap.data();
+
+            // Determine current state (favoring users doc for XP/Level)
             const currentXP = userData.xp || 0;
             const currentLevel = userData.level || 1;
             const newXP = currentXP + xpAmount;
@@ -364,33 +89,31 @@ export const awardXP = async (userId, xpAmount, reason) => {
             const levelUp = newLevel > currentLevel;
             const levelsGained = newLevel - currentLevel;
 
-            // Update user document (for public profile/leaderboard)
-            const gamificationRef = doc(db, 'gamification', userId);
-
+            // 1. Update Users Collection (Display/Leaderboard)
             transaction.update(userRef, {
                 xp: newXP,
                 level: newLevel,
-                totalXPEarned: increment(xpAmount),
+                updatedAt: serverTimestamp(),
                 lastXPReason: reason,
                 lastXPAmount: xpAmount,
-                lastXPTime: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-                ...(levelUp && {
-                    lastLevelUp: serverTimestamp(),
-                    lastLevelsGained: levelsGained
-                })
+                lastXPTime: serverTimestamp()
             });
 
-            // Update gamification document (Specific source of truth for features)
-            transaction.update(gamificationRef, {
-                xp: newXP,
-                level: newLevel,
-                updatedAt: serverTimestamp(),
-                ...(levelUp && {
-                    lastLevelUp: serverTimestamp(),
-                    lastLevelsGained: levelsGained
-                })
-            });
+            // 2. Update Gamification Collection (Detailed tracking)
+            if (gamificationSnap.exists()) {
+                transaction.update(gamificationRef, {
+                    xp: newXP,
+                    level: newLevel,
+                    updatedAt: serverTimestamp()
+                });
+            } else {
+                transaction.set(gamificationRef, {
+                    xp: newXP,
+                    level: newLevel,
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
+            }
 
             return {
                 newXP,
@@ -402,13 +125,10 @@ export const awardXP = async (userId, xpAmount, reason) => {
             };
         });
 
-        console.log(`✅ Awarded ${xpAmount} XP to ${userId}. New level: ${result.newLevel}`);
-
-        // ✅ Event bus calls removed until implemented
-        // eventBus.publish(EVENT_TYPES.XP_AWARDED, {...});
-        // if (result.levelUp) {
-        //     eventBus.publish(EVENT_TYPES.LEVEL_UP, {...});
-        // }
+        // Check for new achievements after XP gain with prefetched result
+        const updatedData = { ...userData, xp: result.newXP, level: result.newLevel };
+        await checkAndUnlockBadges(userId, updatedData);
+        await checkAndUnlockTitles(userId, updatedData);
 
         return result;
     } catch (error) {
@@ -418,182 +138,194 @@ export const awardXP = async (userId, xpAmount, reason) => {
 };
 
 /**
- * Check if user can earn daily XP for an action
- */
-export const canAwardDailyXP = async (userId, actionType) => {
-    try {
-        const today = getTodayString();
-        const dailyActionRef = doc(db, 'gamification', userId, 'dailyActions', today);
-        const dailyActionSnap = await getDoc(dailyActionRef);
-
-        if (!dailyActionSnap.exists()) {
-            return true;
-        }
-
-        const actions = dailyActionSnap.data().actions || {};
-        return !actions[actionType];
-    } catch (error) {
-        console.warn('⚠️ Error checking daily XP:', error.message);
-        return false;
-    }
-};
-
-/**
- * Award daily XP (once per day limit)
+ * Award daily XP (limit to once per day)
  */
 export const awardDailyXP = async (userId, actionType, reason) => {
     try {
-        const canAward = await canAwardDailyXP(userId, actionType);
+        const today = new Date().toISOString().split('T')[0];
+        const dailyActionRef = doc(db, 'gamification', userId, 'dailyActions', today);
+        const dailyActionSnap = await getDoc(dailyActionRef);
 
-        if (!canAward) {
-            return {
-                success: false,
-                message: 'Already earned XP for this action today!',
-                alreadyEarned: true,
-                xpGained: 0
-            };
+        if (dailyActionSnap.exists() && dailyActionSnap.data().actions?.[actionType]) {
+            return { success: false, message: 'Daily limit reached', xpGained: 0 };
         }
 
-        const xpAmount = XP_REWARDS[actionType] || 0;
-
-        if (xpAmount === 0) {
-            return {
-                success: false,
-                message: 'Invalid action type',
-                xpGained: 0
-            };
-        }
+        const xpAmount = XP_REWARDS[actionType] || XP_REWARDS[actionType.toUpperCase()] || 0;
+        if (xpAmount === 0) return { success: false, message: 'Invalid action', xpGained: 0 };
 
         const result = await awardXP(userId, xpAmount, reason);
 
-        const today = getTodayString();
-        const dailyActionRef = doc(db, 'gamification', userId, 'dailyActions', today);
-
         await setDoc(dailyActionRef, {
-            date: today,
-            [`actions.${actionType}`]: {
-                completed: true,
-                timestamp: new Date().toISOString(),
-                xp: xpAmount,
-                type: actionType
+            actions: {
+                [actionType]: {
+                    completed: true,
+                    timestamp: new Date().toISOString(),
+                    xp: xpAmount
+                }
             },
             lastUpdated: serverTimestamp()
         }, { merge: true });
 
-        return {
-            success: true,
-            ...result,
-            message: `+${xpAmount} XP earned!`
-        };
+        return { success: true, ...result, message: `+${xpAmount} XP earned!` };
     } catch (error) {
         console.error('❌ Error awarding daily XP:', error);
-        return {
-            success: false,
-            message: 'Failed to award XP',
-            xpGained: 0
-        };
+        return { success: false, message: 'Failed to award XP', xpGained: 0 };
+    }
+};
+
+// ==========================================
+// TRACKING & UNLOCK FUNCTIONS
+// ==========================================
+
+/**
+ * Main entry point for tracking any user action
+ */
+export const trackAction = async (userId, action, data = {}) => {
+    if (!userId) return;
+
+    try {
+        const gamificationRef = doc(db, 'gamification', userId);
+        const userRef = doc(db, 'users', userId);
+        const updates = { updatedAt: serverTimestamp() };
+        let xpToAward = 0;
+        let awardReason = '';
+
+        switch (action) {
+            case 'STUDY_SESSION':
+                const minutes = data.minutes || 1;
+                updates.totalStudyTime = increment(minutes);
+                xpToAward = XP_REWARDS.STUDY_SESSION;
+                awardReason = `Study session: ${minutes} min`;
+                break;
+
+            case 'QUIZ_COMPLETED':
+                updates.quizzesCompleted = increment(1);
+                xpToAward = XP_REWARDS.COMPLETE_QUIZ;
+                awardReason = 'Quiz completed';
+                if (data.perfect) {
+                    updates.perfectQuizzes = increment(1);
+                    xpToAward += XP_REWARDS.PERFECT_QUIZ;
+                }
+                break;
+
+            case 'FLASHCARD_REVIEWED':
+                updates.flashcardsReviewed = increment(data.count || 1);
+                xpToAward = (data.count || 1) * 2; // 2 XP per card
+                awardReason = 'Flashcards reviewed';
+                break;
+
+            case 'DOCUMENT_UPLOADED':
+                updates.documentsUploaded = increment(1);
+                xpToAward = XP_REWARDS.UPLOAD_DOCUMENT;
+                awardReason = 'Document uploaded';
+                break;
+
+            case 'ROOM_JOINED':
+                updates.classesJoined = increment(1);
+                xpToAward = XP_REWARDS.JOIN_ROOM;
+                awardReason = 'Joined study room';
+                break;
+
+            case 'CONTENT_GENERATED':
+                const items = data.count || 1;
+                updates.contentGenerated = increment(items);
+                xpToAward = items * XP_REWARDS.CONTENT_GENERATED;
+                awardReason = 'AI content generated';
+                break;
+
+            default:
+                console.warn(`⚠️ Unknown action: ${action}`);
+                return;
+        }
+
+        // Apply updates to gamification doc
+        await setDoc(gamificationRef, updates, { merge: true });
+
+        // Update display stats on user doc for sync
+        const userUpdates = {};
+        if (updates.totalStudyTime) userUpdates.totalStudyTime = updates.totalStudyTime;
+        if (updates.quizzesCompleted) userUpdates.quizzesCompleted = updates.quizzesCompleted;
+        if (updates.perfectQuizzes) userUpdates.perfectQuizzes = updates.perfectQuizzes;
+        if (updates.documentsUploaded) userUpdates.documentsUploaded = updates.documentsUploaded;
+        if (updates.classesJoined) userUpdates.classesJoined = updates.classesJoined;
+
+        if (Object.keys(userUpdates).length > 0) {
+            await updateDoc(userRef, userUpdates).catch(e => console.warn("Sync stats to users doc failed", e));
+        }
+
+        // Award XP if applicable
+        if (xpToAward > 0) {
+            await awardXP(userId, xpToAward, awardReason);
+        } else {
+            // Still check for unlocks if no XP was awarded but stats changed
+            await checkAndUnlockBadges(userId);
+            await checkAndUnlockTitles(userId);
+        }
+
+        console.log(`✅ Action tracked and synced: ${action}`);
+    } catch (error) {
+        console.error(`❌ Error tracking action ${action}:`, error);
     }
 };
 
 /**
- * ✅ FIXED: Get user's today's XP total with correct progress calculation
+ * Check and unlock badges based on master definitions
  */
-export const getUserTodaysXP = async (userId) => {
+export const checkAndUnlockBadges = async (userId, prefetchedData = null) => {
     try {
-        const today = getTodayString();
-        const dailyActionRef = doc(db, 'gamification', userId, 'dailyActions', today);
-        const dailyActionSnap = await getDoc(dailyActionRef);
+        const userRef = doc(db, 'users', userId);
+        const gamificationRef = doc(db, 'gamification', userId);
 
-        if (!dailyActionSnap.exists()) {
-            return {
-                total: 0,
-                actions: {},
-                dailyProgress: 0
+        let userData;
+        if (prefetchedData) {
+            userData = prefetchedData;
+        } else {
+            const [userSnap, gamificationSnap] = await Promise.all([
+                getDoc(userRef),
+                getDoc(gamificationRef)
+            ]);
+
+            if (!userSnap.exists()) return { newlyUnlocked: [] };
+
+            userData = {
+                ...userSnap.data(),
+                ...(gamificationSnap.exists() ? gamificationSnap.data() : {})
             };
         }
 
-        const actions = dailyActionSnap.data().actions || {};
-        let totalXP = 0;
-
-        Object.values(actions).forEach(action => {
-            if (action.xp) {
-                totalXP += action.xp;
-            }
-        });
-
-        // ✅ FIXED: Correct progress calculation
-        const dailyProgress = Math.min((totalXP / DAILY_XP_GOAL) * 100, 100);
-
-        return {
-            total: totalXP,
-            actions: actions,
-            dailyProgress: Math.round(dailyProgress)
-        };
-    } catch (error) {
-        console.warn('⚠️ Error getting today\'s XP:', error.message);
-        return {
-            total: 0,
-            actions: {},
-            dailyProgress: 0
-        };
-    }
-};
-
-// ==========================================
-// BADGE FUNCTIONS
-// ==========================================
-
-/**
- * ✅ FIXED: Check and unlock badges with validation
- */
-export const checkAndUnlockBadges = async (userId) => {
-    try {
-        const userRef = doc(db, 'users', userId);
-        const userSnap = await getDoc(userRef);
-
-        if (!userSnap.exists()) return { newlyUnlocked: [] };
-
-        const userData = userSnap.data();
-        const unlockedBadges = userData.unlockedBadges || [];
+        const unlockedBadges = userData.unlockedBadges || userData.badges || [];
         const newlyUnlocked = [];
 
-        const stats = {
-            quiz_count: userData.totalQuizzes || 0,
-            study_time: userData.totalStudyTime || 0,
-            streak: userData.streak || 0,
-            documents: userData.totalDocuments || 0,
-            rooms_joined: userData.totalRoomsJoined || 0,
-            ai_chats: userData.totalAIChats || 0,
-            level: userData.level || 1
-        };
-
-        // Check each badge
         for (const badge of Object.values(BADGE_DEFINITIONS)) {
             if (unlockedBadges.includes(badge.id)) continue;
 
-            const reqType = badge.requirement.type;
-            const reqValue = badge.requirement.value;
-
-            // ✅ Validate requirement type exists
-            if (stats.hasOwnProperty(reqType) && stats[reqType] >= reqValue) {
+            if (badge.condition(userData)) {
                 newlyUnlocked.push(badge);
             }
         }
 
-        // Unlock new badges
         if (newlyUnlocked.length > 0) {
             const badgeIds = newlyUnlocked.map(b => b.id);
-            await updateDoc(userRef, {
+            const batch = writeBatch(db);
+
+            batch.update(userRef, {
                 unlockedBadges: arrayUnion(...badgeIds),
-                lastBadgeUnlocked: serverTimestamp()
+                badgesUnlocked: (unlockedBadges.length + newlyUnlocked.length)
             });
 
-            // Award XP for each badge
+            batch.update(gamificationRef, {
+                unlockedBadges: arrayUnion(...badgeIds),
+                badgesUnlocked: (unlockedBadges.length + newlyUnlocked.length)
+            });
+
+            await batch.commit();
+
+            // Award reward XP for each badge
             for (const badge of newlyUnlocked) {
-                await awardXP(userId, badge.xpReward, `Badge: ${badge.name}`);
+                await awardXP(userId, badge.xpReward || 50, `Badge earned: ${badge.name}`);
             }
 
-            console.log(`✅ Unlocked ${newlyUnlocked.length} badges for ${userId}`);
+            console.log(`🎉 Unlocked ${newlyUnlocked.length} badges!`);
         }
 
         return { newlyUnlocked, total: unlockedBadges.length + newlyUnlocked.length };
@@ -603,46 +335,56 @@ export const checkAndUnlockBadges = async (userId) => {
     }
 };
 
-// ==========================================
-// TITLE FUNCTIONS (unchanged)
-// ==========================================
-
-export const checkAndUnlockTitles = async (userId) => {
+/**
+ * Check and unlock titles based on master definitions
+ */
+export const checkAndUnlockTitles = async (userId, prefetchedData = null) => {
     try {
         const userRef = doc(db, 'users', userId);
-        const userSnap = await getDoc(userRef);
+        const gamificationRef = doc(db, 'gamification', userId);
 
-        if (!userSnap.exists()) return { newlyUnlocked: [] };
+        let userData;
+        if (prefetchedData) {
+            userData = prefetchedData;
+        } else {
+            const [userSnap, gamificationSnap] = await Promise.all([
+                getDoc(userRef),
+                getDoc(gamificationRef)
+            ]);
 
-        const userData = userSnap.data();
-        const userLevel = userData.level || 1;
-        const unlockedTitles = userData.unlockedTitles || [];
+            if (!userSnap.exists()) return { newlyUnlocked: [] };
+
+            userData = {
+                ...userSnap.data(),
+                ...(gamificationSnap.exists() ? gamificationSnap.data() : {})
+            };
+        }
+
+        const unlockedTitles = userData.unlockedTitles || userData.titles || userData.achievements || [];
         const newlyUnlocked = [];
 
         for (const title of Object.values(TITLE_DEFINITIONS)) {
             if (unlockedTitles.includes(title.id)) continue;
 
-            if (userLevel >= title.requiredLevel) {
+            if (title.condition(userData)) {
                 newlyUnlocked.push(title);
             }
         }
 
         if (newlyUnlocked.length > 0) {
             const titleIds = newlyUnlocked.map(t => t.id);
-            const updateData = {
-                unlockedTitles: arrayUnion(...titleIds),
-                lastTitleUnlocked: serverTimestamp()
-            };
+            const batch = writeBatch(db);
 
-            if (!userData.equippedTitle && newlyUnlocked.length > 0) {
-                const highestTitle = newlyUnlocked.sort((a, b) => b.requiredLevel - a.requiredLevel)[0];
-                updateData.equippedTitle = highestTitle.text;
-                updateData.equippedTitleId = highestTitle.id;
-            }
+            batch.update(userRef, {
+                unlockedTitles: arrayUnion(...titleIds)
+            });
 
-            await updateDoc(userRef, updateData);
+            batch.update(gamificationRef, {
+                unlockedTitles: arrayUnion(...titleIds)
+            });
 
-            console.log(`✅ Unlocked ${newlyUnlocked.length} titles for ${userId}`);
+            await batch.commit();
+            console.log(`👑 Unlocked ${newlyUnlocked.length} titles!`);
         }
 
         return { newlyUnlocked, total: unlockedTitles.length + newlyUnlocked.length };
@@ -652,34 +394,27 @@ export const checkAndUnlockTitles = async (userId) => {
     }
 };
 
+/**
+ * Equip a title - synced to both docs
+ */
 export const equipTitle = async (userId, titleId) => {
     try {
-        const userRef = doc(db, 'users', userId);
-        const userSnap = await getDoc(userRef);
+        const title = TITLE_DEFINITIONS[Object.keys(TITLE_DEFINITIONS).find(k => TITLE_DEFINITIONS[k].id === titleId)];
+        if (!title) throw new Error('Title not found');
 
-        if (!userSnap.exists()) {
-            throw new Error('User not found');
-        }
-
-        const userData = userSnap.data();
-        const unlockedTitles = userData.unlockedTitles || [];
-
-        if (!unlockedTitles.includes(titleId)) {
-            throw new Error('Title not unlocked');
-        }
-
-        const title = TITLE_DEFINITIONS[titleId];
-        if (!title) {
-            throw new Error('Title not found');
-        }
-
-        await updateDoc(userRef, {
+        const batch = writeBatch(db);
+        batch.update(doc(db, 'users', userId), {
             equippedTitle: title.text,
-            equippedTitleId: titleId,
-            lastTitleChange: serverTimestamp()
+            equippedTitleId: title.id,
+            updatedAt: serverTimestamp()
+        });
+        batch.update(doc(db, 'gamification', userId), {
+            equippedTitle: title.text,
+            equippedTitleId: title.id,
+            updatedAt: serverTimestamp()
         });
 
-        console.log(`✅ Title equipped: ${title.text}`);
+        await batch.commit();
         return { success: true, title };
     } catch (error) {
         console.error('❌ Error equipping title:', error);
@@ -687,222 +422,229 @@ export const equipTitle = async (userId, titleId) => {
     }
 };
 
-// ==========================================
-// STREAK FUNCTIONS
-// ==========================================
-
 /**
- * ✅ FIXED: Update streak with consistent data storage
+ * Repair/Sync user gamification data between collections
+ * Ensures everything in 'gamification' is also in 'users'
  */
-export const updateStreak = async (userId) => {
+export const repairUserGamification = async (userId) => {
+    if (!userId) return;
+
     try {
         const userRef = doc(db, 'users', userId);
-        const userSnap = await getDoc(userRef);
+        const gamificationRef = doc(db, 'gamification', userId);
 
-        if (!userSnap.exists()) {
-            await initializeGamification(userId);
-            return;
-        }
+        const [userSnap, gamificationSnap] = await Promise.all([
+            getDoc(userRef),
+            getDoc(gamificationRef)
+        ]);
+
+        if (!userSnap.exists()) return;
 
         const userData = userSnap.data();
-        const today = getTodayString();
-        const lastLogin = userData.lastLoginDate || null;  // ✅ From users doc
+        const gamData = gamificationSnap.exists() ? gamificationSnap.data() : {};
 
-        // ✅ Skip if already logged in today
-        if (lastLogin === today) {
-            console.log('✅ Already logged in today');
-            return;
-        }
-
-        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-        const isConsecutive = lastLogin === yesterday;
-
-        const currentStreak = userData.streak || 0;
-        const newStreak = isConsecutive ? currentStreak + 1 : 1;
-        const streakBonus = XP_REWARDS.STREAK_BONUS * Math.floor(newStreak / 7 + 1);
-
-        // ✅ Store everything in users doc
-        await updateDoc(userRef, {
-            streak: newStreak,
-            lastLoginDate: today,  // Store in users doc
-            lastStreakUpdate: serverTimestamp()
-        });
-
-        // Award streak bonus
-        if (newStreak > 0) {
-            await awardXP(userId, streakBonus, `${newStreak}-day streak! 🔥`);
-        }
-
-        // Award daily login XP
-        await awardDailyXP(userId, DAILY_ACTIONS.DAILY_LOGIN, 'Daily login');
-
-        console.log(`✅ Streak updated: ${newStreak} days`);
-    } catch (error) {
-        console.error('❌ Error updating streak:', error);
-    }
-};
-
-// ==========================================
-// INITIALIZATION
-// ==========================================
-
-export const initializeGamification = async (userId) => {
-    try {
-        const userRef = doc(db, 'users', userId);
-
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists() && userSnap.data().xp !== undefined) {
-            console.log('✅ User already initialized');
-            return;
-        }
-
-        const batch = writeBatch(db);
-
-        batch.set(userRef, {
-            xp: 0,
-            level: 1,
-            streak: 0,
-            totalQuizzes: 0,
-            totalStudyTime: 0,
-            totalXPEarned: 0,
-            totalDocuments: 0,
-            totalRoomsJoined: 0,
-            totalAIChats: 0,
-            unlockedBadges: [],
-            unlockedTitles: ['novice'],
-            equippedTitle: 'Novice Learner',
-            equippedTitleId: 'novice',
-            lastLoginDate: getTodayString(),
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
-        }, { merge: true });
-
-        await batch.commit();
-
-        console.log('✅ Gamification initialized for user:', userId);
-    } catch (error) {
-        console.error('❌ Error initializing gamification:', error);
-        throw error;
-    }
-};
-
-// ==========================================
-// COMPREHENSIVE TRACKING
-// ==========================================
-
-export const trackActionAndCheckUnlocks = async (userId, action, metadata = {}) => {
-    try {
-        const userRef = doc(db, 'users', userId);
         const updates = {};
 
-        switch (action) {
-            case 'quiz_complete':
-                updates.totalQuizzes = increment(1);
-                break;
-            case 'document_upload':
-                updates.totalDocuments = increment(1);
-                break;
-            case 'room_join':
-                updates.totalRoomsJoined = increment(1);
-                break;
-            case 'ai_chat':
-                updates.totalAIChats = increment(1);
-                break;
-            case 'study_time':
-                updates.totalStudyTime = increment(metadata.minutes || 0);
-                break;
-            default:
-                console.warn(`⚠️ Unknown action type: ${action}`);
+        // 1. Check for missing badges (supporting legacy names)
+        const userBadges = userData.unlockedBadges || userData.badges || [];
+        const gamBadges = gamData.unlockedBadges || gamData.badges || [];
+        const allBadges = Array.from(new Set([...userBadges, ...gamBadges]));
+
+        if (allBadges.length > (userData.unlockedBadges || []).length) {
+            updates.unlockedBadges = allBadges;
+        }
+
+        // 2. Check for missing titles (supporting legacy names: 'titles', 'achievements')
+        const userTitles = userData.unlockedTitles || userData.titles || (Array.isArray(userData.achievements) ? userData.achievements : []);
+        const gamTitles = gamData.unlockedTitles || gamData.titles || (Array.isArray(gamData.achievements) ? gamData.achievements : []);
+
+        // Ensure 'title_newbie' is always present
+        if (!userTitles.includes('title_newbie')) userTitles.push('title_newbie');
+
+        const allTitles = Array.from(new Set([...userTitles, ...gamTitles]));
+
+        if (allTitles.length > (userData.unlockedTitles || []).length) {
+            updates.unlockedTitles = allTitles;
+        }
+
+        // 3. Ensure stats are synced (Favoring higher values where appropriate)
+        const statsToSync = [
+            'xp', 'level', 'streak', 'totalStudyTime',
+            'quizzesCompleted', 'perfectQuizzes', 'documentsUploaded',
+            'classesJoined', 'flashcardsReviewed', 'flashcardsMastered'
+        ];
+
+        statsToSync.forEach(stat => {
+            const userVal = userData[stat] || 0;
+            const gamVal = gamData[stat] || 0;
+
+            if (gamVal > userVal) {
+                updates[stat] = gamVal;
+                if (stat === 'xp') {
+                    updates.level = calculateLevel(gamVal);
+                }
+            }
+        });
+
+        // 4. Equipped title sync (Legacy support for 'equippedTitleId')
+        const currentEquippedId = userData.equippedTitleId || userData.currentTitleId;
+        const gamEquippedId = gamData.equippedTitleId || gamData.currentTitleId;
+
+        if (gamEquippedId && !currentEquippedId) {
+            updates.equippedTitleId = gamEquippedId;
+            updates.equippedTitle = gamData.equippedTitle || TITLE_DEFINITIONS[Object.keys(TITLE_DEFINITIONS).find(k => TITLE_DEFINITIONS[k].id === gamEquippedId)]?.text;
         }
 
         if (Object.keys(updates).length > 0) {
-            await updateDoc(userRef, updates);
+            console.log(`🔧 Repairing gamification data for ${userId}:`, updates);
+
+            const batch = writeBatch(db);
+            batch.update(userRef, {
+                ...updates,
+                updatedAt: serverTimestamp()
+            });
+
+            if (gamificationSnap.exists()) {
+                batch.update(gamificationRef, {
+                    ...updates,
+                    updatedAt: serverTimestamp()
+                });
+            } else {
+                batch.set(gamificationRef, {
+                    ...userData,
+                    ...updates,
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp()
+                });
+            }
+
+            await batch.commit();
+            return { success: true, repaired: true };
         }
 
-        const [badges, titles] = await Promise.all([
-            checkAndUnlockBadges(userId),
-            checkAndUnlockTitles(userId)
-        ]);
-
-        return {
-            badges: badges.newlyUnlocked || [],
-            titles: titles.newlyUnlocked || [],
-            achievements: []
-        };
+        return { success: true, repaired: false };
     } catch (error) {
-        console.error('❌ Error tracking action:', error);
-        return { badges: [], titles: [], achievements: [] };
+        console.error('❌ Error repairing gamification:', error);
+        return { success: false, error: error.message };
     }
 };
 
-// ==========================================
-// LEADERBOARD (unchanged)
-// ==========================================
+/**
+ * Get user's today's XP total
+ */
+export const getUserTodaysXP = async (userId) => {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const dailyActionRef = doc(db, 'gamification', userId, 'dailyActions', today);
+        const dailyActionSnap = await getDoc(dailyActionRef);
 
+        if (!dailyActionSnap.exists()) {
+            return { total: 0, actions: {}, dailyProgress: 0 };
+        }
+
+        const actions = dailyActionSnap.data().actions || {};
+        let totalXP = 0;
+        Object.values(actions).forEach(a => { totalXP += (a.xp || 0); });
+
+        const dailyProgress = Math.min((totalXP / DAILY_XP_GOAL) * 100, 100);
+        return { total: totalXP, actions, dailyProgress: Math.round(dailyProgress) };
+    } catch (error) {
+        console.warn('⚠️ Error getting today\'s XP:', error.message);
+        return { total: 0, actions: {}, dailyProgress: 0 };
+    }
+};
+
+/**
+ * Get class-specific leaderboard data
+ */
 export const getClassLeaderboard = async (classId) => {
     try {
         const classRef = doc(db, 'classes', classId);
         const classSnap = await getDoc(classRef);
 
-        if (!classSnap.exists()) {
-            throw new Error('Class not found');
-        }
+        if (!classSnap.exists()) return [];
 
-        const classData = classSnap.data();
-        const studentIds = classData.studentIds || classData.students || [];
-
-        if (studentIds.length === 0) {
-            return [];
-        }
+        const studentIds = classSnap.data().students || [];
+        if (studentIds.length === 0) return [];
 
         const students = await Promise.all(
             studentIds.map(async (studentId) => {
                 try {
                     const userRef = doc(db, 'users', studentId);
                     const userSnap = await getDoc(userRef);
-
                     if (!userSnap.exists()) return null;
 
-                    const userData = userSnap.data();
-
+                    const data = userSnap.data();
                     return {
                         id: studentId,
-                        name: userData.displayName || userData.name || userData.email || 'Unknown',
-                        points: userData.xp || 0,
-                        level: userData.level || 1,
-                        streak: userData.streak || 0,
-                        quizzes: userData.totalQuizzes || 0,
-                        photoURL: userData.photoURL || null
+                        name: data.name || data.displayName || 'Anonymous Student',
+                        points: data.xp || 0,
+                        level: data.level || 1,
+                        streak: data.streak || 0,
+                        avgScore: data.avgScore || 0,
+                        quizzes: data.quizzesCompleted || data.totalQuizzes || 0,
+                        equippedTitle: data.equippedTitle || null
                     };
-                } catch (error) {
-                    console.warn(`⚠️ Error loading student ${studentId}:`, error.message);
+                } catch (err) {
+                    console.error(`Error fetching student ${studentId} for leaderboard:`, err);
                     return null;
                 }
             })
         );
 
-        const validStudents = students.filter(s => s !== null);
-        validStudents.sort((a, b) => b.points - a.points);
-
-        return validStudents.map((student, index) => ({
-            ...student,
-            rank: index + 1,
-            change: 0
-        }));
+        return students
+            .filter(s => s !== null)
+            .sort((a, b) => b.points - a.points);
     } catch (error) {
-        console.error('❌ Error getting class leaderboard:', error);
-        throw error;
+        console.error('❌ Error fetching class leaderboard:', error);
+        return [];
     }
 };
 
-// ==========================================
-// EXPORTS
-// ==========================================
+export const initializeGamification = async (userId) => {
+    try {
+        const userRef = doc(db, 'users', userId);
+        const gamificationRef = doc(db, 'gamification', userId);
 
-export {
+        const batch = writeBatch(db);
+        const initialData = {
+            xp: 0,
+            level: 1,
+            streak: 0,
+            unlockedBadges: [],
+            unlockedTitles: ['title_newbie'],
+            equippedTitle: 'Novice Learner',
+            equippedTitleId: 'title_newbie',
+            quizzesCompleted: 0,
+            totalStudyTime: 0,
+            updatedAt: serverTimestamp()
+        };
+
+        batch.update(userRef, initialData);
+        batch.set(gamificationRef, {
+            ...initialData,
+            createdAt: serverTimestamp()
+        }, { merge: true });
+
+        await batch.commit();
+    } catch (error) {
+        console.error('❌ Error initializing gamification:', error);
+    }
+};
+
+export default {
+    awardXP,
+    awardDailyXP,
+    trackAction,
+    checkAndUnlockBadges,
+    checkAndUnlockTitles,
+    equipTitle,
+    getUserTodaysXP,
+    initializeGamification,
+    getClassLeaderboard,
+    repairUserGamification,
     XP_REWARDS,
     DAILY_ACTIONS,
     BADGE_DEFINITIONS,
-    TITLE_DEFINITIONS,
-    LEVEL_THRESHOLDS
+    TITLE_DEFINITIONS
 };
