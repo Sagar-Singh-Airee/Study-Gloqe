@@ -1,4 +1,4 @@
-// src/App.jsx - FIXED VERSION
+// src/App.jsx - UPDATED WITH PROFILE ROUTES
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './features/auth/contexts/AuthContext';
@@ -12,7 +12,7 @@ import LandingPage from './features/landing/pages/LandingPage';
 import Dashboard from './features/student/pages/Dashboard';
 import ClassDetails from './features/student/pages/ClassDetails';
 import Profile from './features/student/pages/Profile';
-// Settings import removed
+import TeacherPublicProfile from './features/student/components/TeacherPublicProfile'; // ✅ NEW
 
 // Study Pages
 import PDFUpload from './features/study/pages/PDFUpload';
@@ -134,6 +134,16 @@ function App() {
         <AuthProvider>
             <ClassProvider>
                 <Router>
+                    <Toaster
+                        position="top-right"
+                        toastOptions={{
+                            duration: 3000,
+                            style: {
+                                background: '#363636',
+                                color: '#fff',
+                            },
+                        }}
+                    />
                     <Routes>
                         {/* PUBLIC ROUTES */}
                         <Route path="/" element={<LandingPage />} />
@@ -190,10 +200,15 @@ function App() {
                             path="/profile"
                             element={<StudentRoute><Profile /></StudentRoute>}
                         />
-                        {/* Settings route was here - removed */}
                         <Route
                             path="/analytics"
                             element={<Navigate to="/dashboard?tab=analytics" replace />}
+                        />
+
+                        {/* ✅ NEW: TEACHER PUBLIC PROFILE (Student View) */}
+                        <Route
+                            path="/teacher/:teacherId/public"
+                            element={<StudentRoute><TeacherPublicProfile /></StudentRoute>}
                         />
 
                         {/* TEACHER ROUTES */}
@@ -204,6 +219,12 @@ function App() {
                         <Route
                             path="/teacher/class/:classId"
                             element={<TeacherRoute><TeacherClassroom /></TeacherRoute>}
+                        />
+
+                        {/* ✅ NEW: Teacher Profile Tab Redirect */}
+                        <Route
+                            path="/teacher/profile"
+                            element={<Navigate to="/teacher/dashboard?tab=profile" replace />}
                         />
 
                         {/* Teacher Dashboard Tab Redirects */}

@@ -33,7 +33,7 @@ import {
 import toast from 'react-hot-toast';
 
 // Get API URL from environment
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://us-central1-studygloqe.cloudfunctions.net';
 
 // VIDEO TILE COMPONENT
 const VideoTile = ({ peer, isLocal, isFullscreen }) => {
@@ -210,7 +210,7 @@ const VideoCallSection = ({ classId, isTeacher }) => {
             }
 
             // Step 1: Create room in 100ms
-            const roomResponse = await fetch(`${API_URL}/token/create-room`, {
+            const roomResponse = await fetch(`${API_URL}/createHMSRoom`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -231,7 +231,7 @@ const VideoCallSection = ({ classId, isTeacher }) => {
             console.log('✅ Room created:', roomResult.roomId);
 
             // Step 2: Generate token
-            const tokenResponse = await fetch(`${API_URL}/token/generate-token`, {
+            const tokenResponse = await fetch(`${API_URL}/generateHMSToken`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -420,8 +420,8 @@ const VideoCallSection = ({ classId, isTeacher }) => {
                         <button
                             onClick={() => setIsCameraOn(!isCameraOn)}
                             className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${isCameraOn
-                                    ? 'border-green-500 bg-green-50'
-                                    : 'border-red-500 bg-red-50'
+                                ? 'border-green-500 bg-green-50'
+                                : 'border-red-500 bg-red-50'
                                 }`}
                         >
                             {isCameraOn ? (
@@ -437,8 +437,8 @@ const VideoCallSection = ({ classId, isTeacher }) => {
                         <button
                             onClick={() => setIsMicOn(!isMicOn)}
                             className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${isMicOn
-                                    ? 'border-green-500 bg-green-50'
-                                    : 'border-red-500 bg-red-50'
+                                ? 'border-green-500 bg-green-50'
+                                : 'border-red-500 bg-red-50'
                                 }`}
                         >
                             {isMicOn ? (
@@ -488,8 +488,8 @@ const VideoCallSection = ({ classId, isTeacher }) => {
             <div className="bg-gradient-to-br from-gray-900 to-black rounded-2xl overflow-hidden">
                 {/* Video Grid */}
                 <div className={`grid gap-2 p-4 ${peers.length <= 1 ? 'grid-cols-1' :
-                        peers.length <= 4 ? 'grid-cols-2' :
-                            'grid-cols-2 md:grid-cols-3'
+                    peers.length <= 4 ? 'grid-cols-2' :
+                        'grid-cols-2 md:grid-cols-3'
                     }`}>
                     {peers.map((peer) => (
                         <VideoTile
@@ -508,8 +508,8 @@ const VideoCallSection = ({ classId, isTeacher }) => {
                         <button
                             onClick={toggleVideo}
                             className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${isLocalVideoEnabled
-                                    ? 'bg-gray-700 hover:bg-gray-600'
-                                    : 'bg-red-500 hover:bg-red-600'
+                                ? 'bg-gray-700 hover:bg-gray-600'
+                                : 'bg-red-500 hover:bg-red-600'
                                 }`}
                         >
                             {isLocalVideoEnabled ? (
@@ -523,8 +523,8 @@ const VideoCallSection = ({ classId, isTeacher }) => {
                         <button
                             onClick={toggleAudio}
                             className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${isLocalAudioEnabled
-                                    ? 'bg-gray-700 hover:bg-gray-600'
-                                    : 'bg-red-500 hover:bg-red-600'
+                                ? 'bg-gray-700 hover:bg-gray-600'
+                                : 'bg-red-500 hover:bg-red-600'
                                 }`}
                         >
                             {isLocalAudioEnabled ? (
@@ -625,8 +625,8 @@ const VideoCallSection = ({ classId, isTeacher }) => {
                                     ) : (
                                         <div className={`flex gap-2 ${msg.senderId === user?.uid ? 'justify-end' : ''}`}>
                                             <div className={`max-w-[70%] p-3 rounded-xl ${msg.senderId === user?.uid
-                                                    ? 'bg-black text-white'
-                                                    : 'bg-gray-100 text-black'
+                                                ? 'bg-black text-white'
+                                                : 'bg-gray-100 text-black'
                                                 }`}>
                                                 <p className="text-xs font-bold mb-1 opacity-70">{msg.senderName}</p>
                                                 <p className="text-sm">{msg.text}</p>

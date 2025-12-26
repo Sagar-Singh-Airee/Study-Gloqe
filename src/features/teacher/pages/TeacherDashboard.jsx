@@ -1,4 +1,4 @@
-// src/pages/teacher/TeacherDashboard.jsx - UPDATED WITH CORRECT NAVIGATION
+// src/pages/teacher/TeacherDashboard.jsx - FIXED PROFILE NAVIGATION
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -7,7 +7,8 @@ import {
     Plus, BookOpen, Users, FileText, Award, TrendingUp,
     Clock, CheckCircle2, AlertCircle, Activity, Target,
     Video, ClipboardList, Brain, Calendar, ChevronRight,
-    Bell, MessageSquare, BarChart3, Trophy, FolderOpen, Settings
+    Bell, MessageSquare, BarChart3, Trophy, FolderOpen,
+    Settings, User
 } from 'lucide-react';
 import { useAuth } from '@auth/contexts/AuthContext';
 import { db } from '@shared/config/firebase';
@@ -26,13 +27,13 @@ import AssignmentCreator from '@teacher/components/dashboard/AssignmentCreator';
 import GradeBook from '@teacher/components/dashboard/GradeBook';
 import TeacherAnalytics from '@teacher/components/dashboard/TeacherAnalytics';
 import StudentList from '@teacher/components/dashboard/StudentList';
+import TeacherProfile from '@teacher/components/TeacherProfile';
 
 const TeacherDashboard = () => {
     const { user, userData } = useAuth();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('overview');
-    const [searchQuery, setSearchQuery] = useState('');
     const [notifications, setNotifications] = useState([]);
     const [showAssignmentCreator, setShowAssignmentCreator] = useState(false);
 
@@ -283,32 +284,36 @@ const TeacherDashboard = () => {
 
             {/* Main Content */}
             <div className="flex-1 ml-64">
-                {/* Top Navbar */}
+                {/* Top Navbar - ✅ FIXED WITH CALLBACK */}
                 <TeacherNavbar
                     notifications={notifications}
-                    searchQuery={searchQuery}
-                    setSearchQuery={setSearchQuery}
+                    onProfileClick={() => {
+                        console.log('Profile clicked - switching to profile tab');
+                        setActiveTab('profile');
+                    }}
                 />
 
                 {/* Content Area */}
                 <div className="p-8 space-y-6">
 
-                    {/* Welcome Header */}
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-3xl font-black text-black">
-                                Welcome back, {userData?.name || 'Teacher'}! 👋
-                            </h1>
-                            <p className="text-gray-600 mt-1">
-                                {new Date().toLocaleDateString('en-US', {
-                                    weekday: 'long',
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric'
-                                })}
-                            </p>
+                    {/* Welcome Header - Hide on profile page */}
+                    {activeTab !== 'profile' && (
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h1 className="text-3xl font-black text-black">
+                                    Welcome back, {userData?.name || 'Teacher'}! 👋
+                                </h1>
+                                <p className="text-gray-600 mt-1">
+                                    {new Date().toLocaleDateString('en-US', {
+                                        weekday: 'long',
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric'
+                                    })}
+                                </p>
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Tab Content */}
                     <AnimatePresence mode="wait">
@@ -400,7 +405,7 @@ const TeacherDashboard = () => {
                                                         initial={{ opacity: 0, x: -20 }}
                                                         animate={{ opacity: 1, x: 0 }}
                                                         transition={{ delay: idx * 0.1 }}
-                                                        onClick={() => navigate(`/teacher/class/${cls.id}`)} // ✅ UPDATED
+                                                        onClick={() => navigate(`/teacher/class/${cls.id}`)}
                                                         className="group p-4 bg-gradient-to-br from-gray-900 to-black rounded-xl text-white hover:scale-[1.02] transition-all cursor-pointer"
                                                     >
                                                         <div className="flex items-center justify-between mb-2">
@@ -460,8 +465,8 @@ const TeacherDashboard = () => {
                                                         </div>
                                                         <div className="text-right flex-shrink-0">
                                                             <div className={`text-lg font-black ${sub.score >= 90 ? 'text-green-600' :
-                                                                    sub.score >= 70 ? 'text-black' :
-                                                                        'text-red-600'
+                                                                sub.score >= 70 ? 'text-black' :
+                                                                    'text-red-600'
                                                                 }`}>
                                                                 {sub.score}%
                                                             </div>
@@ -658,6 +663,18 @@ const TeacherDashboard = () => {
                                     title="Schedule"
                                     description="Manage your class schedule and timetable"
                                 />
+                            </motion.div>
+                        )}
+
+                        {/* ✅ PROFILE TAB */}
+                        {activeTab === 'profile' && (
+                            <motion.div
+                                key="profile"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                            >
+                                <TeacherProfile />
                             </motion.div>
                         )}
 

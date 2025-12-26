@@ -1641,6 +1641,136 @@ exports.getLearningPatterns = functions.https.onRequest(corsWrapper(async (req, 
   }
 }));
 
+// ==================== VIDEO CALL TOKEN SERVICES ====================
+
+const { RtcTokenBuilder, RtcRole } = require('agora-access-token');
+const jwt = require('jsonwebtoken');
+const { v4: uuidv4 } = require('uuid');
+
+/**
+ * Generate Agora RTC Token
+ */
+exports.generateAgoraToken = functions.https.onRequest(corsWrapper(async (req, res) => {
+  try {
+    const channelName = req.params.channelName || req.body.channelName || req.query.channelName;
+    let uid = req.params.uid || req.body.uid || req.query.uid || 0;
+    const role = req.params.role || req.body.role || req.query.role || 'publisher';
+
+    if (!channelName) {
+      return res.status(400).json({ success: false, error: 'Channel name is required' });
+    }
+
+    const appId = process.env.AGORA_APP_ID || functions.config().agora?.appid;
+    const appCertificate = process.env.AGORA_APP_CERTIFICATE || functions.config().agora?.appcertificate;
+
+    if (!appId || !appCertificate) {
+      return res.status(500).json({ success: false, error: 'Agora credentials not configured' });
+    }
+
+    uid = parseInt(uid) || 0;
+    const userRole = role === 'subscriber' ? RtcRole.SUBSCRIBER : RtcRole.PUBLISHER;
+    const expirationTimeInSeconds = 3600;
+    const currentTimestamp = Math.floor(Date.now() / 1000);
+    const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
+
+    const token = RtcTokenBuilder.buildTokenWithUid(
+      appId,
+      appCertificate,
+      channelName,
+      uid,
+      userRole,
+      privilegeExpiredTs
+    );
+
+    console.log(`Agora token generated for channel ${channelName}`);
+    return res.status(200).json({
+      success: true,
+      token,
+      appId,
+      channelName,
+      uid,
+      role,
+      expiresIn: expirationTimeInSeconds
+    });
+  } catch (error) {
+    console.error('Error generating Agora token:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+}));
+
+/**
+ * Generate 100ms Token
+ */
+exports.generateHMSToken = functions.https.onRequest(corsWrapper(async (req, res) => {
+  try {
+    const { roomId, userId, role } = req.body || req.query;
+
+    if (!roomId || !userId) {
+      return res.status(400).json({ success: false, error: 'roomId and userId are required' });
+    }
+
+    const accessKey = process.env.HMS_APP_ACCESS_KEY || functions.config().hms?.accesskey;
+    const appSecret = process.env.HMS_APP_SECRET || functions.config().hms?.appsecret;
+
+    if (!accessKey || !appSecret) {
+      return res.status(500).json({ success: false, error: 'HMS credentials not configured' });
+    }
+
+    const payload = {
+      access_key: accessKey,
+      room_id: roomId,
+      user_id: userId,
+      role: role || 'host',
+      type: 'app',
+      version: 2,
+      iat: Math.floor(Date.now() / 1000),
+      nbf: Math.floor(Date.now() / 1000)
+    };
+
+    const token = jwt.sign(payload, appSecret, {
+      algorithm: 'HS256',
+      expiresIn: '24h',
+      jwtid: uuidv4()
+    });
+
+    console.log(`HMS token generated for room ${roomId}`);
+    return res.status(200).json({
+      success: true,
+      token,
+      expiresIn: 86400
+    });
+  } catch (error) {
+    console.error('Error generating HMS token:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+}));
+
+/**
+ * 100ms Create Room (Stub for production compatibility)
+ */
+exports.createHMSRoom = functions.https.onRequest(corsWrapper(async (req, res) => {
+  try {
+    const { name, description } = req.body;
+    const roomId = `room-${Date.now()}`;
+
+    // Note: To actually create a room in 100ms via API, you'd need to make a fetch call here.
+    // For now, returning a mock ID to maintain client flow.
+    return res.status(201).json({
+      success: true,
+      roomId,
+      room: {
+        id: roomId,
+        name: name || 'Classroom Session',
+        description: description || '',
+        createdAt: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('Error creating HMS room:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+}));
+
 // ==================== END OF FILE ====================
 
 console.log('✅ StudyGloqe Firebase Functions loaded with Kafka integration!');

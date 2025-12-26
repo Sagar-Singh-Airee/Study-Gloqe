@@ -1,14 +1,15 @@
-// src/components/teacher/TeacherSidebar.jsx - FIXED VERSION
+// src/components/teacher/TeacherSidebar.jsx
+// 🎨 ULTRA-COMPACT MINIMALIST - v15.0 FINAL
+
 import { motion } from 'framer-motion';
 import {
     Home, BookOpen, Users, ClipboardList, FileText, BarChart3,
     Trophy, Settings, Video, Calendar, Bell, MessageSquare,
-    FolderOpen, Target, Zap
+    FolderOpen, Target
 } from 'lucide-react';
 import logoImage from '@assets/logo/loma.png';
 
 const TeacherSidebar = ({ stats = {}, activeTab, setActiveTab }) => {
-
     const navItems = [
         {
             section: 'Main',
@@ -54,54 +55,61 @@ const TeacherSidebar = ({ stats = {}, activeTab, setActiveTab }) => {
     const isActive = (tab) => activeTab === tab;
 
     return (
-        <div className="w-64 bg-gradient-to-b from-black via-gray-950 to-black fixed h-screen flex flex-col shadow-2xl border-r border-white/5 overflow-hidden z-50">
+        <div className="w-64 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 fixed h-screen flex flex-col border-r border-white/5 backdrop-blur-xl z-50">
 
-            {/* Logo */}
-            <div className="p-5 border-b border-white/10">
+            {/* Logo - JUST IMAGE, CLEAN & COMPACT */}
+            <div className="h-16 px-5 border-b border-white/5 flex items-center">
                 <button
                     onClick={() => setActiveTab('overview')}
-                    className="flex items-center gap-2 group w-full"
+                    className="flex items-center gap-3 group"
                 >
-                    <div className="relative">
-                        <div className="absolute inset-0 bg-white blur-xl opacity-20 group-hover:opacity-40 transition-opacity" />
-                        <img src={logoImage} alt="Logo" className="h-8 w-8 relative z-10" />
-                    </div>
+                    {/* Just the logo image - no background box */}
+                    <img
+                        src={logoImage}
+                        alt="StudyGloqe"
+                        className="h-10 w-10 transition-transform group-hover:scale-105"
+                    />
                     <div>
                         <div className="text-lg font-black text-white tracking-tight">StudyGloqe</div>
-                        <div className="text-xs text-gray-500 font-medium">Teacher Portal</div>
+                        <div className="text-xs text-white/40 font-medium">Teacher Portal</div>
                     </div>
                 </button>
             </div>
 
-            {/* Navigation */}
-            <nav className="flex-1 px-3 py-4 space-y-6 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+            {/* Navigation - CUSTOM SCROLLBAR */}
+            <nav className="flex-1 px-3 py-4 space-y-6 overflow-y-auto custom-scrollbar">
                 {navItems.map((section, sectionIdx) => (
                     <div key={sectionIdx}>
                         {/* Section Label */}
                         <div className="px-3 mb-2">
-                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                            <span className="text-[10px] font-black text-white/30 uppercase tracking-widest">
                                 {section.section}
                             </span>
                         </div>
 
                         {/* Section Items */}
-                        <div className="space-y-1">
+                        <div className="space-y-0.5">
                             {section.items.map((item, idx) => {
                                 const active = isActive(item.tab);
                                 return (
-                                    <button
+                                    <motion.button
                                         key={idx}
                                         onClick={() => setActiveTab(item.tab)}
-                                        className={`group relative flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 w-full ${active
-                                                ? 'bg-white/10 text-white shadow-lg shadow-white/5'
-                                                : 'text-gray-400 hover:bg-white/5 hover:text-white'
-                                            }`}
+                                        className={`
+                      group relative flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 w-full
+                      ${active
+                                                ? 'bg-gradient-to-r from-blue-500/20 to-teal-500/20 text-white shadow-lg shadow-blue-500/10 border border-blue-500/30'
+                                                : 'text-white/60 hover:bg-white/5 hover:text-white'
+                                            }
+                    `}
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
                                     >
                                         {/* Active Indicator */}
                                         {active && (
                                             <motion.div
                                                 layoutId="activeTab"
-                                                className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded-r-full"
+                                                className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-500 to-teal-500 rounded-r"
                                                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
                                             />
                                         )}
@@ -109,9 +117,10 @@ const TeacherSidebar = ({ stats = {}, activeTab, setActiveTab }) => {
                                         <div className="flex items-center gap-3">
                                             <item.icon
                                                 size={18}
-                                                className={`${active ? 'drop-shadow-lg' : ''} transition-transform group-hover:scale-110`}
+                                                className={`${active ? 'drop-shadow' : ''} transition-transform group-hover:scale-110`}
+                                                strokeWidth={active ? 2.5 : 2}
                                             />
-                                            <span>{item.label}</span>
+                                            <span className="font-medium">{item.label}</span>
                                         </div>
 
                                         {/* Badge */}
@@ -119,7 +128,7 @@ const TeacherSidebar = ({ stats = {}, activeTab, setActiveTab }) => {
                                             <motion.span
                                                 initial={{ scale: 0 }}
                                                 animate={{ scale: 1 }}
-                                                className="px-2 py-0.5 bg-white/20 text-white text-xs font-bold rounded-full"
+                                                className="px-2 py-0.5 bg-gradient-to-r from-blue-500 to-teal-500 text-white text-xs font-black rounded-full shadow-md"
                                             >
                                                 {item.badge}
                                             </motion.span>
@@ -127,9 +136,13 @@ const TeacherSidebar = ({ stats = {}, activeTab, setActiveTab }) => {
 
                                         {/* Pending indicator for assignments */}
                                         {item.label === 'Assignments' && item.badge > 0 && (
-                                            <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                                            <motion.div
+                                                animate={{ opacity: [0.5, 1, 0.5] }}
+                                                transition={{ duration: 1.5, repeat: Infinity }}
+                                                className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"
+                                            />
                                         )}
-                                    </button>
+                                    </motion.button>
                                 );
                             })}
                         </div>
@@ -137,39 +150,8 @@ const TeacherSidebar = ({ stats = {}, activeTab, setActiveTab }) => {
                 ))}
             </nav>
 
-            {/* Quick Stats Footer */}
-            <div className="p-4 border-t border-white/10 space-y-3">
-                {/* Stats Cards */}
-                <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-white/5 backdrop-blur-xl rounded-lg p-3 border border-white/10">
-                        <div className="flex items-center gap-2 mb-1">
-                            <BookOpen size={14} className="text-blue-400" />
-                            <span className="text-xs text-gray-400">Classes</span>
-                        </div>
-                        <div className="text-lg font-black text-white">{stats.totalClasses || 0}</div>
-                    </div>
-                    <div className="bg-white/5 backdrop-blur-xl rounded-lg p-3 border border-white/10">
-                        <div className="flex items-center gap-2 mb-1">
-                            <Users size={14} className="text-green-400" />
-                            <span className="text-xs text-gray-400">Students</span>
-                        </div>
-                        <div className="text-lg font-black text-white">{stats.totalStudents || 0}</div>
-                    </div>
-                </div>
-
-                {/* Upgrade Prompt */}
-                <div className="bg-gradient-to-br from-purple-600 to-purple-700 rounded-lg p-4 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full blur-2xl" />
-                    <div className="relative">
-                        <Zap size={20} className="text-white mb-2" />
-                        <div className="text-xs font-bold text-white mb-1">Upgrade to Pro</div>
-                        <div className="text-xs text-purple-200 mb-3">Get unlimited features</div>
-                        <button className="w-full py-1.5 bg-white text-purple-600 rounded-lg text-xs font-bold hover:bg-purple-50 transition-all">
-                            Learn More
-                        </button>
-                    </div>
-                </div>
-            </div>
+            {/* Bottom Padding */}
+            <div className="h-4"></div>
         </div>
     );
 };
