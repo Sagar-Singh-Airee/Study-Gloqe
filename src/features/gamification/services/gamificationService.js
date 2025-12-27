@@ -1,4 +1,4 @@
-// src/features/gamification/services/gamificationService.js - ✅ CONSOLIDATED SYNC VERSION
+// src/features/gamification/services/gamificationService.js - ✅ FIXED AUTO-UNLOCK VERSION
 import {
     doc,
     updateDoc,
@@ -15,6 +15,7 @@ import { calculateLevel, getNextLevelXp } from '@shared/utils/levelUtils';
 // Achievement Definitions
 import { BADGE_DEFINITIONS, TITLE_DEFINITIONS } from '../config/achievements';
 
+
 // Reward Constants
 export const XP_REWARDS = {
     // One-time per day actions
@@ -28,15 +29,18 @@ export const XP_REWARDS = {
     DAILY_LOGIN: 10,
     STREAK_BONUS: 15,
 
+
     // Multiple times actions
     COMPLETE_QUIZ: 50,
     CORRECT_ANSWER: 5,
     CONTENT_GENERATED: 15,
 
+
     // Enhanced rewards
     PERFECT_QUIZ: 50,
     KNOWLEDGE_MASTER: 100,
 };
+
 
 export const DAILY_ACTIONS = {
     UPLOAD_DOCUMENT: 'UPLOAD_DOCUMENT',
@@ -52,14 +56,18 @@ export const DAILY_ACTIONS = {
     CONTENT_GENERATED: 'CONTENT_GENERATED'
 };
 
+
 const DAILY_XP_GOAL = 100;
+
 
 // Re-exports for backward compatibility
 export { BADGE_DEFINITIONS, TITLE_DEFINITIONS };
 
+
 // ==========================================
 // CORE XP FUNCTIONS
 // ==========================================
+
 
 /**
  * Award XP using atomic operations to both users and gamification docs
@@ -67,19 +75,24 @@ export { BADGE_DEFINITIONS, TITLE_DEFINITIONS };
 export const awardXP = async (userId, xpAmount, reason) => {
     if (!userId || !xpAmount) return null;
 
+
     try {
         const userRef = doc(db, 'users', userId);
         const gamificationRef = doc(db, 'gamification', userId);
+
 
         const result = await runTransaction(db, async (transaction) => {
             const userSnap = await transaction.get(userRef);
             const gamificationSnap = await transaction.get(gamificationRef);
 
+
             if (!userSnap.exists()) {
                 throw new Error('User not found');
             }
 
+
             const userData = userSnap.data();
+
 
             // Determine current state (favoring users doc for XP/Level)
             const currentXP = userData.xp || 0;
@@ -88,6 +101,7 @@ export const awardXP = async (userId, xpAmount, reason) => {
             const newLevel = calculateLevel(newXP);
             const levelUp = newLevel > currentLevel;
             const levelsGained = newLevel - currentLevel;
+
 
             // 1. Update Users Collection (Display/Leaderboard)
             transaction.update(userRef, {
@@ -98,6 +112,7 @@ export const awardXP = async (userId, xpAmount, reason) => {
                 lastXPAmount: xpAmount,
                 lastXPTime: serverTimestamp()
             });
+
 
             // 2. Update Gamification Collection (Detailed tracking)
             if (gamificationSnap.exists()) {
@@ -115,20 +130,37 @@ export const awardXP = async (userId, xpAmount, reason) => {
                 }, { merge: true });
             }
 
+
             return {
                 newXP,
                 newLevel,
                 levelUp,
                 levelsGained,
                 xpGained: xpAmount,
-                nextLevelXP: getNextLevelXp(newXP)
+                nextLevelXP: getNextLevelXp(newXP),
+                currentLevel // Pass old level for comparison
             };
         });
 
-        // Check for new achievements after XP gain with prefetched result
-        const updatedData = { ...userData, xp: result.newXP, level: result.newLevel };
+
+        // ✅ FIX: Always check for unlocks after XP gain, especially on level up
+        // Wait a bit for Firestore to propagate the changes
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // Re-fetch the updated user data
+        const userSnap = await getDoc(userRef);
+        const gamificationSnap = await getDoc(gamificationRef);
+
+        const updatedData = {
+            ...userSnap.data(),
+            ...(gamificationSnap.exists() ? gamificationSnap.data() : {})
+        };
+
+
+        // Check for new achievements after XP gain
         await checkAndUnlockBadges(userId, updatedData);
         await checkAndUnlockTitles(userId, updatedData);
+
 
         return result;
     } catch (error) {
@@ -136,6 +168,7 @@ export const awardXP = async (userId, xpAmount, reason) => {
         throw error;
     }
 };
+
 
 /**
  * Award daily XP (limit to once per day)
@@ -146,14 +179,18 @@ export const awardDailyXP = async (userId, actionType, reason) => {
         const dailyActionRef = doc(db, 'gamification', userId, 'dailyActions', today);
         const dailyActionSnap = await getDoc(dailyActionRef);
 
+
         if (dailyActionSnap.exists() && dailyActionSnap.data().actions?.[actionType]) {
             return { success: false, message: 'Daily limit reached', xpGained: 0 };
         }
 
+
         const xpAmount = XP_REWARDS[actionType] || XP_REWARDS[actionType.toUpperCase()] || 0;
         if (xpAmount === 0) return { success: false, message: 'Invalid action', xpGained: 0 };
 
+
         const result = await awardXP(userId, xpAmount, reason);
+
 
         await setDoc(dailyActionRef, {
             actions: {
@@ -166,6 +203,7 @@ export const awardDailyXP = async (userId, actionType, reason) => {
             lastUpdated: serverTimestamp()
         }, { merge: true });
 
+
         return { success: true, ...result, message: `+${xpAmount} XP earned!` };
     } catch (error) {
         console.error('❌ Error awarding daily XP:', error);
@@ -173,15 +211,18 @@ export const awardDailyXP = async (userId, actionType, reason) => {
     }
 };
 
+
 // ==========================================
 // TRACKING & UNLOCK FUNCTIONS
 // ==========================================
+
 
 /**
  * Main entry point for tracking any user action
  */
 export const trackAction = async (userId, action, data = {}) => {
     if (!userId) return;
+
 
     try {
         const gamificationRef = doc(db, 'gamification', userId);
@@ -190,6 +231,7 @@ export const trackAction = async (userId, action, data = {}) => {
         let xpToAward = 0;
         let awardReason = '';
 
+
         switch (action) {
             case 'STUDY_SESSION':
                 const minutes = data.minutes || 1;
@@ -197,6 +239,7 @@ export const trackAction = async (userId, action, data = {}) => {
                 xpToAward = XP_REWARDS.STUDY_SESSION;
                 awardReason = `Study session: ${minutes} min`;
                 break;
+
 
             case 'QUIZ_COMPLETED':
                 updates.quizzesCompleted = increment(1);
@@ -208,11 +251,13 @@ export const trackAction = async (userId, action, data = {}) => {
                 }
                 break;
 
+
             case 'FLASHCARD_REVIEWED':
                 updates.flashcardsReviewed = increment(data.count || 1);
                 xpToAward = (data.count || 1) * 2; // 2 XP per card
                 awardReason = 'Flashcards reviewed';
                 break;
+
 
             case 'DOCUMENT_UPLOADED':
                 updates.documentsUploaded = increment(1);
@@ -220,11 +265,13 @@ export const trackAction = async (userId, action, data = {}) => {
                 awardReason = 'Document uploaded';
                 break;
 
+
             case 'ROOM_JOINED':
                 updates.classesJoined = increment(1);
                 xpToAward = XP_REWARDS.JOIN_ROOM;
                 awardReason = 'Joined study room';
                 break;
+
 
             case 'CONTENT_GENERATED':
                 const items = data.count || 1;
@@ -233,13 +280,16 @@ export const trackAction = async (userId, action, data = {}) => {
                 awardReason = 'AI content generated';
                 break;
 
+
             default:
                 console.warn(`⚠️ Unknown action: ${action}`);
                 return;
         }
 
+
         // Apply updates to gamification doc
         await setDoc(gamificationRef, updates, { merge: true });
+
 
         // Update display stats on user doc for sync
         const userUpdates = {};
@@ -249,9 +299,11 @@ export const trackAction = async (userId, action, data = {}) => {
         if (updates.documentsUploaded) userUpdates.documentsUploaded = updates.documentsUploaded;
         if (updates.classesJoined) userUpdates.classesJoined = updates.classesJoined;
 
+
         if (Object.keys(userUpdates).length > 0) {
             await updateDoc(userRef, userUpdates).catch(e => console.warn("Sync stats to users doc failed", e));
         }
+
 
         // Award XP if applicable
         if (xpToAward > 0) {
@@ -262,11 +314,13 @@ export const trackAction = async (userId, action, data = {}) => {
             await checkAndUnlockTitles(userId);
         }
 
+
         console.log(`✅ Action tracked and synced: ${action}`);
     } catch (error) {
         console.error(`❌ Error tracking action ${action}:`, error);
     }
 };
+
 
 /**
  * Check and unlock badges based on master definitions
@@ -276,6 +330,7 @@ export const checkAndUnlockBadges = async (userId, prefetchedData = null) => {
         const userRef = doc(db, 'users', userId);
         const gamificationRef = doc(db, 'gamification', userId);
 
+
         let userData;
         if (prefetchedData) {
             userData = prefetchedData;
@@ -285,7 +340,9 @@ export const checkAndUnlockBadges = async (userId, prefetchedData = null) => {
                 getDoc(gamificationRef)
             ]);
 
+
             if (!userSnap.exists()) return { newlyUnlocked: [] };
+
 
             userData = {
                 ...userSnap.data(),
@@ -293,40 +350,50 @@ export const checkAndUnlockBadges = async (userId, prefetchedData = null) => {
             };
         }
 
+
         const unlockedBadges = userData.unlockedBadges || userData.badges || [];
         const newlyUnlocked = [];
 
+
         for (const badge of Object.values(BADGE_DEFINITIONS)) {
             if (unlockedBadges.includes(badge.id)) continue;
+
 
             if (badge.condition(userData)) {
                 newlyUnlocked.push(badge);
             }
         }
 
+
         if (newlyUnlocked.length > 0) {
             const badgeIds = newlyUnlocked.map(b => b.id);
             const batch = writeBatch(db);
+
 
             batch.update(userRef, {
                 unlockedBadges: arrayUnion(...badgeIds),
                 badgesUnlocked: (unlockedBadges.length + newlyUnlocked.length)
             });
 
+
             batch.update(gamificationRef, {
                 unlockedBadges: arrayUnion(...badgeIds),
                 badgesUnlocked: (unlockedBadges.length + newlyUnlocked.length)
             });
 
+
             await batch.commit();
+
 
             // Award reward XP for each badge
             for (const badge of newlyUnlocked) {
                 await awardXP(userId, badge.xpReward || 50, `Badge earned: ${badge.name}`);
             }
 
+
             console.log(`🎉 Unlocked ${newlyUnlocked.length} badges!`);
         }
+
 
         return { newlyUnlocked, total: unlockedBadges.length + newlyUnlocked.length };
     } catch (error) {
@@ -335,13 +402,15 @@ export const checkAndUnlockBadges = async (userId, prefetchedData = null) => {
     }
 };
 
+
 /**
- * Check and unlock titles based on master definitions
+ * ✅ FIXED: Check and unlock titles based on level and conditions
  */
 export const checkAndUnlockTitles = async (userId, prefetchedData = null) => {
     try {
         const userRef = doc(db, 'users', userId);
         const gamificationRef = doc(db, 'gamification', userId);
+
 
         let userData;
         if (prefetchedData) {
@@ -352,7 +421,9 @@ export const checkAndUnlockTitles = async (userId, prefetchedData = null) => {
                 getDoc(gamificationRef)
             ]);
 
+
             if (!userSnap.exists()) return { newlyUnlocked: [] };
+
 
             userData = {
                 ...userSnap.data(),
@@ -360,32 +431,73 @@ export const checkAndUnlockTitles = async (userId, prefetchedData = null) => {
             };
         }
 
-        const unlockedTitles = userData.unlockedTitles || userData.titles || userData.achievements || [];
+
+        const extractIds = (arr) => {
+            if (!Array.isArray(arr)) return [];
+            return arr.map(item => typeof item === 'object' ? (item.id || item.titleId || item.id) : item).filter(Boolean);
+        };
+
+
+        const unlockedTitles = Array.from(new Set([
+            ...(userData.unlockedTitles || []),
+            ...(userData.titles || []),
+            ...extractIds(userData.achievements)
+        ]));
         const newlyUnlocked = [];
+
+
+        const currentLevel = userData.level || 1;
+
 
         for (const title of Object.values(TITLE_DEFINITIONS)) {
             if (unlockedTitles.includes(title.id)) continue;
 
-            if (title.condition(userData)) {
+
+            // ✅ FIX: Check both condition function AND requiredLevel
+            let shouldUnlock = false;
+
+            // If title has requiredLevel property, check level first
+            if (title.requiredLevel !== undefined) {
+                shouldUnlock = currentLevel >= title.requiredLevel;
+            }
+
+            // If title has condition function, check that too
+            if (title.condition && typeof title.condition === 'function') {
+                shouldUnlock = shouldUnlock && title.condition(userData);
+            } else if (!title.requiredLevel && title.condition) {
+                // If no requiredLevel but has condition, just use condition
+                shouldUnlock = title.condition(userData);
+            }
+
+
+            if (shouldUnlock) {
                 newlyUnlocked.push(title);
+                console.log(`👑 Unlocking title: ${title.text} (Level ${currentLevel}/${title.requiredLevel})`);
             }
         }
+
 
         if (newlyUnlocked.length > 0) {
             const titleIds = newlyUnlocked.map(t => t.id);
             const batch = writeBatch(db);
 
+
             batch.update(userRef, {
-                unlockedTitles: arrayUnion(...titleIds)
+                unlockedTitles: arrayUnion(...titleIds),
+                updatedAt: serverTimestamp()
             });
+
 
             batch.update(gamificationRef, {
-                unlockedTitles: arrayUnion(...titleIds)
+                unlockedTitles: arrayUnion(...titleIds),
+                updatedAt: serverTimestamp()
             });
 
+
             await batch.commit();
-            console.log(`👑 Unlocked ${newlyUnlocked.length} titles!`);
+            console.log(`👑 Successfully unlocked ${newlyUnlocked.length} titles!`, titleIds);
         }
+
 
         return { newlyUnlocked, total: unlockedTitles.length + newlyUnlocked.length };
     } catch (error) {
@@ -394,6 +506,7 @@ export const checkAndUnlockTitles = async (userId, prefetchedData = null) => {
     }
 };
 
+
 /**
  * Equip a title - synced to both docs
  */
@@ -401,6 +514,7 @@ export const equipTitle = async (userId, titleId) => {
     try {
         const title = TITLE_DEFINITIONS[Object.keys(TITLE_DEFINITIONS).find(k => TITLE_DEFINITIONS[k].id === titleId)];
         if (!title) throw new Error('Title not found');
+
 
         const batch = writeBatch(db);
         batch.update(doc(db, 'users', userId), {
@@ -414,6 +528,7 @@ export const equipTitle = async (userId, titleId) => {
             updatedAt: serverTimestamp()
         });
 
+
         await batch.commit();
         return { success: true, title };
     } catch (error) {
@@ -422,6 +537,16 @@ export const equipTitle = async (userId, titleId) => {
     }
 };
 
+
+/**
+ * ✅ NEW: Force check titles for a user (useful for manual unlock or debugging)
+ */
+export const forceCheckTitles = async (userId) => {
+    console.log('🔄 Force checking titles for user:', userId);
+    return await checkAndUnlockTitles(userId);
+};
+
+
 /**
  * Repair/Sync user gamification data between collections
  * Ensures everything in 'gamification' is also in 'users'
@@ -429,43 +554,66 @@ export const equipTitle = async (userId, titleId) => {
 export const repairUserGamification = async (userId) => {
     if (!userId) return;
 
+
     try {
         const userRef = doc(db, 'users', userId);
         const gamificationRef = doc(db, 'gamification', userId);
+        const achievementsRef = doc(db, 'achievements', userId);
 
-        const [userSnap, gamificationSnap] = await Promise.all([
+
+        const [userSnap, gamificationSnap, achievementsSnap] = await Promise.all([
             getDoc(userRef),
-            getDoc(gamificationRef)
+            getDoc(gamificationRef),
+            getDoc(achievementsRef)
         ]);
+
 
         if (!userSnap.exists()) return;
 
+
         const userData = userSnap.data();
         const gamData = gamificationSnap.exists() ? gamificationSnap.data() : {};
+        const achData = achievementsSnap.exists() ? achievementsSnap.data() : {};
+
+
+        const extractIds = (arr) => {
+            if (!Array.isArray(arr)) return [];
+            return arr.map(item => typeof item === 'object' ? (item.id || item.titleId || item.badgeId) : item).filter(Boolean);
+        };
+
 
         const updates = {};
 
-        // 1. Check for missing badges (supporting legacy names)
-        const userBadges = userData.unlockedBadges || userData.badges || [];
-        const gamBadges = gamData.unlockedBadges || gamData.badges || [];
-        const allBadges = Array.from(new Set([...userBadges, ...gamBadges]));
+
+        // 1. Check for missing badges (supporting legacy names & collection)
+        const userBadges = extractIds(userData.unlockedBadges || userData.badges || []);
+        const gamBadges = extractIds(gamData.unlockedBadges || gamData.badges || []);
+        const archBadges = extractIds(achData.badges || achData.achievements || []);
+        const allBadges = Array.from(new Set([...userBadges, ...gamBadges, ...archBadges]));
+
 
         if (allBadges.length > (userData.unlockedBadges || []).length) {
             updates.unlockedBadges = allBadges;
         }
 
-        // 2. Check for missing titles (supporting legacy names: 'titles', 'achievements')
-        const userTitles = userData.unlockedTitles || userData.titles || (Array.isArray(userData.achievements) ? userData.achievements : []);
-        const gamTitles = gamData.unlockedTitles || gamData.titles || (Array.isArray(gamData.achievements) ? gamData.achievements : []);
+
+        // 2. Check for missing titles (supporting legacy names & collection)
+        const userTitles = extractIds(userData.unlockedTitles || userData.titles || userData.achievements || []);
+        const gamTitles = extractIds(gamData.unlockedTitles || gamData.titles || gamData.achievements || []);
+        const achTitles = extractIds(achData.unlockedTitles || achData.titles || achData.achievements || []);
+
 
         // Ensure 'title_newbie' is always present
         if (!userTitles.includes('title_newbie')) userTitles.push('title_newbie');
 
-        const allTitles = Array.from(new Set([...userTitles, ...gamTitles]));
+
+        const allTitles = Array.from(new Set([...userTitles, ...gamTitles, ...achTitles]));
+
 
         if (allTitles.length > (userData.unlockedTitles || []).length) {
             updates.unlockedTitles = allTitles;
         }
+
 
         // 3. Ensure stats are synced (Favoring higher values where appropriate)
         const statsToSync = [
@@ -474,9 +622,11 @@ export const repairUserGamification = async (userId) => {
             'classesJoined', 'flashcardsReviewed', 'flashcardsMastered'
         ];
 
+
         statsToSync.forEach(stat => {
             const userVal = userData[stat] || 0;
             const gamVal = gamData[stat] || 0;
+
 
             if (gamVal > userVal) {
                 updates[stat] = gamVal;
@@ -486,23 +636,29 @@ export const repairUserGamification = async (userId) => {
             }
         });
 
+
         // 4. Equipped title sync (Legacy support for 'equippedTitleId')
         const currentEquippedId = userData.equippedTitleId || userData.currentTitleId;
-        const gamEquippedId = gamData.equippedTitleId || gamData.currentTitleId;
+        const gamEquippedId = gamData.equippedTitleId || gamData.currentTitleId || achData.equippedTitleId || achData.currentTitleId;
+
 
         if (gamEquippedId && !currentEquippedId) {
             updates.equippedTitleId = gamEquippedId;
-            updates.equippedTitle = gamData.equippedTitle || TITLE_DEFINITIONS[Object.keys(TITLE_DEFINITIONS).find(k => TITLE_DEFINITIONS[k].id === gamEquippedId)]?.text;
+            const titleDef = Object.values(TITLE_DEFINITIONS).find(t => t.id === gamEquippedId);
+            updates.equippedTitle = gamData.equippedTitle || achData.equippedTitle || titleDef?.text;
         }
+
 
         if (Object.keys(updates).length > 0) {
             console.log(`🔧 Repairing gamification data for ${userId}:`, updates);
+
 
             const batch = writeBatch(db);
             batch.update(userRef, {
                 ...updates,
                 updatedAt: serverTimestamp()
             });
+
 
             if (gamificationSnap.exists()) {
                 batch.update(gamificationRef, {
@@ -518,9 +674,18 @@ export const repairUserGamification = async (userId) => {
                 });
             }
 
+
             await batch.commit();
+
+            // ✅ FIX: After repair, force check titles to unlock any missing ones
+            await checkAndUnlockTitles(userId);
+
             return { success: true, repaired: true };
         }
+
+
+        // ✅ Even if no repair needed, check titles
+        await checkAndUnlockTitles(userId);
 
         return { success: true, repaired: false };
     } catch (error) {
@@ -528,6 +693,7 @@ export const repairUserGamification = async (userId) => {
         return { success: false, error: error.message };
     }
 };
+
 
 /**
  * Get user's today's XP total
@@ -538,13 +704,16 @@ export const getUserTodaysXP = async (userId) => {
         const dailyActionRef = doc(db, 'gamification', userId, 'dailyActions', today);
         const dailyActionSnap = await getDoc(dailyActionRef);
 
+
         if (!dailyActionSnap.exists()) {
             return { total: 0, actions: {}, dailyProgress: 0 };
         }
 
+
         const actions = dailyActionSnap.data().actions || {};
         let totalXP = 0;
         Object.values(actions).forEach(a => { totalXP += (a.xp || 0); });
+
 
         const dailyProgress = Math.min((totalXP / DAILY_XP_GOAL) * 100, 100);
         return { total: totalXP, actions, dailyProgress: Math.round(dailyProgress) };
@@ -554,6 +723,7 @@ export const getUserTodaysXP = async (userId) => {
     }
 };
 
+
 /**
  * Get class-specific leaderboard data
  */
@@ -562,10 +732,13 @@ export const getClassLeaderboard = async (classId) => {
         const classRef = doc(db, 'classes', classId);
         const classSnap = await getDoc(classRef);
 
+
         if (!classSnap.exists()) return [];
+
 
         const studentIds = classSnap.data().students || [];
         if (studentIds.length === 0) return [];
+
 
         const students = await Promise.all(
             studentIds.map(async (studentId) => {
@@ -573,6 +746,7 @@ export const getClassLeaderboard = async (classId) => {
                     const userRef = doc(db, 'users', studentId);
                     const userSnap = await getDoc(userRef);
                     if (!userSnap.exists()) return null;
+
 
                     const data = userSnap.data();
                     return {
@@ -592,6 +766,7 @@ export const getClassLeaderboard = async (classId) => {
             })
         );
 
+
         return students
             .filter(s => s !== null)
             .sort((a, b) => b.points - a.points);
@@ -601,10 +776,12 @@ export const getClassLeaderboard = async (classId) => {
     }
 };
 
+
 export const initializeGamification = async (userId) => {
     try {
         const userRef = doc(db, 'users', userId);
         const gamificationRef = doc(db, 'gamification', userId);
+
 
         const batch = writeBatch(db);
         const initialData = {
@@ -620,11 +797,13 @@ export const initializeGamification = async (userId) => {
             updatedAt: serverTimestamp()
         };
 
+
         batch.update(userRef, initialData);
         batch.set(gamificationRef, {
             ...initialData,
             createdAt: serverTimestamp()
         }, { merge: true });
+
 
         await batch.commit();
     } catch (error) {
@@ -632,12 +811,14 @@ export const initializeGamification = async (userId) => {
     }
 };
 
+
 export default {
     awardXP,
     awardDailyXP,
     trackAction,
     checkAndUnlockBadges,
     checkAndUnlockTitles,
+    forceCheckTitles,
     equipTitle,
     getUserTodaysXP,
     initializeGamification,

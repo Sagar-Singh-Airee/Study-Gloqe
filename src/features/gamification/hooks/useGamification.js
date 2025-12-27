@@ -1,4 +1,4 @@
-// src/features/gamification/hooks/useGamification.js - 🚀 ULTIMATE REALTIME VERSION (SYNCED WITH LEADERBOARD)
+// src/features/gamification/hooks/useGamification.js - 🚀 FIXED VERSION
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../shared/config/firebase';
@@ -6,8 +6,10 @@ import { useAuth } from '../../auth/contexts/AuthContext';
 import { BADGE_DEFINITIONS, TITLE_DEFINITIONS } from '../config/achievements';
 import { trackAction as trackActionService, initializeGamification, repairUserGamification } from '../services/gamificationService';
 import toast from 'react-hot-toast';
+import { trackAction } from '@gamification/services/achievementTracker';
 import confetti from 'canvas-confetti';
 import { calculateLevel, calculateLevelProgress, getNextLevelXp } from '../../../shared/utils/levelUtils';
+
 
 export const useGamification = () => {
     const { user } = useAuth();
@@ -16,14 +18,17 @@ export const useGamification = () => {
     const [error, setError] = useState(null);
     const [notifications, setNotifications] = useState([]);
 
+
     const isMountedRef = useRef(true);
     const unsubscribeRef = useRef(null);
     const gamificationUnsubscribeRef = useRef(null);
+
 
     const prevXPRef = useRef(null);
     const prevLevelRef = useRef(null);
     const prevBadgesRef = useRef([]);
     const prevTitlesRef = useRef([]);
+
 
     const [gamificationData, setGamificationData] = useState({
         xp: 0,
@@ -46,33 +51,47 @@ export const useGamification = () => {
         classesJoined: 0
     });
 
+
     useEffect(() => {
         isMountedRef.current = true;
 
-        if (user?.uid) {
-            console.log('🔄 Setting up synced gamification listener (Users Collection)');
-            setLoading(true);
-
-            // Run silent repair/sync on load to recover any missing data from legacy collections
-            repairUserGamification(user.uid).catch(e => console.warn("Silent repair failed", e));
-        }
 
         if (!user?.uid) {
             setLoading(false);
             return;
         }
 
+
+        console.log('🔄 Setting up synced gamification listener (Users Collection)');
+        setLoading(true);
+
+
+        // Run silent repair/sync on load to recover any missing data from legacy collections
+        repairUserGamification(user.uid).catch(e => console.warn("Silent repair failed", e));
+
+
+        // Helper function to extract IDs from arrays
+        const extractIds = (arr) => {
+            if (!Array.isArray(arr)) return [];
+            return arr.map(item => typeof item === 'object' ? (item.id || item.titleId || item.badgeId) : item).filter(Boolean);
+        };
+
+
         // 1. PRIMARY LISTENER: Users Collection (The source of truth for display & leaderboard)
         const userRef = doc(db, 'users', user.uid);
         unsubscribeRef.current = onSnapshot(userRef, async (snapshot) => {
             if (!isMountedRef.current) return;
 
+
             if (snapshot.exists()) {
                 const data = snapshot.data();
+
+
                 const xp = data.xp || 0;
                 const level = data.level || calculateLevel(xp);
                 const nextLevelXp = getNextLevelXp(xp);
                 const levelProgress = calculateLevelProgress(xp);
+
 
                 // Animations
                 const previousXP = prevXPRef.current;
@@ -83,15 +102,32 @@ export const useGamification = () => {
                     }
                 }
 
+
                 const previousLevel = prevLevelRef.current;
                 if (previousLevel !== null && level > previousLevel) {
                     confetti({ particleCount: 200, spread: 100, origin: { y: 0.5 }, colors: ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b'] });
                     toast.success(`🎉 Level ${level} Unlocked!`, { duration: 4000, position: 'top-center', icon: '👑' });
-                    setNotifications(prev => [...prev, { type: 'levelUp', data: { newLevel: level, xpGained: xp - (previousXP || 0) }, id: `levelup-${Date.now()}`, timestamp: Date.now() }]);
+                    setNotifications(prev => [...prev, {
+                        type: 'levelUp',
+                        data: { newLevel: level, xpGained: xp - (previousXP || 0) },
+                        id: `levelup-${Date.now()}`,
+                        timestamp: Date.now()
+                    }]);
                 }
 
-                const unlockedBadges = data.unlockedBadges || data.badges || prev.unlockedBadges || [];
-                const unlockedTitles = data.unlockedTitles || data.titles || (Array.isArray(data.achievements) ? data.achievements : []) || prev.unlockedTitles || ['title_newbie'];
+
+                // ✅ FIX: Use prevBadgesRef.current instead of prev.unlockedBadges
+                const unlockedBadges = Array.from(new Set([
+                    ...extractIds(data.unlockedBadges || data.badges || []),
+                    ...extractIds(prevBadgesRef.current)
+                ]));
+
+                // ✅ FIX: Use prevTitlesRef.current instead of prev.unlockedTitles
+                const unlockedTitles = Array.from(new Set([
+                    ...extractIds(data.unlockedTitles || data.titles || data.achievements || []),
+                    ...extractIds(prevTitlesRef.current.length > 0 ? prevTitlesRef.current : ['title_newbie'])
+                ]));
+
 
                 // 2. Detect New Badges
                 if (prevBadgesRef.current.length > 0 && unlockedBadges.length > prevBadgesRef.current.length) {
@@ -110,6 +146,7 @@ export const useGamification = () => {
                     });
                 }
 
+
                 // 3. Detect New Titles
                 if (prevTitlesRef.current.length > 0 && unlockedTitles.length > prevTitlesRef.current.length) {
                     const newTitleIds = unlockedTitles.filter(id => !prevTitlesRef.current.includes(id));
@@ -127,10 +164,12 @@ export const useGamification = () => {
                     });
                 }
 
+
                 prevXPRef.current = xp;
                 prevLevelRef.current = level;
                 prevBadgesRef.current = unlockedBadges;
                 prevTitlesRef.current = unlockedTitles;
+
 
                 setGamificationData(prev => ({
                     ...prev,
@@ -150,16 +189,21 @@ export const useGamification = () => {
                     classesJoined: data.classesJoined || prev.classesJoined || 0
                 }));
 
+
                 setError(null);
                 setLoading(false);
             } else {
                 console.warn('⚠️ User doc not found, initializing gamification...');
-                initializeGamification(user.uid);
+                await initializeGamification(user.uid);
             }
         }, (err) => {
             console.error('❌ User sync error:', err);
-            if (isMountedRef.current) setError(err.message);
+            if (isMountedRef.current) {
+                setError(err.message);
+                setLoading(false);
+            }
         });
+
 
         // 2. SECONDARY LISTENER: Gamification Collection (For granular stats like flashcards)
         const gamificationRef = doc(db, 'gamification', user.uid);
@@ -167,15 +211,18 @@ export const useGamification = () => {
             if (!isMountedRef.current || !snapshot.exists()) return;
             const data = snapshot.data();
 
+
             setGamificationData(prev => {
                 // Merge badges and titles from gamification doc if they are more complete (including legacy names)
-                const userBadges = prev.unlockedBadges || [];
-                const gamBadges = data.unlockedBadges || data.badges || [];
-                const mergedBadges = [...new Set([...userBadges, ...gamBadges])];
+                const userBadges = extractIds(prev.unlockedBadges || []);
+                const gamBadges = extractIds(data.unlockedBadges || data.badges || []);
+                const mergedBadges = Array.from(new Set([...userBadges, ...gamBadges]));
 
-                const userTitles = prev.unlockedTitles || [];
-                const gamTitles = data.unlockedTitles || data.titles || (Array.isArray(data.achievements) ? data.achievements : []);
-                const mergedTitles = [...new Set([...userTitles, ...gamTitles])];
+
+                const userTitles = extractIds(prev.unlockedTitles || []);
+                const gamTitles = extractIds(data.unlockedTitles || data.titles || data.achievements || []);
+                const mergedTitles = Array.from(new Set([...userTitles, ...gamTitles]));
+
 
                 return {
                     ...prev,
@@ -193,12 +240,14 @@ export const useGamification = () => {
             });
         });
 
+
         return () => {
             isMountedRef.current = false;
             if (unsubscribeRef.current) unsubscribeRef.current();
             if (gamificationUnsubscribeRef.current) gamificationUnsubscribeRef.current();
         };
     }, [user?.uid]);
+
 
     const allBadges = useMemo(() => {
         return Object.values(BADGE_DEFINITIONS).map(badge => ({
@@ -207,6 +256,7 @@ export const useGamification = () => {
         }));
     }, [gamificationData.unlockedBadges]);
 
+
     const allTitles = useMemo(() => {
         return Object.values(TITLE_DEFINITIONS).map(title => ({
             ...title,
@@ -214,7 +264,8 @@ export const useGamification = () => {
         }));
     }, [gamificationData.unlockedTitles]);
 
-    const trackAction = useCallback(async (actionType, data = {}) => {
+
+    const trackActionCallback = useCallback(async (actionType, data = {}) => {
         if (!user?.uid) return { success: false };
         setSyncing(true);
         try {
@@ -227,6 +278,7 @@ export const useGamification = () => {
             if (isMountedRef.current) setSyncing(false);
         }
     }, [user?.uid]);
+
 
     const changeTitle = useCallback(async (titleId) => {
         if (!user?.uid) return { success: false };
@@ -246,13 +298,15 @@ export const useGamification = () => {
         }
     }, [user?.uid, allTitles]);
 
+
     const dismissNotification = useCallback((id) => setNotifications(prev => prev.filter(n => n.id !== id)), []);
+
 
     return {
         ...gamificationData,
         allBadges,
         allTitles,
-        trackAction,
+        trackAction: trackActionCallback,
         changeTitle,
         dismissNotification,
         loading,
@@ -263,5 +317,6 @@ export const useGamification = () => {
         hasNotifications: notifications.length > 0
     };
 };
+
 
 export default useGamification;

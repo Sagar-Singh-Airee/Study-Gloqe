@@ -1,4 +1,5 @@
-// src/features/auth/contexts/AuthContext.jsx - FIXED (No Infinite Loops)
+// src/features/auth/contexts/AuthContext.jsx - BACKWARD COMPATIBLE VERSION ✅
+
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import {
     signInWithEmailAndPassword,
@@ -29,7 +30,6 @@ import {
     getDocs
 } from 'firebase/firestore';
 import { auth, db, COLLECTIONS } from '@shared/config/firebase';
-
 
 const AuthContext = createContext({});
 
@@ -109,7 +109,7 @@ export const AuthProvider = ({ children }) => {
         );
 
         unsubscribeUserDataRef.current = unsubscribe;
-    }, []); // ✅ No dependencies - stable function
+    }, []);
 
     // Sign up with email and password
     const signup = async (email, password, additionalData = {}) => {
@@ -607,10 +607,12 @@ export const AuthProvider = ({ children }) => {
                 unsubscribeUserDataRef.current();
             }
         };
-    }, [fetchUserData]); // ✅ fetchUserData is stable (no dependencies)
+    }, [fetchUserData]);
 
+    // ✅ BACKWARD COMPATIBLE: Provide both `user` and `currentUser` (alias)
     const value = {
-        user,
+        user,                    // ✅ Original - for student side
+        currentUser: user,       // ✅ NEW ALIAS - for teacher side  
         userData,
         loading,
         authError,

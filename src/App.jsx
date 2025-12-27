@@ -1,4 +1,4 @@
-// src/App.jsx - UPDATED WITH PROFILE ROUTES
+// src/App.jsx - UPDATED WITH STUDENT CLASSROOM
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './features/auth/contexts/AuthContext';
@@ -10,9 +10,10 @@ import LandingPage from './features/landing/pages/LandingPage';
 
 // Student Pages
 import Dashboard from './features/student/pages/Dashboard';
-import ClassDetails from './features/student/pages/ClassDetails';
+import StudentClassroom from './features/student/pages/StudentClassroom'; // ✅ NEW - Student LMS Portal
+// import ClassDetails from './features/student/pages/ClassDetails'; // ⚠️ OLD - Kept as backup
 import Profile from './features/student/pages/Profile';
-import TeacherPublicProfile from './features/student/components/TeacherPublicProfile'; // ✅ NEW
+import TeacherPublicProfile from './features/student/components/TeacherPublicProfile';
 
 // Study Pages
 import PDFUpload from './features/study/pages/PDFUpload';
@@ -162,7 +163,7 @@ function App() {
                         />
                         <Route
                             path="/classes/:classId"
-                            element={<StudentRoute><ClassDetails /></StudentRoute>}
+                            element={<StudentRoute><StudentClassroom /></StudentRoute>}
                         />
                         <Route
                             path="/upload"

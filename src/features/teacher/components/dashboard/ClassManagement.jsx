@@ -1,20 +1,13 @@
-// src/components/teacher/ClassManagement.jsx - FIXED NAVIGATION
+// src/components/teacher/ClassManagement.jsx - FIXED CARD RENDERING ✨
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; // ✅ ADD THIS
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    Plus, Search, Filter, Grid, List, X, Save,
-    BookOpen, Users, Calendar, Tag, FileText,
-    AlertCircle, Loader, CheckCircle2, Trash2,
-    Edit, Archive, MoreVertical, Building2
+    Plus, Search, Grid, List, X, BookOpen, Loader
 } from 'lucide-react';
 import { useAuth } from '@auth/contexts/AuthContext';
-import {
-    createClass,
-    updateClass,
-    deleteClass
-} from '@teacher/services/classService';
+import { createClass, updateClass, deleteClass } from '@teacher/services/classService';
 import { db } from '@shared/config/firebase';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import toast from 'react-hot-toast';
@@ -22,7 +15,7 @@ import ClassCard from './ClassCard';
 
 const ClassManagement = ({ triggerCreate }) => {
     const { user, userData } = useAuth();
-    const navigate = useNavigate(); // ✅ ADD THIS
+    const navigate = useNavigate();
     const [classes, setClasses] = useState([]);
     const [filteredClasses, setFilteredClasses] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -36,11 +29,10 @@ const ClassManagement = ({ triggerCreate }) => {
         name: '',
         subject: '',
         section: 'A',
-        description: '',
         schoolName: '',
         grade: '',
         room: '',
-        schedule: ''
+        description: ''
     });
     const [formLoading, setFormLoading] = useState(false);
 
@@ -71,8 +63,9 @@ const ClassManagement = ({ triggerCreate }) => {
                     updatedAt: doc.data().updatedAt?.toDate()
                 }));
 
+                console.log('📚 Loaded classes:', classesData); // DEBUG
                 setClasses(classesData);
-                setFilteredClasses(classesData); // Initial set, useEffect below will filter it
+                setFilteredClasses(classesData);
                 setLoading(false);
             },
             (error) => {
@@ -101,6 +94,7 @@ const ClassManagement = ({ triggerCreate }) => {
             filtered = filtered.filter(cls => cls.subject === filterSubject);
         }
 
+        console.log('🔍 Filtered classes:', filtered); // DEBUG
         setFilteredClasses(filtered);
     }, [searchQuery, filterSubject, classes]);
 
@@ -114,7 +108,7 @@ const ClassManagement = ({ triggerCreate }) => {
         e.preventDefault();
 
         if (!formData.name || !formData.subject) {
-            toast.error('Please fill in all required fields');
+            toast.error('Please fill in required fields');
             return;
         }
 
@@ -123,26 +117,23 @@ const ClassManagement = ({ triggerCreate }) => {
         try {
             if (editingClass) {
                 await updateClass(editingClass.id, formData);
-                toast.success('✅ Class updated successfully!');
+                toast.success('Class updated!');
             } else {
                 const result = await createClass(user.uid, {
                     ...formData,
                     teacherName: userData?.name || user.displayName || user.email
                 });
-                toast.success(`✅ Class created! Code: ${result.classCode}`);
+                toast.success(`Class created! Code: ${result.classCode}`);
             }
-
-            // await loadClasses(); // Removed: Handled by listener
 
             setFormData({
                 name: '',
                 subject: '',
                 section: 'A',
-                description: '',
                 schoolName: '',
                 grade: '',
                 room: '',
-                schedule: ''
+                description: ''
             });
             setShowCreateModal(false);
             setEditingClass(null);
@@ -165,8 +156,7 @@ const ClassManagement = ({ triggerCreate }) => {
                 description: classToEdit.description || '',
                 schoolName: classToEdit.schoolName || '',
                 grade: classToEdit.grade || '',
-                room: classToEdit.room || '',
-                schedule: classToEdit.schedule || ''
+                room: classToEdit.room || ''
             });
             setShowCreateModal(true);
         }
@@ -175,8 +165,7 @@ const ClassManagement = ({ triggerCreate }) => {
     const handleDeleteClass = async (classId) => {
         try {
             await deleteClass(classId, user.uid);
-            toast.success('Class deleted successfully');
-            // await loadClasses(); // Removed: Handled by listener
+            toast.success('Class deleted');
         } catch (error) {
             console.error('Error deleting class:', error);
             toast.error(error.message || 'Failed to delete class');
@@ -187,22 +176,16 @@ const ClassManagement = ({ triggerCreate }) => {
         try {
             await updateClass(classId, { active: false });
             toast.success('Class archived');
-            // await loadClasses(); // Removed: Handled by listener
         } catch (error) {
             console.error('Error archiving class:', error);
             toast.error('Failed to archive class');
         }
     };
 
-    // ✅ ADD THIS HANDLER
-    const handleViewClass = (classId) => {
-        navigate(`/teacher/class/${classId}`);
-    };
-
     if (loading) {
         return (
             <div className="flex items-center justify-center py-20">
-                <Loader className="w-8 h-8 animate-spin text-black" />
+                <Loader className="w-8 h-8 animate-spin text-teal-600" />
             </div>
         );
     }
@@ -212,8 +195,8 @@ const ClassManagement = ({ triggerCreate }) => {
             {/* Header */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                    <h2 className="text-3xl font-black text-black">My Classes</h2>
-                    <p className="text-gray-600 mt-1">{classes.length} active classes</p>
+                    <h2 className="text-3xl font-black text-gray-900">My Classes</h2>
+                    <p className="text-sm text-gray-500 mt-1">{classes.length} active classes</p>
                 </div>
 
                 <button
@@ -226,35 +209,34 @@ const ClassManagement = ({ triggerCreate }) => {
                             description: '',
                             schoolName: '',
                             grade: '',
-                            room: '',
-                            schedule: ''
+                            room: ''
                         });
                         setShowCreateModal(true);
                     }}
-                    className="flex items-center gap-2 px-6 py-3 bg-black text-white rounded-xl font-bold hover:scale-105 transition-transform"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-teal-600 to-blue-700 text-white rounded-xl text-sm font-semibold hover:from-teal-700 hover:to-blue-800 transition-all shadow-md"
                 >
-                    <Plus size={20} />
-                    <span>Create New Class</span>
+                    <Plus size={18} />
+                    <span>Create Class</span>
                 </button>
             </div>
 
             {/* Filters & Search */}
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                     <input
                         type="text"
                         placeholder="Search classes..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-black focus:ring-2 focus:ring-black/5 transition-all"
+                        className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition-all"
                     />
                 </div>
 
                 <select
                     value={filterSubject}
                     onChange={(e) => setFilterSubject(e.target.value)}
-                    className="px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-black focus:ring-2 focus:ring-black/5 transition-all font-medium"
+                    className="px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition-all font-medium text-gray-700"
                 >
                     {subjects.map(subject => (
                         <option key={subject} value={subject}>
@@ -263,25 +245,25 @@ const ClassManagement = ({ triggerCreate }) => {
                     ))}
                 </select>
 
-                <div className="flex items-center gap-2 bg-gray-100 rounded-xl p-1">
+                <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
                     <button
                         onClick={() => setViewMode('grid')}
                         className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm' : 'hover:bg-white/50'
                             }`}
                     >
-                        <Grid size={18} className={viewMode === 'grid' ? 'text-black' : 'text-gray-500'} />
+                        <Grid size={16} className={viewMode === 'grid' ? 'text-gray-900' : 'text-gray-500'} />
                     </button>
                     <button
                         onClick={() => setViewMode('list')}
                         className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white shadow-sm' : 'hover:bg-white/50'
                             }`}
                     >
-                        <List size={18} className={viewMode === 'list' ? 'text-black' : 'text-gray-500'} />
+                        <List size={16} className={viewMode === 'list' ? 'text-gray-900' : 'text-gray-500'} />
                     </button>
                 </div>
             </div>
 
-            {/* Classes Grid/List */}
+            {/* Classes Grid/List - FIXED */}
             {filteredClasses.length > 0 ? (
                 <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
                     {filteredClasses.map((classData, idx) => (
@@ -289,7 +271,6 @@ const ClassManagement = ({ triggerCreate }) => {
                             key={classData.id}
                             classData={classData}
                             index={idx}
-                            onView={handleViewClass} // ✅ ADD THIS
                             onEdit={handleEditClass}
                             onDelete={handleDeleteClass}
                             onArchive={handleArchiveClass}
@@ -298,11 +279,11 @@ const ClassManagement = ({ triggerCreate }) => {
                 </div>
             ) : (
                 <div className="text-center py-20">
-                    <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <BookOpen size={40} className="text-gray-400" />
+                    <div className="w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <BookOpen size={32} className="text-gray-400" />
                     </div>
-                    <h3 className="text-xl font-bold text-black mb-2">No classes found</h3>
-                    <p className="text-gray-600 mb-6">
+                    <h3 className="text-lg font-bold text-gray-900 mb-2">No classes found</h3>
+                    <p className="text-sm text-gray-500 mb-6">
                         {searchQuery || filterSubject !== 'all'
                             ? 'Try adjusting your filters'
                             : 'Create your first class to get started'
@@ -311,199 +292,192 @@ const ClassManagement = ({ triggerCreate }) => {
                     {!searchQuery && filterSubject === 'all' && (
                         <button
                             onClick={() => setShowCreateModal(true)}
-                            className="inline-flex items-center gap-2 px-6 py-3 bg-black text-white rounded-xl font-bold hover:scale-105 transition-transform"
+                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-teal-600 to-blue-700 text-white rounded-xl text-sm font-semibold hover:from-teal-700 hover:to-blue-800 transition-all"
                         >
-                            <Plus size={20} />
+                            <Plus size={18} />
                             Create Class
                         </button>
                     )}
                 </div>
             )}
 
-            {/* Modal remains the same... */}
+            {/* Modal */}
             <AnimatePresence>
                 {showCreateModal && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-                        onClick={() => setShowCreateModal(false)}
-                    >
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                         <motion.div
-                            initial={{ scale: 0.95, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.95, opacity: 0 }}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowCreateModal(false)}
+                            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                        />
+
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            transition={{ duration: 0.2 }}
                             onClick={(e) => e.stopPropagation()}
-                            className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+                            className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full"
                         >
-                            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-2xl font-black text-black">
-                                        {editingClass ? 'Edit Class' : 'Create New Class'}
-                                    </h3>
-                                    <p className="text-sm text-gray-600 mt-1">
-                                        {editingClass ? 'Update class details' : 'Class code will be generated automatically'}
-                                    </p>
-                                </div>
+                            {/* Header */}
+                            <div className="relative bg-gradient-to-br from-teal-600 to-blue-700 px-5 py-3.5">
                                 <button
                                     onClick={() => setShowCreateModal(false)}
-                                    className="p-2 hover:bg-gray-100 rounded-lg transition-all"
+                                    className="absolute top-3.5 right-4 p-1.5 rounded-lg bg-white/20 hover:bg-white/30 transition-all"
                                 >
-                                    <X size={20} />
+                                    <X size={16} className="text-white" />
                                 </button>
+
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                                        <BookOpen size={18} className="text-white" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-base font-bold text-white">
+                                            {editingClass ? 'Edit Class' : 'Create Class'}
+                                        </h2>
+                                        <p className="text-[11px] text-white/80">
+                                            {editingClass ? 'Update details' : 'Set up your classroom'}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
 
-                            <form onSubmit={handleCreateClass} className="p-6 space-y-5">
-                                <div>
-                                    <label className="block text-sm font-bold text-black mb-2">
-                                        Class Name <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="name"
-                                        value={formData.name}
-                                        onChange={handleInputChange}
-                                        placeholder="e.g., Advanced Physics"
-                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-black transition-all"
-                                        required
-                                    />
-                                </div>
+                            {/* Form */}
+                            <div className="p-5">
+                                <form onSubmit={handleCreateClass} className="space-y-3.5">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <InputField
+                                            label="Class Name"
+                                            name="name"
+                                            required
+                                            placeholder="Math 101"
+                                            value={formData.name}
+                                            onChange={handleInputChange}
+                                        />
 
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-bold text-black mb-2">
-                                            Subject <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                            type="text"
+                                        <InputField
+                                            label="Subject"
                                             name="subject"
+                                            required
+                                            placeholder="Mathematics"
                                             value={formData.subject}
                                             onChange={handleInputChange}
-                                            placeholder="e.g., Physics"
-                                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-black transition-all"
-                                            required
                                         />
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-bold text-black mb-2">
-                                            Section
-                                        </label>
-                                        <input
-                                            type="text"
+
+                                    <div className="grid grid-cols-3 gap-2.5">
+                                        <InputField
+                                            label="Section"
                                             name="section"
+                                            placeholder="A"
                                             value={formData.section}
                                             onChange={handleInputChange}
-                                            placeholder="A"
-                                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-black transition-all"
                                         />
-                                    </div>
-                                </div>
 
-                                <div>
-                                    <label className="block text-sm font-bold text-black mb-2">
-                                        School/Institution Name
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="schoolName"
-                                        value={formData.schoolName}
-                                        onChange={handleInputChange}
-                                        placeholder="e.g., ABC High School"
-                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-black transition-all"
-                                    />
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-bold text-black mb-2">
-                                            Grade/Level
-                                        </label>
-                                        <input
-                                            type="text"
+                                        <InputField
+                                            label="Grade"
                                             name="grade"
+                                            placeholder="10"
                                             value={formData.grade}
                                             onChange={handleInputChange}
-                                            placeholder="e.g., 10"
-                                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-black transition-all"
                                         />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-bold text-black mb-2">
-                                            Room/Location
-                                        </label>
-                                        <input
-                                            type="text"
+
+                                        <InputField
+                                            label="Room"
                                             name="room"
+                                            placeholder="201"
                                             value={formData.room}
                                             onChange={handleInputChange}
-                                            placeholder="Room 101"
-                                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-black transition-all"
                                         />
                                     </div>
-                                </div>
 
-                                <div>
-                                    <label className="block text-sm font-bold text-black mb-2">
-                                        Schedule
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="schedule"
-                                        value={formData.schedule}
+                                    <InputField
+                                        label="School Name"
+                                        name="schoolName"
+                                        placeholder="ABC High School"
+                                        value={formData.schoolName}
                                         onChange={handleInputChange}
-                                        placeholder="Mon, Wed, Fri 10:00 AM"
-                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-black transition-all"
                                     />
-                                </div>
 
-                                <div>
-                                    <label className="block text-sm font-bold text-black mb-2">
-                                        Description
-                                    </label>
-                                    <textarea
+                                    <TextareaField
+                                        label="Description (optional)"
                                         name="description"
+                                        placeholder="Brief overview..."
                                         value={formData.description}
                                         onChange={handleInputChange}
-                                        placeholder="Brief description of the class..."
-                                        rows={3}
-                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-black transition-all resize-none"
                                     />
-                                </div>
+                                </form>
+                            </div>
 
-                                <div className="flex gap-3 pt-4">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowCreateModal(false)}
-                                        className="flex-1 px-6 py-3 border-2 border-gray-200 rounded-xl font-bold hover:bg-gray-50 transition-all text-gray-600"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={formLoading}
-                                        className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-black text-white rounded-xl font-bold hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        {formLoading ? (
-                                            <>
-                                                <Loader size={18} className="animate-spin" />
-                                                <span>Saving...</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Save size={18} />
-                                                <span>{editingClass ? 'Update' : 'Create'} Class</span>
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
-                            </form>
+                            {/* Footer */}
+                            <div className="px-5 py-3.5 bg-gray-50 border-t border-gray-200 flex gap-2.5">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowCreateModal(false)}
+                                    className="flex-1 px-4 py-2 rounded-xl text-sm font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 transition-all"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    onClick={handleCreateClass}
+                                    disabled={formLoading}
+                                    className="flex-1 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-teal-600 to-blue-700 hover:from-teal-700 hover:to-blue-800 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                                >
+                                    {formLoading ? (
+                                        <>
+                                            <Loader size={14} className="animate-spin" />
+                                            <span>Saving...</span>
+                                        </>
+                                    ) : (
+                                        <span>{editingClass ? 'Update' : 'Create'} Class</span>
+                                    )}
+                                </button>
+                            </div>
                         </motion.div>
-                    </motion.div>
+                    </div>
                 )}
             </AnimatePresence>
         </div>
     );
 };
+
+// Input Components
+const InputField = ({ label, name, required, placeholder, value, onChange }) => (
+    <div>
+        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+            {label}
+            {required && <span className="text-red-500 ml-0.5">*</span>}
+        </label>
+        <input
+            type="text"
+            name={name}
+            required={required}
+            placeholder={placeholder}
+            value={value}
+            onChange={onChange}
+            className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition-all"
+        />
+    </div>
+);
+
+const TextareaField = ({ label, name, placeholder, value, onChange }) => (
+    <div>
+        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+            {label}
+        </label>
+        <textarea
+            name={name}
+            placeholder={placeholder}
+            rows={2}
+            value={value}
+            onChange={onChange}
+            className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition-all resize-none"
+        />
+    </div>
+);
 
 export default ClassManagement;

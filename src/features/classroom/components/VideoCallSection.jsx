@@ -31,6 +31,7 @@ import {
     Loader2, Send, X, Volume2, VolumeX, Maximize2, Minimize2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { trackAction } from '@gamification/services/achievementTracker';
 
 // Get API URL from environment
 const API_URL = import.meta.env.VITE_API_URL || 'https://us-central1-studygloqe.cloudfunctions.net';
@@ -266,6 +267,9 @@ const VideoCallSection = ({ classId, isTeacher }) => {
             console.log('✅ Joined 100ms room');
             toast.success('Connected to video call!');
             hasJoinedRef.current = true;
+
+            // TRACK ACTION FOR XP
+            trackAction(user.uid, 'JOIN_ROOM', { classId }).catch(console.error);
 
         } catch (error) {
             console.error('❌ Error joining video call:', error);

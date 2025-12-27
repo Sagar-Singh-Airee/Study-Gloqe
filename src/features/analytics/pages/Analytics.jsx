@@ -1,16 +1,15 @@
-// src/pages/Analytics.jsx - PREMIUM LIGHT EDITION 💎 (Teal × Royal Blue)
-import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
+// src/pages/Analytics.jsx - ✅ FIXED VERSION (Using Existing Infrastructure)
+import React, { useState, useEffect, useMemo, useCallback, memo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   BarChart3, TrendingUp, Clock, Target, Award, Zap, BookOpen,
-  TrendingDown, RefreshCw, Flame, AlertTriangle, CheckCircle2,
-  Activity, Radio, Trophy, Timer, Shield, ChevronRight, AlertCircle,
-  Sparkles, Brain, Eye, ArrowUpRight, Calendar, Star, Users,
-  Lightbulb, Filter, Download
+  TrendingDown, RefreshCw, Flame, AlertCircle, Activity,
+  Trophy, Timer, Shield, ChevronRight, Sparkles, Brain,
+  ArrowUpRight, Star, Filter, Download
 } from 'lucide-react';
 import {
-  LineChart, Line, BarChart, Bar, AreaChart, Area,
+  BarChart, Bar, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from 'recharts';
 
@@ -22,32 +21,47 @@ import { useAnalyticsSync } from '@shared/services/realtimeSync';
 import AIAnalyticsReport from '../components/AIAnalyticsReport';
 import { useAIReport } from '../hooks/useAIReport';
 
-// ==================== 🎨 LIGHT THEME DESIGN SYSTEM ====================
+// ==================== 🎨 DESIGN SYSTEM ====================
 const COLORS = {
-  primary: '#14b8a6',      // Teal
-  primaryLight: '#5eead4',  // Teal Light
-  royal: '#4169e1',        // Royal Blue
-  royalLight: '#6b8aef',   // Royal Blue Light
-  bg: '#ffffff',           // White
-  bgSecondary: '#f8fafc',  // Slate 50
-  bgTertiary: '#f1f5f9',   // Slate 100
+  primary: '#14b8a6',
+  primaryLight: '#5eead4',
+  royal: '#4169e1',
+  royalLight: '#6b8aef',
+  bg: '#ffffff',
+  bgSecondary: '#f8fafc',
+  bgTertiary: '#f1f5f9',
   surface: '#ffffff',
-  border: '#e2e8f0',       // Slate 200
-  borderLight: '#f1f5f9',  // Slate 100
-  text: '#0f172a',         // Slate 900
-  textSecondary: '#475569', // Slate 600
-  textMuted: '#64748b',    // Slate 500
+  border: '#e2e8f0',
+  borderLight: '#f1f5f9',
+  text: '#0f172a',
+  textSecondary: '#475569',
+  textMuted: '#64748b',
   success: '#10b981',
   warning: '#f59e0b',
 };
 
-// ==================== 🧩 MICRO-COMPONENTS ====================
+const XP_PER_LEVEL = 1000;
+const REFRESH_COOLDOWN = 2000;
 
-// 1. Compact Level Ring
+// ==================== 🧩 COMPONENTS ====================
+
+// ✅ Skeleton Loader
+const SkeletonCard = memo(() => (
+  <div className="animate-pulse rounded-xl border border-slate-200 bg-white p-4">
+    <div className="flex items-start justify-between mb-3">
+      <div className="h-10 w-10 bg-slate-200 rounded-lg" />
+      <div className="h-4 w-12 bg-slate-200 rounded" />
+    </div>
+    <div className="h-8 w-20 bg-slate-200 rounded mb-2" />
+    <div className="h-3 w-24 bg-slate-200 rounded" />
+  </div>
+));
+
 const LevelRing = memo(({ level, progress, size = 60 }) => {
   const radius = size / 2 - 4;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (progress / 100) * circumference;
+  const safeProgress = Math.min(Math.max(progress || 0, 0), 100);
+  const offset = circumference - (safeProgress / 100) * circumference;
 
   return (
     <div className="relative" style={{ width: size, height: size }}>
@@ -77,33 +91,36 @@ const LevelRing = memo(({ level, progress, size = 60 }) => {
   );
 });
 
-// 2. Compact Sparkline
-const Sparkline = memo(({ data, color = COLORS.primary, height = 32 }) => (
-  <ResponsiveContainer width="100%" height={height}>
-    <AreaChart data={data}>
-      <defs>
-        <linearGradient id={`spark-${color}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="5%" stopColor={color} stopOpacity={0.3} />
-          <stop offset="95%" stopColor={color} stopOpacity={0} />
-        </linearGradient>
-      </defs>
-      <Area
-        type="monotone"
-        dataKey="value"
-        stroke={color}
-        strokeWidth={1.5}
-        fill={`url(#spark-${color})`}
-        animationDuration={1200}
-      />
-    </AreaChart>
-  </ResponsiveContainer>
-));
+const Sparkline = memo(({ data, color = COLORS.primary, height = 32 }) => {
+  if (!data || data.length === 0) return null;
 
-// 3. Enhanced Compact Stat Card
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <AreaChart data={data}>
+        <defs>
+          <linearGradient id={`spark-${color}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+            <stop offset="95%" stopColor={color} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <Area
+          type="monotone"
+          dataKey="value"
+          stroke={color}
+          strokeWidth={1.5}
+          fill={`url(#spark-${color})`}
+          animationDuration={1200}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+});
+
 const StatCard = memo(({ label, value, icon: Icon, trend, sparkData, onClick }) => (
   <motion.button
     type="button"
     onClick={onClick}
+    aria-label={`View ${label} details`}
     className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:border-teal-400 hover:shadow-md"
     whileHover={{ y: -2 }}
     whileTap={{ scale: 0.98 }}
@@ -113,12 +130,10 @@ const StatCard = memo(({ label, value, icon: Icon, trend, sparkData, onClick }) 
     <div className="relative">
       <div className="flex items-start justify-between mb-3">
         <div className="rounded-lg bg-gradient-to-br from-teal-500 to-blue-600 p-2 shadow-sm">
-          <Icon size={16} className="text-white" strokeWidth={2.5} />
+          <Icon size={16} className="text-white" strokeWidth={2.5} aria-hidden="true" />
         </div>
         {trend && (
-          <div className={`flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${trend.dir === 'up'
-            ? 'bg-emerald-50 text-emerald-700'
-            : 'bg-slate-100 text-slate-600'
+          <div className={`flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${trend.dir === 'up' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
             }`}>
             {trend.dir === 'up' ? <TrendingUp size={9} /> : <TrendingDown size={9} />}
             {trend.val}
@@ -141,19 +156,18 @@ const StatCard = memo(({ label, value, icon: Icon, trend, sparkData, onClick }) 
         </div>
       )}
 
-      <ChevronRight size={14} className="absolute bottom-3 right-3 text-slate-300 opacity-0 transition-opacity group-hover:opacity-100" />
+      <ChevronRight size={14} className="absolute bottom-3 right-3 text-slate-300 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true" />
     </div>
   </motion.button>
 ));
 
-// 4. Compact Insight Pill
 const InsightPill = memo(({ icon: Icon, label, value }) => (
   <motion.div
     className="flex items-center gap-2.5 rounded-lg border border-slate-200 bg-white px-3 py-2.5 shadow-sm"
     whileHover={{ scale: 1.02 }}
   >
     <div className="rounded-md bg-gradient-to-br from-teal-100 to-blue-100 p-1.5">
-      <Icon size={14} className="text-teal-700" strokeWidth={2.5} />
+      <Icon size={14} className="text-teal-700" strokeWidth={2.5} aria-hidden="true" />
     </div>
     <div className="flex-1 min-w-0">
       <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{label}</div>
@@ -162,7 +176,6 @@ const InsightPill = memo(({ icon: Icon, label, value }) => (
   </motion.div>
 ));
 
-// 5. Compact Badge Item
 const BadgeItem = memo(({ badge, index }) => (
   <motion.div
     initial={{ opacity: 0, x: -10 }}
@@ -185,13 +198,12 @@ const BadgeItem = memo(({ badge, index }) => (
         {badge.description || 'Achievement'}
       </div>
     </div>
-    <Star size={12} className="text-slate-300 group-hover:text-yellow-500 transition-colors" />
+    <Star size={12} className="text-slate-300 group-hover:text-yellow-500 transition-colors" aria-hidden="true" />
   </motion.div>
 ));
 
-// 6. Premium Light Background
 const PremiumBackground = memo(() => (
-  <div className="fixed inset-0 -z-10 bg-white">
+  <div className="fixed inset-0 -z-10 bg-white" aria-hidden="true">
     <div className="absolute inset-0">
       <div className="absolute top-[-10%] right-[-5%] h-[600px] w-[600px] rounded-full bg-teal-100/40 blur-[120px]" />
       <div className="absolute bottom-[-10%] left-[-5%] h-[500px] w-[500px] rounded-full bg-blue-100/40 blur-[100px]" />
@@ -200,7 +212,6 @@ const PremiumBackground = memo(() => (
   </div>
 ));
 
-// 7. Chart Container
 const ChartCard = memo(({ title, subtitle, icon: Icon, children, actions }) => (
   <motion.div
     initial={{ opacity: 0, y: 15 }}
@@ -210,13 +221,11 @@ const ChartCard = memo(({ title, subtitle, icon: Icon, children, actions }) => (
     <div className="flex items-start justify-between mb-5">
       <div className="flex items-center gap-2.5">
         <div className="rounded-lg bg-gradient-to-br from-teal-500 to-blue-600 p-2 shadow-sm">
-          <Icon size={16} className="text-white" strokeWidth={2.5} />
+          <Icon size={16} className="text-white" strokeWidth={2.5} aria-hidden="true" />
         </div>
         <div>
           <h3 className="text-sm font-bold text-slate-900">{title}</h3>
-          {subtitle && (
-            <p className="text-[11px] text-slate-500 mt-0.5">{subtitle}</p>
-          )}
+          {subtitle && <p className="text-[11px] text-slate-500 mt-0.5">{subtitle}</p>}
         </div>
       </div>
       {actions && <div className="flex items-center gap-2">{actions}</div>}
@@ -233,92 +242,142 @@ const Analytics = ({ embedded = false }) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeView, setActiveView] = useState('overview');
 
+  const refreshTimerRef = useRef(null);
+  const isMountedRef = useRef(true);
+
+  // ✅ Use your existing hooks
   const { currentSession, isStudying } = useRealtimeStudySession(user?.uid);
   const analytics = useRealtimeAnalytics(user?.uid, timeframe);
   const prevAnalytics = useRealtimeAnalytics(user?.uid, timeframe * 2);
   const aiReport = useAIReport(user?.uid, analytics);
 
-  // ✅ AUTO-AGGREGATE DAILY DATA FOR SPARKLINES
+  // ✅ Cleanup on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    };
+  }, []);
+
+  // ✅ FIXED: Safe daily activity processing
   const dailyActivity = useMemo(() => {
-    if (analytics.loading || !analytics.raw) return { study: [], score: [], streak: [], xp: [] };
+    const emptyResult = { study: [], score: [], xp: [], streak: [] };
 
-    const days = 7;
-    const now = new Date();
-    const map = new Map();
+    if (analytics.loading || !analytics.raw) return emptyResult;
 
-    // Initialize last 7 days with 0
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      map.set(d.toDateString(), { study: 0, score: [], xp: 0, streak: 0 });
-    }
+    try {
+      const days = 7;
+      const now = new Date();
+      const map = new Map();
 
-    // Aggregate Study Time
-    analytics.raw.studySessions?.forEach(s => {
-      const d = s.startTime?.toDate?.() || new Date(s.startTime);
-      const key = d.toDateString();
-      if (map.has(key)) {
-        const entry = map.get(key);
-        entry.study += (s.totalTime || 0) / 60; // Minutes
-        map.set(key, entry);
+      // Initialize last 7 days
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        map.set(d.toDateString(), { study: 0, score: [], xp: 0 });
       }
-    });
 
-    // Aggregate Quiz Scores
-    analytics.raw.quizSessions?.forEach(q => {
-      const d = q.completedAt?.toDate?.() || new Date(q.completedAt);
-      const key = d.toDateString();
-      if (map.has(key)) {
-        const entry = map.get(key);
-        entry.score.push(q.score || 0);
-        entry.xp += (q.xpEarned || 0); // Assuming XP on quiz
-        map.set(key, entry);
-      }
-    });
+      // ✅ FIXED: Null-safe array operations
+      const sessions = analytics.raw.studySessions || [];
+      const quizzes = analytics.raw.quizSessions || [];
 
-    // Convert to arrays for Recharts
-    const result = { study: [], score: [], xp: [] };
-    map.forEach((val) => {
-      result.study.push({ value: Math.round(val.study) });
-      result.score.push({
-        value: val.score.length ? Math.round(val.score.reduce((a, b) => a + b, 0) / val.score.length) : 0
+      // Aggregate Study Time
+      sessions.forEach(s => {
+        try {
+          const date = s.startTime?.toDate?.() || new Date(s.startTime);
+          if (isNaN(date.getTime())) return; // Skip invalid dates
+
+          const key = date.toDateString();
+          if (map.has(key)) {
+            const entry = map.get(key);
+            entry.study += Math.max(0, (s.totalTime || 0) / 60);
+            map.set(key, entry);
+          }
+        } catch (e) {
+          console.warn('Invalid study session date:', e);
+        }
       });
-      result.xp.push({ value: val.xp });
-    });
 
-    return result;
-  }, [analytics.raw]);
+      // Aggregate Quiz Scores
+      quizzes.forEach(q => {
+        try {
+          const date = q.completedAt?.toDate?.() || new Date(q.completedAt);
+          if (isNaN(date.getTime())) return;
 
+          const key = date.toDateString();
+          if (map.has(key)) {
+            const entry = map.get(key);
+            if (q.score !== undefined && q.score !== null) {
+              entry.score.push(q.score);
+            }
+            entry.xp += (q.xpEarned || 0);
+            map.set(key, entry);
+          }
+        } catch (e) {
+          console.warn('Invalid quiz date:', e);
+        }
+      });
+
+      // Convert to arrays
+      const result = { study: [], score: [], xp: [] };
+      map.forEach((val) => {
+        result.study.push({ value: Math.round(val.study) });
+        result.score.push({
+          value: val.score.length ? Math.round(val.score.reduce((a, b) => a + b, 0) / val.score.length) : 0
+        });
+        result.xp.push({ value: val.xp });
+      });
+
+      return result;
+    } catch (error) {
+      console.error('Error processing daily activity:', error);
+      return emptyResult;
+    }
+  }, [analytics.raw, analytics.loading]);
+
+  // ✅ FIXED: Safe metrics calculation
   const metrics = useMemo(() => {
-    const studyTime = formatStudyTime(analytics.studyTime.totalMinutes);
+    const studyTime = formatStudyTime(analytics.studyTime?.totalMinutes || 0);
     const studyTrend = calculateTrend(
-      analytics.studyTime.totalMinutes,
-      prevAnalytics.studyTime.totalMinutes
+      analytics.studyTime?.totalMinutes || 0,
+      prevAnalytics.studyTime?.totalMinutes || 0
     );
     const scoreTrend = calculateTrend(
-      analytics.quizPerformance.averageScore,
-      prevAnalytics.quizPerformance.averageScore
+      analytics.quizPerformance?.averageScore || 0,
+      prevAnalytics.quizPerformance?.averageScore || 0
     );
+
+    const currentXP = analytics.gamification?.xp || 0;
+    const currentLevel = analytics.gamification?.level || 1;
+    const xpInLevel = currentXP % XP_PER_LEVEL;
+    const levelProgress = (xpInLevel / XP_PER_LEVEL) * 100;
 
     return {
       studyTime,
       studyTrend,
-      avgScore: analytics.quizPerformance.averageScore,
+      avgScore: analytics.quizPerformance?.averageScore || 0,
       scoreTrend,
-      streak: analytics.streak,
-      xp: analytics.xp,
-      level: analytics.level,
-      levelProgress: (analytics.xp / analytics.nextLevelXp) * 100,
-      accuracy: analytics.quizPerformance.accuracy,
-      totalQuizzes: analytics.quizPerformance.totalQuizzes,
-      badges: analytics.badges,
-      sessionCount: analytics.studyTime.sessionCount
+      streak: analytics.gamification?.streak || 0,
+      xp: currentXP,
+      level: currentLevel,
+      levelProgress,
+      xpInLevel,
+      nextLevelXP: currentLevel * XP_PER_LEVEL,
+      accuracy: analytics.quizPerformance?.accuracy || 0,
+      totalQuizzes: analytics.quizPerformance?.totalQuizzes || 0,
+      badges: analytics.gamification?.badges || [],
+      sessionCount: analytics.studyTime?.sessionCount || 0
     };
   }, [analytics, prevAnalytics]);
 
+  // ✅ FIXED: Safe refresh with cleanup
   const handleRefresh = useCallback(() => {
+    if (isRefreshing || !isMountedRef.current) return;
+
     setIsRefreshing(true);
-    analytics.refetch();
+    analytics.refetch?.();
+
     toast.success('Analytics refreshed', {
       style: {
         background: '#ffffff',
@@ -327,20 +386,29 @@ const Analytics = ({ embedded = false }) => {
         borderRadius: '10px',
         fontSize: '13px',
         fontWeight: 600
-      }
+      },
+      icon: '✨'
     });
-    setTimeout(() => setIsRefreshing(false), 800);
-  }, [analytics]);
 
+    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    refreshTimerRef.current = setTimeout(() => {
+      if (isMountedRef.current) setIsRefreshing(false);
+    }, REFRESH_COOLDOWN);
+  }, [isRefreshing, analytics]);
+
+  // ✅ Loading state with skeleton
   if (analytics.loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="relative w-14 h-14 mx-auto mb-3">
-            <div className="absolute inset-0 border-2 border-slate-200 rounded-full" />
-            <div className="absolute inset-0 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
-          </div>
-          <p className="text-sm font-medium text-slate-600">Loading analytics...</p>
+      <div className="min-h-screen bg-white p-4 md:p-6 max-w-[1600px] mx-auto">
+        <PremiumBackground />
+        <div className="mb-6">
+          <div className="h-10 w-64 bg-slate-200 rounded-lg animate-pulse mb-2" />
+          <div className="h-4 w-96 bg-slate-100 rounded animate-pulse" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
         </div>
       </div>
     );
@@ -352,14 +420,15 @@ const Analytics = ({ embedded = false }) => {
 
       <div className={`relative ${embedded ? 'pb-10' : 'min-h-screen p-4 md:p-6 max-w-[1600px] mx-auto'}`}>
 
-        {/* === COMPACT HEADER === */}
+        {/* Header */}
         <header className="mb-6">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div>
               <h1 className="text-3xl font-bold text-slate-900 tracking-tight mb-1">
                 Analytics Dashboard
               </h1>
-              <p className="text-xs text-slate-600">
+              <p className="text-xs text-slate-600 flex items-center gap-2">
+                <Activity size={12} className="text-teal-500" aria-hidden="true" />
                 Real-time insights into your learning journey
               </p>
             </div>
@@ -371,6 +440,7 @@ const Analytics = ({ embedded = false }) => {
                   <button
                     key={view}
                     onClick={() => setActiveView(view)}
+                    aria-label={`View ${view}`}
                     className={`px-3 py-1.5 rounded-md text-[11px] font-bold capitalize transition-all ${activeView === view
                       ? 'bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-sm'
                       : 'text-slate-600 hover:text-slate-900'
@@ -387,6 +457,7 @@ const Analytics = ({ embedded = false }) => {
                   <button
                     key={days}
                     onClick={() => setTimeframe(days)}
+                    aria-label={`Show ${days} days`}
                     className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-all ${timeframe === days
                       ? 'bg-white text-slate-900 shadow-sm'
                       : 'text-slate-500 hover:text-slate-900'
@@ -400,19 +471,50 @@ const Analytics = ({ embedded = false }) => {
               {/* Actions */}
               <button
                 onClick={handleRefresh}
-                className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-white transition-all"
+                disabled={isRefreshing}
+                aria-label="Refresh analytics"
+                className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-white transition-all disabled:opacity-50"
               >
                 <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
               </button>
 
-              <button className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-white transition-all">
+              <button
+                aria-label="Download report"
+                className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-white transition-all"
+              >
                 <Download size={14} />
               </button>
             </div>
           </div>
+
+          {/* ✅ Study Session Banner */}
+          {isStudying && currentSession && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-4 p-3 bg-gradient-to-r from-teal-50 to-blue-50 border border-teal-200 rounded-xl flex items-center gap-3"
+            >
+              <div className="relative">
+                <div className="w-2 h-2 bg-teal-500 rounded-full animate-pulse" />
+                <div className="absolute inset-0 w-2 h-2 bg-teal-500 rounded-full animate-ping" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-bold text-slate-900">Study session in progress</p>
+                <p className="text-[10px] text-slate-600">
+                  Started {currentSession.startTime ? new Date(currentSession.startTime).toLocaleTimeString() : 'recently'}
+                </p>
+              </div>
+              <button
+                onClick={() => navigate('/study-timer')}
+                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                View Session
+              </button>
+            </motion.div>
+          )}
         </header>
 
-        {/* === MAIN CONTENT === */}
+        {/* Main Content */}
         <AnimatePresence mode="wait">
           {activeView === 'overview' && (
             <motion.div
@@ -445,13 +547,13 @@ const Analytics = ({ embedded = false }) => {
                   icon={Flame}
                   label="Streak"
                   value={`${metrics.streak} Days`}
-                  trend={{ dir: 'up', val: 'Active' }}
-                  sparkData={dailyActivity.study} /* Fallback to study activity for streak vis */
+                  trend={{ dir: metrics.streak > 0 ? 'up' : 'down', val: metrics.streak > 0 ? 'Active' : 'Start' }}
+                  sparkData={dailyActivity.study}
                 />
                 <StatCard
                   icon={Zap}
                   label="Total XP"
-                  value={(metrics.xp / 1000).toFixed(1) + 'k'}
+                  value={metrics.xp >= 1000 ? `${(metrics.xp / 1000).toFixed(1)}k` : metrics.xp}
                   trend={{ dir: 'up', val: `L${metrics.level}` }}
                   sparkData={dailyActivity.xp}
                 />
@@ -469,13 +571,16 @@ const Analytics = ({ embedded = false }) => {
                     subtitle="Top subjects by score"
                     icon={BookOpen}
                     actions={
-                      <button className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-900 transition-colors">
+                      <button
+                        aria-label="Filter subjects"
+                        className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-900 transition-colors"
+                      >
                         <Filter size={13} />
                       </button>
                     }
                   >
                     <div className="h-[260px] w-full">
-                      {analytics.performance.length > 0 ? (
+                      {analytics.performance && analytics.performance.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={analytics.performance.slice(0, 6)} barSize={36}>
                             <defs>
@@ -516,7 +621,7 @@ const Analytics = ({ embedded = false }) => {
                               {analytics.performance.slice(0, 6).map((entry, index) => (
                                 <Cell
                                   key={`cell-${index}`}
-                                  fill={entry.score > 70 ? 'url(#barGrad)' : '#cbd5e1'}
+                                  fill={entry.score >= 70 ? 'url(#barGrad)' : '#cbd5e1'}
                                 />
                               ))}
                             </Bar>
@@ -524,7 +629,7 @@ const Analytics = ({ embedded = false }) => {
                         </ResponsiveContainer>
                       ) : (
                         <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                          <BookOpen size={40} className="mb-3 opacity-20" />
+                          <BookOpen size={40} className="mb-3 opacity-20" aria-hidden="true" />
                           <p className="text-xs font-semibold mb-1">No data available</p>
                           <p className="text-[11px] text-slate-500">Complete quizzes to see performance</p>
                         </div>
@@ -537,7 +642,7 @@ const Analytics = ({ embedded = false }) => {
                     <InsightPill icon={Timer} label="Daily Avg" value={`${Math.round((metrics.studyTime.totalMinutes || 0) / timeframe)}m`} />
                     <InsightPill icon={Trophy} label="Quizzes" value={metrics.totalQuizzes} />
                     <InsightPill icon={Shield} label="Badges" value={metrics.badges.length} />
-                    <InsightPill icon={Users} label="Accuracy" value={`${metrics.accuracy}%`} />
+                    <InsightPill icon={Target} label="Accuracy" value={`${metrics.accuracy}%`} />
                   </div>
                 </div>
 
@@ -555,7 +660,7 @@ const Analytics = ({ embedded = false }) => {
                         <div className="text-[10px] font-bold uppercase tracking-wide text-teal-700 mb-1">
                           Current Level
                         </div>
-                        <div className="text-xl font-bold text-slate-900">Scholar</div>
+                        <div className="text-xl font-bold text-slate-900">Level {metrics.level}</div>
                       </div>
                       <LevelRing level={metrics.level} progress={metrics.levelProgress} />
                     </div>
@@ -569,12 +674,12 @@ const Analytics = ({ embedded = false }) => {
                         <motion.div
                           className="h-full bg-gradient-to-r from-teal-500 to-blue-600 rounded-full"
                           initial={{ width: 0 }}
-                          animate={{ width: `${metrics.levelProgress}%` }}
+                          animate={{ width: `${Math.min(metrics.levelProgress, 100)}%` }}
                           transition={{ duration: 1.2, ease: "easeOut" }}
                         />
                       </div>
                       <div className="text-[10px] text-slate-500 text-right">
-                        {(metrics.xp % 1000)} / 1000 XP to next level
+                        {metrics.xpInLevel} / {XP_PER_LEVEL} XP to next level
                       </div>
                     </div>
 
@@ -592,11 +697,11 @@ const Analytics = ({ embedded = false }) => {
                       <div className="space-y-2">
                         {metrics.badges.length > 0 ? (
                           metrics.badges.slice(0, 3).map((badge, i) => (
-                            <BadgeItem key={i} badge={badge} index={i} />
+                            <BadgeItem key={badge.id || i} badge={badge} index={i} />
                           ))
                         ) : (
                           <div className="text-center py-6 text-slate-400">
-                            <Star size={28} className="mx-auto mb-2 opacity-20" />
+                            <Star size={28} className="mx-auto mb-2 opacity-20" aria-hidden="true" />
                             <p className="text-[11px] font-medium">No achievements yet</p>
                             <p className="text-[10px] text-slate-500 mt-1">Keep learning to earn badges</p>
                           </div>
@@ -606,7 +711,7 @@ const Analytics = ({ embedded = false }) => {
                   </motion.div>
 
                   {/* Focus Areas */}
-                  {analytics.weakAreas.length > 0 && (
+                  {analytics.weakAreas && analytics.weakAreas.length > 0 && (
                     <ChartCard
                       title="Focus Areas"
                       subtitle="Needs improvement"
@@ -615,7 +720,7 @@ const Analytics = ({ embedded = false }) => {
                       <div className="space-y-2">
                         {analytics.weakAreas.map((area, i) => (
                           <motion.button
-                            key={i}
+                            key={area.name}
                             initial={{ opacity: 0, x: 10 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: i * 0.08 }}
@@ -648,20 +753,20 @@ const Analytics = ({ embedded = false }) => {
               </div>
 
               {/* AI Insights */}
-              <ChartCard
-                title="AI-Powered Insights"
-                subtitle="Personalized recommendations"
-                icon={Brain}
-              >
-                <div className="prose prose-slate prose-sm max-w-none">
+              {aiReport && (
+                <ChartCard
+                  title="AI-Powered Insights"
+                  subtitle="Personalized recommendations"
+                  icon={Brain}
+                >
                   <AIAnalyticsReport
                     report={aiReport.report}
                     loading={aiReport.loading}
                     onGenerate={aiReport.generateReport}
                     canGenerate={aiReport.canGenerate}
                   />
-                </div>
-              </ChartCard>
+                </ChartCard>
+              )}
             </motion.div>
           )}
 
@@ -673,7 +778,7 @@ const Analytics = ({ embedded = false }) => {
               exit={{ opacity: 0 }}
               className="text-center py-20 text-slate-400"
             >
-              <BarChart3 size={44} className="mx-auto mb-3 opacity-20" />
+              <BarChart3 size={44} className="mx-auto mb-3 opacity-20" aria-hidden="true" />
               <p className="text-sm font-medium">Performance view coming soon</p>
             </motion.div>
           )}
@@ -686,7 +791,7 @@ const Analytics = ({ embedded = false }) => {
               exit={{ opacity: 0 }}
               className="text-center py-20 text-slate-400"
             >
-              <Sparkles size={44} className="mx-auto mb-3 opacity-20" />
+              <Sparkles size={44} className="mx-auto mb-3 opacity-20" aria-hidden="true" />
               <p className="text-sm font-medium">Insights view coming soon</p>
             </motion.div>
           )}
@@ -700,7 +805,7 @@ const Analytics = ({ embedded = false }) => {
 const formatStudyTime = (m) => {
   if (!m) return { display: '0m', totalMinutes: 0 };
   const h = Math.floor(m / 60);
-  const min = m % 60;
+  const min = Math.round(m % 60);
   return { display: h > 0 ? `${h}h ${min}m` : `${min}m`, totalMinutes: m };
 };
 
@@ -709,80 +814,115 @@ const calculateTrend = (current, previous) => {
   const change = ((current - previous) / previous) * 100;
   return {
     dir: change >= 0 ? 'up' : 'down',
-    val: `${change > 0 ? '+' : ''}${change.toFixed(0)}%`
+    val: `${change > 0 ? '+' : ''}${Math.round(change)}%`
   };
 };
 
+// ✅ Your existing hook with error handling
 const useRealtimeStudySession = (userId) => {
   const [data, setData] = useState({ currentSession: null, isStudying: false });
+  const isMountedRef = useRef(true);
+
   useEffect(() => {
-    if (!userId) return;
+    isMountedRef.current = true;
+
+    if (!userId) {
+      setData({ currentSession: null, isStudying: false });
+      return;
+    }
+
     const unsub = onSnapshot(
-      query(collection(db, 'studySessions'), where('userId', '==', userId), where('status', '==', 'active'), limit(1)),
-      (snap) => setData(snap.empty ? { currentSession: null, isStudying: false } : {
-        currentSession: { id: snap.docs[0].id, ...snap.docs[0].data() },
-        isStudying: true
-      })
+      query(
+        collection(db, 'studySessions'),
+        where('userId', '==', userId),
+        where('status', '==', 'active'),
+        limit(1)
+      ),
+      (snap) => {
+        if (!isMountedRef.current) return;
+
+        setData(snap.empty ? { currentSession: null, isStudying: false } : {
+          currentSession: { id: snap.docs[0].id, ...snap.docs[0].data() },
+          isStudying: true
+        });
+      },
+      (error) => {
+        console.error('Study session error:', error);
+        if (isMountedRef.current) {
+          setData({ currentSession: null, isStudying: false });
+        }
+      }
     );
-    return () => unsub();
+
+    return () => {
+      isMountedRef.current = false;
+      unsub();
+    };
   }, [userId]);
+
   return data;
 };
 
+// ✅ Wrapper for your existing hook
 const useRealtimeAnalytics = (userId, timeframe) => {
   const { metrics, raw, loading, refresh } = useAnalyticsSync(userId, timeframe);
 
-  const data = useMemo(() => {
+  return useMemo(() => {
     const empty = {
       studyTime: { totalMinutes: 0, sessionCount: 0 },
       quizPerformance: { averageScore: 0, totalQuizzes: 0, accuracy: 0 },
-      streak: 0,
-      level: 1,
-      xp: 0,
-      nextLevelXp: 1000,
+      gamification: { streak: 0, level: 1, xp: 0, nextLevelXp: 1000, badges: [] },
       badges: [],
       performance: [],
       weakAreas: []
     };
 
-    if (loading || !metrics) return empty;
+    if (loading || !metrics) return { ...empty, loading, refetch: refresh, raw: raw || {} };
 
+    // ✅ FIXED: Safe subject statistics
     const subStats = {};
-    raw.quizSessions.forEach((q) => {
-      // ✅ FIXED: Check quizSnapshot for history items
-      const s = q.subject || q.quizSnapshot?.subject || 'General';
-      if (!subStats[s]) subStats[s] = { scores: [], count: 0 };
-      let score = q.score || 0;
-      if (q.answers && score === 0) {
-        const ans = Object.values(q.answers);
-        if (ans.length) score = (ans.filter(a => a.isCorrect || a.answer > 0).length / ans.length) * 100;
+    const quizzes = raw?.quizSessions || [];
+
+    quizzes.forEach((q) => {
+      try {
+        const s = q.subject || q.quizSnapshot?.subject || 'General';
+        if (!subStats[s]) subStats[s] = { scores: [], count: 0 };
+
+        let score = q.score || 0;
+        if (q.answers && score === 0) {
+          const ans = Object.values(q.answers);
+          if (ans.length) {
+            const correctCount = ans.filter(a => a.isCorrect === true || a.correct === true).length;
+            score = (correctCount / ans.length) * 100;
+          }
+        }
+
+        subStats[s].scores.push(score);
+        subStats[s].count++;
+      } catch (e) {
+        console.warn('Error processing quiz:', e);
       }
-      subStats[s].scores.push(score);
-      subStats[s].count++;
     });
 
     const perf = Object.entries(subStats)
       .map(([name, d]) => ({
         name,
-        score: Math.round(d.scores.reduce((a, b) => a + b, 0) / d.scores.length),
+        score: d.scores.length > 0 ? Math.round(d.scores.reduce((a, b) => a + b, 0) / d.scores.length) : 0,
         quizCount: d.count
       }))
       .sort((a, b) => b.score - a.score);
 
     return {
-      studyTime: metrics.studyTime,
-      quizPerformance: metrics.quizPerformance,
-      streak: metrics.gamification.streak,
-      level: metrics.gamification.level,
-      xp: metrics.gamification.xp,
-      nextLevelXp: metrics.gamification.nextLevelXp,
-      badges: metrics.gamification.badges,
+      studyTime: metrics.studyTime || empty.studyTime,
+      quizPerformance: metrics.quizPerformance || empty.quizPerformance,
+      gamification: metrics.gamification || empty.gamification,
       weakAreas: perf.filter((p) => p.score < 70).slice(0, 3),
-      performance: perf
+      performance: perf,
+      loading,
+      refetch: refresh,
+      raw: raw || {}
     };
-  }, [metrics, raw, loading]);
-
-  return { ...data, loading, refetch: refresh };
+  }, [metrics, raw, loading, refresh]);
 };
 
 export default Analytics;
