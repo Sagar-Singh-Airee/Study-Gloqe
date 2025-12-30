@@ -57,7 +57,7 @@ export const createAssignment = async (assignmentData) => {
     };
 
     const docRef = await addDoc(collection(db, 'assignments'), assignment);
-    
+
     // Update class with assignment reference
     const classRef = doc(db, 'classes', classId);
     await updateDoc(classRef, {
@@ -66,7 +66,6 @@ export const createAssignment = async (assignmentData) => {
     });
 
     console.log('✅ Assignment created:', docRef.id);
-    toast.success('Assignment created successfully!');
     return docRef.id;
   } catch (error) {
     console.error('❌ Error creating assignment:', error);
@@ -169,7 +168,6 @@ export const submitAssignment = async (assignmentId, userId, submissionData) => 
     });
 
     console.log('✅ Assignment submitted:', docRef.id);
-    toast.success('Assignment submitted successfully!');
     return docRef.id;
   } catch (error) {
     console.error('❌ Error submitting assignment:', error);
@@ -190,7 +188,7 @@ export const getStudentSubmission = async (assignmentId, userId) => {
     );
 
     const snapshot = await getDocs(q);
-    
+
     if (snapshot.empty) {
       return null;
     }
@@ -223,7 +221,7 @@ export const getAssignmentSubmissions = async (assignmentId) => {
 
     for (const docSnap of snapshot.docs) {
       const submissionData = docSnap.data();
-      
+
       // Fetch user details
       const userRef = doc(db, 'users', submissionData.userId);
       const userSnap = await getDoc(userRef);
@@ -265,7 +263,6 @@ export const gradeSubmission = async (submissionId, gradeData) => {
     });
 
     console.log('✅ Submission graded');
-    toast.success('Graded successfully!');
   } catch (error) {
     console.error('❌ Error grading submission:', error);
     toast.error('Failed to grade submission');
@@ -285,7 +282,6 @@ export const updateAssignment = async (assignmentId, updates) => {
     });
 
     console.log('✅ Assignment updated');
-    toast.success('Assignment updated successfully!');
   } catch (error) {
     console.error('❌ Error updating assignment:', error);
     toast.error('Failed to update assignment');
@@ -309,14 +305,13 @@ export const deleteAssignment = async (assignmentId, classId) => {
     const classSnap = await getDoc(classRef);
     const classData = classSnap.data();
     const updatedAssignments = (classData.assignments || []).filter(id => id !== assignmentId);
-    
+
     await updateDoc(classRef, {
       assignments: updatedAssignments,
       updatedAt: serverTimestamp()
     });
 
     console.log('✅ Assignment deleted');
-    toast.success('Assignment deleted successfully!');
   } catch (error) {
     console.error('❌ Error deleting assignment:', error);
     toast.error('Failed to delete assignment');

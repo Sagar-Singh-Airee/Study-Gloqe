@@ -153,7 +153,6 @@ const LiveSessionsSection = () => {
                 createdAt: new Date(),
             });
 
-            toast.success('Session scheduled successfully!');
             setShowCreateModal(false);
             setSessionData({
                 title: '',
@@ -176,7 +175,6 @@ const LiveSessionsSection = () => {
 
         try {
             await deleteDoc(doc(db, 'liveSessions', id));
-            toast.success('Session deleted successfully');
             loadData();
         } catch (error) {
             console.error('Error deleting session:', error);
@@ -188,7 +186,6 @@ const LiveSessionsSection = () => {
         try {
             await updateDoc(doc(db, 'liveSessions', session.id), { status: 'live' });
             window.open(session.meetingLink, '_blank');
-            toast.success('Session started!');
             loadData();
         } catch (error) {
             toast.error('Failed to start session');
@@ -200,7 +197,6 @@ const LiveSessionsSection = () => {
 
         try {
             await updateDoc(doc(db, 'liveSessions', session.id), { status: 'completed' });
-            toast.success('Session ended');
             loadData();
         } catch (error) {
             toast.error('Failed to end session');
@@ -209,7 +205,6 @@ const LiveSessionsSection = () => {
 
     const handleCopyLink = (link) => {
         navigator.clipboard.writeText(link);
-        toast.success('Meeting link copied to clipboard!');
     };
 
     // Filter sessions
@@ -441,8 +436,8 @@ const LiveSessionsSection = () => {
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{ delay: index * 0.05 }}
                                 className={`bg-white border-2 rounded-2xl p-6 transition-all ${isLive
-                                        ? 'border-red-300 shadow-lg shadow-red-100'
-                                        : 'border-gray-200 hover:border-red-200 hover:shadow-lg'
+                                    ? 'border-red-300 shadow-lg shadow-red-100'
+                                    : 'border-gray-200 hover:border-red-200 hover:shadow-lg'
                                     }`}
                             >
                                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">

@@ -64,7 +64,6 @@ export const createAnnouncement = async (announcementData) => {
         });
 
         console.log('✅ Announcement created:', docRef.id);
-        toast.success('Announcement posted successfully!');
         return docRef.id;
     } catch (error) {
         console.error('❌ Error creating announcement:', error);
@@ -202,7 +201,6 @@ export const updateAnnouncement = async (announcementId, updates) => {
         });
 
         console.log('✅ Announcement updated');
-        toast.success('Announcement updated successfully!');
     } catch (error) {
         console.error('❌ Error updating announcement:', error);
         toast.error('Failed to update announcement');
@@ -235,7 +233,6 @@ export const deleteAnnouncement = async (announcementId, classId) => {
         });
 
         console.log('✅ Announcement deleted');
-        toast.success('Announcement deleted successfully!');
     } catch (error) {
         console.error('❌ Error deleting announcement:', error);
         toast.error('Failed to delete announcement');
@@ -255,7 +252,6 @@ export const togglePinAnnouncement = async (announcementId, currentPinned) => {
         });
 
         console.log(`✅ Announcement ${!currentPinned ? 'pinned' : 'unpinned'}`);
-        toast.success(`Announcement ${!currentPinned ? 'pinned' : 'unpinned'}!`);
     } catch (error) {
         console.error('Error toggling pin:', error);
         toast.error('Failed to update announcement');

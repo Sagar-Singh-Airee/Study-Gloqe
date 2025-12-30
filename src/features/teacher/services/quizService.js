@@ -13,7 +13,8 @@ import {
   limit,
   serverTimestamp,
   runTransaction,
-  Timestamp
+  Timestamp,
+  onSnapshot
 } from 'firebase/firestore';
 import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 import { db } from '@shared/config/firebase';
@@ -50,7 +51,55 @@ const retryOperation = async (operation, maxRetries = 3) => {
 };
 
 // ==========================================
-// 1. AI GENERATION SERVICE
+// 1. CONTENT EXTRACTION HELPER
+// ==========================================
+
+/**
+ * Extract text content with intelligent fallbacks (Ported from flashcardService)
+ */
+const extractDocumentContent = (documentData) => {
+  const possibleFields = [
+    'extractedText',
+    'content',
+    'text',
+    'body',
+    'fullText',
+    'description',
+    'summary',
+    'notes',
+    'fileContent',
+    'pageContent',
+    'data'
+  ];
+
+  for (const field of possibleFields) {
+    const value = documentData[field];
+    if (value && typeof value === 'string' && value.trim().length >= 100) {
+      console.log(`✓ Found quiz content in field: ${field} (${value.length} chars)`);
+      return value.trim();
+    }
+  }
+
+  // Try nested content
+  if (documentData.file?.content) {
+    return documentData.file.content.trim();
+  }
+
+  // Extract from largest string field
+  const allStringFields = Object.entries(documentData)
+    .filter(([key, value]) => typeof value === 'string' && value.length >= 100)
+    .sort((a, b) => b[1].length - a[1].length);
+
+  if (allStringFields.length > 0) {
+    console.log(`✓ Using largest text field for quiz: ${allStringFields[0][0]}`);
+    return allStringFields[0][1].trim();
+  }
+
+  return '';
+};
+
+// ==========================================
+// 2. AI GENERATION SERVICE
 // ==========================================
 
 export const generateQuizWithGemini = async (documentId, difficulty = 'medium', questionCount = 10) => {
@@ -66,13 +115,16 @@ export const generateQuizWithGemini = async (documentId, difficulty = 'medium', 
     }
 
     const docData = docSnap.data();
-    const extractedText = docData.extractedText || docData.content || '';
+
+    // ✅ Use robust extraction
+    const extractedText = extractDocumentContent(docData);
     const subject = docData.subject || 'General Studies';
     const title = docData.title || docData.fileName || 'Untitled';
 
     if (!extractedText || extractedText.length < 100) {
+      console.error('Available fields:', Object.keys(docData));
       throw new QuizError(
-        'Document content is too short (under 100 chars). Please upload a more detailed document.',
+        `Document content is too short (${extractedText?.length || 0} chars). Please upload a more detailed document.`,
         'CONTENT_TOO_SHORT'
       );
     }
@@ -184,19 +236,27 @@ export const generateQuizWithGemini = async (documentId, difficulty = 'medium', 
 // 2. QUIZ MANAGEMENT
 // ==========================================
 
-export const createQuiz = async (userId, documentId, questions, metadata = {}) => {
+// ==========================================
+// 2. QUIZ MANAGEMENT
+// ==========================================
+
+export const createQuiz = async (userId, classId, documentId, questions, metadata = {}) => {
   try {
     // Calculate aggregated stats for the quiz card
     const totalPoints = questions.reduce((sum, q) => sum + (q.points || 1), 0);
 
     const quizData = {
-      userId,
-      documentId,
+      userId, // Creator's ID
+      teacherId: userId, // Explicitly set teacherId for rules/filtering
+      classId, // Link to class
+      documentId: documentId || null,
       title: metadata.title || 'AI Generated Quiz',
       description: metadata.description || '',
       subject: metadata.subject || 'General Knowledge',
       difficulty: metadata.difficulty || 'medium',
-      questions, // Storing questions directly in the doc
+      questions,
+      dueDate: metadata.dueDate ? Timestamp.fromDate(new Date(metadata.dueDate)) : null,
+      startDate: metadata.startDate ? Timestamp.fromDate(new Date(metadata.startDate)) : Timestamp.now(),
       meta: {
         totalQuestions: questions.length,
         totalPoints,
@@ -233,12 +293,53 @@ export const getQuiz = async (quizId) => {
   return { id: snap.id, ...snap.data() };
 };
 
-export const getUserQuizzes = async (userId) => {
+/**
+ * Get quizzes for a specific class (Real-time compatible query)
+ */
+export const getClassQuizzes = (classId, callback) => {
   try {
-    // Requires index: quizzes [userId ASC, createdAt DESC]
     const q = query(
       collection(db, 'quizzes'),
-      where('userId', '==', userId),
+      where('classId', '==', classId),
+      orderBy('createdAt', 'desc')
+    );
+
+    // If callback provided, set up real-time listener
+    if (callback) {
+      return onSnapshot(q, (snapshot) => {
+        const quizzes = snapshot.docs.map(d => ({
+          id: d.id,
+          ...d.data(),
+          createdAt: d.data().createdAt?.toDate(),
+          dueDate: d.data().dueDate?.toDate(),
+          startDate: d.data().startDate?.toDate()
+        }));
+        callback(quizzes);
+      });
+    }
+
+    // Otherwise return promise (one-time fetch)
+    return getDocs(q).then(snapshot =>
+      snapshot.docs.map(d => ({
+        id: d.id,
+        ...d.data(),
+        createdAt: d.data().createdAt?.toDate(),
+        dueDate: d.data().dueDate?.toDate(),
+        startDate: d.data().startDate?.toDate()
+      }))
+    );
+  } catch (error) {
+    console.error('Fetch class quizzes failed:', error);
+    return [];
+  }
+};
+
+// Legacy support if needed, or for teacher's "My Quizzes" view across all classes
+export const getUserQuizzes = async (userId) => {
+  try {
+    const q = query(
+      collection(db, 'quizzes'),
+      where('teacherId', '==', userId),
       orderBy('createdAt', 'desc')
     );
     const snapshot = await getDocs(q);
@@ -256,10 +357,52 @@ export const getUserQuizzes = async (userId) => {
 export const deleteQuiz = async (quizId) => {
   try {
     await deleteDoc(doc(db, 'quizzes', quizId));
-    toast.success('Quiz deleted successfully');
+    console.log('✅ Quiz deleted');
   } catch (e) {
     console.error('Delete quiz error:', e);
     toast.error('Could not delete quiz');
+  }
+};
+
+export const updateQuiz = async (quizId, updates) => {
+  try {
+    const docRef = doc(db, 'quizzes', quizId);
+    await updateDoc(docRef, {
+      ...updates,
+      updatedAt: serverTimestamp()
+    });
+    console.log('✅ Quiz updated:', quizId);
+  } catch (error) {
+    console.error('Update quiz failed:', error);
+    throw new Error('Failed to update quiz');
+  }
+};
+
+export const duplicateQuiz = async (quizId, userId) => {
+  try {
+    const originalSnap = await getDoc(doc(db, 'quizzes', quizId));
+    if (!originalSnap.exists()) throw new Error('Quiz not found');
+
+    const originalData = originalSnap.data();
+
+    const newQuizData = {
+      ...originalData,
+      title: `${originalData.title} (Copy)`,
+      userId: userId, // New owner (if different)
+      teacherId: userId,
+      status: 'draft', // Reset to draft
+      stats: { attemptCount: 0, avgScore: 0 }, // Reset stats
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      // Remove ID if it was part of data (though firestore data usually doesn't have it unless we put it there)
+    };
+
+    const docRef = await addDoc(collection(db, 'quizzes'), newQuizData);
+    console.log('✅ Quiz duplicated:', docRef.id);
+    return docRef.id;
+  } catch (error) {
+    console.error('Duplicate quiz failed:', error);
+    throw new Error('Failed to duplicate quiz');
   }
 };
 
@@ -501,5 +644,8 @@ export default {
   submitQuizAnswer,
   completeQuizSession,
   getQuizResults,
-  getUserQuizSessions
+  getQuizResults,
+  getUserQuizSessions,
+  updateQuiz,
+  duplicateQuiz
 };

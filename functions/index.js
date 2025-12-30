@@ -156,7 +156,7 @@ function safeValue(value, defaultValue = null) {
  * Test Kafka connection
  * Usage: GET https://your-region-your-project.cloudfunctions.net/testKafka
  */
-exports.testKafka = functions.https.onRequest(corsWrapper(async (req, res) => {
+exports.testKafka = functions.region('asia-south1').https.onRequest(corsWrapper(async (req, res) => {
   try {
     console.log('Testing Kafka connection...');
 
@@ -206,7 +206,7 @@ exports.testKafka = functions.https.onRequest(corsWrapper(async (req, res) => {
 /**
  * Publish quiz completion event to Kafka
  */
-exports.publishQuizEvent = functions.https.onCall(async (data, context) => {
+exports.publishQuizEvent = functions.region('asia-south1').https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
   }
@@ -243,7 +243,7 @@ exports.publishQuizEvent = functions.https.onCall(async (data, context) => {
 /**
  * Publish study session to Kafka
  */
-exports.publishStudySession = functions.https.onCall(async (data, context) => {
+exports.publishStudySession = functions.region('asia-south1').https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
   }
@@ -279,7 +279,7 @@ exports.publishStudySession = functions.https.onCall(async (data, context) => {
 /**
  * Publish achievement to Kafka
  */
-exports.publishAchievement = functions.https.onCall(async (data, context) => {
+exports.publishAchievement = functions.region('asia-south1').https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
   }
@@ -313,7 +313,7 @@ exports.publishAchievement = functions.https.onCall(async (data, context) => {
 /**
  * Publish analytics event to Kafka
  */
-exports.publishAnalyticsEvent = functions.https.onCall(async (data, context) => {
+exports.publishAnalyticsEvent = functions.region('asia-south1').https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
   }
@@ -342,25 +342,22 @@ exports.publishAnalyticsEvent = functions.https.onCall(async (data, context) => 
 // ==================== KAFKA GENERIC PRODUCER (Single) ====================
 
 exports.produceKafkaEvent = functions
+  .region('asia-south1')
   .runWith({ timeoutSeconds: CONFIG.TIMEOUTS.DEFAULT })
-  .https.onRequest(corsWrapper(async (req, res) => {
+  .https.onCall(async (data, context) => {
+    // Verify authentication
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
+    }
+
+    const userId = context.auth.uid;
+    const { topic, event } = data;
+
+    if (!topic || !event) {
+      throw new functions.https.HttpsError('invalid-argument', 'Missing topic or event');
+    }
+
     try {
-      // Verify authentication
-      const authHeader = req.headers.authorization;
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
-
-      const idToken = authHeader.split('Bearer ')[1];
-      const decodedToken = await admin.auth().verifyIdToken(idToken);
-      const userId = decodedToken.uid;
-
-      const { topic, event } = req.body;
-
-      if (!topic || !event) {
-        return res.status(400).json({ error: 'Missing topic or event' });
-      }
-
       // Parse event if string
       const eventData = typeof event.value === 'string' ? JSON.parse(event.value) : event.value || event;
 
@@ -370,7 +367,7 @@ exports.produceKafkaEvent = functions
         userId: userId,
         metadata: {
           ...eventData.metadata,
-          userEmail: decodedToken.email || 'unknown',
+          userEmail: context.auth.token.email || 'unknown',
           source: 'web-client',
           timestamp: new Date().toISOString()
         }
@@ -379,16 +376,17 @@ exports.produceKafkaEvent = functions
       console.log(`Producing generic event to ${topic} for user ${userId}`);
       await publishEvent(topic, enrichedEvent);
 
-      return res.status(200).json({ success: true });
+      return { success: true };
     } catch (error) {
       console.error('Failed to produce generic Kafka event:', error);
-      return res.status(500).json({ error: error.message });
+      throw new functions.https.HttpsError('internal', error.message);
     }
-  }));
+  });
 
 // ==================== KAFKA GENERIC PRODUCER (Batch) ====================
 
 exports.produceKafkaEvents = functions
+  .region('asia-south1')
   .runWith({ timeoutSeconds: CONFIG.TIMEOUTS.LONG })
   .https.onCall(async (data, context) => {
     if (!context.auth) {
@@ -440,7 +438,7 @@ exports.produceKafkaEvents = functions
 
 // ==================== STUDY SESSION BIGQUERY SYNC ====================
 
-exports.syncStudySessionToBigQuery = functions.https.onCall(async (data, context) => {
+exports.syncStudySessionToBigQuery = functions.region('asia-south1').https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
   }
@@ -531,7 +529,7 @@ exports.syncStudySessionToBigQuery = functions.https.onCall(async (data, context
 
 // ==================== GET STUDY TIME FROM BIGQUERY ====================
 
-exports.getStudyTimeBigQuery = functions.https.onCall(async (data, context) => {
+exports.getStudyTimeBigQuery = functions.region('asia-south1').https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
   }
@@ -592,7 +590,7 @@ exports.getStudyTimeBigQuery = functions.https.onCall(async (data, context) => {
 
 // ==================== DOCUMENT PROCESSING - WITH BIGQUERY & KAFKA ====================
 
-exports.processDocumentEnhanced = functions.firestore
+exports.processDocumentEnhanced = functions.region('asia-south1').firestore
   .document('documents/{docId}')
   .onCreate(async (snap, context) => {
     const docData = snap.data();
@@ -787,6 +785,7 @@ Text Context (${subject}): ${docData.extractedText.substring(0, 3000)}`;
 // ==================== QUIZ GENERATION ====================
 
 exports.generateQuiz = functions
+  .region('asia-south1')
   .runWith({ timeoutSeconds: CONFIG.TIMEOUTS.AI })
   .https.onCall(async (data, context) => {
     if (!context.auth) {

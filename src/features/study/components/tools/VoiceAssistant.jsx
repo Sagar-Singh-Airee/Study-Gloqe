@@ -434,11 +434,24 @@ Respond naturally:`;
 
                 // Wait for audio to load
                 await new Promise((loadResolve, loadReject) => {
-                    audio.addEventListener('canplaythrough', loadResolve, { once: true });
-                    audio.addEventListener('error', (e) => {
+                    const handleCanPlay = () => {
+                        cleanupListeners();
+                        loadResolve();
+                    };
+
+                    const handleError = (e) => {
+                        cleanupListeners();
                         console.error('Audio load error:', e);
                         loadReject(new Error('Audio failed to load'));
-                    }, { once: true });
+                    };
+
+                    const cleanupListeners = () => {
+                        audio.removeEventListener('canplaythrough', handleCanPlay);
+                        audio.removeEventListener('error', handleError);
+                    };
+
+                    audio.addEventListener('canplaythrough', handleCanPlay, { once: true });
+                    audio.addEventListener('error', handleError, { once: true });
 
                     audio.src = audioDataUrl;
                 });

@@ -7,7 +7,7 @@ import {
     BookOpen, Plus, Search, Filter, Users, TrendingUp, Award, Clock,
     Edit, Trash2, Settings, Copy, Share2, ExternalLink, MoreVertical,
     CheckCircle2, AlertCircle, Calendar, Target, BarChart3, Key,
-    UserPlus, Mail, X, Eye, Activity, Star, Zap, QrCode
+    UserPlus, Mail, X, Eye, Activity, Star, Zap, QrCode, Archive, Download
 } from 'lucide-react';
 import { collection, query, where, getDocs, orderBy, deleteDoc, doc, updateDoc, addDoc } from 'firebase/firestore';
 import { db } from '@shared/config/firebase';
@@ -111,10 +111,8 @@ const ClassesSection = () => {
 
             if (editingClass) {
                 await updateDoc(doc(db, 'classes', editingClass.id), classData);
-                toast.success('Class updated successfully!');
             } else {
                 await addDoc(collection(db, 'classes'), newClass);
-                toast.success('Class created successfully!');
             }
 
             setShowCreateModal(false);
@@ -156,7 +154,6 @@ const ClassesSection = () => {
 
         try {
             await deleteDoc(doc(db, 'classes', id));
-            toast.success('Class deleted successfully');
             loadData();
         } catch (error) {
             console.error('Error deleting class:', error);
@@ -167,7 +164,6 @@ const ClassesSection = () => {
     const handleToggleStatus = async (cls) => {
         try {
             await updateDoc(doc(db, 'classes', cls.id), { active: !cls.active });
-            toast.success(cls.active ? 'Class archived' : 'Class activated');
             loadData();
         } catch (error) {
             toast.error('Failed to update class status');
@@ -176,7 +172,6 @@ const ClassesSection = () => {
 
     const handleCopyCode = (code) => {
         navigator.clipboard.writeText(code);
-        toast.success('Class code copied to clipboard!');
     };
 
     const handleGenerateQR = async (cls) => {
@@ -200,10 +195,12 @@ const ClassesSection = () => {
 
     const handleDownloadQR = () => {
         const link = document.createElement('a');
-        link.download = `${selectedClass.name}_QR.png`;
+        const timestamp = new Date().toISOString().split('T')[0];
+        link.download = `${selectedClass.name}_${selectedClass.classCode}_${timestamp}.png`;
         link.href = qrCodeUrl;
+        document.body.appendChild(link);
         link.click();
-        toast.success('QR code downloaded!');
+        document.body.removeChild(link);
     };
 
     // Filter classes
@@ -371,8 +368,8 @@ const ClassesSection = () => {
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: index * 0.05 }}
                                 className={`bg-white border-2 rounded-2xl p-6 transition-all group relative ${cls.active
-                                        ? 'border-gray-200 hover:border-teal-300 hover:shadow-lg'
-                                        : 'border-gray-300 bg-gray-50 opacity-75'
+                                    ? 'border-gray-200 hover:border-teal-300 hover:shadow-lg'
+                                    : 'border-gray-300 bg-gray-50 opacity-75'
                                     }`}
                             >
                                 {/* Status Badge */}
@@ -463,8 +460,8 @@ const ClassesSection = () => {
                                     <button
                                         onClick={() => handleToggleStatus(cls)}
                                         className={`px-4 py-2.5 rounded-xl font-bold transition-all ${cls.active
-                                                ? 'bg-orange-50 hover:bg-orange-100 text-orange-600'
-                                                : 'bg-green-50 hover:bg-green-100 text-green-600'
+                                            ? 'bg-orange-50 hover:bg-orange-100 text-orange-600'
+                                            : 'bg-green-50 hover:bg-green-100 text-green-600'
                                             }`}
                                         title={cls.active ? 'Archive' : 'Activate'}
                                     >

@@ -14,8 +14,12 @@ import {
 import { db } from '@/shared/config/firebase';
 import { format, isPast, isToday, isTomorrow } from 'date-fns';
 import toast from 'react-hot-toast';
+import { getClassQuizzes, deleteQuiz, duplicateQuiz } from '../../services/quizService';
+import QuizCreator from '../dashboard/QuizCreator';
+import { useAuth } from '@auth/contexts/AuthContext';
 
 const TeacherQuizzes = ({ classId, classData }) => {
+    const { user } = useAuth();
     const [quizzes, setQuizzes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -35,41 +39,16 @@ const TeacherQuizzes = ({ classId, classData }) => {
     useEffect(() => {
         if (!classId) return;
 
-        const quizzesRef = collection(db, 'classes', classId, 'quizzes');
-        const q = query(quizzesRef, orderBy('createdAt', 'desc'));
-
-        const unsubscribe = onSnapshot(q, async (snapshot) => {
-            const quizList = await Promise.all(
-                snapshot.docs.map(async (docSnap) => {
-                    const data = docSnap.data();
-
-                    // Get attempt statistics
-                    const attemptsRef = collection(db, 'classes', classId, 'quizzes', docSnap.id, 'attempts');
-                    const attemptsSnap = await getDocs(attemptsRef);
-
-                    const attempts = attemptsSnap.docs.map(d => d.data());
-                    const attemptCount = attempts.length;
-                    const uniqueStudents = new Set(attempts.map(a => a.studentId)).size;
-
-                    const totalScore = attempts.reduce((sum, a) => sum + (a.score || 0), 0);
-                    const avgScore = attemptCount > 0 ? (totalScore / attemptCount).toFixed(1) : 0;
-
-                    return {
-                        id: docSnap.id,
-                        ...data,
-                        attemptCount,
-                        uniqueStudents,
-                        avgScore,
-                    };
-                })
-            );
-
+        // Use service with standardized top-level query
+        const unsubscribe = getClassQuizzes(classId, (quizList) => {
+            // For now, we might need to manually calculate stats if they are not pre-calculated
+            // But lets assume quizList has what we need or we enhance it
             setQuizzes(quizList);
             calculateStats(quizList);
             setLoading(false);
         });
 
-        return () => unsubscribe();
+        return () => unsubscribe && unsubscribe();
     }, [classId]);
 
     // Calculate Stats
@@ -129,13 +108,15 @@ const TeacherQuizzes = ({ classId, classData }) => {
     // Delete Quiz
     const handleDeleteQuiz = async (quizId) => {
         if (!confirm('Delete this quiz? All attempts will be lost.')) return;
+        await deleteQuiz(quizId);
+    };
 
+    const handleDuplicateQuiz = async (quizId) => {
         try {
-            await deleteDoc(doc(db, 'classes', classId, 'quizzes', quizId));
-            toast.success('Quiz deleted successfully');
+            await duplicateQuiz(quizId, user.uid);
+            toast.success('Quiz duplicated');
         } catch (error) {
-            console.error('Error deleting quiz:', error);
-            toast.error('Failed to delete quiz');
+            toast.error('Failed to duplicate quiz');
         }
     };
 
@@ -214,7 +195,10 @@ const TeacherQuizzes = ({ classId, classData }) => {
 
                 {/* Create Button */}
                 <button
-                    onClick={() => setShowCreateModal(true)}
+                    onClick={() => {
+                        setSelectedQuiz(null);
+                        setShowCreateModal(true);
+                    }}
                     className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl text-sm font-bold hover:shadow-lg hover:scale-105 transition-all whitespace-nowrap"
                 >
                     <Plus size={18} />
@@ -242,7 +226,10 @@ const TeacherQuizzes = ({ classId, classData }) => {
                     </p>
                     {!searchQuery && (
                         <button
-                            onClick={() => setShowCreateModal(true)}
+                            onClick={() => {
+                                setSelectedQuiz(null);
+                                setShowCreateModal(true);
+                            }}
                             className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl text-sm font-bold hover:shadow-lg hover:scale-105 transition-all"
                         >
                             <Plus size={18} />
@@ -258,7 +245,11 @@ const TeacherQuizzes = ({ classId, classData }) => {
                             quiz={quiz}
                             classData={classData}
                             onDelete={handleDeleteQuiz}
-                            onEdit={setSelectedQuiz}
+                            onEdit={(quiz) => {
+                                setSelectedQuiz(quiz);
+                                setShowCreateModal(true);
+                            }}
+                            onDuplicate={handleDuplicateQuiz}
                             delay={idx * 0.05}
                         />
                     ))}
@@ -268,9 +259,19 @@ const TeacherQuizzes = ({ classId, classData }) => {
             {/* Create Quiz Modal */}
             <AnimatePresence>
                 {showCreateModal && (
-                    <CreateQuizModal
+                    <QuizCreator
                         classId={classId}
-                        onClose={() => setShowCreateModal(false)}
+                        classes={classData ? [classData] : []} // Pass current class as option
+                        initialData={selectedQuiz}
+                        onClose={() => {
+                            setShowCreateModal(false);
+                            // Give animation time before clearing data? No, immediate is safer for state consistency usually
+                            setSelectedQuiz(null);
+                        }}
+                        onQuizCreated={() => {
+                            setShowCreateModal(false);
+                            setSelectedQuiz(null);
+                        }}
                     />
                 )}
             </AnimatePresence>
@@ -278,24 +279,11 @@ const TeacherQuizzes = ({ classId, classData }) => {
     );
 };
 
-// Stat Card Component
-const StatCard = ({ icon: Icon, label, value, gradient }) => {
-    return (
-        <motion.div
-            whileHover={{ y: -4, scale: 1.02 }}
-            className="bg-white border-2 border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-lg transition-all"
-        >
-            <div className={`w-12 h-12 bg-gradient-to-br ${gradient} rounded-xl flex items-center justify-center mb-3`}>
-                <Icon size={20} className="text-white" />
-            </div>
-            <div className="text-2xl font-black text-gray-900 mb-1">{value}</div>
-            <div className="text-xs text-gray-600 font-semibold">{label}</div>
-        </motion.div>
-    );
-};
+// ... StatCard ...
 
 // Quiz Card Component
-const QuizCard = ({ quiz, classData, onDelete, onEdit, delay }) => {
+const QuizCard = ({ quiz, classData, onDelete, onEdit, onDuplicate, delay }) => {
+    // ... dates ...
     const now = new Date();
     const dueDate = quiz.dueDate?.toDate();
     const startDate = quiz.startDate?.toDate();
@@ -401,7 +389,14 @@ const QuizCard = ({ quiz, classData, onDelete, onEdit, delay }) => {
             <div className="flex items-center gap-2">
                 <button className="flex-1 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl text-xs font-bold hover:shadow-lg transition-all flex items-center justify-center gap-1.5">
                     <BarChart3 size={14} />
-                    View Results
+                    Results
+                </button>
+                <button
+                    onClick={() => onDuplicate(quiz.id)}
+                    className="p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl transition-all"
+                    title="Duplicate"
+                >
+                    <Plus size={14} className="rotate-45" /> {/* Makes a copy icon idea, or import Copy */}
                 </button>
                 <button
                     onClick={() => onEdit(quiz)}

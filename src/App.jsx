@@ -137,13 +137,59 @@ function App() {
                 <Router>
                     <Toaster
                         position="top-right"
+                        containerStyle={{
+                            top: 20,
+                            right: 20,
+                        }}
                         toastOptions={{
                             duration: 3000,
                             style: {
-                                background: '#363636',
+                                background: 'rgba(17, 24, 39, 0.95)',
+                                backdropFilter: 'blur(16px)',
                                 color: '#fff',
+                                borderRadius: '16px',
+                                padding: '16px 20px',
+                                fontSize: '14px',
+                                fontWeight: '600',
+                                boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3), 0 0 1px rgba(255, 255, 255, 0.1) inset',
+                                border: '1px solid rgba(255, 255, 255, 0.08)',
+                                maxWidth: '400px',
+                            },
+                            success: {
+                                duration: 3500,
+                                style: {
+                                    background: 'linear-gradient(135deg, rgba(20, 184, 166, 0.95) 0%, rgba(6, 182, 212, 0.95) 100%)',
+                                    color: '#fff',
+                                    boxShadow: '0 20px 40px rgba(20, 184, 166, 0.25), 0 8px 16px rgba(6, 182, 212, 0.2)',
+                                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                                },
+                                iconTheme: {
+                                    primary: '#fff',
+                                    secondary: 'rgba(20, 184, 166, 0.9)',
+                                },
+                            },
+                            error: {
+                                duration: 4000,
+                                style: {
+                                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.95) 0%, rgba(220, 38, 38, 0.95) 100%)',
+                                    color: '#fff',
+                                    boxShadow: '0 20px 40px rgba(239, 68, 68, 0.25), 0 8px 16px rgba(220, 38, 38, 0.2)',
+                                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                                },
+                                iconTheme: {
+                                    primary: '#fff',
+                                    secondary: 'rgba(239, 68, 68, 0.9)',
+                                },
+                            },
+                            loading: {
+                                style: {
+                                    background: 'rgba(17, 24, 39, 0.95)',
+                                    color: '#fff',
+                                    boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)',
+                                },
                             },
                         }}
+                        gutter={12}
                     />
                     <Routes>
                         {/* PUBLIC ROUTES */}

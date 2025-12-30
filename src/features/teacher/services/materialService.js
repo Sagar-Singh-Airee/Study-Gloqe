@@ -64,7 +64,6 @@ export const uploadMaterial = async (classId, file, metadata = {}) => {
         });
 
         console.log('✅ Material uploaded:', docRef.id);
-        toast.success('Material uploaded successfully!');
         return docRef.id;
     } catch (error) {
         console.error('❌ Error uploading material:', error);
@@ -140,7 +139,6 @@ export const updateMaterial = async (materialId, updates) => {
         });
 
         console.log('✅ Material updated');
-        toast.success('Material updated successfully!');
     } catch (error) {
         console.error('❌ Error updating material:', error);
         toast.error('Failed to update material');
@@ -186,7 +184,6 @@ export const deleteMaterial = async (materialId, classId) => {
         });
 
         console.log('✅ Material deleted');
-        toast.success('Material deleted successfully!');
     } catch (error) {
         console.error('❌ Error deleting material:', error);
         toast.error('Failed to delete material');
@@ -229,7 +226,6 @@ export const addLinkMaterial = async (classId, linkData) => {
         });
 
         console.log('✅ Link material added:', docRef.id);
-        toast.success('Link added successfully!');
         return docRef.id;
     } catch (error) {
         console.error('❌ Error adding link:', error);

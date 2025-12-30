@@ -217,10 +217,10 @@ const ControlButton = ({ icon: Icon, label, isActive, isDestructive, onClick, di
         className="relative group flex flex-col items-center gap-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
     >
         <div className={`p-4 rounded-full transition-all ${isDestructive
-                ? 'bg-red-500 hover:bg-red-600 text-white'
-                : isActive
-                    ? 'bg-gray-700 hover:bg-gray-600 text-white'
-                    : 'bg-gray-800 hover:bg-gray-700 text-red-400'
+            ? 'bg-red-500 hover:bg-red-600 text-white'
+            : isActive
+                ? 'bg-gray-700 hover:bg-gray-600 text-white'
+                : 'bg-gray-800 hover:bg-gray-700 text-red-400'
             }`}>
             <Icon size={24} />
             {badge && (
@@ -337,8 +337,8 @@ const ChatPanel = ({ messages, messageText, setMessageText, onSendMessage, user,
                                             <p className="text-xs text-gray-500 font-medium mb-1 ml-1">{msg.senderName}</p>
                                         )}
                                         <div className={`px-4 py-2 rounded-2xl ${msg.senderId === user?.uid
-                                                ? 'bg-blue-500 text-white rounded-tr-sm'
-                                                : 'bg-white text-gray-900 shadow-sm border border-gray-100 rounded-tl-sm'
+                                            ? 'bg-blue-500 text-white rounded-tr-sm'
+                                            : 'bg-white text-gray-900 shadow-sm border border-gray-100 rounded-tl-sm'
                                             }`}>
                                             <p className="text-sm">{msg.text}</p>
                                         </div>
@@ -388,7 +388,6 @@ const ShareModal = ({ roomId, onClose }) => {
         try {
             await navigator.clipboard.writeText(shareLink);
             setCopied(true);
-            toast.success('Link copied!');
             setTimeout(() => setCopied(false), 2000);
         } catch (e) {
             toast.error('Failed to copy');
@@ -1064,8 +1063,8 @@ const StudyRoom = () => {
                     </h1>
                     <div className="hidden md:flex items-center gap-2">
                         <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' :
-                                isJoiningCall ? 'bg-yellow-500 animate-pulse' :
-                                    'bg-red-500'
+                            isJoiningCall ? 'bg-yellow-500 animate-pulse' :
+                                'bg-red-500'
                             }`} />
                         <span className="text-gray-400 text-sm">
                             {isConnected ? 'Connected' : isJoiningCall ? 'Connecting...' : 'Disconnected'}

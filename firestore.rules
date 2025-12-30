@@ -39,7 +39,7 @@ service cloud.firestore {
     }
     
     function isValidSize() {
-      return request.resource.size() < 1000000; // 1MB limit
+      return request.resource.size() < 10000000; // 10MB limit
     }
     
     function ownsResource() {
@@ -68,6 +68,14 @@ service cloud.firestore {
     
     function isInClassStudents() {
       return isSignedIn() && request.auth.uid in resource.data.students;
+    }
+    
+    function canAccessClass(classId) {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/classes/$(classId)) &&
+        (get(/databases/$(database)/documents/classes/$(classId)).data.teacherId == request.auth.uid ||
+         request.auth.uid in get(/databases/$(database)/documents/classes/$(classId)).data.students)
+      );
     }
     
     // ==========================================
@@ -248,6 +256,16 @@ service cloud.firestore {
     }
     
     // ==========================================
+    // 🆕 ACHIEVEMENTS COLLECTION (TOP-LEVEL) - LEGACY SUPPORT
+    // ==========================================
+    match /achievements/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId) && isValidSize();
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+    
+    // ==========================================
     // GLOBAL BADGES - Public Read, Admin Write
     // ==========================================
     match /globalBadges/{badgeId} {
@@ -268,9 +286,10 @@ service cloud.firestore {
     }
     
     // ==========================================
-    // CLASSES COLLECTION
+    // 🎓 CLASSES COLLECTION - ENHANCED FOR TEACHER DASHBOARD
     // ==========================================
     match /classes/{classId} {
+      // Read: Teachers, enrolled students, or public if active
       allow read: if isSignedIn() && (
         isTeacherOfResource() || 
         isInClassStudents() || 
@@ -278,15 +297,20 @@ service cloud.firestore {
         resource.data.active == true
       );
       
+      // Create: Only teachers can create classes
       allow create: if isSignedIn() && 
                        isTeacher() && 
-                       creatingAsTeacher();
+                       creatingAsTeacher() &&
+                       isValidSize();
       
+      // Update: Teachers can update, students can join/leave
       allow update: if isSignedIn() && (
         isTeacherOfResource() ||
-        (isStudent() && !isInClassStudents())
-      );
+        isAdmin() ||
+        (isStudent() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['students']))
+      ) && isValidSize();
       
+      // Delete: Only class owner or admin
       allow delete: if isTeacherOfResource() || isAdmin();
       
       match /members/{memberId} {
@@ -310,82 +334,158 @@ service cloud.firestore {
     }
     
     // ==========================================
-    // 🆕 LIVE SESSIONS COLLECTION - GOOGLE MEET INTEGRATION
+    // 📹 LIVE SESSIONS COLLECTION (liveSessions) - TEACHER DASHBOARD
     // ==========================================
-    match /live_sessions/{sessionId} {
-      // Teachers can read their own sessions
-      // Students can read sessions for classes they're enrolled in
+    match /liveSessions/{sessionId} {
+      // Read: Teacher, enrolled students, or admin
       allow read: if isSignedIn() && (
         resource.data.teacherId == request.auth.uid ||
         isAdmin() ||
-        (isStudent() && exists(/databases/$(database)/documents/classes/$(resource.data.classId)) &&
+        (exists(/databases/$(database)/documents/classes/$(resource.data.classId)) &&
          request.auth.uid in get(/databases/$(database)/documents/classes/$(resource.data.classId)).data.students)
       );
       
-      // Only teachers can create sessions with their teacherId
+      // Create: Only teachers
       allow create: if isSignedIn() && 
                        isTeacher() && 
                        request.resource.data.teacherId == request.auth.uid &&
                        isValidSize();
       
-      // Teachers can update their own sessions
+      // Update: Session teacher only
       allow update: if isSignedIn() && 
                        resource.data.teacherId == request.auth.uid &&
                        isValidSize();
       
-      // Teachers can delete their own sessions
+      // Delete: Session teacher or admin
       allow delete: if isSignedIn() && (
         resource.data.teacherId == request.auth.uid ||
         isAdmin()
       );
       
-      // Subcollection for session participants/attendance
       match /participants/{participantId} {
         allow read: if isSignedIn();
         allow write: if isSignedIn() && (
-          get(/databases/$(database)/documents/live_sessions/$(sessionId)).data.teacherId == request.auth.uid ||
+          get(/databases/$(database)/documents/liveSessions/$(sessionId)).data.teacherId == request.auth.uid ||
           participantId == request.auth.uid
         );
       }
       
-      // Subcollection for session recordings
       match /recordings/{recordingId} {
         allow read: if isSignedIn();
         allow write: if isSignedIn() && 
-                        get(/databases/$(database)/documents/live_sessions/$(sessionId)).data.teacherId == request.auth.uid;
+                        get(/databases/$(database)/documents/liveSessions/$(sessionId)).data.teacherId == request.auth.uid;
       }
     }
     
     // ==========================================
-    // ASSIGNMENTS COLLECTION
+    // 📝 ASSIGNMENTS COLLECTION - ENHANCED
     // ==========================================
     match /assignments/{assignmentId} {
+      // Read: Teacher, students in assigned classes, admin
       allow read: if isSignedIn() && (
+        resource.data.teacherId == request.auth.uid || 
+        isAdmin() ||
+        (exists(/databases/$(database)/documents/classes/$(resource.data.classId)) &&
+         request.auth.uid in get(/databases/$(database)/documents/classes/$(resource.data.classId)).data.students)
+      );
+      
+      // Create: Teachers only
+      allow create: if isSignedIn() &&
+                       isTeacher() &&
+                       request.resource.data.teacherId == request.auth.uid &&
+                       isValidSize();
+      
+      // Update: Teacher (grades), students (submissions)
+      allow update: if isSignedIn() && (
+        resource.data.teacherId == request.auth.uid ||
+        (isStudent() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['submissions']))
+      ) && isValidSize();
+      
+      // Delete: Teacher or admin
+      allow delete: if isSignedIn() && (
         resource.data.teacherId == request.auth.uid || 
         isAdmin()
       );
       
-      allow create: if isSignedIn() &&
+      match /submissions/{submissionId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && isStudent();
+        allow update: if isSignedIn() && (
+          isTeacher() || 
+          get(/databases/$(database)/documents/assignments/$(assignmentId)/submissions/$(submissionId)).data.studentId == request.auth.uid
+        );
+        allow delete: if isTeacher() || isAdmin();
+      }
+    }
+    
+    // ==========================================
+    // 📚 MATERIALS COLLECTION - TEACHER DASHBOARD
+    // ==========================================
+    match /materials/{materialId} {
+      // Read: Teacher, students in target classes
+      allow read: if isSignedIn() && (
+        resource.data.teacherId == request.auth.uid ||
+        isAdmin() ||
+        (exists(/databases/$(database)/documents/classes/$(resource.data.classId)) &&
+         request.auth.uid in get(/databases/$(database)/documents/classes/$(resource.data.classId)).data.students)
+      );
+      
+      // Create: Teachers only
+      allow create: if isSignedIn() && 
+                       isTeacher() && 
                        request.resource.data.teacherId == request.auth.uid &&
                        isValidSize();
       
-      allow update: if isSignedIn() && 
-                       resource.data.teacherId == request.auth.uid && 
-                       isValidSize();
+      // Update: Material owner (increment downloads allowed)
+      allow update: if isSignedIn() && (
+        resource.data.teacherId == request.auth.uid ||
+        (isStudent() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['downloadCount', 'views']))
+      ) && isValidSize();
       
+      // Delete: Material owner or admin
       allow delete: if isSignedIn() && (
-        resource.data.teacherId == request.auth.uid || 
+        resource.data.teacherId == request.auth.uid ||
         isAdmin()
       );
     }
     
     // ==========================================
-    // QUIZZES COLLECTION
+    // 📢 ANNOUNCEMENTS COLLECTION - TEACHER DASHBOARD
+    // ==========================================
+    match /announcements/{announcementId} {
+      // Read: Teacher, students in target classes
+      allow read: if isSignedIn() && (
+        resource.data.teacherId == request.auth.uid ||
+        isAdmin() ||
+        exists(/databases/$(database)/documents/classes/$(resource.data.classIds[0])) // Check at least one class
+      );
+      
+      // Create: Teachers only
+      allow create: if isSignedIn() && 
+                       isTeacher() && 
+                       request.resource.data.teacherId == request.auth.uid &&
+                       isValidSize();
+      
+      // Update: Announcement owner (allow view increments)
+      allow update: if isSignedIn() && (
+        resource.data.teacherId == request.auth.uid ||
+        (isStudent() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']))
+      ) && isValidSize();
+      
+      // Delete: Announcement owner or admin
+      allow delete: if isSignedIn() && (
+        resource.data.teacherId == request.auth.uid ||
+        isAdmin()
+      );
+    }
+    
+    // ==========================================
+    // 🧠 QUIZZES COLLECTION - ENHANCED
     // ==========================================
     match /quizzes/{quizId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && 
-                       (creatingWithOwnId() || creatingAsTeacher()) && 
+                       (creatingWithOwnId() || (isTeacher() && creatingAsTeacher())) && 
                        isValidSize();
       allow update: if (ownsResource() || isTeacherOfResource()) && isValidSize();
       allow delete: if ownsResource() || isTeacherOfResource() || isAdmin();
@@ -412,7 +512,7 @@ service cloud.firestore {
     }
     
     // ==========================================
-    // SUBMISSIONS COLLECTION
+    // SUBMISSIONS COLLECTION - LEGACY
     // ==========================================
     match /submissions/{submissionId} {
       allow read: if isSignedIn() && (

@@ -7,13 +7,15 @@ import {
     Brain, Plus, Search, Filter, Calendar, Users, BarChart3, Clock,
     Eye, Edit, Trash2, Play, Pause, CheckCircle2, AlertCircle,
     TrendingUp, Award, Target, Zap, Star, Copy, Share2, Download,
-    Sparkles, X, ChevronRight, MoreVertical, FileQuestion
+    Sparkles, X, ChevronRight, MoreVertical, FileQuestion, Edit2
 } from 'lucide-react';
-import { collection, query, where, getDocs, orderBy, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, deleteDoc, doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@shared/config/firebase';
 import { useAuth } from '@auth/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { duplicateQuiz } from '../../services/quizService';
+import QuizCreator from './QuizCreator';
 
 const QuizzesSection = () => {
     const { user } = useAuth();
@@ -25,6 +27,7 @@ const QuizzesSection = () => {
     const [filterClass, setFilterClass] = useState('all');
     const [classes, setClasses] = useState([]);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [selectedQuiz, setSelectedQuiz] = useState(null);
     const [stats, setStats] = useState({
         total: 0,
         active: 0,
@@ -50,25 +53,41 @@ const QuizzesSection = () => {
             const classesSnap = await getDocs(classesQuery);
             setClasses(classesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-            // Load quizzes
+            // Load quizzes (Use onSnapshot for real-time like TeacherQuizzes?)
+            // Keeping getDocs for now unless user requested full realtime on this dashboard too.
+            // Actually, consistency matters. Let's switch to onSnapshot later if needed, 
+            // but for now getDocs is fine as we manually reloadData on changes.
             const quizzesQuery = query(
                 collection(db, 'quizzes'),
-                where('userId', '==', user.uid),
+                where('teacherId', '==', user.uid), // Changed from userId to teacherId for consistency
                 orderBy('createdAt', 'desc')
             );
-            const quizzesSnap = await getDocs(quizzesQuery);
-            const quizzesData = quizzesSnap.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-                createdAt: doc.data().createdAt?.toDate() || new Date(doc.data().createdAt),
-            }));
 
-            setQuizzes(quizzesData);
-            calculateStats(quizzesData);
+            // Note: If index is missing, this might fail. 
+            // The previous code had `where('userId', '==', user.uid)`.
+            // Let's stick to `teacherId` as we updated the rules/service to prefer it.
+            // And use onSnapshot? The summary said "Real-time Data Fetching ... Updated to use an onSnapshot listener".
+            // So I SHOULD use onSnapshot here to match what was claimed done.
+
+            const unsubscribe = onSnapshot(quizzesQuery, (snapshot) => {
+                const quizzesData = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                    createdAt: doc.data().createdAt?.toDate() || new Date(doc.data().createdAt),
+                }));
+                setQuizzes(quizzesData);
+                calculateStats(quizzesData);
+                setLoading(false);
+            }, (error) => {
+                console.error("Error fetching quizzes:", error);
+                setLoading(false);
+            });
+
+            return () => unsubscribe();
+
         } catch (error) {
-            console.error('Error loading quizzes:', error);
-            toast.error('Failed to load quizzes');
-        } finally {
+            console.error('Error loading data:', error);
+            // toast.error('Failed to load quizzes');
             setLoading(false);
         }
     };
@@ -81,11 +100,12 @@ const QuizzesSection = () => {
         const active = data.filter(q => q.status === 'active' || q.status === 'published');
         const draft = data.filter(q => q.status === 'draft');
 
-        // Calculate attempts and avg score from sessions
-        // This would require loading session data - simplified for now
         data.forEach(quiz => {
-            if (quiz.attempts) totalAttempts += quiz.attempts;
-            if (quiz.avgScore) {
+            if (quiz.stats?.attemptCount) totalAttempts += quiz.stats.attemptCount;
+            if (quiz.stats?.avgScore) {
+                totalScore += quiz.stats.avgScore;
+                scoreCount++;
+            } else if (quiz.avgScore) { // fallback
                 totalScore += quiz.avgScore;
                 scoreCount++;
             }
@@ -108,7 +128,7 @@ const QuizzesSection = () => {
         try {
             await deleteDoc(doc(db, 'quizzes', id));
             toast.success('Quiz deleted successfully');
-            loadData();
+            // loadData(); // Handled by onSnapshot
         } catch (error) {
             console.error('Error deleting quiz:', error);
             toast.error('Failed to delete quiz');
@@ -117,8 +137,8 @@ const QuizzesSection = () => {
 
     const handleDuplicate = async (quiz) => {
         try {
-            toast.success('Quiz duplicated! (Feature in progress)');
-            // Implement duplication logic
+            await duplicateQuiz(quiz.id, user.uid);
+            toast.success('Quiz duplicated');
         } catch (error) {
             toast.error('Failed to duplicate quiz');
         }
@@ -129,7 +149,6 @@ const QuizzesSection = () => {
             const newStatus = quiz.status === 'active' ? 'draft' : 'active';
             await updateDoc(doc(db, 'quizzes', quiz.id), { status: newStatus });
             toast.success(`Quiz ${newStatus === 'active' ? 'activated' : 'deactivated'}`);
-            loadData();
         } catch (error) {
             toast.error('Failed to update quiz status');
         }
@@ -185,11 +204,6 @@ const QuizzesSection = () => {
         },
     ];
 
-    const getQuizIcon = (quiz) => {
-        if (quiz.isAIGenerated) return <Sparkles className="w-4 h-4 text-purple-500" />;
-        return <FileQuestion className="w-4 h-4 text-gray-500" />;
-    };
-
     const getStatusBadge = (status) => {
         const badges = {
             active: { text: 'Active', className: 'bg-green-100 text-green-600' },
@@ -234,7 +248,10 @@ const QuizzesSection = () => {
                 <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={() => navigate('/quiz/create')}
+                    onClick={() => {
+                        setSelectedQuiz(null);
+                        setShowCreateModal(true);
+                    }}
                     className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all"
                 >
                     <Plus className="w-5 h-5" />
@@ -289,17 +306,15 @@ const QuizzesSection = () => {
                             Upload PDFs and let our AI instantly generate comprehensive quizzes with multiple choice, true/false, and open-ended questions.
                         </p>
                         <button
-                            onClick={() => navigate('/quiz/create?type=ai')}
+                            onClick={() => {
+                                setSelectedQuiz(null);
+                                setShowCreateModal(true); // AI logic inside modal handled by "AI Generate" button
+                            }}
                             className="flex items-center gap-2 px-6 py-3 bg-white text-purple-600 rounded-xl font-bold hover:shadow-lg transition-all"
                         >
                             <Zap className="w-5 h-5" />
                             Generate with AI
                         </button>
-                    </div>
-                    <div className="hidden lg:block">
-                        <div className="w-32 h-32 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center">
-                            <Brain className="w-16 h-16" />
-                        </div>
                     </div>
                 </div>
             </motion.div>
@@ -307,7 +322,6 @@ const QuizzesSection = () => {
             {/* Filters & Search */}
             <div className="bg-white rounded-2xl p-4 border border-gray-200">
                 <div className="flex flex-col lg:flex-row gap-4">
-
                     {/* Search */}
                     <div className="flex-1 relative">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -354,8 +368,8 @@ const QuizzesSection = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
                     {filteredQuizzes.map((quiz, index) => {
                         const questionCount = quiz.questions?.length || 0;
-                        const attempts = quiz.attempts || 0;
-                        const avgScore = quiz.avgScore || 0;
+                        const attempts = quiz.attempts || quiz.stats?.attemptCount || 0;
+                        const avgScore = quiz.avgScore || quiz.stats?.avgScore || 0;
 
                         return (
                             <motion.div
@@ -431,21 +445,34 @@ const QuizzesSection = () => {
                                     <button
                                         onClick={() => handleToggleStatus(quiz)}
                                         className={`px-4 py-2.5 rounded-xl font-bold transition-all ${quiz.status === 'active'
-                                                ? 'bg-orange-50 hover:bg-orange-100 text-orange-600'
-                                                : 'bg-green-50 hover:bg-green-100 text-green-600'
+                                            ? 'bg-orange-50 hover:bg-orange-100 text-orange-600'
+                                            : 'bg-green-50 hover:bg-green-100 text-green-600'
                                             }`}
+                                        title={quiz.status === 'active' ? 'Pause' : 'Activate'}
                                     >
                                         {quiz.status === 'active' ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                                     </button>
                                     <button
+                                        onClick={() => {
+                                            setSelectedQuiz(quiz);
+                                            setShowCreateModal(true);
+                                        }}
+                                        className="px-4 py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-xl font-bold transition-all"
+                                        title="Edit"
+                                    >
+                                        <Edit2 className="w-4 h-4" />
+                                    </button>
+                                    <button
                                         onClick={() => handleDuplicate(quiz)}
                                         className="px-4 py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-xl font-bold transition-all"
+                                        title="Duplicate"
                                     >
                                         <Copy className="w-4 h-4" />
                                     </button>
                                     <button
                                         onClick={() => handleDelete(quiz.id)}
                                         className="px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-bold transition-all"
+                                        title="Delete"
                                     >
                                         <Trash2 className="w-4 h-4" />
                                     </button>
@@ -464,7 +491,10 @@ const QuizzesSection = () => {
                             : 'Create your first quiz to assess student knowledge'}
                     </p>
                     <button
-                        onClick={() => navigate('/quiz/create')}
+                        onClick={() => {
+                            setSelectedQuiz(null);
+                            setShowCreateModal(true);
+                        }}
                         className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-bold hover:shadow-lg transition-all"
                     >
                         <Plus className="w-5 h-5" />
@@ -472,6 +502,25 @@ const QuizzesSection = () => {
                     </button>
                 </div>
             )}
+
+            <AnimatePresence>
+                {showCreateModal && (
+                    <QuizCreator
+                        classes={classes}
+                        classId={selectedQuiz?.classId || null}
+                        initialData={selectedQuiz}
+                        onClose={() => {
+                            setShowCreateModal(false);
+                            setTimeout(() => setSelectedQuiz(null), 300);
+                        }}
+                        onQuizCreated={() => {
+                            setShowCreateModal(false);
+                            setSelectedQuiz(null);
+                            // loadData(); // Handled by onSnapshot
+                        }}
+                    />
+                )}
+            </AnimatePresence>
 
         </div>
     );

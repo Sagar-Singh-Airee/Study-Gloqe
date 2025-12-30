@@ -281,6 +281,15 @@ export const trackAction = async (userId, action, data = {}) => {
                 break;
 
 
+            case 'STUDY_TIME':
+                // Alias for study session tracking (from studySessionService)
+                const studyMinutes = data.minutes || 1;
+                updates.totalStudyTime = increment(studyMinutes);
+                // No XP awarded here - XP is handled separately via daily actions
+                console.log(`📊 Tracked study time: ${studyMinutes} minutes`);
+                break;
+
+
             default:
                 console.warn(`⚠️ Unknown action: ${action}`);
                 return;
