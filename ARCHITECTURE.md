@@ -8,44 +8,30 @@ The following diagram illustrates the high-level flow of data and control betwee
 
 ```mermaid
 graph TD
-    subgraph "1. Client Layer"
-        User[User Browser]
-        App[React Web App]
-        Style[Tailwind CSS / Framer Motion]
-    end
+    %% Define Nodes
+    Frontend["💻 React Frontend"]
+    CF["☁️ Cloud Functions (Node.js)"]
+    FS[("🔥 Firestore (Real-time DB)")]
+    BQ[("📊 BigQuery (Data Warehouse)")]
+    VAI[["🧠 Vertex AI (Gemini 2.5)"]]
+    Kafka{"⚡ Confluent Kafka (Event Bus)"}
+    Storage[("📁 Firebase Storage (PDFs)")]
 
-    subgraph "2. Logic & Orchestration (Firebase)"
-        CF[Cloud Functions]
-        Auth[Firebase Auth]
-    end
+    %% Connections
+    Frontend <-->|Real-time Sync| FS
+    Frontend -->|API Requests| CF
+    Frontend -->|File Upload| Storage
 
-    subgraph "3. Data & State Management"
-        FS[(Firestore DB)]
-        BQ[(BigQuery Analytics)]
-        STG[(Firebase Storage)]
-    end
+    CF <-->|Write/Read Docs| FS
+    CF -->|Sync Analytics| BQ
+    CF <-->|AI Tasks| VAI
+    CF -->|Publish Events| Kafka
 
-    subgraph "4. Intelligence & Streaming"
-        VAI[[Vertex AI / Gemini]]
-        CK{Confluent Kafka}
-    end
+    Storage -- "Trigger: onCreate" --> CF
+    FS -- "Trigger: onUpdate" --> CF
 
-    %% Interactions
-    App ---|Real-time Sync| FS
-    App -->|Secure Login| Auth
-    App -->|API Calls / Events| CF
-    App -->|PDF Upload| STG
-    
-    CF ---|Write/Read| FS
-    CF -->|Sync Logs| BQ
-    CF -->|AI Tasks| VAI
-    CF -->|Produce Events| CK
-    
-    FS -->|Trigger: onCreate| CF
-    STG -->|Trigger: onFinalize| CF
-    
-    BQ -.->|Query Stats| CF
-    CK -->|Consume Events| ExtServer[Node.js Event Server]
+    Kafka --> Consumer["🚀 External Event Consumer"]
+    BQ -.->|Fetch Trends| CF
 ```
 
 ---
