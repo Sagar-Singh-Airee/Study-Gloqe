@@ -812,20 +812,34 @@ export const exitStudySession = async (sessionId, userId, documentId, documentTi
       ...sessionManager.sessionMetrics
     }).catch(err => console.warn('⚠️ BigQuery sync warning:', err.message));
 
+    // Parallelize auxiliary updates for performance
+    const updatesPromises = [];
+
     // Update document stats
     if (documentId || sessionData.documentId) {
-      await updateDocumentStats(documentId || sessionData.documentId, cappedTime);
+      updatesPromises.push(
+        updateDocumentStats(documentId || sessionData.documentId, cappedTime)
+          .catch(e => console.warn('⚠️ Doc stats update failed:', e))
+      );
     }
 
     // Update user stats
-    await updateUserSessionStats(userId || sessionData.userId, 'end', cappedTime);
+    updatesPromises.push(
+      updateUserSessionStats(userId || sessionData.userId, 'end', cappedTime)
+        .catch(e => console.warn('⚠️ User stats update failed:', e))
+    );
 
     // Create session summary for analytics
-    await createSessionSummary(sessionId, {
-      ...sessionData,
-      ...updateData,
-      totalTime: cappedTime
-    });
+    updatesPromises.push(
+      createSessionSummary(sessionId, {
+        ...sessionData,
+        ...updateData,
+        totalTime: cappedTime
+      }).catch(e => console.warn('⚠️ Session summary failed:', e))
+    );
+
+    // Wait for all updates (or fail gracefully)
+    await Promise.all(updatesPromises);
 
     // Clear cache and reset manager
     sessionCache.delete(`session_${sessionId}`);

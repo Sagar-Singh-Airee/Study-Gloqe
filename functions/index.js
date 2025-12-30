@@ -510,8 +510,20 @@ exports.syncStudySessionToBigQuery = functions.region('asia-south1').https.onCal
       totalMinutes,
       message: 'Study session synced to BigQuery and Kafka'
     };
+    throw new functions.https.HttpsError('internal', `Failed to sync to BigQuery: ${error.message}`);
   } catch (error) {
-    console.error('BigQuery sync error:', error);
+    console.warn('BigQuery sync error:', error.message);
+
+    // Check if it's a "Not Found" error (missing table/dataset)
+    if (error.code === 404 || error.message.includes('Not found') || error.message.includes('No such scheme')) {
+      console.warn('⚠️ BigQuery dataset or table not found. Skipping sync.');
+      return {
+        success: false,
+        skipped: true,
+        reason: 'BigQuery configuration missing',
+        message: 'BigQuery infrastructure not set up. Sync skipped.'
+      };
+    }
 
     // Check if it's a duplicate error
     if (error.message && error.message.includes('already exists')) {
@@ -523,7 +535,14 @@ exports.syncStudySessionToBigQuery = functions.region('asia-south1').https.onCal
       };
     }
 
-    throw new functions.https.HttpsError('internal', `Failed to sync to BigQuery: ${error.message}`);
+    // For other errors, log but don't crash the client call if possible
+    console.error('❌ BigQuery sync unexpected error:', error);
+    // We still return true to avoid breaking the client experience, but log the error on backend
+    return {
+      success: false,
+      error: error.message,
+      message: 'Failed to sync to BigQuery'
+    };
   }
 });
 

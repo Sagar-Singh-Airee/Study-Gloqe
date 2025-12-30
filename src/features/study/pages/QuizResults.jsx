@@ -1,5 +1,5 @@
 // src/pages/QuizResults.jsx
-// 🎨 ULTIMATE PREMIUM DESIGN - FULLY FIXED
+// 🎨 STUDYGLOQE ULTIMATE - FINAL PREMIUM VERSION
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -7,9 +7,10 @@ import confetti from 'canvas-confetti';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import ReactMarkdown from 'react-markdown';
 import {
-  Trophy, Clock, CheckCircle2, XCircle, Home, Share2,
-  Sparkles, RotateCcw, Zap, BookOpen, ArrowRight, Check,
-  Target, ChevronDown, Brain, Award, TrendingUp
+  Clock, CheckCircle2, XCircle, Share2, RotateCcw,
+  ChevronDown, ChevronUp, Brain, Sparkles, ArrowRight,
+  Target, Zap, LayoutDashboard, Award, TrendingUp, Check,
+  Trophy, Flame, Star, BookOpen, AlertCircle, Lightbulb
 } from 'lucide-react';
 import { useAuth } from '@auth/contexts/AuthContext';
 import { getQuizResults } from '@teacher/services/quizService';
@@ -18,424 +19,421 @@ import toast from 'react-hot-toast';
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
 // ═════════════════════════════════════════════════════════
-// LOADING STATE - Premium
+// LOADING SKELETON
 // ═════════════════════════════════════════════════════════
-
-const LoadingScreen = () => (
-  <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center relative overflow-hidden">
-    <div className="absolute inset-0 overflow-hidden">
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl animate-pulse" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse delay-700" />
-    </div>
-
-    <div className="text-center relative z-10">
-      <div className="relative w-20 h-20 mx-auto mb-6">
-        <div className="absolute inset-0 border-4 border-teal-500/20 rounded-full" />
-        <div className="absolute inset-0 border-4 border-t-teal-500 border-r-teal-500 rounded-full animate-spin" />
+const LoadingSkeleton = () => (
+  <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+    <div className="h-20 bg-white/80 backdrop-blur-xl border-b border-slate-200 animate-pulse" />
+    <div className="max-w-7xl mx-auto px-6 py-10 space-y-8">
+      <div className="h-10 w-56 bg-slate-200 rounded-2xl animate-pulse" />
+      <div className="h-80 w-full bg-gradient-to-br from-[#0B1221] to-slate-900 rounded-[40px] animate-pulse" />
+      <div className="bg-white rounded-[32px] border border-slate-200 p-8 space-y-5">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="h-20 bg-slate-100 rounded-2xl animate-pulse" />
+        ))}
       </div>
-      <p className="text-sm font-bold text-white/80 tracking-wide">Calculating your results...</p>
     </div>
   </div>
 );
 
 // ═════════════════════════════════════════════════════════
-// HERO SCORE CARD - FULLY FIXED with validation
+// HERO CARD - The Ultimate Premium Card
 // ═════════════════════════════════════════════════════════
+const ResultHero = ({
+  score,
+  correct,
+  total,
+  timeTaken,
+  quizTitle,
+  onRetake,
+  onShare,
+  aiAnalysis,
+  onGenerateAI,
+  isAnalyzing,
+  copied
+}) => {
+  const percentage = Math.round(score || 0);
 
-const HeroScoreCard = ({ score = 0, correct = 0, total = 1, timeTaken = '0m' }) => {
-  // Validate inputs
-  const safeScore = typeof score === 'number' && !isNaN(score) ? Math.round(score) : 0;
-  const safeCorrect = typeof correct === 'number' && !isNaN(correct) ? correct : 0;
-  const safeTotal = typeof total === 'number' && !isNaN(total) && total > 0 ? total : 1;
-  const safeTime = timeTaken || '0m';
-
+  // Performance level with better icons
   const getPerformance = () => {
-    if (safeScore >= 90) return {
-      grade: 'Outstanding!',
+    if (percentage >= 90) return {
+      icon: Trophy,
       emoji: '🏆',
-      color1: '#fbbf24',
-      color2: '#f59e0b',
-      bgGradient: 'from-amber-500/10 via-orange-500/10 to-yellow-500/10',
-      textColor: 'text-amber-600',
-      glowColor: 'shadow-amber-500/20'
+      label: 'Outstanding!',
+      gradient: 'from-amber-500 to-orange-600',
+      glow: 'shadow-amber-500/20',
+      textColor: 'text-amber-400'
     };
-    if (safeScore >= 80) return {
-      grade: 'Excellent!',
+    if (percentage >= 80) return {
+      icon: Star,
       emoji: '⭐',
-      color1: '#14b8a6',
-      color2: '#06b6d4',
-      bgGradient: 'from-teal-500/10 via-cyan-500/10 to-blue-500/10',
-      textColor: 'text-teal-600',
-      glowColor: 'shadow-teal-500/20'
+      label: 'Excellent!',
+      gradient: 'from-teal-500 to-cyan-600',
+      glow: 'shadow-teal-500/20',
+      textColor: 'text-teal-400'
     };
-    if (safeScore >= 70) return {
-      grade: 'Well Done!',
+    if (percentage >= 70) return {
+      icon: Sparkles,
       emoji: '✨',
-      color1: '#3b82f6',
-      color2: '#6366f1',
-      bgGradient: 'from-blue-500/10 via-indigo-500/10 to-purple-500/10',
-      textColor: 'text-blue-600',
-      glowColor: 'shadow-blue-500/20'
+      label: 'Great Job!',
+      gradient: 'from-blue-500 to-indigo-600',
+      glow: 'shadow-blue-500/20',
+      textColor: 'text-blue-400'
     };
-    if (safeScore >= 60) return {
-      grade: 'Good Effort!',
+    if (percentage >= 60) return {
+      icon: Flame,
       emoji: '💪',
-      color1: '#8b5cf6',
-      color2: '#a855f7',
-      bgGradient: 'from-purple-500/10 via-violet-500/10 to-fuchsia-500/10',
-      textColor: 'text-purple-600',
-      glowColor: 'shadow-purple-500/20'
+      label: 'Good Try!',
+      gradient: 'from-purple-500 to-fuchsia-600',
+      glow: 'shadow-purple-500/20',
+      textColor: 'text-purple-400'
     };
     return {
-      grade: 'Keep Practicing!',
+      icon: BookOpen,
       emoji: '📚',
-      color1: '#64748b',
-      color2: '#475569',
-      bgGradient: 'from-slate-500/10 via-gray-500/10 to-zinc-500/10',
-      textColor: 'text-slate-600',
-      glowColor: 'shadow-slate-500/20'
+      label: 'Keep Learning!',
+      gradient: 'from-slate-500 to-slate-600',
+      glow: 'shadow-slate-500/20',
+      textColor: 'text-slate-400'
     };
   };
 
   const perf = getPerformance();
-  const radius = 85;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (safeScore / 100) * circumference;
-  const accuracy = safeTotal > 0 ? Math.round((safeCorrect / safeTotal) * 100) : 0;
+  const PerformanceIcon = perf.icon;
 
   return (
     <motion.div
-      initial={{ scale: 0.95, opacity: 0, y: 20 }}
-      animate={{ scale: 1, opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, type: 'spring', bounce: 0.4 }}
-      className={`relative bg-gradient-to-br ${perf.bgGradient} backdrop-blur-xl rounded-3xl p-10 overflow-hidden border border-white/20 shadow-2xl ${perf.glowColor}`}
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, type: 'spring' }}
+      className={`relative overflow-hidden rounded-[40px] bg-gradient-to-br from-[#0B1221] via-slate-900 to-[#0B1221] text-white p-10 md:p-14 shadow-2xl ${perf.glow}`}
     >
-      {/* Premium background patterns */}
-      <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size:20px_20px]" />
-      <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-white/10 to-transparent rounded-full blur-3xl -mr-32 -mt-32" />
-      <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-white/10 to-transparent rounded-full blur-3xl -ml-24 -mb-24" />
+      {/* Advanced Background Effects */}
+      <div className="absolute inset-0 bg-[size:60px_60px] opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)' }} />
+      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-br from-teal-500/10 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDuration: '8s' }} />
+      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-gradient-to-tr from-purple-500/10 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDuration: '10s', animationDelay: '2s' }} />
 
-      <div className="relative">
-        {/* Premium Grade Badge */}
-        <motion.div
-          initial={{ y: -20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="inline-flex items-center gap-3 px-5 py-2.5 bg-white/90 backdrop-blur-md rounded-full mb-8 shadow-lg border border-white/40"
-        >
-          <span className="text-3xl">{perf.emoji}</span>
-          <span className={`font-black text-xl ${perf.textColor}`}>{perf.grade}</span>
-        </motion.div>
+      {/* Floating Orbs */}
+      <motion.div
+        animate={{ y: [0, -20, 0], x: [0, 10, 0] }}
+        transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+        className="absolute top-20 right-20 w-32 h-32 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-full blur-2xl"
+      />
+      <motion.div
+        animate={{ y: [0, 20, 0], x: [0, -15, 0] }}
+        transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+        className="absolute bottom-20 left-20 w-40 h-40 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-full blur-2xl"
+      />
 
-        {/* Score Display */}
-        <div className="flex items-center gap-12">
-          {/* Circular Progress - FIXED with unique IDs */}
-          <div className="relative">
-            <svg className="transform -rotate-90 drop-shadow-2xl" width="200" height="200">
-              <defs>
-                {/* FIXED: Unique gradient ID per component instance */}
-                <linearGradient id={`scoreGradient-${safeScore}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" style={{ stopColor: perf.color1, stopOpacity: 1 }} />
-                  <stop offset="100%" style={{ stopColor: perf.color2, stopOpacity: 1 }} />
-                </linearGradient>
-                <filter id="glow">
-                  <feGaussianBlur stdDeviation="4" result="coloredBlur" />
-                  <feMerge>
-                    <feMergeNode in="coloredBlur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-              </defs>
+      <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
 
-              {/* Background circle */}
-              <circle
-                cx="100"
-                cy="100"
-                r={radius}
-                stroke="#e5e7eb"
-                strokeWidth="14"
-                fill="transparent"
-                opacity="0.2"
-              />
-
-              {/* Progress circle */}
-              <motion.circle
-                initial={{ strokeDashoffset: circumference }}
-                animate={{ strokeDashoffset: offset }}
-                transition={{ duration: 2, ease: 'easeOut', delay: 0.5 }}
-                cx="100"
-                cy="100"
-                r={radius}
-                stroke={`url(#scoreGradient-${safeScore})`}
-                strokeWidth="14"
-                fill="transparent"
-                strokeDasharray={circumference}
-                strokeLinecap="round"
-                filter="url(#glow)"
-              />
-            </svg>
-
-            {/* Center content */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <motion.span
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.8, type: 'spring', bounce: 0.5 }}
-                className="text-6xl font-black bg-gradient-to-br from-slate-900 to-slate-700 bg-clip-text text-transparent"
-              >
-                {safeScore}
-              </motion.span>
-              <span className="text-2xl font-bold text-slate-400">%</span>
-            </div>
-          </div>
-
-          {/* Premium Stats Grid */}
-          <div className="flex-1 space-y-4">
-            <motion.div
-              initial={{ x: 30, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.6 }}
-              className="flex items-center justify-between p-4 bg-white/70 backdrop-blur-md rounded-2xl border border-white/40 shadow-lg hover:shadow-xl transition-shadow group"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 bg-gradient-to-br from-teal-500 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                  <CheckCircle2 size={20} className="text-white" />
-                </div>
-                <span className="text-sm font-bold text-slate-700">Correct Answers</span>
-              </div>
-              <span className="text-2xl font-black text-slate-900">{safeCorrect}<span className="text-slate-400">/{safeTotal}</span></span>
-            </motion.div>
-
-            <motion.div
-              initial={{ x: 30, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.7 }}
-              className="flex items-center justify-between p-4 bg-white/70 backdrop-blur-md rounded-2xl border border-white/40 shadow-lg hover:shadow-xl transition-shadow group"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                  <Clock size={20} className="text-white" />
-                </div>
-                <span className="text-sm font-bold text-slate-700">Time Taken</span>
-              </div>
-              <span className="text-2xl font-black text-slate-900">{safeTime}</span>
-            </motion.div>
-
-            <motion.div
-              initial={{ x: 30, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.8 }}
-              className="flex items-center justify-between p-4 bg-white/70 backdrop-blur-md rounded-2xl border border-white/40 shadow-lg hover:shadow-xl transition-shadow group"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                  <Target size={20} className="text-white" />
-                </div>
-                <span className="text-sm font-bold text-slate-700">Accuracy</span>
-              </div>
-              <span className="text-2xl font-black text-slate-900">
-                {accuracy}<span className="text-slate-400">%</span>
-              </span>
-            </motion.div>
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-};
-
-// ═════════════════════════════════════════════════════════
-// ACTION BUTTONS - Premium
-// ═════════════════════════════════════════════════════════
-
-const ActionButtons = ({ onShare, onRetake, copied }) => (
-  <motion.div
-    initial={{ y: 20, opacity: 0 }}
-    animate={{ y: 0, opacity: 1 }}
-    transition={{ delay: 0.9 }}
-    className="flex gap-4"
-  >
-    <button
-      onClick={onShare}
-      className="flex-1 flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-teal-500 via-cyan-500 to-blue-600 text-white rounded-2xl font-bold hover:from-teal-600 hover:via-cyan-600 hover:to-blue-700 transition-all shadow-xl hover:shadow-2xl hover:scale-105 group relative overflow-hidden"
-    >
-      <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform" />
-      <div className="relative flex items-center gap-3">
-        {copied ? <Check size={20} /> : <Share2 size={20} />}
-        <span className="text-lg">{copied ? 'Copied!' : 'Share Result'}</span>
-      </div>
-    </button>
-
-    <button
-      onClick={onRetake}
-      className="flex items-center justify-center gap-3 px-8 py-4 bg-white text-slate-800 rounded-2xl font-bold hover:bg-slate-50 transition-all border-2 border-slate-200 hover:border-slate-300 shadow-xl hover:shadow-2xl hover:scale-105 group relative overflow-hidden"
-    >
-      <div className="absolute inset-0 bg-gradient-to-r from-slate-50 to-slate-100 translate-y-full group-hover:translate-y-0 transition-transform" />
-      <div className="relative flex items-center gap-3">
-        <RotateCcw size={20} className="group-hover:rotate-180 transition-transform duration-700" />
-        <span className="text-lg">Retake Quiz</span>
-      </div>
-    </button>
-  </motion.div>
-);
-
-// ═════════════════════════════════════════════════════════
-// AI INSIGHTS - Premium Design
-// ═════════════════════════════════════════════════════════
-
-const AIInsights = ({ isAnalyzing, aiAnalysis, onGenerate }) => {
-  const [isOpen, setIsOpen] = useState(false);
-
-  return (
-    <motion.div
-      initial={{ y: 20, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ delay: 1 }}
-      className="bg-gradient-to-br from-white to-slate-50 rounded-2xl border border-slate-200/60 overflow-hidden shadow-lg hover:shadow-xl transition-all"
-    >
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full p-5 flex items-center justify-between hover:bg-white/60 transition-colors group"
-      >
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 bg-gradient-to-br from-purple-600 via-violet-600 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-            <Brain size={24} className="text-white" />
-          </div>
-          <div className="text-left">
-            <h3 className="font-black text-lg text-slate-900">AI Performance Coach</h3>
-            <p className="text-sm text-slate-500 font-medium">Get personalized insights & recommendations</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-purple-600 bg-purple-100 px-3 py-1 rounded-full">Premium</span>
-          <ChevronDown
-            size={20}
-            className={`text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-          />
-        </div>
-      </button>
-
-      <AnimatePresence>
-        {isOpen && (
+        {/* LEFT: Big Score & Actions */}
+        <div className="lg:col-span-4 flex flex-col space-y-6">
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="overflow-hidden"
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
+            className="space-y-4"
           >
-            <div className="p-6 border-t border-slate-200 bg-gradient-to-br from-slate-50 to-white">
-              {isAnalyzing ? (
-                <div className="flex items-center gap-4 py-6">
-                  <div className="relative w-6 h-6">
-                    <div className="absolute inset-0 border-3 border-purple-200 rounded-full" />
-                    <div className="absolute inset-0 border-3 border-t-purple-600 border-r-purple-600 rounded-full animate-spin" />
-                  </div>
-                  <div>
-                    <p className="font-bold text-slate-900">Analyzing your performance...</p>
-                    <p className="text-sm text-slate-500">Our AI is reviewing your answers</p>
-                  </div>
-                </div>
-              ) : aiAnalysis ? (
-                <div className="prose prose-sm max-w-none">
-                  <ReactMarkdown
-                    components={{
-                      h2: ({ children }) => (
-                        <h4 className="text-sm font-black text-slate-900 mt-4 mb-2 first:mt-0">{children}</h4>
-                      ),
-                      ul: ({ children }) => (
-                        <ul className="space-y-2 mb-4">{children}</ul>
-                      ),
-                      li: ({ children }) => (
-                        <li className="flex items-start gap-2 text-sm text-slate-700">
-                          <span className="text-purple-500 mt-1">•</span>
-                          <span>{children}</span>
-                        </li>
-                      ),
-                      p: ({ children }) => (
-                        <p className="text-sm text-slate-700 mb-3 leading-relaxed">{children}</p>
-                      ),
-                      ol: ({ children }) => (
-                        <ol className="space-y-2 mb-4 list-decimal list-inside">{children}</ol>
-                      )
-                    }}
-                  >
-                    {aiAnalysis}
-                  </ReactMarkdown>
-                </div>
-              ) : (
-                <button
-                  onClick={onGenerate}
-                  className="w-full p-4 bg-gradient-to-r from-purple-600 via-violet-600 to-pink-600 text-white rounded-xl font-bold hover:from-purple-700 hover:via-violet-700 hover:to-pink-700 transition-all flex items-center justify-center gap-3 shadow-lg hover:shadow-xl hover:scale-105 group relative overflow-hidden"
-                >
-                  <div className="absolute inset-0 bg-white/20 translate-x-full group-hover:translate-x-0 transition-transform duration-500" />
-                  <div className="relative flex items-center gap-3">
-                    <Sparkles size={20} className="animate-pulse" />
-                    <span className="text-lg">Generate AI Insights</span>
-                  </div>
-                </button>
-              )}
+            {/* Performance Badge */}
+            <div className={`inline-flex items-center gap-3 px-5 py-3 rounded-2xl bg-gradient-to-r ${perf.gradient} shadow-lg`}>
+              <PerformanceIcon size={20} className="text-white" />
+              <span className="text-white text-sm font-black uppercase tracking-wide">{perf.label}</span>
+            </div>
+
+            {/* Big Score */}
+            <div className="relative">
+              <motion.h1
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.4, type: 'spring', stiffness: 150 }}
+                className="text-[120px] leading-none font-black tracking-tighter bg-gradient-to-br from-white via-slate-100 to-slate-300 bg-clip-text text-transparent"
+                style={{ fontFamily: "'Inter', 'Plus Jakarta Sans', -apple-system, sans-serif" }}
+              >
+                {percentage}
+              </motion.h1>
+              <span className="absolute -top-4 -right-4 text-5xl font-black text-white/40">%</span>
+            </div>
+
+            {/* Stats Text */}
+            <div className="space-y-1">
+              <p className="text-slate-300 font-semibold text-lg" style={{ fontFamily: "'Inter', sans-serif" }}>
+                <span className="text-white font-black">{correct}</span> correct out of{' '}
+                <span className="text-white font-black">{total}</span> questions
+              </p>
+              <p className="text-slate-500 text-sm font-medium flex items-center gap-2">
+                <BookOpen size={14} />
+                {quizTitle}
+              </p>
             </div>
           </motion.div>
-        )}
-      </AnimatePresence>
+
+          {/* Action Buttons */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="flex flex-col sm:flex-row gap-4"
+          >
+            <button
+              onClick={onRetake}
+              className="group relative overflow-hidden flex items-center justify-center gap-3 px-8 py-4 bg-white text-[#0B1221] rounded-2xl font-black hover:bg-slate-50 transition-all hover:scale-105 active:scale-95 shadow-2xl"
+              style={{ fontFamily: "'Inter', sans-serif" }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-teal-500/10 to-blue-500/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+              <RotateCcw size={20} className="group-hover:rotate-180 transition-transform duration-500 relative z-10" />
+              <span className="relative z-10">Retake Quiz</span>
+            </button>
+
+            <button
+              onClick={onShare}
+              className="group flex items-center justify-center gap-3 px-8 py-4 bg-white/10 backdrop-blur-xl text-white rounded-2xl font-black hover:bg-white/20 transition-all border-2 border-white/20 hover:border-white/30 hover:scale-105 active:scale-95"
+              style={{ fontFamily: "'Inter', sans-serif" }}
+            >
+              {copied ? (
+                <>
+                  <Check size={20} className="animate-bounce" />
+                  <span>Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Share2 size={20} className="group-hover:rotate-12 transition-transform" />
+                  <span>Share</span>
+                </>
+              )}
+            </button>
+          </motion.div>
+        </div>
+
+        {/* MIDDLE: Premium Stats Grid */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="lg:col-span-4 grid grid-cols-2 gap-4"
+        >
+          {/* Time Card */}
+          <motion.div
+            whileHover={{ scale: 1.05, y: -5 }}
+            className="group relative p-6 rounded-3xl bg-white/5 backdrop-blur-xl border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all cursor-default overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="relative z-10">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center mb-3 shadow-lg shadow-blue-500/50">
+                <Clock size={20} className="text-white" />
+              </div>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1" style={{ fontFamily: "'Inter', sans-serif" }}>
+                Time
+              </span>
+              <p className="text-3xl font-black text-white" style={{ fontFamily: "'Inter', sans-serif" }}>{timeTaken}</p>
+            </div>
+          </motion.div>
+
+          {/* Accuracy Card */}
+          <motion.div
+            whileHover={{ scale: 1.05, y: -5 }}
+            className="group relative p-6 rounded-3xl bg-white/5 backdrop-blur-xl border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all cursor-default overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-teal-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="relative z-10">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center mb-3 shadow-lg shadow-teal-500/50">
+                <Target size={20} className="text-white" />
+              </div>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1" style={{ fontFamily: "'Inter', sans-serif" }}>
+                Accuracy
+              </span>
+              <p className="text-3xl font-black text-teal-400" style={{ fontFamily: "'Inter', sans-serif" }}>{Math.round((correct / total) * 100)}%</p>
+            </div>
+          </motion.div>
+
+          {/* XP Card */}
+          <motion.div
+            whileHover={{ scale: 1.05, y: -5 }}
+            className="group relative p-6 rounded-3xl bg-white/5 backdrop-blur-xl border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all cursor-default overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="relative z-10">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-fuchsia-600 flex items-center justify-center mb-3 shadow-lg shadow-purple-500/50">
+                <Zap size={20} className="text-white" />
+              </div>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1" style={{ fontFamily: "'Inter', sans-serif" }}>
+                XP Earned
+              </span>
+              <p className="text-3xl font-black text-purple-400" style={{ fontFamily: "'Inter', sans-serif" }}>+{percentage * 10}</p>
+            </div>
+          </motion.div>
+
+          {/* Rank Card */}
+          <motion.div
+            whileHover={{ scale: 1.05, y: -5 }}
+            className="group relative p-6 rounded-3xl bg-white/5 backdrop-blur-xl border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all cursor-default overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="relative z-10">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center mb-3 shadow-lg shadow-amber-500/50">
+                <TrendingUp size={20} className="text-white" />
+              </div>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1" style={{ fontFamily: "'Inter', sans-serif" }}>
+                Rank
+              </span>
+              <p className="text-3xl font-black text-amber-400" style={{ fontFamily: "'Inter', sans-serif" }}>Top 15%</p>
+            </div>
+          </motion.div>
+        </motion.div>
+
+        {/* RIGHT: AI Insights */}
+        <motion.div
+          initial={{ opacity: 0, x: 30 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.4 }}
+          className="lg:col-span-4 h-full min-h-[320px] flex flex-col"
+        >
+          <div className="flex-1 rounded-3xl bg-gradient-to-br from-purple-900/40 via-violet-900/30 to-blue-900/40 border-2 border-purple-500/30 p-7 relative overflow-hidden group hover:border-purple-400/50 transition-all backdrop-blur-sm">
+            {/* Animated Grid Background */}
+            <div className="absolute inset-0 bg-[size:30px_30px] opacity-10" style={{ backgroundImage: 'linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)' }} />
+
+            {/* Glow Effect */}
+            <div className="absolute top-0 right-0 w-40 h-40 bg-purple-500/20 rounded-full blur-3xl" />
+
+            <div className="relative z-10 h-full flex flex-col">
+              {/* Header */}
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center shadow-lg shadow-purple-500/50">
+                  <Brain size={20} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white uppercase tracking-wide flex items-center gap-2" style={{ fontFamily: "'Inter', sans-serif" }}>
+                    AI Coach
+                    <Sparkles size={14} className="text-purple-300 animate-pulse" />
+                  </h3>
+                  <p className="text-xs text-purple-200 font-medium">Personalized Insights</p>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-hidden">
+                <AnimatePresence mode="wait">
+                  {isAnalyzing ? (
+                    <motion.div
+                      key="analyzing"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      className="flex flex-col items-center justify-center h-full"
+                    >
+                      <div className="relative mb-4">
+                        <div className="w-16 h-16 border-4 border-purple-500/30 rounded-full" />
+                        <div className="absolute inset-0 w-16 h-16 border-4 border-t-purple-500 border-r-purple-500 rounded-full animate-spin" />
+                      </div>
+                      <p className="text-sm font-semibold text-purple-200">Analyzing your performance...</p>
+                    </motion.div>
+                  ) : aiAnalysis ? (
+                    <motion.div
+                      key="analysis"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      className="prose prose-invert prose-sm max-w-none overflow-y-auto max-h-[200px] scrollbar-thin scrollbar-thumb-purple-500 scrollbar-track-transparent pr-3"
+                      style={{ fontFamily: "'Inter', sans-serif" }}
+                    >
+                      <ReactMarkdown
+                        components={{
+                          h2: ({ children }) => <h4 className="text-base font-black text-purple-100 mt-4 mb-2 first:mt-0 flex items-center gap-2">{children}</h4>,
+                          p: ({ children }) => <p className="text-slate-200 text-sm leading-relaxed mb-3">{children}</p>,
+                          ul: ({ children }) => <ul className="space-y-2 text-slate-200 text-sm mt-2">{children}</ul>,
+                          li: ({ children }) => (
+                            <li className="flex items-start gap-2">
+                              <span className="text-purple-400 mt-1 flex-shrink-0">•</span>
+                              <span>{children}</span>
+                            </li>
+                          )
+                        }}
+                      >
+                        {aiAnalysis}
+                      </ReactMarkdown>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="cta"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="h-full flex flex-col items-center justify-center text-center"
+                    >
+                      <Lightbulb size={48} className="text-purple-300 mb-4 opacity-60" />
+                      <p className="text-slate-300 text-sm mb-5 max-w-[220px] font-medium">Get AI-powered insights on your weak spots and how to improve</p>
+                      <button
+                        onClick={onGenerateAI}
+                        className="group text-sm font-black bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white px-6 py-3 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-lg shadow-purple-500/50 flex items-center gap-2"
+                        style={{ fontFamily: "'Inter', sans-serif" }}
+                      >
+                        <Sparkles size={16} className="group-hover:rotate-12 transition-transform" />
+                        Generate Insights
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </div>
     </motion.div>
   );
 };
 
 // ═════════════════════════════════════════════════════════
-// QUESTION REVIEW CARD - Premium
+// QUESTION ROW - Premium List Item
 // ═════════════════════════════════════════════════════════
-
-const QuestionReviewCard = ({ question, index, isExpanded, onToggle }) => {
-  const qNum = index + 1;
+const QuestionRow = ({ question, index, isExpanded, onToggle }) => {
+  const isCorrect = question.isCorrect;
 
   return (
     <motion.div
-      layout
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.03 }}
-      className={`bg-white rounded-2xl border-2 overflow-hidden transition-all ${question.isCorrect
-          ? 'border-teal-200 hover:border-teal-300 hover:shadow-teal-100'
-          : 'border-rose-200 hover:border-rose-300 hover:shadow-rose-100'
-        } ${isExpanded ? 'shadow-xl' : 'shadow-md hover:shadow-lg'}`}
+      transition={{ delay: index * 0.05 }}
+      className={`group border-b border-slate-100 last:border-0 transition-all ${isExpanded ? 'bg-gradient-to-r from-slate-50 to-white' : 'hover:bg-slate-50/70'}`}
     >
       <button
         onClick={onToggle}
-        className="w-full flex items-start gap-5 p-5 text-left hover:bg-slate-50/50 transition-colors"
+        className="w-full flex items-start gap-5 p-6 text-left focus:outline-none focus:bg-slate-50 transition-all"
       >
-        <div
-          className={`flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center font-black text-white shadow-lg ${question.isCorrect ? 'bg-gradient-to-br from-teal-500 to-emerald-500' : 'bg-gradient-to-br from-rose-500 to-red-500'
-            }`}
-        >
-          {question.isCorrect ? <CheckCircle2 size={20} /> : <XCircle size={20} />}
+        {/* Status Icon - More Premium */}
+        <div className={`mt-1 flex-shrink-0 w-10 h-10 rounded-2xl flex items-center justify-center transition-all shadow-lg ${isCorrect
+          ? 'bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-teal-500/30 group-hover:scale-110'
+          : 'bg-gradient-to-br from-red-500 to-rose-600 text-white shadow-red-500/30 group-hover:scale-110'
+          }`}>
+          {isCorrect ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
         </div>
 
+        {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-3 mb-2">
-            <span className="text-xs font-black text-slate-500 tracking-wider uppercase">Question {qNum}</span>
-            <span
-              className={`px-3 py-1 rounded-full text-xs font-black shadow-sm ${question.isCorrect
-                  ? 'bg-teal-100 text-teal-700'
-                  : 'bg-rose-100 text-rose-700'
-                }`}
-            >
-              {question.isCorrect ? '✓ Correct' : '✗ Incorrect'}
+          <div className="flex items-center justify-between gap-4 mb-3">
+            <span className="text-xs font-black text-slate-400 uppercase tracking-widest" style={{ fontFamily: "'Inter', sans-serif" }}>
+              Question {index + 1}
             </span>
+            <div className="flex items-center gap-3">
+              {!isCorrect && (
+                <span className="flex items-center gap-1.5 text-xs font-black text-red-600 bg-red-50 px-3 py-1.5 rounded-xl border border-red-200">
+                  <AlertCircle size={12} />
+                  Review
+                </span>
+              )}
+              <div className={`text-slate-400 group-hover:text-slate-600 transition-all ${isExpanded ? 'rotate-180' : ''}`}>
+                <ChevronDown size={20} />
+              </div>
+            </div>
           </div>
-          <p className="text-base font-bold text-slate-900 leading-snug">
-            {question.stem}
-          </p>
-        </div>
 
-        <ChevronDown
-          size={20}
-          className={`text-slate-400 transition-transform flex-shrink-0 mt-3 ${isExpanded ? 'rotate-180' : ''
-            }`}
-        />
+          <h3 className={`text-base font-bold leading-relaxed transition-colors ${isCorrect ? 'text-slate-700 group-hover:text-slate-900' : 'text-slate-900'
+            }`} style={{ fontFamily: "'Inter', sans-serif" }}>
+            {question.stem}
+          </h3>
+        </div>
       </button>
 
+      {/* Expanded Details */}
       <AnimatePresence>
         {isExpanded && (
           <motion.div
@@ -445,64 +443,54 @@ const QuestionReviewCard = ({ question, index, isExpanded, onToggle }) => {
             transition={{ duration: 0.25 }}
             className="overflow-hidden"
           >
-            <div className="px-5 pb-5 space-y-3 border-t border-slate-100 pt-4 bg-slate-50/30">
-              {question.choices.map((choice, idx) => {
-                const isUser = question.userAnswer === idx;
-                const isCorrectAns = question.correctAnswer === idx;
+            <div className="px-6 pb-8 ml-15 space-y-5">
+              {/* Choices Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {question.choices.map((choice, idx) => {
+                  const isUser = question.userAnswer === idx;
+                  const isCorrectAns = question.correctAnswer === idx;
 
-                let bgClass = 'bg-white border-slate-200';
-                let iconColor = 'text-slate-400';
+                  let style = "border-2 border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:shadow-md";
+                  if (isCorrectAns) style = "border-2 border-teal-400 bg-gradient-to-br from-teal-50 to-emerald-50 text-teal-900 font-bold shadow-lg shadow-teal-500/20";
+                  else if (isUser) style = "border-2 border-red-400 bg-gradient-to-br from-red-50 to-rose-50 text-red-900 font-bold shadow-lg shadow-red-500/20";
 
-                if (isCorrectAns) {
-                  bgClass = 'bg-gradient-to-br from-teal-50 to-emerald-50 border-teal-300';
-                  iconColor = 'text-teal-600';
-                }
-                if (isUser && !isCorrectAns) {
-                  bgClass = 'bg-gradient-to-br from-rose-50 to-red-50 border-rose-300';
-                  iconColor = 'text-rose-600';
-                }
+                  return (
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: idx * 0.08 }}
+                      className={`p-4 rounded-2xl text-sm flex items-center gap-4 transition-all ${style}`}
+                      style={{ fontFamily: "'Inter', sans-serif" }}
+                    >
+                      <span className="w-8 h-8 flex items-center justify-center rounded-xl border-2 border-current opacity-50 text-xs font-black flex-shrink-0 bg-white/50">
+                        {String.fromCharCode(65 + idx)}
+                      </span>
+                      <span className="flex-1 font-medium">{choice}</span>
+                      {isCorrectAns && <CheckCircle2 size={18} className="text-teal-600 flex-shrink-0 animate-bounce" />}
+                      {isUser && !isCorrectAns && <XCircle size={18} className="text-red-600 flex-shrink-0 animate-pulse" />}
+                    </motion.div>
+                  );
+                })}
+              </div>
 
-                return (
-                  <div
-                    key={idx}
-                    className={`p-4 rounded-xl border-2 flex items-center gap-4 ${bgClass} transition-all hover:scale-[1.02]`}
-                  >
-                    <span className={`w-9 h-9 rounded-lg bg-white border-2 flex items-center justify-center font-black text-sm ${iconColor} flex-shrink-0 shadow-sm`}>
-                      {String.fromCharCode(65 + idx)}
-                    </span>
-                    <span className="flex-1 text-sm font-semibold text-slate-900">
-                      {choice}
-                    </span>
-                    {isCorrectAns && (
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="text-xs font-bold text-teal-700 bg-teal-100 px-2 py-1 rounded-full">Correct</span>
-                        <CheckCircle2 size={18} className="text-teal-600" />
-                      </div>
-                    )}
-                    {isUser && !isCorrectAns && (
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="text-xs font-bold text-rose-700 bg-rose-100 px-2 py-1 rounded-full">Your Answer</span>
-                        <XCircle size={18} className="text-rose-600" />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-
+              {/* Explanation */}
               {question.explanation && (
-                <div className="mt-4 p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border-2 border-blue-200/60 shadow-sm">
-                  <div className="flex gap-3">
-                    <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0 shadow-md">
-                      <Sparkles size={16} className="text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-black text-blue-900 text-sm mb-1.5">Explanation</h4>
-                      <p className="text-sm text-blue-800 leading-relaxed">
-                        {question.explanation}
-                      </p>
-                    </div>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="p-5 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 text-sm leading-relaxed flex gap-4 shadow-lg shadow-blue-500/10"
+                  style={{ fontFamily: "'Inter', sans-serif" }}
+                >
+                  <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
+                    <Lightbulb size={18} className="text-white" />
                   </div>
-                </div>
+                  <div className="flex-1">
+                    <span className="font-black text-slate-900 block mb-2 text-base">Explanation</span>
+                    <p className="text-slate-700 font-medium">{question.explanation}</p>
+                  </div>
+                </motion.div>
               )}
             </div>
           </motion.div>
@@ -515,7 +503,6 @@ const QuestionReviewCard = ({ question, index, isExpanded, onToggle }) => {
 // ═════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ═════════════════════════════════════════════════════════
-
 const QuizResults = () => {
   const { sessionId } = useParams();
   const navigate = useNavigate();
@@ -524,170 +511,150 @@ const QuizResults = () => {
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
-  const [expandedQ, setExpandedQ] = useState(null);
-  const [copied, setCopied] = useState(false);
+  const [expandedId, setExpandedId] = useState(null);
   const [aiAnalysis, setAiAnalysis] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  // ═══ COMPUTE STATS FIRST (moved up to avoid undefined access)
+  // Calculate stats safely
   const stats = useMemo(() => {
     if (!data) return null;
 
-    const { session, questions } = data;
-    const correct = questions.filter(q => q.isCorrect).length;
-    const total = questions.length;
+    const correct = data.questions.filter(q => q.isCorrect).length;
+    const total = data.questions.length;
 
-    // Fixed time calculation
-    let timeTakenMin = 0;
-    if (session.startTime && session.endTime) {
-      const start = session.startTime instanceof Date
-        ? session.startTime
-        : new Date(session.startTime.seconds * 1000);
-      const end = session.endTime instanceof Date
-        ? session.endTime
-        : new Date(session.endTime.seconds * 1000);
+    let timeDisplay = '0m';
+    if (data.session.startTime && data.session.endTime) {
+      const start = data.session.startTime instanceof Date
+        ? data.session.startTime
+        : new Date(data.session.startTime.seconds * 1000);
+      const end = data.session.endTime instanceof Date
+        ? data.session.endTime
+        : new Date(data.session.endTime.seconds * 1000);
+      const mins = Math.round((end - start) / 60000);
 
-      timeTakenMin = Math.max(0, Math.round((end - start) / 60000));
+      if (mins < 1) timeDisplay = '< 1m';
+      else if (mins < 60) timeDisplay = `${mins}m`;
+      else timeDisplay = `${Math.floor(mins / 60)}h ${mins % 60}m`;
     }
 
-    // Format time display
-    let timeDisplay = '';
-    if (timeTakenMin < 1) {
-      timeDisplay = '< 1m';
-    } else if (timeTakenMin < 60) {
-      timeDisplay = `${timeTakenMin}m`;
-    } else {
-      const hours = Math.floor(timeTakenMin / 60);
-      const mins = timeTakenMin % 60;
-      timeDisplay = `${hours}h ${mins}m`;
-    }
-
-    return {
-      correct,
-      total,
-      timeTaken: timeDisplay,
-      incorrect: total - correct
-    };
+    return { correct, total, timeTaken: timeDisplay };
   }, [data]);
 
-  // ═══ FETCH RESULTS ═══
+  // Fetch quiz results
   useEffect(() => {
-    if (!sessionId || !user?.uid) return;
+    if (!sessionId || !user?.uid) {
+      navigate('/dashboard');
+      return;
+    }
 
-    const fetchResults = async () => {
+    const fetchData = async () => {
       try {
-        const resultData = await getQuizResults(sessionId);
-        setData(resultData);
+        const result = await getQuizResults(sessionId);
+        setData(result);
 
-        if (location.state?.justCompleted && resultData.session.score >= 75) {
-          setTimeout(() => triggerConfetti(), 800);
+        // Epic confetti for high scores
+        if (result.session.score >= 80) {
+          setTimeout(() => {
+            const duration = 3000;
+            const animationEnd = Date.now() + duration;
+            const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+
+            function randomInRange(min, max) {
+              return Math.random() * (max - min) + min;
+            }
+
+            const interval = setInterval(function () {
+              const timeLeft = animationEnd - Date.now();
+
+              if (timeLeft <= 0) {
+                return clearInterval(interval);
+              }
+
+              const particleCount = 50 * (timeLeft / duration);
+              confetti({
+                ...defaults,
+                particleCount,
+                origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
+                colors: ['#14b8a6', '#8b5cf6', '#f59e0b', '#3b82f6']
+              });
+              confetti({
+                ...defaults,
+                particleCount,
+                origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
+                colors: ['#14b8a6', '#8b5cf6', '#f59e0b', '#3b82f6']
+              });
+            }, 250);
+          }, 500);
         }
       } catch (error) {
         console.error('Failed to load results:', error);
-        toast.error('Failed to load results');
+        toast.error('Failed to load quiz results');
         navigate('/dashboard');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchResults();
-  }, [sessionId, user, navigate, location]);
+    fetchData();
+  }, [sessionId, user, navigate]);
 
-  // ═══ AI ANALYSIS ═══
-  const generateAiAnalysis = useCallback(async (resultData) => {
-    if (!resultData || !stats) return;
+  // Generate AI analysis
+  const handleGenerateAI = useCallback(async () => {
+    if (!data || !stats) return;
 
+    setIsAnalyzing(true);
     try {
-      setIsAnalyzing(true);
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-      const wrongAnswers = resultData.questions
+      const weakTopics = data.questions
         .filter(q => !q.isCorrect)
         .slice(0, 3)
-        .map(q => q.topic || 'General');
+        .map(q => q.topic || 'General')
+        .join(', ');
 
-      const prompt = `Analyze this quiz performance and provide brief, motivating feedback:
-
-Score: ${resultData.session.score}%
+      const prompt = `Analyze this quiz performance:
+Score: ${data.session.score}%
 Correct: ${stats.correct}/${stats.total}
-Weak topics: ${wrongAnswers.join(', ') || 'None'}
+Weak areas: ${weakTopics || 'None'}
 
-Provide in this format:
+Provide brief, encouraging feedback in markdown:
 ## 🎯 Performance Summary
-[1 encouraging sentence about overall performance]
+[One encouraging sentence]
 
-## 💪 Your Strengths  
-- [1-2 specific strengths based on the score]
+## 💪 Your Strengths
+- [1-2 specific strengths]
 
-## 🎯 Areas to Improve
-- [1-2 specific, actionable focus areas]
+## 📚 Focus Areas
+- [1-2 actionable improvements]
 
-## 📚 Next Steps
-1. [1 specific, practical action they can take]
-
-Keep it under 100 words. Be motivating and specific.`;
+Keep under 100 words total. Be specific and motivating.`;
 
       const result = await model.generateContent(prompt);
       setAiAnalysis(result.response.text());
+      toast.success('AI insights generated!', { icon: '✨' });
     } catch (error) {
-      console.error('AI failed:', error);
-      toast.error('Failed to generate AI insights');
-      setAiAnalysis('');
+      console.error('AI generation failed:', error);
+      toast.error('Unable to generate AI insights');
     } finally {
       setIsAnalyzing(false);
     }
-  }, [stats]);
+  }, [data, stats]);
 
-  // ═══ PREMIUM CONFETTI ═══
-  const triggerConfetti = () => {
-    const duration = 3000;
-    const end = Date.now() + duration;
-    const colors = ['#14b8a6', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
-
-    (function frame() {
-      confetti({
-        particleCount: 5,
-        angle: 60,
-        spread: 60,
-        origin: { x: 0, y: 0.6 },
-        colors,
-        ticks: 200,
-        gravity: 1.2,
-        decay: 0.94,
-        startVelocity: 30,
-      });
-      confetti({
-        particleCount: 5,
-        angle: 120,
-        spread: 60,
-        origin: { x: 1, y: 0.6 },
-        colors,
-        ticks: 200,
-        gravity: 1.2,
-        decay: 0.94,
-        startVelocity: 30,
-      });
-
-      if (Date.now() < end) {
-        requestAnimationFrame(frame);
-      }
-    })();
-  };
-
-  // ═══ SHARE ═══
-  const handleShare = async () => {
+  // Share functionality
+  const handleShare = useCallback(async () => {
     if (!data || !stats) return;
 
-    const text = `🎯 I scored ${data.session.score}% on "${data.quizTitle}"!\n✅ ${stats.correct}/${stats.total} correct answers`;
+    const text = `🎯 I scored ${data.session.score}% on "${data.quizTitle}" on StudyGloqe!\n✅ ${stats.correct}/${stats.total} correct`;
 
     if (navigator.share) {
       try {
         await navigator.share({ title: 'My Quiz Result', text });
         return;
       } catch (e) {
-        // Fall through to clipboard
+        if (e.name !== 'AbortError') {
+          console.error('Share failed:', e);
+        }
       }
     }
 
@@ -697,180 +664,122 @@ Keep it under 100 words. Be motivating and specific.`;
       toast.success('Copied to clipboard!', {
         icon: '📋',
         style: {
-          borderRadius: '12px',
-          background: '#333',
+          background: '#0B1221',
           color: '#fff',
-        },
+          fontWeight: 'bold',
+          borderRadius: '12px'
+        }
       });
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       toast.error('Failed to copy');
     }
-  };
+  }, [data, stats]);
 
-  // ═══ FILTER QUESTIONS ═══
-  const filteredQuestions = useMemo(() => {
-    if (!data) return [];
-    return filter === 'all'
-      ? data.questions
-      : data.questions.filter(q => !q.isCorrect);
-  }, [data, filter]);
-
-  if (loading) return <LoadingScreen />;
-  if (!data || !stats) return null;
+  if (loading || !data || !stats) {
+    return <LoadingSkeleton />;
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 relative">
-      {/* Premium background pattern */}
-      <div className="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,white,rgba(255,255,255,0.6))] bg-[size:30px_30px]" />
-
-      {/* ═══ PREMIUM HEADER ═══ */}
-      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-200/60 shadow-sm">
-        <div className="max-w-5xl mx-auto px-6 py-5">
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="flex items-center gap-2 text-slate-600 hover:text-slate-900 font-bold transition-all group bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-xl"
-            >
-              <Home size={18} className="group-hover:-translate-x-1 transition-transform" />
-              <span className="text-sm">Dashboard</span>
-            </button>
-
-            <div className="flex items-center gap-3">
-              <Award size={20} className="text-teal-600" />
-              <h1 className="text-base font-black text-slate-900 truncate max-w-md">
-                {data.quizTitle}
-              </h1>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50" style={{ fontFamily: "'Inter', 'Plus Jakarta Sans', -apple-system, sans-serif" }}>
+      {/* Premium Header Bar */}
+      <div className="sticky top-0 z-50 h-20 bg-white/80 backdrop-blur-2xl border-b border-slate-200/60 shadow-sm">
+        <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-teal-500/30">
+              <Award size={24} className="text-white" />
+            </div>
+            <div>
+              <h1 className="font-black text-xl text-[#0B1221]">Quiz Results</h1>
+              <p className="text-sm text-slate-500 font-semibold">Detailed Performance Analysis</p>
             </div>
           </div>
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="group text-slate-600 hover:text-[#0B1221] font-bold text-sm flex items-center gap-2 px-5 py-3 hover:bg-slate-100 rounded-xl transition-all"
+          >
+            <LayoutDashboard size={20} className="group-hover:-rotate-12 transition-transform" />
+            <span className="hidden sm:inline">Back to Dashboard</span>
+          </button>
         </div>
       </div>
 
-      {/* ═══ MAIN CONTENT ═══ */}
-      <div className="relative max-w-5xl mx-auto px-6 py-10 space-y-8">
-        {/* Hero Score - Now with safe props */}
-        <HeroScoreCard
+      <div className="max-w-7xl mx-auto px-6 py-12 pb-24 space-y-12">
+        {/* Hero Section */}
+        <ResultHero
           score={data.session.score}
           correct={stats.correct}
           total={stats.total}
           timeTaken={stats.timeTaken}
-        />
-
-        {/* Actions */}
-        <ActionButtons
-          onShare={handleShare}
+          quizTitle={data.quizTitle}
           onRetake={() => navigate(`/quiz/${data.session.quizId}`)}
+          onShare={handleShare}
+          aiAnalysis={aiAnalysis}
+          onGenerateAI={handleGenerateAI}
+          isAnalyzing={isAnalyzing}
           copied={copied}
         />
 
-        {/* AI Insights */}
-        <AIInsights
-          isAnalyzing={isAnalyzing}
-          aiAnalysis={aiAnalysis}
-          onGenerate={() => generateAiAnalysis(data)}
-        />
-
-        {/* Questions Review */}
+        {/* Questions List */}
         <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 1.1 }}
-          className="space-y-5"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="bg-white rounded-[32px] border-2 border-slate-200/60 shadow-xl overflow-hidden"
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 bg-gradient-to-br from-slate-900 to-slate-700 rounded-xl flex items-center justify-center shadow-lg">
-                <BookOpen size={20} className="text-white" />
-              </div>
+          {/* List Header */}
+          <div className="px-8 py-6 border-b-2 border-slate-100 flex items-center justify-between bg-gradient-to-r from-white to-slate-50 sticky top-20 z-40 backdrop-blur-xl">
+            <div className="flex items-center gap-4">
+              <div className="w-2 h-10 bg-gradient-to-b from-teal-500 to-cyan-600 rounded-full shadow-lg shadow-teal-500/50" />
               <div>
-                <h2 className="font-black text-xl text-slate-900">Review Answers</h2>
-                <p className="text-sm text-slate-500 font-medium">Analyze your performance</p>
+                <h3 className="font-black text-xl text-[#0B1221]">Question Analysis</h3>
+                <p className="text-sm text-slate-500 font-semibold">Review your answers in detail</p>
               </div>
             </div>
-
-            <div className="bg-white rounded-xl border-2 border-slate-200 p-1.5 inline-flex shadow-md">
-              <button
-                onClick={() => setFilter('all')}
-                className={`px-5 py-2 rounded-lg text-sm font-black transition-all ${filter === 'all'
-                    ? 'bg-gradient-to-r from-slate-900 to-slate-700 text-white shadow-lg'
-                    : 'text-slate-600 hover:bg-slate-50'
-                  }`}
-              >
-                All ({stats.total})
-              </button>
-              <button
-                onClick={() => setFilter('incorrect')}
-                className={`px-5 py-2 rounded-lg text-sm font-black transition-all ${filter === 'incorrect'
-                    ? 'bg-gradient-to-r from-rose-500 to-red-500 text-white shadow-lg'
-                    : 'text-slate-600 hover:bg-slate-50'
-                  }`}
-              >
-                Wrong ({stats.incorrect})
-              </button>
+            <div className="flex items-center gap-5">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={18} className="text-teal-600" />
+                <span className="text-base font-black text-slate-700">
+                  <span className="text-teal-600">{stats.correct}</span> / {stats.total}
+                </span>
+              </div>
+              <span className="px-4 py-2 rounded-xl bg-slate-100 text-xs font-black text-slate-600 uppercase tracking-wider">
+                {stats.total} Questions
+              </span>
             </div>
           </div>
 
-          {/* Questions List */}
-          <div className="space-y-4">
-            <AnimatePresence mode="popLayout">
-              {filteredQuestions.length === 0 ? (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="text-center py-20 bg-gradient-to-br from-teal-50 to-emerald-50 rounded-3xl border-2 border-dashed border-teal-300"
-                >
-                  <Trophy className="text-teal-500 mx-auto mb-4 drop-shadow-lg" size={56} />
-                  <h3 className="text-2xl font-black text-slate-900 mb-2">Perfect Score! 🎉</h3>
-                  <p className="text-sm text-slate-600 font-medium">No mistakes to review - you nailed it!</p>
-                </motion.div>
-              ) : (
-                filteredQuestions.map((q, idx) => (
-                  <QuestionReviewCard
-                    key={idx}
-                    question={q}
-                    index={data.questions.findIndex(oq => oq.stem === q.stem)}
-                    isExpanded={expandedQ === idx}
-                    onToggle={() => setExpandedQ(expandedQ === idx ? null : idx)}
-                  />
-                ))
-              )}
-            </AnimatePresence>
+          {/* Question Rows */}
+          <div>
+            {data.questions.map((q, idx) => (
+              <QuestionRow
+                key={idx}
+                question={q}
+                index={idx}
+                isExpanded={expandedId === idx}
+                onToggle={() => setExpandedId(expandedId === idx ? null : idx)}
+              />
+            ))}
           </div>
         </motion.div>
 
-        {/* Premium Footer CTA */}
+        {/* Footer CTA */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.2 }}
-          className="mt-16 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-12 text-center relative overflow-hidden shadow-2xl"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6 }}
+          className="text-center pt-12"
         >
-          {/* Animated background */}
-          <div className="absolute inset-0 opacity-30">
-            <div className="absolute top-0 left-1/4 w-96 h-96 bg-teal-500 rounded-full blur-3xl animate-pulse" />
-            <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500 rounded-full blur-3xl animate-pulse delay-700" />
-          </div>
-
-          <div className="relative">
-            <div className="w-16 h-16 bg-gradient-to-br from-teal-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-2xl">
-              <Zap size={32} className="text-white" />
+          <p className="text-slate-400 mb-6 font-semibold text-lg">Ready to level up?</p>
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="group inline-flex items-center gap-3 text-[#0B1221] font-black text-xl hover:gap-5 transition-all"
+          >
+            <span>Explore More Quizzes</span>
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg shadow-teal-500/50">
+              <ArrowRight size={20} className="text-white" />
             </div>
-            <h3 className="text-3xl font-black text-white mb-3">
-              Ready for Your Next Challenge?
-            </h3>
-            <p className="text-slate-300 mb-8 text-base max-w-md mx-auto font-medium">
-              Continue your learning journey with more quizzes tailored to your level
-            </p>
-
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="inline-flex items-center gap-3 px-10 py-4 bg-white text-slate-900 rounded-2xl font-black text-lg hover:bg-slate-100 transition-all shadow-2xl hover:shadow-3xl hover:scale-105 group relative overflow-hidden"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-teal-400/20 to-blue-400/20 translate-x-full group-hover:translate-x-0 transition-transform duration-500" />
-              <span className="relative">Explore More Quizzes</span>
-              <ArrowRight size={20} className="relative group-hover:translate-x-2 transition-transform" />
-            </button>
-          </div>
+          </button>
         </motion.div>
       </div>
     </div>
