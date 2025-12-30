@@ -31,18 +31,18 @@ graph TD
     end
 
     %% Interactions
-    App <-->|Real-time Sync| FS
+    App ---|Real-time Sync| FS
     App -->|Secure Login| Auth
     App -->|API Calls / Events| CF
     App -->|PDF Upload| STG
     
-    CF <-->|Write/Read| FS
+    CF ---|Write/Read| FS
     CF -->|Sync Logs| BQ
-    CF <-->|AI Tasks| VAI
+    CF -->|AI Tasks| VAI
     CF -->|Produce Events| CK
     
-    FS --|Trigger: onCreate| CF
-    STG --|Trigger: onFinalize| CF
+    FS -->|Trigger: onCreate| CF
+    STG -->|Trigger: onFinalize| CF
     
     BQ -.->|Query Stats| CF
     CK -->|Consume Events| ExtServer[Node.js Event Server]
