@@ -122,9 +122,7 @@ const sanitizeLabel = (text) => {
     if (!text) return 'Item';
     return text
         .toString()
-        .replace(/[\[\]{}()#<>|]/g, '')
-        .replace(/["'`]/g, '')  // FIXED SYNTAX ERROR - was missing closing ]
-        .replace(/\n/g, ' ')
+        .replace(/[^a-zA-Z0-9\s]/g, '') // AGGRESSIVE: Remove EVERYTHING except alphanumeric and spaces
         .replace(/\s+/g, ' ')
         .trim()
         .substring(0, 25);
@@ -147,6 +145,7 @@ const generateSimpleMermaid = (pageNumber, keyTopics = []) => {
         diagram += `    A[${validTopics[0]}] --> B[${validTopics[1]}]\n`;
         diagram += '    B --> C[Complete]';
     } else {
+        // Fallback to simple structure if too many topics
         diagram += `    A[${validTopics[0]}] --> B[${validTopics[1]}]\n`;
         diagram += `    B --> C[${validTopics[2]}]`;
     }
@@ -165,6 +164,13 @@ const validateMermaidSyntax = (flowchart, pageNumber = 1, keyTopics = []) => {
 
         if (CONFIG.DEBUG_MERMAID) {
             console.log('🔍 Original Mermaid:', cleaned);
+        }
+
+        // AGGRESSIVE VALIDATION: If we see any round brackets in the entire string that aren't part of a node definition
+        // Just fail safe immediately to simple structure
+        if (cleaned.includes('(') || cleaned.includes(')')) {
+            console.warn('⚠️ Validation: Found parentheses, reverting to safe version');
+            return generateSimpleMermaid(pageNumber, keyTopics);
         }
 
         if (!cleaned.match(/^(graph|flowchart)\s+(TD|TB|BT|RL|LR)/i)) {
@@ -188,13 +194,17 @@ const validateMermaidSyntax = (flowchart, pageNumber = 1, keyTopics = []) => {
 
         const lines = cleaned.split('\n');
         for (const line of lines) {
-            if (line.includes('[')) {
-                const labelMatch = line.match(/\[([^\]]+)\]/);
+            const hasBrackets = line.includes('[') && line.includes(']');
+            if (hasBrackets) {
+                // Support both A[Label] and A["Label"]
+                const labelMatch = line.match(/\["?([^"\]]+)"?\]/);
                 if (labelMatch) {
                     const label = labelMatch[1];
-                    const hasProblems = /["'`{}|]/.test(label);
+                    // CRITICAL: Mermaid crashes if labels have these characters without quotes
+                    // Even with quotes, some characters like # or | can be problematic in some versions
+                    const hasProblems = /["'`{}|()#<>\[\]]/.test(label);
                     if (hasProblems) {
-                        console.warn('⚠️ Problematic characters in labels');
+                        console.warn('⚠️ Problematic characters in labels:', label);
                         return generateSimpleMermaid(pageNumber, keyTopics);
                     }
                 }
@@ -305,13 +315,13 @@ Return ONLY valid JSON (no markdown, no extra text):
 }
 
 FLOWCHART RULES (CRITICAL):
-1. Format: "graph TD\\nA[Label] --> B[Label]\\nB --> C[Label]"
-2. Use \\n for line breaks (backslash + n)
+1. Format: "graph TD\\nA[\"Label\"] --> B[\"Label\"]\\nB --> C[\"Label\"]"
+2. Use \\n for line breaks
 3. Node IDs: Single letters only (A, B, C, D)
-4. Labels: Max 20 chars, NO special characters: " ' \` { } | [ ]
+4. Labels: Max 25 chars, ALWAYS use double quotes, NO special characters: " ' \` { } | ( ) [ ] # < >
 5. Keep SIMPLE: Maximum 4 nodes
 6. Use only --> arrows
-7. Example: "graph TD\\nA[Start] --> B[Learn]\\nB --> C[Practice]\\nC --> D[Master]"
+7. Example: "graph TD\\nA[\"Start\"] --> B[\"Learn\"]\\nB --> C[\"Practice\"]\\nC --> D[\"Master\"]"
 
 Page content (first 1000 chars):
 ${truncatedText.substring(0, 1000)}`;

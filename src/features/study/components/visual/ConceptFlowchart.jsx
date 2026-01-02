@@ -403,33 +403,8 @@ const ConceptFlowchart = ({ flowchartCode, title = 'Concept Map' }) => {
                             </motion.div>
                         )}
 
-                        {/* Error State */}
-                        {error && !loading && (
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                className="flex flex-col items-center justify-center py-16 gap-4"
-                            >
-                                <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center">
-                                    <AlertCircle className="w-8 h-8 text-red-500" />
-                                </div>
-                                <div className="text-center max-w-md">
-                                    <h4 className="text-lg font-semibold text-slate-900 mb-2">
-                                        Unable to render flowchart
-                                    </h4>
-                                    <p className="text-sm text-slate-600 mb-4">
-                                        {error}
-                                    </p>
-                                    <button
-                                        onClick={handleRetry}
-                                        className="inline-flex items-center gap-2 px-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold transition-colors"
-                                    >
-                                        <RotateCcw className="w-4 h-4" />
-                                        Retry {retryCount > 0 && `(${retryCount})`}
-                                    </button>
-                                </div>
-                            </motion.div>
-                        )}
+                        {/* Error State - Fail Silent as per user request */}
+                        {error && !loading && null}
 
                         {/* Chart Container */}
                         <div

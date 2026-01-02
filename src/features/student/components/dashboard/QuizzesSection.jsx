@@ -151,7 +151,7 @@ const QuizzesSection = () => {
                 throw new Error('No questions generated. Please try again.');
             }
 
-            const quizId = await createQuiz(user.uid, document.id, questions, {
+            const quizId = await createQuiz(user.uid, null, document.id, questions, {
                 title: `${document.title || 'Quiz'} - ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}`,
                 description: `AI-generated ${difficulty} quiz`,
                 subject: document.subject || 'General',

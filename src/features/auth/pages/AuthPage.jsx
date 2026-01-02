@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import toast from "react-hot-toast";
+import logoImage from "@assets/logo/loma.png";
 import "../styles/AuthPage.css";
 
 const MIN_PASSWORD_LENGTH = 6;
@@ -566,7 +567,7 @@ const AuthPage = () => {
                         <div className="toggle-panel toggle-left">
                             <div className="logo-container">
                                 {/* ✅ CHANGED: Updated logo path */}
-                                <img src="/src/assets/logo/loma.png" alt="StudyGloqe Logo" className="logo-image" />
+                                <img src={logoImage} alt="StudyGloqe Logo" className="logo-image" />
                                 <h2 className="logo-text">StudyGloqe</h2>
                             </div>
                             <h1>Welcome Back!</h1>
@@ -579,7 +580,7 @@ const AuthPage = () => {
                         <div className="toggle-panel toggle-right">
                             <div className="logo-container">
                                 {/* ✅ CHANGED: Updated logo path */}
-                                <img src="/src/assets/logo/loma.png" alt="StudyGloqe Logo" className="logo-image" />
+                                <img src={logoImage} alt="StudyGloqe Logo" className="logo-image" />
                                 <h2 className="logo-text">StudyGloqe</h2>
                             </div>
                             <h1>Hello, Friend!</h1>

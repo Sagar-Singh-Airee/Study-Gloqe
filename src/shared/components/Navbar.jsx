@@ -3,6 +3,7 @@ import { Menu, Bell, Search, User, LogOut, Settings } from 'lucide-react';
 import { useAuth } from '@contexts/AuthContext';
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import logoImage from '@assets/logo/loma.png';
 
 const Navbar = ({ onMenuClick }) => {
     const { user, userData, logout } = useAuth();
@@ -40,7 +41,7 @@ const Navbar = ({ onMenuClick }) => {
 
                         <Link to="/dashboard" className="flex items-center gap-3">
                             <img
-                                src="/src/assets/logo/loma.png"
+                                src={logoImage}
                                 alt="StudyGloqe"
                                 className="h-8 w-8"
                             />
