@@ -18,7 +18,7 @@ You may obtain a copy of the License at
 
 **Transforming education with scalable event-driven architecture and state-of-the-art Generative AI.**
 
-[Demo](https://study-gloqe.web.app) • [Documentation](#) • [Report Bug](#)
+[Demo](https://studygloqe.web.app) • [Documentation](#) • [Report Bug](#)
 
 </div>
 
