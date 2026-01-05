@@ -1,5 +1,4 @@
-// src/shared/services/streakService.js
-import { doc, getDoc, updateDoc, increment, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc, increment, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { db } from '@shared/config/firebase';
 
 /**
@@ -14,7 +13,13 @@ export const updateDailyStreak = async (userId) => {
 
     try {
         const userRef = doc(db, 'users', userId);
-        const userSnap = await getDoc(userRef);
+        const gamificationRef = doc(db, 'gamification', userId); // ✅ Added gamification ref
+
+        // Fetch both documents in parallel
+        const [userSnap, gamificationSnap] = await Promise.all([
+            getDoc(userRef),
+            getDoc(gamificationRef)
+        ]);
 
         if (!userSnap.exists()) {
             console.error('⚠️ User document not found:', userId);
@@ -30,14 +35,48 @@ export const updateDailyStreak = async (userId) => {
         // Get last activity date
         const lastActivityDate = userData.lastActivityDate?.toDate?.();
 
-        if (!lastActivityDate) {
-            // ✅ FIRST TIME - Initialize streak
-            await updateDoc(userRef, {
-                streak: 1,
+        // Helper to perform dual update
+        const performDualUpdate = async (newStreak, isReset = false) => {
+            const updates = {
+                streak: newStreak,
                 lastActivityDate: Timestamp.fromDate(today),
                 lastActivityAt: Timestamp.now()
-            });
+            };
 
+            // Prepare gamification updates
+            const gamificationUpdates = {
+                'streakData.currentStreak': newStreak,
+                'streakData.lastActivityDate': Timestamp.fromDate(today),
+                updatedAt: serverTimestamp()
+            };
+
+            if (gamificationSnap.exists()) {
+                const currentLongest = gamificationSnap.data().streakData?.longestStreak || 0;
+                if (newStreak > currentLongest) {
+                    gamificationUpdates['streakData.longestStreak'] = newStreak;
+                }
+            } else {
+                // Initialize if missing
+                gamificationUpdates['streakData.longestStreak'] = newStreak;
+                gamificationUpdates.xp = gamificationUpdates.xp || 0;
+                gamificationUpdates.level = gamificationUpdates.level || 1;
+            }
+
+            // Execute both updates
+            const promises = [updateDoc(userRef, updates)];
+
+            if (gamificationSnap.exists()) {
+                promises.push(updateDoc(gamificationRef, gamificationUpdates));
+            } else {
+                promises.push(setDoc(gamificationRef, gamificationUpdates, { merge: true }));
+            }
+
+            await Promise.all(promises);
+        };
+
+        if (!lastActivityDate) {
+            // ✅ FIRST TIME - Initialize streak
+            await performDualUpdate(1);
             console.log('✅ Streak initialized to 1');
             return { success: true, streak: 1, isNewStreak: true };
         }
@@ -69,14 +108,9 @@ export const updateDailyStreak = async (userId) => {
         else if (diffDays === 1) {
             // ✅ CONSECUTIVE DAY - Increment streak
             const newStreak = (userData.streak || 0) + 1;
+            await performDualUpdate(newStreak);
 
-            await updateDoc(userRef, {
-                streak: newStreak,
-                lastActivityDate: Timestamp.fromDate(today),
-                lastActivityAt: Timestamp.now()
-            });
-
-            console.log(`✅ Streak incremented: ${userData.streak} → ${newStreak}`);
+            console.log(`✅ Streak incremented: ${userData.streak} → ${newStreak} `);
             return {
                 success: true,
                 streak: newStreak,
@@ -86,13 +120,9 @@ export const updateDailyStreak = async (userId) => {
         }
         else {
             // ⚠️ MISSED DAY(S) - Reset to 1
-            await updateDoc(userRef, {
-                streak: 1,
-                lastActivityDate: Timestamp.fromDate(today),
-                lastActivityAt: Timestamp.now()
-            });
+            await performDualUpdate(1, true);
 
-            console.log(`⚠️ Streak reset (missed ${diffDays - 1} day(s))`);
+            console.log(`⚠️ Streak reset(missed ${diffDays - 1} day(s))`);
             return {
                 success: true,
                 streak: 1,

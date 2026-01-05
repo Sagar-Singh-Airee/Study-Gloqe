@@ -57,7 +57,7 @@ const StudentRoute = ({ children }) => {
     }
 
     if (!user) {
-        return <Navigate to="/auth" replace />;
+        return <Navigate to="/" replace />;
     }
 
     // Redirect teachers to teacher dashboard
@@ -79,7 +79,7 @@ const TeacherRoute = ({ children }) => {
     }
 
     if (!user) {
-        return <Navigate to="/auth" replace />;
+        return <Navigate to="/" replace />;
     }
 
     // Redirect students to student dashboard
@@ -101,7 +101,7 @@ const ProtectedRoute = ({ children }) => {
     }
 
     if (!user) {
-        return <Navigate to="/auth" replace />;
+        return <Navigate to="/" replace />;
     }
 
     return <>{children}</>;
@@ -193,7 +193,7 @@ function App() {
                     />
                     <Routes>
                         {/* PUBLIC ROUTES */}
-                        <Route path="/" element={<LandingPage />} />
+                        <Route path="/" element={<PublicRoute><LandingPage /></PublicRoute>} />
                         <Route path="/auth" element={<PublicRoute><AuthPage /></PublicRoute>} />
 
                         {/* SHARED ROUTES */}
