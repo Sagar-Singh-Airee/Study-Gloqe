@@ -107,7 +107,7 @@ const AchievementsSection = () => {
             {/* Subtle gradient background */}
             <div className="fixed inset-0 -z-10 bg-gradient-to-br from-white via-teal-50/20 to-blue-50/20" />
 
-            <div className="max-w-6xl mx-auto px-6 py-8">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
                 {/* Compact Header */}
                 <motion.div
                     initial={{ opacity: 0, y: 15 }}
@@ -115,37 +115,37 @@ const AchievementsSection = () => {
                     className="mb-10"
                 >
                     {/* Status Badges */}
-                    <div className="flex items-center gap-2 mb-6">
-                        <div className="px-3 py-1.5 bg-gradient-to-r from-teal-500 to-blue-600 text-white rounded-lg text-xs font-bold tracking-wide shadow-sm">
+                    <div className="flex items-center gap-2 mb-4 md:mb-6">
+                        <div className="px-3 py-2 md:py-1.5 bg-gradient-to-r from-teal-500 to-blue-600 text-white rounded-lg text-xs font-bold tracking-wide shadow-sm">
                             LEVEL {safeLevel}
                         </div>
 
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
-                            <Crown size={12} className="text-teal-600" strokeWidth={2.5} />
-                            <span className="text-xs font-bold text-slate-900 truncate max-w-[120px]">{safeEquippedTitle}</span>
+                        <div className="flex items-center gap-1.5 px-3 py-2 md:py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
+                            <Crown size={14} className="text-teal-600 md:w-3 md:h-3" strokeWidth={2.5} />
+                            <span className="text-xs font-bold text-slate-900 truncate max-w-[100px] sm:max-w-[120px]">{safeEquippedTitle}</span>
                         </div>
                     </div>
 
                     {/* Compact Title */}
-                    <h1 className="text-4xl font-bold text-slate-900 mb-8 tracking-tight">
+                    <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-6 sm:mb-8 tracking-tight">
                         Achievements
                     </h1>
 
                     {/* Compact Stats Grid */}
-                    <div className="grid grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
                         {/* XP Card - Gradient */}
-                        <div className="col-span-2 relative overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-5 shadow-lg">
+                        <div className="col-span-2 md:col-span-2 relative overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-4 md:p-5 shadow-lg">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/10 rounded-full blur-3xl" />
 
                             <div className="relative z-10">
-                                <div className="flex justify-between items-start mb-5">
+                                <div className="flex justify-between items-start mb-4 md:mb-5">
                                     <div>
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Total XP</p>
-                                        <p className="text-3xl font-bold text-white tracking-tight">{safeXp.toLocaleString()}</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 md:mb-2">Total XP</p>
+                                        <p className="text-2xl md:text-3xl font-bold text-white tracking-tight">{safeXp.toLocaleString()}</p>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Next Level</p>
-                                        <p className="text-xl font-bold text-teal-400">{safeNextLevelXp.toLocaleString()}</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 md:mb-2">Next Level</p>
+                                        <p className="text-lg md:text-xl font-bold text-teal-400">{safeNextLevelXp.toLocaleString()}</p>
                                     </div>
                                 </div>
 
@@ -166,15 +166,15 @@ const AchievementsSection = () => {
                         </div>
 
                         {/* Mini Stats - Compact */}
-                        <div className="border border-slate-200 rounded-xl p-4 bg-white hover:border-teal-400 hover:shadow-sm transition-all">
-                            <Flame size={22} className="text-teal-600 mb-3" strokeWidth={2.5} />
-                            <p className="text-2xl font-bold text-slate-900 mb-1">{safeStreak}</p>
+                        <div className="border border-slate-200 rounded-xl p-3 md:p-4 bg-white hover:border-teal-400 hover:shadow-sm transition-all">
+                            <Flame size={20} className="text-teal-600 mb-2 md:mb-3 md:w-[22px] md:h-[22px]" strokeWidth={2.5} />
+                            <p className="text-xl md:text-2xl font-bold text-slate-900 mb-1">{safeStreak}</p>
                             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Day Streak</p>
                         </div>
 
-                        <div className="border border-slate-200 rounded-xl p-4 bg-white hover:border-teal-400 hover:shadow-sm transition-all">
-                            <Medal size={22} className="text-teal-600 mb-3" strokeWidth={2.5} />
-                            <p className="text-2xl font-bold text-slate-900 mb-1">{safeBadgeCompletionRate}%</p>
+                        <div className="border border-slate-200 rounded-xl p-3 md:p-4 bg-white hover:border-teal-400 hover:shadow-sm transition-all">
+                            <Medal size={20} className="text-teal-600 mb-2 md:mb-3 md:w-[22px] md:h-[22px]" strokeWidth={2.5} />
+                            <p className="text-xl md:text-2xl font-bold text-slate-900 mb-1">{safeBadgeCompletionRate}%</p>
                             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Complete</p>
                         </div>
                     </div>
@@ -187,7 +187,7 @@ const AchievementsSection = () => {
                     transition={{ delay: 0.15 }}
                     className="mb-8"
                 >
-                    <div className="flex gap-1 border-b border-slate-200">
+                    <div className="flex gap-1 border-b border-slate-200 overflow-x-auto">
                         {[
                             { key: 'challenges', label: 'Challenges', count: challengeCount },
                             { key: 'badges', label: 'Badges', count: unlockedBadges },
@@ -201,7 +201,7 @@ const AchievementsSection = () => {
                                         setActiveTab(tab.key);
                                     }
                                 }}
-                                className={`px-4 py-3 text-xs font-bold uppercase tracking-wide transition-all relative ${activeTab === tab.key
+                                className={`px-4 py-3 md:py-3 text-xs font-bold uppercase tracking-wide transition-all relative whitespace-nowrap ${activeTab === tab.key
                                     ? 'text-slate-900'
                                     : 'text-slate-400 hover:text-slate-600'
                                     }`}
@@ -266,7 +266,7 @@ const AchievementsSection = () => {
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.3 }}
-                            className="grid grid-cols-4 gap-4"
+                            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-4"
                         >
                             {safeBadges.length > 0 ? safeBadges.map((badge, idx) => {
                                 if (!badge) return null;
@@ -278,17 +278,17 @@ const AchievementsSection = () => {
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: idx * 0.02 }}
                                         whileHover={{ y: -3 }}
-                                        className={`group relative border rounded-xl p-5 transition-all ${badge.unlocked
+                                        className={`group relative border rounded-xl p-4 md:p-5 transition-all ${badge.unlocked
                                             ? 'border-slate-200 hover:border-teal-400 bg-white hover:shadow-md'
                                             : 'border-slate-100 bg-slate-50/50 opacity-50'
                                             }`}
                                     >
                                         <div className="flex flex-col items-center text-center">
-                                            <div className={`w-12 h-12 rounded-lg flex items-center justify-center mb-4 transition-all ${badge.unlocked
+                                            <div className={`w-10 h-10 md:w-12 md:h-12 rounded-lg flex items-center justify-center mb-3 md:mb-4 transition-all ${badge.unlocked
                                                 ? 'bg-gradient-to-br from-teal-500 to-blue-600 text-white shadow-sm group-hover:scale-105'
                                                 : 'bg-slate-200 text-slate-400'
                                                 }`}>
-                                                {badge.unlocked ? <Icon size={20} strokeWidth={2.5} /> : <Lock size={16} />}
+                                                {badge.unlocked ? <Icon size={18} className="md:w-5 md:h-5" strokeWidth={2.5} /> : <Lock size={14} className="md:w-4 md:h-4" />}
                                             </div>
                                             <h3 className="text-xs font-bold text-slate-900 mb-1.5">
                                                 {badge.name}
@@ -335,7 +335,7 @@ const AchievementsSection = () => {
                                         animate={{ opacity: 1, x: 0 }}
                                         transition={{ delay: idx * 0.04 }}
                                         whileHover={{ x: 3 }}
-                                        className={`flex items-center justify-between p-4 border rounded-xl transition-all ${isUnlocked
+                                        className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 md:p-4 border rounded-xl transition-all gap-3 sm:gap-4 ${isUnlocked
                                             ? 'border-slate-200 hover:border-teal-400 bg-white hover:shadow-md'
                                             : 'border-slate-100 bg-slate-50/50 opacity-50'
                                             } ${isEquipped ? 'ring-2 ring-teal-500 ring-offset-2' : ''}`}
@@ -363,7 +363,7 @@ const AchievementsSection = () => {
                                             <button
                                                 onClick={() => handleEquipTitle(title.id)}
                                                 disabled={syncing}
-                                                className={`px-5 py-2 bg-gradient-to-r from-teal-500 to-blue-600 hover:from-teal-600 hover:to-blue-700 text-white text-xs font-bold rounded-lg transition-all shadow-sm ${syncing ? 'opacity-50 cursor-not-allowed' : ''
+                                                className={`w-full sm:w-auto px-5 py-3 sm:py-2 bg-gradient-to-r from-teal-500 to-blue-600 hover:from-teal-600 hover:to-blue-700 text-white text-xs font-bold rounded-lg transition-all shadow-sm ${syncing ? 'opacity-50 cursor-not-allowed' : ''
                                                     }`}
                                             >
                                                 {syncing ? 'EQUIPPING...' : 'EQUIP'}

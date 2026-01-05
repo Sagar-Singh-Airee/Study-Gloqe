@@ -298,19 +298,19 @@ const LandingPage = () => {
                 }`}>
                 <div className="container mx-auto px-4 md:px-8">
                     <div className="flex items-center justify-between h-20">
-                        <Link to="/" className="flex items-center gap-3 group relative">
+                        <Link to="/" className="flex items-center gap-2 sm:gap-3 group relative">
                             <div className="absolute -inset-3 bg-gradient-to-r from-white/10 to-transparent rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-all duration-500" />
                             <img
                                 src={logoImage}
                                 alt="StudyGloqe"
-                                className="relative h-15 w-20 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3"
+                                className="relative h-10 w-14 sm:h-15 sm:w-20 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3"
                             />
-                            <span className="relative text-2xl font-extrabold tracking-tight bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent group-hover:from-gray-100 group-hover:to-gray-300 transition-all duration-300" style={{ letterSpacing: '-0.02em' }}>
+                            <span className="relative text-xl sm:text-2xl font-extrabold tracking-tight bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent group-hover:from-gray-100 group-hover:to-gray-300 transition-all duration-300" style={{ letterSpacing: '-0.02em' }}>
                                 StudyGloqe
                             </span>
                         </Link>
 
-                        <div className="hidden md:flex items-center gap-8">
+                        <div className="hidden lg:flex items-center gap-8">
                             {['Features', 'Teachers', 'Pricing'].map((item) => (
                                 <a
                                     key={item}
@@ -323,10 +323,10 @@ const LandingPage = () => {
                             ))}
                         </div>
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 sm:gap-3">
                             <Link
                                 to="/auth"
-                                className="group relative px-6 py-2.5 rounded-xl text-[15px] font-semibold text-white/80 hover:text-white transition-all duration-300 overflow-hidden tracking-tight"
+                                className="hidden sm:block group relative px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-sm sm:text-[15px] font-semibold text-white/80 hover:text-white transition-all duration-300 overflow-hidden tracking-tight"
                             >
                                 <span className="relative z-10">Sign In</span>
                                 <span className="absolute inset-0 rounded-xl border border-transparent group-hover:border-white/20 transition-all duration-300" />
@@ -334,7 +334,7 @@ const LandingPage = () => {
                             </Link>
                             <Link
                                 to="/auth"
-                                className="group relative px-7 py-2.5 bg-white text-black rounded-xl text-[15px] font-bold transition-all duration-300 hover:scale-105 hover:shadow-[0_8px_30px_rgba(255,255,255,0.15)] overflow-hidden tracking-tight"
+                                className="group relative px-5 py-2 sm:px-7 sm:py-2.5 bg-white text-black rounded-xl text-sm sm:text-[15px] font-bold transition-all duration-300 hover:scale-105 hover:shadow-[0_8px_30px_rgba(255,255,255,0.15)] overflow-hidden tracking-tight"
                             >
                                 <span className="relative z-10">Get Started</span>
                                 <span className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -348,18 +348,18 @@ const LandingPage = () => {
             </nav>
 
             {/* Enhanced Hero Section */}
-            <section ref={heroRef} className="relative min-h-screen flex items-center justify-center pt-20 pb-16 z-10 overflow-hidden">
+            <section ref={heroRef} className="relative min-h-screen flex items-center justify-center pt-24 sm:pt-20 pb-12 sm:pb-16 z-10 overflow-hidden">
                 <div className="container mx-auto px-8">
                     <div className="flex flex-col items-center text-center">
 
                         {/* Enhanced Top Badge */}
                         <div
-                            className="inline-flex items-center gap-2.5 px-6 py-3 rounded-full backdrop-blur-xl bg-white/[0.08] border border-white/20 mb-10 shadow-[0_8px_32px_rgba(255,255,255,0.1)] hover:scale-105 transition-transform duration-300"
+                            className="inline-flex items-center gap-2 sm:gap-2.5 px-4 sm:px-6 py-2 sm:py-3 rounded-full backdrop-blur-xl bg-white/[0.08] border border-white/20 mb-8 sm:mb-10 shadow-[0_8px_32px_rgba(255,255,255,0.1)] hover:scale-105 transition-transform duration-300"
                             data-aos="fade-down"
                             data-aos-delay="100"
                         >
-                            <Sparkles size={18} className="text-white animate-pulse" />
-                            <span className="text-[13px] font-bold tracking-widest text-white uppercase" style={{ letterSpacing: '0.15em' }}>
+                            <Sparkles size={16} className="sm:w-[18px] sm:h-[18px] text-white animate-pulse" />
+                            <span className="text-[11px] sm:text-[13px] font-bold tracking-widest text-white uppercase" style={{ letterSpacing: '0.15em' }}>
                                 Introducing
                             </span>
                         </div>
@@ -393,7 +393,7 @@ const LandingPage = () => {
                         </div>
 
                         {/* Enhanced Mascot Container - WITHOUT FLOATING CARDS */}
-                        <div className="relative z-10 w-full max-w-md mx-auto px-6 mb-10">
+                        <div className="relative z-10 w-full max-w-xs sm:max-w-md mx-auto px-4 sm:px-6 mb-8 sm:mb-10">
                             <div
                                 ref={mascotRef}
                                 className="relative group"
@@ -420,11 +420,11 @@ const LandingPage = () => {
 
                         {/* Enhanced Description */}
                         <div
-                            className="relative z-20 space-y-4 max-w-2xl mx-auto mb-12 px-4"
+                            className="relative z-20 space-y-3 sm:space-y-4 max-w-xl sm:max-w-2xl mx-auto mb-10 sm:mb-12 px-4"
                             data-aos="fade-up"
                             data-aos-delay="400"
                         >
-                            <p className="text-[19px] text-gray-300 leading-relaxed font-medium text-center tracking-tight" style={{ lineHeight: '1.7' }}>
+                            <p className="text-base sm:text-[19px] text-gray-300 leading-relaxed font-medium text-center tracking-tight" style={{ lineHeight: '1.7' }}>
                                 Where AI meets empathy. We're building more than smart machines -
                                 we're creating meaningful learning connections that transform education.
                             </p>

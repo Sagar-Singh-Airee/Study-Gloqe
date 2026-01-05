@@ -223,26 +223,26 @@ const FlashcardsSection = () => {
       {/* Subtle background */}
       <div className="fixed inset-0 -z-10 bg-gradient-to-br from-white via-teal-50/20 to-blue-50/20" />
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Compact Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
+        <div className="mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-gradient-to-br from-teal-500 to-blue-600 rounded-xl shadow-sm">
                 <CreditCard className="w-5 h-5 text-white" strokeWidth={2.5} />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-slate-900">
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
                   AI Flashcards
                 </h1>
-                <p className="text-xs text-slate-600 mt-0.5">
+                <p className="text-xs text-slate-600 mt-0.5 hidden sm:block">
                   Master concepts with intelligent flashcards
                 </p>
               </div>
             </div>
             <button
               onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-              className="p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all"
+              className="p-2.5 sm:p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all"
             >
               {viewMode === 'grid' ? (
                 <List size={18} className="text-slate-700" />
@@ -273,8 +273,8 @@ const FlashcardsSection = () => {
             <button
               onClick={() => setSelectedSubject('all')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${selectedSubject === 'all'
-                  ? 'bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-sm'
-                  : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
+                ? 'bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-sm'
+                : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
                 }`}
             >
               All ({decks.length})
@@ -285,8 +285,8 @@ const FlashcardsSection = () => {
                 key={subject}
                 onClick={() => setSelectedSubject(subject)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap border ${selectedSubject === subject
-                    ? subjectColors[subject] || subjectColors.default
-                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                  ? subjectColors[subject] || subjectColors.default
+                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                   }`}
               >
                 {subject} ({subjectDecks.length})
@@ -302,7 +302,7 @@ const FlashcardsSection = () => {
               <Sparkles size={16} className="text-teal-600" strokeWidth={2.5} />
               <h3 className="text-sm font-bold text-slate-900">Generate New Deck</h3>
             </div>
-            <div className={`grid gap-3 ${viewMode === 'grid' ? 'grid-cols-3' : 'grid-cols-1'}`}>
+            <div className={`grid gap-3 ${viewMode === 'grid' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
               {documents.slice(0, 6).map((doc) => {
                 const optimalCount = calculateOptimalCardCount(doc);
                 const subjectStyle = subjectColors[doc.subject] || subjectColors.default;
@@ -337,7 +337,7 @@ const FlashcardsSection = () => {
                     <button
                       onClick={() => handleGenerateDeck(doc)}
                       disabled={generatingDeck === doc.id}
-                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-r from-teal-500 to-blue-600 text-white rounded-lg text-xs font-bold hover:shadow-sm transition-all disabled:opacity-50"
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 sm:py-2 bg-gradient-to-r from-teal-500 to-blue-600 text-white rounded-lg text-xs font-bold hover:shadow-sm transition-all disabled:opacity-50"
                     >
                       {generatingDeck === doc.id ? (
                         <>
@@ -362,7 +362,7 @@ const FlashcardsSection = () => {
         {filteredDecks.length > 0 ? (
           <div>
             <h3 className="text-sm font-bold text-slate-900 mb-4">Your Flashcard Decks</h3>
-            <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-3' : 'grid-cols-1'}`}>
+            <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
               {filteredDecks.map((deck) => {
                 const subject = deck.subject || 'General';
                 const subjectStyle = subjectColors[subject] || subjectColors.default;
@@ -429,8 +429,8 @@ const FlashcardsSection = () => {
                           animate={{ width: `${masteryPercentage}%` }}
                           transition={{ duration: 0.5 }}
                           className={`h-full ${masteryPercentage === 100
-                              ? 'bg-gradient-to-r from-emerald-500 to-emerald-600'
-                              : 'bg-gradient-to-r from-teal-500 to-blue-600'
+                            ? 'bg-gradient-to-r from-emerald-500 to-emerald-600'
+                            : 'bg-gradient-to-r from-teal-500 to-blue-600'
                             }`}
                         />
                       </div>
@@ -439,14 +439,14 @@ const FlashcardsSection = () => {
                     <div className="flex gap-2">
                       <button
                         onClick={() => navigate(`/flashcards/${deck.id}`)}
-                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-r from-teal-500 to-blue-600 text-white rounded-lg text-xs font-bold hover:shadow-sm transition-all"
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 sm:py-2 bg-gradient-to-r from-teal-500 to-blue-600 text-white rounded-lg text-xs font-bold hover:shadow-sm transition-all"
                       >
                         <Play size={12} />
                         Study Now
                       </button>
                       <button
                         onClick={() => handleDeleteDeck(deck.id, deck.title)}
-                        className="p-2 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 border border-rose-200 transition-all"
+                        className="p-2.5 sm:p-2 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 border border-rose-200 transition-all"
                       >
                         <Trash2 size={14} />
                       </button>

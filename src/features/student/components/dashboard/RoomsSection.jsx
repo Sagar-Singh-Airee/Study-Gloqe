@@ -200,18 +200,18 @@ const RoomsSection = () => {
             {/* Subtle background */}
             <div className="fixed inset-0 -z-10 bg-gradient-to-br from-white via-teal-50/20 to-blue-50/20" />
 
-            <div className="max-w-7xl mx-auto px-6 py-8">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-8">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 sm:mb-8">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900 mb-0.5">My Study Rooms</h1>
+                        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 mb-0.5">My Study Rooms</h1>
                         <p className="text-xs text-slate-600">
                             {rooms.length} active room{rooms.length !== 1 ? 's' : ''}
                         </p>
                     </div>
                     <button
                         onClick={() => setShowCreateModal(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-500 to-blue-600 text-white rounded-lg text-xs font-bold hover:shadow-sm transition-all"
+                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 bg-gradient-to-r from-teal-500 to-blue-600 text-white rounded-lg text-xs font-bold hover:shadow-sm transition-all"
                     >
                         <Plus size={14} />
                         Create Room
@@ -357,7 +357,7 @@ const RoomsSection = () => {
 
                 {/* Rooms Grid */}
                 {rooms.length > 0 ? (
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                         {rooms.map((room, idx) => (
                             <motion.div
                                 key={room.id}
@@ -426,7 +426,7 @@ const RoomsSection = () => {
                                 {/* Join Button */}
                                 <button
                                     onClick={() => navigate(`/study-room/${room.id}`)}
-                                    className="w-full py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 bg-gradient-to-r from-teal-500 to-blue-600 text-white hover:shadow-sm"
+                                    className="w-full py-2.5 sm:py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 bg-gradient-to-r from-teal-500 to-blue-600 text-white hover:shadow-sm"
                                 >
                                     <Video size={14} />
                                     Enter Room
