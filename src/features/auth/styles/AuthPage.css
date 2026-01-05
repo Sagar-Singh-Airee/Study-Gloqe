@@ -982,3 +982,37 @@
         height: 44px;
     }
 }
+
+/* ==================== MOBILE TOGGLE ==================== */
+.mobile-toggle {
+    display: none;
+    margin-top: 20px;
+    text-align: center;
+    width: 100%;
+}
+
+.mobile-toggle p {
+    color: #666;
+    margin: 0 0 5px 0;
+    font-size: 13px;
+    display: inline-block;
+}
+
+.mobile-toggle button {
+    background: none;
+    border: none;
+    color: #1a1a1a;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 13px;
+    margin-left: 5px;
+    text-decoration: underline;
+    display: inline-block;
+    padding: 0;
+}
+
+@media (max-width: 768px) {
+    .mobile-toggle {
+        display: block;
+    }
+}

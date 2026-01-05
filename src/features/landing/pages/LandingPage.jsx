@@ -296,7 +296,7 @@ const LandingPage = () => {
                 ? 'backdrop-blur-2xl bg-black/80 border-b border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]'
                 : 'bg-transparent'
                 }`}>
-                <div className="container mx-auto px-8">
+                <div className="container mx-auto px-4 md:px-8">
                     <div className="flex items-center justify-between h-20">
                         <Link to="/" className="flex items-center gap-3 group relative">
                             <div className="absolute -inset-3 bg-gradient-to-r from-white/10 to-transparent rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-all duration-500" />
@@ -438,7 +438,7 @@ const LandingPage = () => {
                         >
                             <Link
                                 to="/auth"
-                                className="group relative inline-flex items-center justify-center gap-3 px-12 py-4 bg-white text-black rounded-xl text-[17px] font-bold transition-all duration-500 hover:scale-105 hover:shadow-[0_20px_60px_rgba(255,255,255,0.25)] overflow-hidden tracking-tight"
+                                className="group relative inline-flex items-center justify-center gap-3 px-8 py-3 md:px-12 md:py-4 bg-white text-black rounded-xl text-[17px] font-bold transition-all duration-500 hover:scale-105 hover:shadow-[0_20px_60px_rgba(255,255,255,0.25)] overflow-hidden tracking-tight"
                             >
                                 <span className="relative z-10 flex items-center gap-2.5 whitespace-nowrap">
                                     Start Learning Free
@@ -462,7 +462,7 @@ const LandingPage = () => {
 
             {/* Core Features Section */}
             <section id="features" className="relative py-24 z-10">
-                <div className="container mx-auto px-8">
+                <div className="container mx-auto px-4 md:px-8">
                     <div className="text-center mb-20" data-aos="fade-up">
                         <h2 className="text-5xl md:text-6xl font-black mb-5 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent px-4 tracking-tight" style={{ letterSpacing: '-0.02em' }}>
                             Core Features
@@ -500,7 +500,7 @@ const LandingPage = () => {
 
             {/* Pricing Section - Enhanced */}
             <section id="pricing" className="relative py-24 z-10">
-                <div className="container mx-auto px-8">
+                <div className="container mx-auto px-4 md:px-8">
                     <div className="text-center mb-20" data-aos="fade-up">
                         <h2 className="text-5xl md:text-6xl font-black mb-5 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent px-4 tracking-tight" style={{ letterSpacing: '-0.02em' }}>
                             Simple Pricing
@@ -603,7 +603,7 @@ const LandingPage = () => {
 
             {/* Teacher Section - Enhanced */}
             <section id="teachers" className="relative py-24 z-10">
-                <div className="container mx-auto px-8">
+                <div className="container mx-auto px-4 md:px-8">
                     <div className="grid lg:grid-cols-2 gap-16 items-center max-w-5xl mx-auto">
                         <div data-aos="fade-right">
                             <div className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full backdrop-blur-xl bg-white/5 border border-white/10 mb-7 shadow-lg">
@@ -635,7 +635,7 @@ const LandingPage = () => {
                             </Link>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-5" data-aos="fade-left">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5" data-aos="fade-left">
                             {teacherFeatures.map((feature, index) => (
                                 <div
                                     key={index}
@@ -707,9 +707,9 @@ const LandingPage = () => {
 
             {/* Collaboration Section - Enhanced */}
             <section className="relative py-24 z-10">
-                <div className="container mx-auto px-8">
+                <div className="container mx-auto px-4 md:px-8">
                     <div className="grid lg:grid-cols-2 gap-16 items-center max-w-5xl mx-auto">
-                        <div className="grid grid-cols-2 gap-5" data-aos="fade-right">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5" data-aos="fade-right">
                             {collaborationTools.map((tool, index) => (
                                 <div
                                     key={index}
@@ -764,7 +764,7 @@ const LandingPage = () => {
 
             {/* Security Section - Enhanced */}
             <section className="relative py-24 z-10">
-                <div className="container mx-auto px-8">
+                <div className="container mx-auto px-4 md:px-8">
                     <div className="text-center mb-20" data-aos="fade-up">
                         <div className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full backdrop-blur-xl bg-white/5 border border-white/10 mb-7 shadow-lg">
                             <Lock size={18} className="text-white" />

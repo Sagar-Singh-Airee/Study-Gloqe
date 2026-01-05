@@ -68,7 +68,7 @@ const LomaAIButton = ({ onModeSelect, isActive, currentMode }) => {
     const [showMenu, setShowMenu] = useState(false);
 
     return (
-        <div className="fixed bottom-32 right-8 z-50 flex flex-col items-end gap-4">
+        <div className="fixed bottom-24 right-4 md:bottom-32 md:right-8 z-50 flex flex-col items-end gap-4">
             {/* Floating Menu */}
             <AnimatePresence>
                 {showMenu && !isActive && (
@@ -663,7 +663,7 @@ const StudySession = () => {
             {/* HEADER */}
             <div className={`sticky top-0 z-50 ${DESIGN.header}`}>
                 <div className={DESIGN.container}>
-                    <div className="py-4 flex items-center justify-between gap-6">
+                    <div className="py-3 md:py-4 flex flex-col md:flex-row gap-4 md:items-center justify-between">
                         {/* Left: Nav & Title */}
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                             <button
@@ -693,7 +693,7 @@ const StudySession = () => {
                         </div>
 
                         {/* Right: Controls */}
-                        <div className="flex items-center gap-2.5 flex-shrink-0">
+                        <div className="flex items-center justify-between gap-2.5 flex-shrink-0 w-full md:w-auto">
                             {/* Timer */}
                             <div className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm ${sessionPaused
                                 ? 'bg-gradient-to-r from-orange-50 to-red-50 ring-2 ring-orange-200'
@@ -998,15 +998,15 @@ const StudySession = () => {
             {/* BOTTOM NAVIGATION */}
             <div className={`fixed bottom-0 left-0 right-0 ${DESIGN.header} border-t shadow-xl z-40`}>
                 <div className={DESIGN.container}>
-                    <div className="py-4 flex items-center justify-between gap-6">
+                    <div className="py-3 md:py-4 flex items-center justify-between gap-2 md:gap-6">
                         {/* Previous */}
                         <button
                             onClick={handlePrevPage}
                             disabled={!hasPrevPage}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-gray-100 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl font-semibold text-sm transition-all hover:scale-105 active:scale-95 shadow-sm"
+                            className="flex items-center gap-2 px-3 md:px-6 py-2 md:py-2.5 bg-gray-100 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl font-semibold text-sm transition-all hover:scale-105 active:scale-95 shadow-sm"
                         >
                             <ChevronLeft size={18} />
-                            <span>Previous</span>
+                            <span className="hidden sm:inline">Previous</span>
                         </button>
 
                         {/* Page dots */}
@@ -1039,9 +1039,9 @@ const StudySession = () => {
                         <button
                             onClick={handleNextPage}
                             disabled={!hasNextPage}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white disabled:opacity-40 disabled:cursor-not-allowed rounded-xl font-semibold text-sm transition-all hover:scale-105 active:scale-95 shadow-md"
+                            className="flex items-center gap-2 px-3 md:px-6 py-2 md:py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white disabled:opacity-40 disabled:cursor-not-allowed rounded-xl font-semibold text-sm transition-all hover:scale-105 active:scale-95 shadow-md"
                         >
-                            <span>Next</span>
+                            <span className="hidden sm:inline">Next</span>
                             <ChevronRight size={18} />
                         </button>
                     </div>

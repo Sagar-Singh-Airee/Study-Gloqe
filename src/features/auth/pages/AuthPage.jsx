@@ -480,6 +480,11 @@ const AuthPage = () => {
                         >
                             {signUpLoading ? <div className="spinner" /> : "Sign Up"}
                         </button>
+
+                        <div className="mobile-toggle">
+                            <p>Already have an account?</p>
+                            <button type="button" onClick={toggleMode}>Sign In</button>
+                        </div>
                     </form>
                 </div>
 
@@ -558,6 +563,11 @@ const AuthPage = () => {
                         <button type="submit" className="submit-btn" disabled={signInLoading}>
                             {signInLoading ? <div className="spinner" /> : "Sign In"}
                         </button>
+
+                        <div className="mobile-toggle">
+                            <p>Don't have an account?</p>
+                            <button type="button" onClick={toggleMode}>Sign Up</button>
+                        </div>
                     </form>
                 </div>
 

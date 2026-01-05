@@ -91,7 +91,7 @@ const OverviewSection = ({
                 </div>
 
                 {/* 4 STEPS – bigger with hover pop-up */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
                     <StepCard
                         number="01"
                         title="Upload"
@@ -157,7 +157,7 @@ const OverviewSection = ({
             </section>
 
             {/* MAIN GRID */}
-            <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
                 {/* LEFT: PRIMARY ACTION */}
                 <motion.div variants={itemVariants} className="lg:col-span-1">
                     <div className="h-full rounded-[24px] border border-slate-200 bg-white p-1 shadow-sm">
@@ -362,7 +362,7 @@ const StepCard = ({ number, title, desc, icon: Icon, onClick, isActive, accent }
             transition={{ type: 'spring', stiffness: 300, damping: 20 }}
             className="group relative w-full rounded-2xl border border-slate-800 bg-gradient-to-br from-slate-950 to-slate-900 p-[1px] text-left min-h-[180px]"
         >
-            <div className="h-full rounded-2xl bg-gradient-to-br from-slate-900/90 to-black/90 px-6 py-6 flex flex-col justify-between">
+            <div className="h-full rounded-2xl bg-gradient-to-br from-slate-900/90 to-black/90 px-4 py-4 md:px-6 md:py-6 flex flex-col justify-between">
                 <div className="pointer-events-none absolute inset-0 rounded-2xl opacity-40 group-hover:opacity-70 transition-opacity"
                     style={{ boxShadow: '0 0 18px rgba(45, 212, 191, 0.25)' }} />
                 <div className="relative z-10 flex flex-col gap-4">

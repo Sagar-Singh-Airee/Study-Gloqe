@@ -213,7 +213,7 @@ const QuizzesSection = () => {
             {/* Subtle background */}
             <div className="fixed inset-0 -z-10 bg-gradient-to-br from-white via-teal-50/20 to-blue-50/20" />
 
-            <div className="max-w-7xl mx-auto px-6 py-8">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 md:py-8">
                 {/* Compact Header */}
                 <div className="mb-8">
                     <div className="flex items-center gap-3 mb-6">
@@ -282,7 +282,7 @@ const QuizzesSection = () => {
                             <Sparkles size={16} className="text-teal-600" strokeWidth={2.5} />
                             <h3 className="text-sm font-bold text-slate-900">Generate New Quiz</h3>
                         </div>
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                             {documents.slice(0, 6).map((doc) => (
                                 <motion.div
                                     key={doc.id}
@@ -335,7 +335,7 @@ const QuizzesSection = () => {
                 {filteredQuizzes.length > 0 ? (
                     <div>
                         <h3 className="text-sm font-bold text-slate-900 mb-4">Your Quizzes</h3>
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             {filteredQuizzes.map((quiz) => {
                                 const subject = quiz.subject || 'General';
                                 const subjectStyle = subjectColors[subject] || subjectColors.default;

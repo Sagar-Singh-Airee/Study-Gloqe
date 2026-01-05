@@ -109,7 +109,7 @@ const ClassesSection = () => {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50/30">
-            <div className="max-w-7xl mx-auto px-6 py-10">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-10 gap-4">
                     <div>
@@ -131,11 +131,11 @@ const ClassesSection = () => {
 
                 {/* Classes Grid */}
                 {loading && classes.length === 0 ? (
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         {[1, 2, 3].map((i) => <ClassSkeleton key={i} />)}
                     </div>
                 ) : classes.length > 0 ? (
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         {classes.map((classItem, idx) => {
                             const theme = CLASS_THEMES[idx % CLASS_THEMES.length];
 

@@ -383,8 +383,8 @@ const DocumentsSection = () => {
                             }}
                             disabled={batchRedetecting}
                             className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all border flex items-center gap-1 ${batchRedetecting
-                                    ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
-                                    : 'bg-teal-50 text-teal-700 hover:bg-teal-100 border-teal-200'
+                                ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                                : 'bg-teal-50 text-teal-700 hover:bg-teal-100 border-teal-200'
                                 }`}
                             title="Re-detect all with AI"
                         >
@@ -440,8 +440,8 @@ const DocumentsSection = () => {
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ delay: idx * 0.02 }}
                 className={`group bg-white rounded-xl p-4 border shadow-sm transition-all cursor-pointer ${isSelected
-                        ? 'border-blue-400 shadow-md'
-                        : 'border-slate-200 hover:border-teal-300 hover:shadow-md'
+                    ? 'border-blue-400 shadow-md'
+                    : 'border-slate-200 hover:border-teal-300 hover:shadow-md'
                     }`}
                 onClick={() => navigate(`/study/${doc.id}`)}
             >
@@ -488,8 +488,8 @@ const DocumentsSection = () => {
                                     }}
                                     disabled={isRedetecting}
                                     className={`p-1.5 rounded-lg transition-all border ${isRedetecting
-                                            ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
-                                            : 'bg-teal-50 text-teal-700 hover:bg-teal-100 border-teal-200'
+                                        ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                                        : 'bg-teal-50 text-teal-700 hover:bg-teal-100 border-teal-200'
                                         }`}
                                     title="Re-detect with AI"
                                 >
@@ -506,8 +506,8 @@ const DocumentsSection = () => {
                                         toggleFavorite(doc.id);
                                     }}
                                     className={`p-1.5 rounded-lg transition-all border ${isFavorite
-                                            ? 'bg-teal-50 text-teal-700 border-teal-200'
-                                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border-slate-200'
+                                        ? 'bg-teal-50 text-teal-700 border-teal-200'
+                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border-slate-200'
                                         }`}
                                 >
                                     <Star size={12} fill={isFavorite ? 'currentColor' : 'none'} strokeWidth={2.5} />
@@ -592,7 +592,7 @@ const DocumentsSection = () => {
             {/* Subtle background */}
             <div className="fixed inset-0 -z-10 bg-gradient-to-br from-white via-teal-50/20 to-blue-50/20" />
 
-            <div className="max-w-7xl mx-auto px-6 py-8">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
                 {/* Header */}
                 <div className="mb-8">
                     <div className="flex items-center justify-between mb-6">
@@ -656,8 +656,8 @@ const DocumentsSection = () => {
                                 <button
                                     onClick={() => setViewMode('grid')}
                                     className={`p-2 rounded-lg transition-all ${viewMode === 'grid'
-                                            ? 'bg-gradient-to-br from-teal-500 to-blue-600 text-white'
-                                            : 'text-slate-600 hover:bg-slate-100'
+                                        ? 'bg-gradient-to-br from-teal-500 to-blue-600 text-white'
+                                        : 'text-slate-600 hover:bg-slate-100'
                                         }`}
                                 >
                                     <LayoutGrid size={14} strokeWidth={2.5} />
@@ -665,8 +665,8 @@ const DocumentsSection = () => {
                                 <button
                                     onClick={() => setViewMode('list')}
                                     className={`p-2 rounded-lg transition-all ${viewMode === 'list'
-                                            ? 'bg-gradient-to-br from-teal-500 to-blue-600 text-white'
-                                            : 'text-slate-600 hover:bg-slate-100'
+                                        ? 'bg-gradient-to-br from-teal-500 to-blue-600 text-white'
+                                        : 'text-slate-600 hover:bg-slate-100'
                                         }`}
                                 >
                                     <List size={14} strokeWidth={2.5} />
@@ -731,7 +731,7 @@ const DocumentsSection = () => {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="grid grid-cols-3 gap-4"
+                            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
                         >
                             {Object.entries(folderStats).length > 0 ? (
                                 Object.entries(folderStats).map(([subject, stats], idx) =>
@@ -760,7 +760,7 @@ const DocumentsSection = () => {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className={viewMode === 'grid' ? 'grid grid-cols-2 gap-3' : 'space-y-2.5'}
+                            className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3' : 'space-y-2.5'}
                         >
                             {filteredDocuments.length > 0 ? (
                                 filteredDocuments.map((doc, idx) => renderDocumentCard(doc, idx))
