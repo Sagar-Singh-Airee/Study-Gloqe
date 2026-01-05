@@ -29,10 +29,12 @@ import {
     TrendingUp,
     Link,
     CheckCircle,
-    X
+    X,
+    Network
 } from 'lucide-react';
 import { useAuth } from '../../auth/contexts/AuthContext';
 import ConceptFlowchart from '../components/visual/ConceptFlowchart';
+import MindMapCanvas from '../components/visual/MindMapCanvas';
 import lomaLogo from '../../../assets/logo/loma.png';
 
 // AI Tools
@@ -219,6 +221,7 @@ const StudySession = () => {
     const [aiMode, setAiMode] = useState(null);
     const [showScrollTop, setShowScrollTop] = useState(false);
     const [autoScrollToNew, setAutoScrollToNew] = useState(true);
+    const [viewMode, setViewMode] = useState('page'); // 'page' | 'mindmap'
 
     // Refs
     const sessionIdRef = useRef(null);
@@ -737,6 +740,18 @@ const StudySession = () => {
                             >
                                 <Zap size={18} className={autoScrollToNew ? 'animate-pulse' : ''} />
                             </button>
+
+                            {/* View Toggle: Page / Mind Map */}
+                            <button
+                                onClick={() => setViewMode(viewMode === 'page' ? 'mindmap' : 'page')}
+                                className={`p-2.5 rounded-xl transition-all shadow-sm hover:scale-105 active:scale-95 ${viewMode === 'mindmap'
+                                    ? 'bg-gradient-to-r from-teal-100 to-cyan-100 text-teal-600 ring-2 ring-teal-200'
+                                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                    }`}
+                                title={viewMode === 'mindmap' ? 'Switch to Page View' : 'Switch to Mind Map'}
+                            >
+                                <Network size={18} />
+                            </button>
                         </div>
                     </div>
 
@@ -767,232 +782,249 @@ const StudySession = () => {
                 className="h-[calc(100vh-160px)] overflow-y-auto overscroll-contain"
                 style={{ scrollBehavior: 'smooth' }}
             >
-                <div className={`${DESIGN.container} py-6 space-y-6 pb-32`}>
-                    <AnimatePresence mode="wait">
-                        <motion.div
-                            key={currentPageIndex}
-                            initial={prefersReducedMotion ? {} : { opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -20 }}
-                            transition={{ duration: 0.3 }}
-                        >
-                            {currentPage && (
-                                <>
-                                    {/* PAGE HEADER - Minimalist */}
-                                    <div className={DESIGN.card + ' p-6'}>
-                                        <div className="flex items-start justify-between gap-6">
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-3 mb-3">
-                                                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                                                        Page {currentPage.pageNumber}
-                                                    </span>
-                                                    {newPageAnimation === currentPage.pageNumber && (
-                                                        <motion.span
-                                                            initial={{ scale: 0 }}
-                                                            animate={{ scale: 1 }}
-                                                            className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded"
-                                                        >
-                                                            NEW
-                                                        </motion.span>
+                {viewMode === 'mindmap' ? (
+                    /* MIND MAP VIEW */
+                    <div className={`${DESIGN.container} py-6 pb-32`}>
+                        <MindMapCanvas
+                            document={document}
+                            visualPages={visualPages}
+                            currentPageIndex={currentPageIndex}
+                            onNodeClick={(pageIndex) => {
+                                setCurrentPageIndex(pageIndex);
+                                setViewMode('page');
+                                pageContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                        />
+                    </div>
+                ) : (
+                    /* PAGE VIEW (existing content) */
+                    <div className={`${DESIGN.container} py-6 space-y-6 pb-32`}>
+                        <AnimatePresence mode="wait">
+                            <motion.div
+                                key={currentPageIndex}
+                                initial={prefersReducedMotion ? {} : { opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                                transition={{ duration: 0.3 }}
+                            >
+                                {currentPage && (
+                                    <>
+                                        {/* PAGE HEADER - Minimalist */}
+                                        <div className={DESIGN.card + ' p-6'}>
+                                            <div className="flex items-start justify-between gap-6">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-3 mb-3">
+                                                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                                            Page {currentPage.pageNumber}
+                                                        </span>
+                                                        {newPageAnimation === currentPage.pageNumber && (
+                                                            <motion.span
+                                                                initial={{ scale: 0 }}
+                                                                animate={{ scale: 1 }}
+                                                                className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded"
+                                                            >
+                                                                NEW
+                                                            </motion.span>
+                                                        )}
+                                                    </div>
+                                                    <h2 className="text-2xl font-bold text-gray-900 mb-4 leading-tight">
+                                                        {currentPage.coreConcept}
+                                                    </h2>
+
+                                                    {/* Key Topics */}
+                                                    {currentPage.keyTopics?.length > 0 && (
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {currentPage.keyTopics.map((topic, i) => (
+                                                                <span
+                                                                    key={i}
+                                                                    className="px-3 py-1 bg-gray-50 text-gray-700 text-sm font-medium rounded-md border border-gray-200"
+                                                                >
+                                                                    {topic}
+                                                                </span>
+                                                            ))}
+                                                        </div>
                                                     )}
                                                 </div>
-                                                <h2 className="text-2xl font-bold text-gray-900 mb-4 leading-tight">
-                                                    {currentPage.coreConcept}
-                                                </h2>
 
-                                                {/* Key Topics */}
-                                                {currentPage.keyTopics?.length > 0 && (
-                                                    <div className="flex flex-wrap gap-2">
-                                                        {currentPage.keyTopics.map((topic, i) => (
-                                                            <span
-                                                                key={i}
-                                                                className="px-3 py-1 bg-gray-50 text-gray-700 text-sm font-medium rounded-md border border-gray-200"
-                                                            >
-                                                                {topic}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Metadata */}
-                                            <div className="flex flex-col gap-2 flex-shrink-0">
-                                                {currentPage.complexity && (
-                                                    <div className="px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-semibold rounded-md capitalize">
-                                                        {currentPage.complexity}
-                                                    </div>
-                                                )}
-                                                {currentPage.estimatedTime && (
-                                                    <div className="px-3 py-1.5 bg-purple-50 text-purple-700 text-xs font-semibold rounded-md flex items-center gap-1.5">
-                                                        <Clock size={12} />
-                                                        {currentPage.estimatedTime}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* FLOWCHART */}
-                                    {currentPage.flowchart && (
-                                        <ConceptFlowchart
-                                            flowchartCode={currentPage.flowchart}
-                                            title="Concept Map"
-                                        />
-                                    )}
-
-                                    {/* EXPLANATION */}
-                                    <div className={DESIGN.card + ' p-6'}>
-                                        <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-gray-100">
-                                            <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
-                                                <Brain size={16} className="text-emerald-600" />
-                                            </div>
-                                            <h3 className="text-base font-semibold text-gray-900">Explanation</h3>
-                                        </div>
-                                        <div className="prose prose-sm max-w-none">
-                                            <p className="text-gray-700 leading-relaxed text-sm whitespace-pre-wrap">
-                                                {currentPage.explanation}
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    {/* LEARNING PATH */}
-                                    {currentPage.learningPath?.length > 0 && (
-                                        <div className={DESIGN.card + ' p-6'}>
-                                            <div className="flex items-center gap-2.5 mb-5 pb-3 border-b border-gray-100">
-                                                <div className="w-8 h-8 rounded-lg bg-yellow-50 flex items-center justify-center flex-shrink-0">
-                                                    <Sparkles size={16} className="text-yellow-600" />
-                                                </div>
-                                                <h3 className="text-base font-semibold text-gray-900">Learning Path</h3>
-                                            </div>
-                                            <div className="space-y-3">
-                                                {currentPage.learningPath.map((step, i) => (
-                                                    <motion.div
-                                                        key={i}
-                                                        initial={{ opacity: 0, x: -20 }}
-                                                        animate={{ opacity: 1, x: 0 }}
-                                                        transition={{ delay: i * 0.05 }}
-                                                        className="flex gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-100"
-                                                    >
-                                                        <div className="flex-shrink-0 w-8 h-8 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center font-semibold text-sm">
-                                                            {step.step}
+                                                {/* Metadata */}
+                                                <div className="flex flex-col gap-2 flex-shrink-0">
+                                                    {currentPage.complexity && (
+                                                        <div className="px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-semibold rounded-md capitalize">
+                                                            {currentPage.complexity}
                                                         </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-start justify-between gap-3 mb-1.5">
-                                                                <h4 className="font-semibold text-gray-900 text-sm">{step.title}</h4>
-                                                                <span className="text-xs font-medium text-gray-500 flex items-center gap-1 flex-shrink-0">
-                                                                    <Clock size={12} />
-                                                                    {step.duration}
-                                                                </span>
+                                                    )}
+                                                    {currentPage.estimatedTime && (
+                                                        <div className="px-3 py-1.5 bg-purple-50 text-purple-700 text-xs font-semibold rounded-md flex items-center gap-1.5">
+                                                            <Clock size={12} />
+                                                            {currentPage.estimatedTime}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* FLOWCHART */}
+                                        {currentPage.flowchart && (
+                                            <ConceptFlowchart
+                                                flowchartCode={currentPage.flowchart}
+                                                title="Concept Map"
+                                            />
+                                        )}
+
+                                        {/* EXPLANATION */}
+                                        <div className={DESIGN.card + ' p-6'}>
+                                            <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-gray-100">
+                                                <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
+                                                    <Brain size={16} className="text-emerald-600" />
+                                                </div>
+                                                <h3 className="text-base font-semibold text-gray-900">Explanation</h3>
+                                            </div>
+                                            <div className="prose prose-sm max-w-none">
+                                                <p className="text-gray-700 leading-relaxed text-sm whitespace-pre-wrap">
+                                                    {currentPage.explanation}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* LEARNING PATH */}
+                                        {currentPage.learningPath?.length > 0 && (
+                                            <div className={DESIGN.card + ' p-6'}>
+                                                <div className="flex items-center gap-2.5 mb-5 pb-3 border-b border-gray-100">
+                                                    <div className="w-8 h-8 rounded-lg bg-yellow-50 flex items-center justify-center flex-shrink-0">
+                                                        <Sparkles size={16} className="text-yellow-600" />
+                                                    </div>
+                                                    <h3 className="text-base font-semibold text-gray-900">Learning Path</h3>
+                                                </div>
+                                                <div className="space-y-3">
+                                                    {currentPage.learningPath.map((step, i) => (
+                                                        <motion.div
+                                                            key={i}
+                                                            initial={{ opacity: 0, x: -20 }}
+                                                            animate={{ opacity: 1, x: 0 }}
+                                                            transition={{ delay: i * 0.05 }}
+                                                            className="flex gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-100"
+                                                        >
+                                                            <div className="flex-shrink-0 w-8 h-8 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center font-semibold text-sm">
+                                                                {step.step}
                                                             </div>
-                                                            <p className="text-gray-600 text-sm leading-relaxed">{step.description}</p>
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-start justify-between gap-3 mb-1.5">
+                                                                    <h4 className="font-semibold text-gray-900 text-sm">{step.title}</h4>
+                                                                    <span className="text-xs font-medium text-gray-500 flex items-center gap-1 flex-shrink-0">
+                                                                        <Clock size={12} />
+                                                                        {step.duration}
+                                                                    </span>
+                                                                </div>
+                                                                <p className="text-gray-600 text-sm leading-relaxed">{step.description}</p>
+                                                            </div>
+                                                        </motion.div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* KEY CONCEPTS */}
+                                        {currentPage.keyConcepts?.length > 0 && (
+                                            <div className={DESIGN.card + ' p-6'}>
+                                                <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-gray-100">
+                                                    <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                                                        <Target size={16} className="text-indigo-600" />
+                                                    </div>
+                                                    <h3 className="text-base font-semibold text-gray-900">Key Concepts</h3>
+                                                </div>
+                                                <div className="space-y-2.5">
+                                                    {currentPage.keyConcepts.map((concept, i) => (
+                                                        <div key={i} className="flex gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                                                            <div className="flex-shrink-0 w-5 h-5 rounded bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-semibold mt-0.5">
+                                                                {i + 1}
+                                                            </div>
+                                                            <p className="text-gray-700 text-sm leading-relaxed">{concept}</p>
                                                         </div>
-                                                    </motion.div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* KEY CONCEPTS */}
-                                    {currentPage.keyConcepts?.length > 0 && (
-                                        <div className={DESIGN.card + ' p-6'}>
-                                            <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-gray-100">
-                                                <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
-                                                    <Target size={16} className="text-indigo-600" />
+                                                    ))}
                                                 </div>
-                                                <h3 className="text-base font-semibold text-gray-900">Key Concepts</h3>
                                             </div>
-                                            <div className="space-y-2.5">
-                                                {currentPage.keyConcepts.map((concept, i) => (
-                                                    <div key={i} className="flex gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
-                                                        <div className="flex-shrink-0 w-5 h-5 rounded bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-semibold mt-0.5">
-                                                            {i + 1}
+                                        )}
+
+                                        {/* REAL-WORLD APPLICATIONS */}
+                                        {currentPage.applications?.length > 0 && (
+                                            <div className={DESIGN.card + ' p-6'}>
+                                                <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-gray-100">
+                                                    <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center flex-shrink-0">
+                                                        <TrendingUp size={16} className="text-orange-600" />
+                                                    </div>
+                                                    <h3 className="text-base font-semibold text-gray-900">Real-World Applications</h3>
+                                                </div>
+                                                <div className="grid gap-3">
+                                                    {currentPage.applications.map((app, i) => (
+                                                        <div key={i} className="p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border border-orange-100">
+                                                            <h4 className="font-semibold text-gray-900 text-sm mb-1.5">{app.title}</h4>
+                                                            <p className="text-gray-600 text-sm leading-relaxed">{app.description}</p>
                                                         </div>
-                                                        <p className="text-gray-700 text-sm leading-relaxed">{concept}</p>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* PRACTICE QUESTIONS */}
+                                        {currentPage.questions?.length > 0 && (
+                                            <div className={DESIGN.card + ' p-6'}>
+                                                <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-gray-100">
+                                                    <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0">
+                                                        <CheckCircle size={16} className="text-violet-600" />
                                                     </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* REAL-WORLD APPLICATIONS */}
-                                    {currentPage.applications?.length > 0 && (
-                                        <div className={DESIGN.card + ' p-6'}>
-                                            <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-gray-100">
-                                                <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center flex-shrink-0">
-                                                    <TrendingUp size={16} className="text-orange-600" />
+                                                    <h3 className="text-base font-semibold text-gray-900">Practice Questions</h3>
                                                 </div>
-                                                <h3 className="text-base font-semibold text-gray-900">Real-World Applications</h3>
+                                                <div className="space-y-4">
+                                                    {currentPage.questions.map((q, i) => (
+                                                        <div key={i} className="p-4 bg-violet-50/50 rounded-lg border border-violet-100">
+                                                            <p className="font-medium text-gray-900 text-sm mb-2">{q.question}</p>
+                                                            <p className="text-gray-600 text-sm italic">Answer: {q.answer}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
-                                            <div className="grid gap-3">
-                                                {currentPage.applications.map((app, i) => (
-                                                    <div key={i} className="p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border border-orange-100">
-                                                        <h4 className="font-semibold text-gray-900 text-sm mb-1.5">{app.title}</h4>
-                                                        <p className="text-gray-600 text-sm leading-relaxed">{app.description}</p>
+                                        )}
+
+                                        {/* RELATED TOPICS */}
+                                        {currentPage.relatedTopics?.length > 0 && (
+                                            <div className={DESIGN.card + ' p-6'}>
+                                                <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-gray-100">
+                                                    <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
+                                                        <Link size={16} className="text-teal-600" />
                                                     </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* PRACTICE QUESTIONS */}
-                                    {currentPage.questions?.length > 0 && (
-                                        <div className={DESIGN.card + ' p-6'}>
-                                            <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-gray-100">
-                                                <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0">
-                                                    <CheckCircle size={16} className="text-violet-600" />
+                                                    <h3 className="text-base font-semibold text-gray-900">Related Topics</h3>
                                                 </div>
-                                                <h3 className="text-base font-semibold text-gray-900">Practice Questions</h3>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {currentPage.relatedTopics.map((topic, i) => (
+                                                        <span
+                                                            key={i}
+                                                            className="px-3 py-1.5 bg-teal-50 text-teal-700 text-sm font-medium rounded-md hover:bg-teal-100 transition-colors cursor-pointer"
+                                                        >
+                                                            {topic}
+                                                        </span>
+                                                    ))}
+                                                </div>
                                             </div>
-                                            <div className="space-y-4">
-                                                {currentPage.questions.map((q, i) => (
-                                                    <div key={i} className="p-4 bg-violet-50/50 rounded-lg border border-violet-100">
-                                                        <p className="font-medium text-gray-900 text-sm mb-2">{q.question}</p>
-                                                        <p className="text-gray-600 text-sm italic">Answer: {q.answer}</p>
+                                        )}
+
+                                        {/* SUMMARY */}
+                                        {currentPage.summary && (
+                                            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6 shadow-sm">
+                                                <div className="flex items-center gap-2.5 mb-3">
+                                                    <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                                        <Check size={16} className="text-blue-600" />
                                                     </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* RELATED TOPICS */}
-                                    {currentPage.relatedTopics?.length > 0 && (
-                                        <div className={DESIGN.card + ' p-6'}>
-                                            <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-gray-100">
-                                                <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
-                                                    <Link size={16} className="text-teal-600" />
+                                                    <h3 className="text-base font-semibold text-gray-900">Summary</h3>
                                                 </div>
-                                                <h3 className="text-base font-semibold text-gray-900">Related Topics</h3>
+                                                <p className="text-gray-700 text-sm leading-relaxed">{currentPage.summary}</p>
                                             </div>
-                                            <div className="flex flex-wrap gap-2">
-                                                {currentPage.relatedTopics.map((topic, i) => (
-                                                    <span
-                                                        key={i}
-                                                        className="px-3 py-1.5 bg-teal-50 text-teal-700 text-sm font-medium rounded-md hover:bg-teal-100 transition-colors cursor-pointer"
-                                                    >
-                                                        {topic}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* SUMMARY */}
-                                    {currentPage.summary && (
-                                        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6 shadow-sm">
-                                            <div className="flex items-center gap-2.5 mb-3">
-                                                <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                                                    <Check size={16} className="text-blue-600" />
-                                                </div>
-                                                <h3 className="text-base font-semibold text-gray-900">Summary</h3>
-                                            </div>
-                                            <p className="text-gray-700 text-sm leading-relaxed">{currentPage.summary}</p>
-                                        </div>
-                                    )}
-                                </>
-                            )}
-                        </motion.div>
-                    </AnimatePresence>
-                </div>
+                                        )}
+                                    </>
+                                )}
+                            </motion.div>
+                        </AnimatePresence>
+                    </div>
+                )}
             </div>
 
             {/* BOTTOM NAVIGATION */}
