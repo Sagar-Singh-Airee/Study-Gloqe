@@ -686,14 +686,16 @@ export const repairUserGamification = async (userId) => {
 
             await batch.commit();
 
-            // ✅ FIX: After repair, force check titles to unlock any missing ones
+            // ✅ FIX: After repair, force check titles and badges to unlock any missing ones
+            await checkAndUnlockBadges(userId);
             await checkAndUnlockTitles(userId);
 
             return { success: true, repaired: true };
         }
 
 
-        // ✅ Even if no repair needed, check titles
+        // ✅ Even if no repair needed, check titles and badges
+        await checkAndUnlockBadges(userId);
         await checkAndUnlockTitles(userId);
 
         return { success: true, repaired: false };

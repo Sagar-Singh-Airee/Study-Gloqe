@@ -286,31 +286,32 @@ service cloud.firestore {
     }
     
     // ==========================================
-    // 🎓 CLASSES COLLECTION - ENHANCED FOR TEACHER DASHBOARD
+    // 🎓 CLASSES COLLECTION - ✅ FIXED FOR STUDENT JOIN
     // ==========================================
     match /classes/{classId} {
-      // Read: Teachers, enrolled students, or public if active
-      allow read: if isSignedIn() && (
-        isTeacherOfResource() || 
-        isInClassStudents() || 
-        isAdmin() ||
-        resource.data.active == true
-      );
+      // ✅ READ: Allow students to read ALL classes (needed to search by classCode)
+      allow read: if isSignedIn();
       
-      // Create: Only teachers can create classes
+      // CREATE: Only teachers can create classes
       allow create: if isSignedIn() && 
                        isTeacher() && 
                        creatingAsTeacher() &&
                        isValidSize();
       
-      // Update: Teachers can update, students can join/leave
+      // ✅ UPDATE: Fixed to allow students to join by updating students array + count + timestamp
       allow update: if isSignedIn() && (
+        // Teachers can update everything
         isTeacherOfResource() ||
         isAdmin() ||
-        (isStudent() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['students']))
+        // ✅ Students can join: modify 'students', 'studentCount', 'updatedAt' fields only
+        (isStudent() && 
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['students', 'studentCount', 'updatedAt']) &&
+         request.resource.data.students.hasAll(resource.data.get('students', [])) &&
+         request.auth.uid in request.resource.data.students &&
+         !(request.auth.uid in resource.data.get('students', [])))
       ) && isValidSize();
       
-      // Delete: Only class owner or admin
+      // DELETE: Only class owner or admin
       allow delete: if isTeacherOfResource() || isAdmin();
       
       match /members/{memberId} {

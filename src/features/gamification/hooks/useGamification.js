@@ -116,16 +116,17 @@ export const useGamification = () => {
                 }
 
 
-                // ✅ FIX: Use prevBadgesRef.current instead of prev.unlockedBadges
+                // ✅ FIX: Merge with previous state to ensure we don't lose data from the other collection listener
                 const unlockedBadges = Array.from(new Set([
                     ...extractIds(data.unlockedBadges || data.badges || []),
-                    ...extractIds(prevBadgesRef.current)
+                    ...extractIds(prevBadgesRef.current),
+                    ...(gamificationData.unlockedBadges || [])
                 ]));
 
-                // ✅ FIX: Use prevTitlesRef.current instead of prev.unlockedTitles
                 const unlockedTitles = Array.from(new Set([
                     ...extractIds(data.unlockedTitles || data.titles || data.achievements || []),
-                    ...extractIds(prevTitlesRef.current.length > 0 ? prevTitlesRef.current : ['title_newbie'])
+                    ...extractIds(prevTitlesRef.current.length > 0 ? prevTitlesRef.current : ['title_newbie']),
+                    ...(gamificationData.unlockedTitles || [])
                 ]));
 
 
@@ -256,6 +257,13 @@ export const useGamification = () => {
         }));
     }, [gamificationData.unlockedBadges]);
 
+    const recentlyUnlocked = useMemo(() => {
+        return allBadges
+            .filter(b => b.unlocked)
+            .slice(-5)
+            .reverse();
+    }, [allBadges]);
+
 
     const allTitles = useMemo(() => {
         return Object.values(TITLE_DEFINITIONS).map(title => ({
@@ -314,6 +322,7 @@ export const useGamification = () => {
         error,
         isLoaded: !loading,
         notifications,
+        recentlyUnlocked,
         hasNotifications: notifications.length > 0
     };
 };

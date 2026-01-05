@@ -9,6 +9,7 @@ import {
     where,
     onSnapshot,
     limit,
+    orderBy,
     doc,
     updateDoc,
     serverTimestamp
@@ -17,6 +18,7 @@ import { db, COLLECTIONS } from '@shared/config/firebase';
 import { eventBus, EVENT_TYPES } from './eventBus';
 import { calculateTrueStreak } from '../utils/streakUtils';
 import { calculateLevel, calculateLevelProgress, getNextLevelXp } from '../utils/levelUtils';
+import { BADGE_DEFINITIONS } from '../../features/gamification/config/achievements';
 
 // ==================== UNIFIED METRICS HOOK ====================
 // This ensures Dashboard and Analytics use the SAME source of truth
@@ -62,6 +64,7 @@ export const useUnifiedMetrics = (userId, options = {}) => {
             const studySessionsQuery = query(
                 collection(db, COLLECTIONS.STUDY_SESSIONS),
                 where('userId', '==', userId),
+                orderBy('startTime', 'desc'),
                 limit(200) // Fetch enough for recent trends
             );
 
@@ -79,6 +82,7 @@ export const useUnifiedMetrics = (userId, options = {}) => {
             const quizSessionsQuery = query(
                 collection(db, COLLECTIONS.QUIZ_SESSIONS),
                 where('userId', '==', userId),
+                orderBy('completedAt', 'desc'),
                 limit(200)
             );
 
@@ -111,6 +115,7 @@ export const useUnifiedMetrics = (userId, options = {}) => {
             const documentsQuery = query(
                 collection(db, COLLECTIONS.DOCUMENTS),
                 where('userId', '==', userId),
+                orderBy('createdAt', 'desc'),
                 limit(100)
             );
             unsubscribers.push(onSnapshot(documentsQuery, (snapshot) => {
@@ -171,27 +176,50 @@ export const useUnifiedMetrics = (userId, options = {}) => {
         dateRangeStart.setDate(dateRangeStart.getDate() - dateRange);
 
         // --- Study Stats ---
-        const completedSessions = raw.studySessions.filter(s =>
-            s.status === 'completed' && s.startTime >= dateRangeStart
+        const sessions = raw.studySessions || [];
+
+        // Include both completed and active sessions
+        const relevantSessions = sessions.filter(s =>
+            (s.status === 'completed' || s.status === 'active') &&
+            s.startTime >= dateRangeStart
         );
 
-        // Sort by date desc
-        completedSessions.sort((a, b) => b.startTime - a.startTime);
+        // Sort by date desc (if not already handled by query)
+        relevantSessions.sort((a, b) => b.startTime - a.startTime);
 
-        // Study sessions store totalTime in seconds - convert to minutes
-        const studyTotalSeconds = completedSessions.reduce((sum, s) => sum + (s.totalTime || 0), 0);
-        const studyTotalMinutes = Math.round(studyTotalSeconds / 60);
+        // Study sessions store totalTime in minutes
+        const studyTotalMinutes = relevantSessions.reduce((sum, s) => {
+            let minutes = s.totalTime || 0;
 
-        const studyTodaySeconds = completedSessions
+            // For active sessions, calculate live elapsed time
+            if (s.status === 'active' && s.startTime) {
+                const startTime = s.startTime instanceof Date ? s.startTime : new Date(s.startTime);
+                const elapsedMs = Date.now() - startTime.getTime();
+                const elapsedMins = Math.max(0, Math.floor(elapsedMs / 60000));
+                // Use whichever is higher (stored totalTime vs live elapsed)
+                minutes = Math.max(minutes, elapsedMins);
+            }
+
+            return sum + minutes;
+        }, 0);
+
+        const studyTodayMinutes = relevantSessions
             .filter(s => s.startTime >= today)
-            .reduce((sum, s) => sum + (s.totalTime || 0), 0);
-        const studyTodayMinutes = Math.round(studyTodaySeconds / 60);
+            .reduce((sum, s) => {
+                let minutes = s.totalTime || 0;
+                if (s.status === 'active' && s.startTime) {
+                    const startTime = s.startTime instanceof Date ? s.startTime : new Date(s.startTime);
+                    const elapsedMins = Math.max(0, Math.floor((Date.now() - startTime.getTime()) / 60000));
+                    minutes = Math.max(minutes, elapsedMins);
+                }
+                return sum + minutes;
+            }, 0);
 
         // Unique days studied
-        const activeDays = new Set(completedSessions.map(s => s.startTime.toDateString()));
+        const activeDays = new Set(relevantSessions.map(s => s.startTime instanceof Date ? s.startTime.toDateString() : new Date(s.startTime).toDateString()));
 
         // --- Quiz Stats ---
-        const completedQuizzes = raw.quizSessions.filter(q =>
+        const completedQuizzes = (raw.quizSessions || []).filter(q =>
             q.completedAt && q.completedAt >= dateRangeStart
         );
 
@@ -199,72 +227,105 @@ export const useUnifiedMetrics = (userId, options = {}) => {
         let totalQuestions = 0;
         let totalCorrect = 0;
         let totalScore = 0;
+        const subjectStats = {};
 
         completedQuizzes.forEach(q => {
-            // Option 1: Pre-calculated in doc
-            if (q.totalQuestions && q.correctAnswers !== undefined) {
-                totalQuestions += q.totalQuestions;
-                totalCorrect += q.correctAnswers;
-                totalScore += q.score || 0;
+            const subject = q.subject || q.quizSnapshot?.subject || 'General';
+            if (!subjectStats[subject]) {
+                subjectStats[subject] = { scores: [], correct: 0, total: 0, minutes: 0, sessions: 0 };
             }
-            // Option 2: Calculate from answers map
-            else if (q.answers) {
-                const keys = Object.keys(q.answers);
-                totalQuestions += keys.length;
-                const correct = keys.filter(k => q.answers[k].answer > 0).length; // Assuming >0 is correct
+
+            // Accuracy tracking
+            if (q.resultSummary) {
+                const correct = q.resultSummary.correctCount || 0;
+                const total = q.resultSummary.totalQuestions || q.quizSnapshot?.totalQuestions || 0;
+                totalQuestions += total;
                 totalCorrect += correct;
-                totalScore += q.score || 0;
+                subjectStats[subject].correct += correct;
+                subjectStats[subject].total += total;
+            } else if (q.answers) {
+                const keys = Object.keys(q.answers);
+                const total = keys.length;
+                const correct = keys.filter(k =>
+                    q.answers[k].isCorrect === true ||
+                    q.answers[k].correct === true ||
+                    q.answers[k].answer === q.quizSnapshot?.questions?.[k]?.correctAnswer
+                ).length;
+
+                totalQuestions += total;
+                totalCorrect += correct;
+                subjectStats[subject].correct += correct;
+                subjectStats[subject].total += total;
             }
+
+            const score = q.score || q.resultSummary?.scorePercent || 0;
+            totalScore += score;
+            subjectStats[subject].scores.push(score);
         });
+
+        // Add study time to subject stats
+        relevantSessions.forEach(s => {
+            const subject = s.subject || 'General Studies';
+            const cleanSubject = subject.replace(' Studies', ''); // Alignment with quiz subject names
+
+            const targetSubject = subjectStats[cleanSubject] ? cleanSubject :
+                (subjectStats[subject] ? subject : null);
+
+            const sub = targetSubject || subject;
+            if (!subjectStats[sub]) {
+                subjectStats[sub] = { scores: [], correct: 0, total: 0, minutes: 0, sessions: 0 };
+            }
+
+            let minutes = s.totalTime || 0;
+            if (s.status === 'active' && s.startTime) {
+                const startTime = s.startTime instanceof Date ? s.startTime : new Date(s.startTime);
+                minutes = Math.max(minutes, Math.floor((Date.now() - startTime.getTime()) / 60000));
+            }
+
+            subjectStats[sub].minutes += minutes;
+            subjectStats[sub].sessions += 1;
+        });
+
+        const performance = Object.entries(subjectStats).map(([name, data]) => ({
+            name,
+            score: data.scores.length > 0 ? Math.round(data.scores.reduce((a, b) => a + b, 0) / data.scores.length) : 0,
+            accuracy: data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0,
+            studyMinutes: data.minutes,
+            sessionCount: data.sessions,
+            quizCount: data.scores.length
+        })).sort((a, b) => b.score - a.score || b.studyMinutes - a.studyMinutes);
 
         const accuracy = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
         const averageScore = completedQuizzes.length > 0 ? Math.round(totalScore / completedQuizzes.length) : 0;
 
-        // --- Streak Logic (Robust & Centralized) ---
-        // 1. Calculate "True Streak" from actual activity sessions
+        // --- Streak Logic ---
         const allActivityDates = [
-            ...completedSessions.map(s => s.startTime),
+            ...relevantSessions.map(s => s.startTime),
             ...completedQuizzes.map(q => q.completedAt)
-        ];
+        ].map(d => d instanceof Date ? d : new Date(d));
+
         const calculatedStreak = calculateTrueStreak(allActivityDates);
 
-        // 2. Fallback to stored values if calculation is 0 (prevents flickering before history loads)
-        let storedStreak = 0;
-        if (typeof raw.user.streak === 'number') {
-            storedStreak = raw.user.streak;
-        } else if (raw.user.streak?.current !== undefined) {
-            storedStreak = raw.user.streak.current;
-        } else if (raw.gamification.streakData?.currentStreak !== undefined) {
-            storedStreak = raw.gamification.streakData.currentStreak;
-        }
+        // Stored streak fallback
+        const storedStreak = raw.gamification?.streakData?.currentStreak ||
+            raw.user?.streak?.current ||
+            raw.user?.streak || 0;
 
-        const streak = Math.max(calculatedStreak, storedStreak);
+        const streak = Math.max(calculatedStreak, typeof storedStreak === 'number' ? storedStreak : 0);
 
         // --- Gamification ---
-        // Take the highest XP found in either collection for resilience
         const xp = Math.max(raw.user?.xp || 0, raw.gamification?.xp || 0);
         const level = calculateLevel(xp);
         const levelProgress = calculateLevelProgress(xp);
         const nextLevelThreshold = getNextLevelXp(xp);
 
-        // --- Documents & Flashcards ---
-        const totalDocuments = raw.documents.length;
-        // Count recent documents (last 7 days)
-        const recentDocsDate = new Date();
-        recentDocsDate.setDate(recentDocsDate.getDate() - 7);
-        const recentDocumentsCount = raw.documents.filter(d => d.createdAt >= recentDocsDate).length;
-
-        const totalDecks = raw.flashcards.length;
-        const totalCards = raw.flashcards.reduce((sum, d) => sum + (d.cardCount || 0), 0);
-        const cardsMastered = raw.flashcards.reduce((sum, d) => sum + (d.masteredCount || 0), 0);
-
         return {
-            // High-level aggregates
             studyTime: {
                 totalMinutes: studyTotalMinutes,
-                sessionCount: completedSessions.length,
-                averageSessionLength: completedSessions.length > 0 ? Math.round(studyTotalMinutes / completedSessions.length) : 0,
-                todayMinutes: studyTodayMinutes
+                sessionCount: relevantSessions.length,
+                averageSessionLength: relevantSessions.length > 0 ? Math.round(studyTotalMinutes / relevantSessions.length) : 0,
+                todayMinutes: studyTodayMinutes,
+                activeSession: sessions.find(s => s.status === 'active')
             },
             quizPerformance: {
                 totalQuizzes: completedQuizzes.length,
@@ -273,23 +334,46 @@ export const useUnifiedMetrics = (userId, options = {}) => {
                 totalCorrect,
                 totalQuestions
             },
+            performance,
             gamification: {
                 xp,
                 level,
                 levelProgress,
                 nextLevelXp: nextLevelThreshold,
                 streak,
-                badges: raw.user.unlockedBadges || [],
-                achievements: raw.gamification.achievements || []
+                badges: (() => {
+                    const extractIds = (arr) => {
+                        if (!Array.isArray(arr)) return [];
+                        return arr.map(item => typeof item === 'object' ? (item.id || item.badgeId || item.id) : item).filter(Boolean);
+                    };
+
+                    const allIds = Array.from(new Set([
+                        ...extractIds(raw.user.unlockedBadges || raw.user.badges || []),
+                        ...extractIds(raw.gamification?.unlockedBadges || raw.gamification?.badges || [])
+                    ]));
+
+                    return allIds
+                        .map(id => {
+                            const badge = Object.values(BADGE_DEFINITIONS).find(b => b.id === id);
+                            return badge ? { ...badge, unlocked: true } : null;
+                        })
+                        .filter(Boolean);
+                })(),
+                achievements: raw.gamification?.achievements || []
             },
+            // --- Documents & Flashcards (Restored) ---
             documents: {
-                total: totalDocuments,
-                recentCount: recentDocumentsCount
+                total: raw.documents.length,
+                recentCount: raw.documents.filter(d => {
+                    const recentDocsDate = new Date();
+                    recentDocsDate.setDate(recentDocsDate.getDate() - 7);
+                    return d.createdAt >= recentDocsDate;
+                }).length
             },
             flashcards: {
-                deckCount: totalDecks,
-                cardCount: totalCards,
-                masteredCount: cardsMastered
+                deckCount: raw.flashcards.length,
+                cardCount: raw.flashcards.reduce((sum, d) => sum + (d.cardCount || 0), 0),
+                masteredCount: raw.flashcards.reduce((sum, d) => sum + (d.masteredCount || 0), 0)
             },
             activity: {
                 lastActive: raw.user.lastActiveDate?.toDate?.() || null,
@@ -300,11 +384,11 @@ export const useUnifiedMetrics = (userId, options = {}) => {
             studyMinutesRemainder: studyTotalMinutes % 60,
             xpProgress: levelProgress,
             xpToNextLevel: nextLevelThreshold - xp,
-            totalItems: totalDocuments + totalDecks,
+            totalItems: raw.documents.length + raw.flashcards.length,
             overallProgress: Math.min(100, Math.round(
                 (accuracy * 0.4) +
                 (Math.min(studyTotalMinutes / 60, 100) * 0.3) +
-                (Math.min(totalDocuments * 10, 100) * 0.3)
+                (Math.min(raw.documents.length * 10, 100) * 0.3)
             ))
         };
     }, [raw, dateRange]);

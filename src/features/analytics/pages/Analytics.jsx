@@ -246,10 +246,15 @@ const Analytics = ({ embedded = false }) => {
   const isMountedRef = useRef(true);
 
   // ✅ Use your existing hooks
-  const { currentSession, isStudying } = useRealtimeStudySession(user?.uid);
-  const analytics = useRealtimeAnalytics(user?.uid, timeframe);
-  const prevAnalytics = useRealtimeAnalytics(user?.uid, timeframe * 2);
+  const analyticsData = useAnalyticsSync(user?.uid, timeframe);
+  const prevAnalyticsData = useAnalyticsSync(user?.uid, timeframe * 2);
+
+  const analytics = analyticsData.metrics;
+  const prevAnalytics = prevAnalyticsData.metrics;
   const aiReport = useAIReport(user?.uid, analytics);
+
+  const currentSession = analytics?.studyTime?.activeSession;
+  const isStudying = !!currentSession;
 
   // ✅ Cleanup on unmount
   useEffect(() => {
@@ -264,7 +269,7 @@ const Analytics = ({ embedded = false }) => {
   const dailyActivity = useMemo(() => {
     const emptyResult = { study: [], score: [], xp: [], streak: [] };
 
-    if (analytics.loading || !analytics.raw) return emptyResult;
+    if (analyticsData.loading || !analyticsData.raw) return emptyResult;
 
     try {
       const days = 7;
@@ -279,8 +284,8 @@ const Analytics = ({ embedded = false }) => {
       }
 
       // ✅ FIXED: Null-safe array operations
-      const sessions = analytics.raw.studySessions || [];
-      const quizzes = analytics.raw.quizSessions || [];
+      const sessions = analyticsData.raw.studySessions || [];
+      const quizzes = analyticsData.raw.quizSessions || [];
 
       // Aggregate Study Time
       sessions.forEach(s => {
@@ -291,7 +296,16 @@ const Analytics = ({ embedded = false }) => {
           const key = date.toDateString();
           if (map.has(key)) {
             const entry = map.get(key);
-            entry.study += Math.max(0, (s.totalTime || 0) / 60);
+            let mins = s.totalTime || 0;
+
+            // If active today, add live elapsed time
+            if (s.status === 'active') {
+              const start = s.startTime?.toDate?.() || new Date(s.startTime);
+              const elapsed = Math.floor((Date.now() - start.getTime()) / 60000);
+              mins = Math.max(mins, elapsed);
+            }
+
+            entry.study += Math.max(0, mins);
             map.set(key, entry);
           }
         } catch (e) {
@@ -334,7 +348,7 @@ const Analytics = ({ embedded = false }) => {
       console.error('Error processing daily activity:', error);
       return emptyResult;
     }
-  }, [analytics.raw, analytics.loading]);
+  }, [analyticsData.raw, analyticsData.loading]);
 
   // ✅ FIXED: Safe metrics calculation
   const metrics = useMemo(() => {
@@ -366,8 +380,8 @@ const Analytics = ({ embedded = false }) => {
       nextLevelXP: currentLevel * XP_PER_LEVEL,
       accuracy: analytics.quizPerformance?.accuracy || 0,
       totalQuizzes: analytics.quizPerformance?.totalQuizzes || 0,
-      badges: analytics.gamification?.badges || [],
-      sessionCount: analytics.studyTime?.sessionCount || 0
+      badges: analytics?.gamification?.badges || [],
+      sessionCount: analytics?.studyTime?.sessionCount || 0
     };
   }, [analytics, prevAnalytics]);
 
@@ -376,7 +390,7 @@ const Analytics = ({ embedded = false }) => {
     if (isRefreshing || !isMountedRef.current) return;
 
     setIsRefreshing(true);
-    analytics.refetch?.();
+    analyticsData.refetch?.();
 
     toast.success('Analytics refreshed', {
       style: {
@@ -397,7 +411,7 @@ const Analytics = ({ embedded = false }) => {
   }, [isRefreshing, analytics]);
 
   // ✅ Loading state with skeleton
-  if (analytics.loading) {
+  if (analyticsData.loading) {
     return (
       <div className="min-h-screen bg-white p-4 md:p-6 max-w-[1600px] mx-auto">
         <PremiumBackground />
@@ -607,15 +621,40 @@ const Analytics = ({ embedded = false }) => {
                             />
                             <Tooltip
                               cursor={{ fill: '#f8fafc', opacity: 0.8 }}
-                              contentStyle={{
-                                backgroundColor: '#ffffff',
-                                border: '1px solid #e2e8f0',
-                                borderRadius: '10px',
-                                padding: '10px',
-                                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                              content={({ active, payload, label }) => {
+                                if (active && payload && payload.length) {
+                                  const data = payload[0].payload;
+                                  return (
+                                    <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-lg ring-1 ring-slate-900/5">
+                                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">{label}</div>
+                                      <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between gap-6">
+                                          <div className="flex items-center gap-1.5">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+                                            <span className="text-[11px] text-slate-500">Avg Score</span>
+                                          </div>
+                                          <span className="text-[11px] font-bold text-slate-900">{data.score}%</span>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-6">
+                                          <div className="flex items-center gap-1.5">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                                            <span className="text-[11px] text-slate-500">Accuracy</span>
+                                          </div>
+                                          <span className="text-[11px] font-bold text-slate-900">{data.accuracy}%</span>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-6">
+                                          <div className="flex items-center gap-1.5">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-orange-400" />
+                                            <span className="text-[11px] text-slate-500">Study Time</span>
+                                          </div>
+                                          <span className="text-[11px] font-bold text-orange-600">{data.studyMinutes}m</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                return null;
                               }}
-                              itemStyle={{ color: '#0f172a', fontSize: '11px', fontWeight: 600 }}
-                              labelStyle={{ color: '#64748b', fontSize: '10px', marginBottom: '6px' }}
                             />
                             <Bar dataKey="score" radius={[6, 6, 0, 0]} animationDuration={1200}>
                               {analytics.performance.slice(0, 6).map((entry, index) => (
@@ -696,7 +735,7 @@ const Analytics = ({ embedded = false }) => {
                       </div>
                       <div className="space-y-2">
                         {metrics.badges.length > 0 ? (
-                          metrics.badges.slice(0, 3).map((badge, i) => (
+                          [...metrics.badges].reverse().slice(0, 3).map((badge, i) => (
                             <BadgeItem key={badge.id || i} badge={badge} index={i} />
                           ))
                         ) : (
@@ -816,113 +855,6 @@ const calculateTrend = (current, previous) => {
     dir: change >= 0 ? 'up' : 'down',
     val: `${change > 0 ? '+' : ''}${Math.round(change)}%`
   };
-};
-
-// ✅ Your existing hook with error handling
-const useRealtimeStudySession = (userId) => {
-  const [data, setData] = useState({ currentSession: null, isStudying: false });
-  const isMountedRef = useRef(true);
-
-  useEffect(() => {
-    isMountedRef.current = true;
-
-    if (!userId) {
-      setData({ currentSession: null, isStudying: false });
-      return;
-    }
-
-    const unsub = onSnapshot(
-      query(
-        collection(db, 'studySessions'),
-        where('userId', '==', userId),
-        where('status', '==', 'active'),
-        limit(1)
-      ),
-      (snap) => {
-        if (!isMountedRef.current) return;
-
-        setData(snap.empty ? { currentSession: null, isStudying: false } : {
-          currentSession: { id: snap.docs[0].id, ...snap.docs[0].data() },
-          isStudying: true
-        });
-      },
-      (error) => {
-        console.error('Study session error:', error);
-        if (isMountedRef.current) {
-          setData({ currentSession: null, isStudying: false });
-        }
-      }
-    );
-
-    return () => {
-      isMountedRef.current = false;
-      unsub();
-    };
-  }, [userId]);
-
-  return data;
-};
-
-// ✅ Wrapper for your existing hook
-const useRealtimeAnalytics = (userId, timeframe) => {
-  const { metrics, raw, loading, refresh } = useAnalyticsSync(userId, timeframe);
-
-  return useMemo(() => {
-    const empty = {
-      studyTime: { totalMinutes: 0, sessionCount: 0 },
-      quizPerformance: { averageScore: 0, totalQuizzes: 0, accuracy: 0 },
-      gamification: { streak: 0, level: 1, xp: 0, nextLevelXp: 1000, badges: [] },
-      badges: [],
-      performance: [],
-      weakAreas: []
-    };
-
-    if (loading || !metrics) return { ...empty, loading, refetch: refresh, raw: raw || {} };
-
-    // ✅ FIXED: Safe subject statistics
-    const subStats = {};
-    const quizzes = raw?.quizSessions || [];
-
-    quizzes.forEach((q) => {
-      try {
-        const s = q.subject || q.quizSnapshot?.subject || 'General';
-        if (!subStats[s]) subStats[s] = { scores: [], count: 0 };
-
-        let score = q.score || 0;
-        if (q.answers && score === 0) {
-          const ans = Object.values(q.answers);
-          if (ans.length) {
-            const correctCount = ans.filter(a => a.isCorrect === true || a.correct === true).length;
-            score = (correctCount / ans.length) * 100;
-          }
-        }
-
-        subStats[s].scores.push(score);
-        subStats[s].count++;
-      } catch (e) {
-        console.warn('Error processing quiz:', e);
-      }
-    });
-
-    const perf = Object.entries(subStats)
-      .map(([name, d]) => ({
-        name,
-        score: d.scores.length > 0 ? Math.round(d.scores.reduce((a, b) => a + b, 0) / d.scores.length) : 0,
-        quizCount: d.count
-      }))
-      .sort((a, b) => b.score - a.score);
-
-    return {
-      studyTime: metrics.studyTime || empty.studyTime,
-      quizPerformance: metrics.quizPerformance || empty.quizPerformance,
-      gamification: metrics.gamification || empty.gamification,
-      weakAreas: perf.filter((p) => p.score < 70).slice(0, 3),
-      performance: perf,
-      loading,
-      refetch: refresh,
-      raw: raw || {}
-    };
-  }, [metrics, raw, loading, refresh]);
 };
 
 export default Analytics;

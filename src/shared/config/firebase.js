@@ -2,9 +2,10 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
 import {
-  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   connectFirestoreEmulator,
-  enableIndexedDbPersistence,
   CACHE_SIZE_UNLIMITED
 } from 'firebase/firestore';
 import { getStorage, connectStorageEmulator } from 'firebase/storage';
@@ -62,21 +63,13 @@ try {
 // Auth
 export const auth = getAuth(app);
 
-// Firestore with offline persistence
-export const db = getFirestore(app);
-
-// Enable offline persistence (IMPROVED!)
-if (typeof window !== 'undefined') {
-  enableIndexedDbPersistence(db, {
+// Firestore with modern multi-tab offline persistence
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager(),
     cacheSizeBytes: CACHE_SIZE_UNLIMITED
-  }).catch((err) => {
-    if (err.code === 'failed-precondition') {
-      console.warn('⚠️ Persistence failed: Multiple tabs open');
-    } else if (err.code === 'unimplemented') {
-      console.warn('⚠️ Persistence not available in this browser');
-    }
-  });
-}
+  })
+});
 
 // Storage
 export const storage = getStorage(app);
