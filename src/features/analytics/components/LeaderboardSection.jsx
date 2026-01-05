@@ -208,7 +208,7 @@ const LeaderboardSection = () => {
                     className="bg-white border border-gray-200 rounded-2xl p-8 mb-12 hover:border-gray-300 transition-colors"
                 >
                     <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                        <div className="flex items-center gap-6">
+                        <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 w-full sm:w-auto">
                             <div className="flex flex-col items-center">
                                 <span className="text-xs text-gray-500 font-medium uppercase tracking-wider mb-1">
                                     Rank
@@ -217,8 +217,8 @@ const LeaderboardSection = () => {
                                     {userRank.rank}
                                 </span>
                             </div>
-                            <div className="h-12 w-px bg-gray-200" />
-                            <div>
+                            <div className="hidden sm:block h-12 w-px bg-gray-200" />
+                            <div className="w-full sm:w-auto text-center sm:text-left">
                                 <h2 className="text-lg font-semibold text-gray-900 mb-1">
                                     Your Position
                                 </h2>
@@ -228,7 +228,7 @@ const LeaderboardSection = () => {
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-6">
+                        <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 w-full sm:w-auto">
                             <div className="text-center">
                                 <div className="text-xs text-gray-500 font-medium uppercase tracking-wider mb-1">
                                     Level
@@ -237,7 +237,7 @@ const LeaderboardSection = () => {
                                     {userRank.level}
                                 </div>
                             </div>
-                            <div className="h-12 w-px bg-gray-200" />
+                            <div className="hidden sm:block h-12 w-px bg-gray-200" />
                             <div className="text-center">
                                 <div className="text-xs text-gray-500 font-medium uppercase tracking-wider mb-1">
                                     Total XP
@@ -299,7 +299,7 @@ const LeaderboardSection = () => {
                         >
                             <div className="mb-4">
                                 <Crown size={20} className="text-amber-600 mx-auto mb-2" strokeWidth={2} />
-                                <div className="w-20 h-20 rounded-full bg-amber-50 border-2 border-amber-600 flex items-center justify-center overflow-hidden">
+                                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-amber-50 border-2 border-amber-600 flex items-center justify-center overflow-hidden">
                                     {leaderboardData[0]?.photoURL ? (
                                         <img
                                             src={leaderboardData[0].photoURL}

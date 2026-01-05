@@ -234,11 +234,11 @@ const OverviewSection = ({ stats, classes }) => {
                 animate={{ opacity: 1, y: 0 }}
                 className="relative overflow-hidden"
             >
-                <div className="bg-gradient-to-r from-teal-500 via-cyan-500 to-blue-500 rounded-3xl p-8 text-white relative">
+                <div className="bg-gradient-to-r from-teal-500 via-cyan-500 to-blue-500 rounded-3xl p-6 sm:p-8 text-white relative">
                     {/* Background Pattern */}
                     <div className="absolute inset-0 opacity-10">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full -mr-32 -mt-32" />
-                        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white rounded-full -ml-24 -mb-24" />
+                        <div className="absolute top-0 right-0 w-48 sm:w-64 h-48 sm:h-64 bg-white rounded-full -mr-24 sm:-mr-32 -mt-24 sm:-mt-32" />
+                        <div className="absolute bottom-0 left-0 w-32 sm:w-48 h-32 sm:h-48 bg-white rounded-full -ml-16 sm:-ml-24 -mb-16 sm:-mb-24" />
                     </div>
 
                     <div className="relative">
@@ -249,7 +249,7 @@ const OverviewSection = ({ stats, classes }) => {
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{ delay: 0.2 }}
                                 >
-                                    <h1 className="text-4xl font-black mb-2">
+                                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black mb-2 tracking-tight">
                                         Welcome back, {userData?.name || 'Teacher'}! 👋
                                     </h1>
                                     <p className="text-lg opacity-90 mb-4">

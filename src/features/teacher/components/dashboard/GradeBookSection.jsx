@@ -438,7 +438,69 @@ const GradeBookSection = () => {
             {/* Grade Book Table */}
             {filteredAndSortedStudents.length > 0 ? (
                 <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                    <div className="overflow-x-auto">
+                    {/* Mobile Card View */}
+                    <div className="md:hidden divide-y divide-gray-200">
+                        {filteredAndSortedStudents.map((student) => {
+                            const trend = getPerformanceTrend(student.overallAverage);
+                            const TrendIcon = trend.icon;
+                            return (
+                                <div key={student.id} className="p-4 space-y-4">
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex items-center gap-3">
+                                            {student.photoURL ? (
+                                                <img src={student.photoURL} alt={student.name} className="w-10 h-10 rounded-full object-cover" />
+                                            ) : (
+                                                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-full flex items-center justify-center text-white font-bold">
+                                                    {student.name[0].toUpperCase()}
+                                                </div>
+                                            )}
+                                            <div>
+                                                <p className="font-bold text-gray-900">{student.name}</p>
+                                                <p className="text-sm text-gray-600">{student.email}</p>
+                                            </div>
+                                        </div>
+                                        <div className={`px-2 py-1 rounded-lg text-xs font-bold ${trend.color} bg-opacity-10 flex items-center gap-1`}>
+                                            <TrendIcon className="w-3 h-3" />
+                                            {trend.label}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-3 gap-2 text-center bg-gray-50 rounded-xl p-3">
+                                        <div>
+                                            <p className="text-xs text-gray-500 mb-1">Assignments</p>
+                                            <p className="font-bold text-gray-900">{student.completedAssignments}/{student.totalAssignments}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500 mb-1">Quiz Avg</p>
+                                            <span className={`font-bold ${getGradeColor(student.avgQuizScore)}`.split(' ')[0]}>{student.avgQuizScore}%</span>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500 mb-1">Overall</p>
+                                            <p className="font-black text-lg text-gray-900">{student.overallAverage}%</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => toast.info('Detailed view coming soon')}
+                                            className="flex-1 py-2 bg-purple-50 text-purple-600 font-bold rounded-lg text-sm hover:bg-purple-100 transition-colors"
+                                        >
+                                            View Details
+                                        </button>
+                                        <button
+                                            onClick={() => toast.info('Email feature coming soon')}
+                                            className="px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                                        >
+                                            <Mail className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block overflow-x-auto">
                         <table className="w-full">
                             <thead className="bg-gradient-to-r from-purple-50 to-indigo-50 border-b-2 border-purple-200">
                                 <tr>
@@ -579,23 +641,23 @@ const GradeBookSection = () => {
 
                     {/* Summary Footer */}
                     <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border-t-2 border-purple-200 px-6 py-4">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                             <div className="flex items-center gap-6">
                                 <div>
                                     <p className="text-sm font-medium text-gray-600">Students</p>
                                     <p className="text-2xl font-black text-gray-900">{filteredAndSortedStudents.length}</p>
                                 </div>
                                 <div>
-                                    <p className="text-sm font-medium text-gray-600">Class Average</p>
+                                    <p className="text-sm font-medium text-gray-600">Class Avg</p>
                                     <p className="text-2xl font-black text-purple-600">{stats.classAverage}%</p>
                                 </div>
                             </div>
                             <button
                                 onClick={handleExport}
-                                className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-purple-200 text-purple-600 rounded-xl font-bold hover:bg-purple-50 transition-all"
+                                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-white border-2 border-purple-200 text-purple-600 rounded-xl font-bold hover:bg-purple-50 transition-all"
                             >
                                 <FileSpreadsheet className="w-4 h-4" />
-                                Export Report
+                                Export
                             </button>
                         </div>
                     </div>

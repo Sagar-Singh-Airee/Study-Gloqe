@@ -214,7 +214,7 @@ const QuizCreator = ({ classId, onClose, onQuizCreated, classes = [], initialDat
                 {/* Header */}
                 <div className="bg-white border-b border-gray-200 p-6 flex items-center justify-between shrink-0">
                     <div>
-                        <h2 className="text-2xl font-black text-gray-900 flex items-center gap-2">
+                        <h2 className="text-xl md:text-2xl font-black text-gray-900 flex items-center gap-2">
                             <Brain className="text-purple-600" />
                             {initialData ? 'Edit Quiz' : 'Create Quiz'}
                         </h2>
@@ -240,7 +240,7 @@ const QuizCreator = ({ classId, onClose, onQuizCreated, classes = [], initialDat
                 {/* Main Content */}
                 <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
                     {/* Left Sidebar - Question List */}
-                    <div className="w-full md:w-64 bg-gray-50 border-r border-gray-200 overflow-y-auto p-4 flex flex-col gap-2 shrink-0">
+                    <div className="w-full md:w-64 max-h-48 md:max-h-none bg-gray-50 border-b md:border-b-0 md:border-r border-gray-200 overflow-y-auto p-4 flex flex-col gap-2 shrink-0">
                         {questions.map((q, idx) => (
                             <div
                                 key={q.id}
@@ -421,17 +421,17 @@ const QuizCreator = ({ classId, onClose, onQuizCreated, classes = [], initialDat
                     <div className="text-sm text-gray-500 font-medium">
                         <span className="text-purple-600 font-bold">{questions.length}</span> questions total
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex gap-2 w-full md:w-auto">
                         <button
                             onClick={onClose}
-                            className="px-6 py-3 border-2 border-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-all"
+                            className="flex-1 md:flex-none px-4 md:px-6 py-3 border-2 border-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-all text-sm md:text-base"
                         >
                             Cancel
                         </button>
                         <button
                             onClick={handleSave}
                             disabled={isSaving}
-                            className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold hover:shadow-lg hover:scale-105 transition-all disabled:opacity-50 disabled:hover:scale-100"
+                            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 md:px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold hover:shadow-lg hover:scale-105 transition-all disabled:opacity-50 disabled:hover:scale-100 text-sm md:text-base"
                         >
                             {isSaving ? (
                                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

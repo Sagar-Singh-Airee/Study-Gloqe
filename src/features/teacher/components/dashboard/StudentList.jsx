@@ -54,7 +54,7 @@ const StudentList = ({ classId, students = [] }) => {
                             where('userId', '==', studentId)
                         );
                         const sessionsSnap = await getDocs(sessionsQuery);
-                        
+
                         let totalScore = 0;
                         let completedQuizzes = 0;
                         let lastActivity = null;
@@ -199,7 +199,7 @@ const StudentList = ({ classId, students = [] }) => {
             // Add to class
             const classRef = doc(db, 'classes', classId);
             const updatedStudents = [...students, studentId];
-            
+
             await updateDoc(classRef, {
                 students: updatedStudents
             });
@@ -220,7 +220,7 @@ const StudentList = ({ classId, students = [] }) => {
         try {
             const classRef = doc(db, 'classes', classId);
             const updatedStudents = students.filter(id => id !== studentId);
-            
+
             await updateDoc(classRef, {
                 students: updatedStudents
             });
@@ -305,7 +305,8 @@ const StudentList = ({ classId, students = [] }) => {
             {/* Students List */}
             {filteredStudents.length > 0 ? (
                 <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-                    <div className="overflow-x-auto">
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block overflow-x-auto">
                         <table className="w-full">
                             <thead className="bg-gray-50 border-b border-gray-200">
                                 <tr>
@@ -428,7 +429,88 @@ const StudentList = ({ classId, students = [] }) => {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Mobile Card View */}
+                    <div className="md:hidden space-y-4 p-4">
+                        {filteredStudents.map((student, idx) => (
+                            <motion.div
+                                key={student.id}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: idx * 0.05 }}
+                                className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm"
+                            >
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="relative">
+                                            <img
+                                                src={student.photoURL || `https://ui-avatars.com/api/?name=${student.name}&background=000&color=fff&bold=true`}
+                                                alt={student.name}
+                                                className="w-12 h-12 rounded-full ring-2 ring-gray-100"
+                                            />
+                                            {student.streak > 0 && (
+                                                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                                                    🔥
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-gray-900">{student.name}</div>
+                                            <div className="text-xs text-gray-500">{student.email}</div>
+                                            <div className="flex items-center gap-1.5 mt-1">
+                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${getPerformanceColor(student.performance)}`}>
+                                                    {getPerformanceIcon(student.performance)}
+                                                    {student.performance === 'needs-improvement' ? 'Needs Work' : student.performance}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => handleViewStudent(student)}
+                                        className="p-2 bg-gray-50 rounded-lg text-gray-600"
+                                    >
+                                        <Eye size={20} />
+                                    </button>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3 mb-4">
+                                    <div className="bg-gray-50 rounded-lg p-2 text-center">
+                                        <div className="text-lg font-black text-gray-900">{student.avgScore}%</div>
+                                        <div className="text-[10px] uppercase font-bold text-gray-500">Avg Score</div>
+                                    </div>
+                                    <div className="bg-gray-50 rounded-lg p-2 text-center">
+                                        <div className="text-lg font-black text-gray-900">{student.completedQuizzes}</div>
+                                        <div className="text-[10px] uppercase font-bold text-gray-500">Quizzes</div>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-6 h-6 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-md flex items-center justify-center text-white text-[10px] font-bold">
+                                            {student.level}
+                                        </div>
+                                        <span className="text-xs font-medium text-gray-600">{student.xp} XP</span>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => window.location.href = `mailto:${student.email}`}
+                                            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                                        >
+                                            <Mail size={18} />
+                                        </button>
+                                        <button
+                                            onClick={() => handleRemoveStudent(student.id)}
+                                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                                        >
+                                            <UserX size={18} />
+                                        </button>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        ))}
+                    </div>
                 </div>
+
             ) : (
                 <div className="text-center py-20 bg-white border border-gray-200 rounded-2xl">
                     <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">

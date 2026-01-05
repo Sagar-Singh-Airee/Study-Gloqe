@@ -192,21 +192,21 @@ const StudentsSection = () => {
         <div className="space-y-6">
 
             {/* Header */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-black text-gray-900 tracking-tight">Students</h1>
-                    <p className="text-gray-600 font-medium mt-1">
+                    <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">Students</h1>
+                    <p className="text-sm sm:text-base text-gray-600 font-medium mt-1">
                         Monitor student progress and performance across all classes
                     </p>
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
                     <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={handleExportData}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-gray-200 text-gray-700 rounded-xl font-bold hover:border-gray-300 transition-all"
+                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-white border-2 border-gray-200 text-gray-700 rounded-xl font-bold hover:border-gray-300 transition-all"
                     >
                         <Download className="w-4 h-4" />
                         Export
@@ -215,7 +215,7 @@ const StudentsSection = () => {
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={handleBulkEmail}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all"
+                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all"
                     >
                         <Mail className="w-4 h-4" />
                         Send Email
@@ -298,15 +298,15 @@ const StudentsSection = () => {
 
             {/* View Toggle & Filters */}
             <div className="bg-white rounded-2xl p-4 border border-gray-200">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
 
                     {/* View Toggle */}
-                    <div className="flex bg-gray-100 p-1.5 rounded-xl">
+                    <div className="flex w-full md:w-auto bg-gray-100 p-1.5 rounded-xl overflow-x-auto">
                         <button
                             onClick={() => setView('global')}
-                            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all ${view === 'global'
-                                    ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-md'
-                                    : 'text-gray-600 hover:text-gray-900'
+                            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${view === 'global'
+                                ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-md'
+                                : 'text-gray-600 hover:text-gray-900'
                                 }`}
                         >
                             <Globe className="w-4 h-4" />
@@ -314,9 +314,9 @@ const StudentsSection = () => {
                         </button>
                         <button
                             onClick={() => setView('class')}
-                            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all ${view === 'class'
-                                    ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-md'
-                                    : 'text-gray-600 hover:text-gray-900'
+                            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${view === 'class'
+                                ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-md'
+                                : 'text-gray-600 hover:text-gray-900'
                                 }`}
                         >
                             <GraduationCap className="w-4 h-4" />
@@ -329,7 +329,7 @@ const StudentsSection = () => {
                         <select
                             value={selectedClass}
                             onChange={(e) => setSelectedClass(e.target.value)}
-                            className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all font-medium"
+                            className="w-full md:w-auto px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all font-medium text-sm"
                         >
                             <option value="all">All Classes</option>
                             {classes.map(cls => (

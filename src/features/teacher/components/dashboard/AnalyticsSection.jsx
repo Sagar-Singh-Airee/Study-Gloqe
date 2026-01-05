@@ -33,10 +33,10 @@ const StatCard = ({ icon: Icon, title, value, subtitle, trend, trendValue, color
     >
         <div className="flex items-start justify-between mb-4">
             <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color === 'green' ? 'bg-green-100' :
-                    color === 'blue' ? 'bg-blue-100' :
-                        color === 'purple' ? 'bg-purple-100' :
-                            color === 'orange' ? 'bg-orange-100' :
-                                'bg-gray-100'
+                color === 'blue' ? 'bg-blue-100' :
+                    color === 'purple' ? 'bg-purple-100' :
+                        color === 'orange' ? 'bg-orange-100' :
+                            'bg-gray-100'
                 }`}>
                 <Icon size={24} className={
                     color === 'green' ? 'text-green-600' :
@@ -48,8 +48,8 @@ const StatCard = ({ icon: Icon, title, value, subtitle, trend, trendValue, color
             </div>
             {trend && (
                 <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${trend === 'up' ? 'bg-green-100 text-green-700' :
-                        trend === 'down' ? 'bg-red-100 text-red-700' :
-                            'bg-gray-100 text-gray-600'
+                    trend === 'down' ? 'bg-red-100 text-red-700' :
+                        'bg-gray-100 text-gray-600'
                     }`}>
                     {trend === 'up' ? <ArrowUpRight size={12} /> :
                         trend === 'down' ? <ArrowDownRight size={12} /> : null}
@@ -356,16 +356,16 @@ const TeacherAnalytics = () => {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-2xl font-black text-black">Teacher Analytics</h2>
                     <p className="text-gray-600">Cross-class insights and performance metrics</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 w-full sm:w-auto">
                     <select
                         value={timeframe}
                         onChange={(e) => setTimeframe(Number(e.target.value))}
-                        className="px-4 py-2 bg-white border border-gray-200 rounded-xl font-bold text-sm focus:outline-none"
+                        className="flex-1 sm:flex-none px-4 py-2 bg-white border border-gray-200 rounded-xl font-bold text-sm focus:outline-none"
                     >
                         <option value={7}>Last 7 Days</option>
                         <option value={30}>Last 30 Days</option>
@@ -374,7 +374,7 @@ const TeacherAnalytics = () => {
                     <button
                         onClick={handleRefresh}
                         disabled={isRefreshing}
-                        className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-xl font-bold hover:scale-105 transition-all disabled:opacity-50"
+                        className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-xl font-bold hover:scale-105 transition-all disabled:opacity-50 whitespace-nowrap"
                     >
                         <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
                         Refresh
@@ -465,8 +465,8 @@ const TeacherAnalytics = () => {
                                             animate={{ width: `${cls.avgScore}%` }}
                                             transition={{ duration: 0.5, delay: idx * 0.1 }}
                                             className={`h-full ${cls.avgScore >= 80 ? 'bg-green-500' :
-                                                    cls.avgScore >= 60 ? 'bg-yellow-500' :
-                                                        cls.avgScore > 0 ? 'bg-red-500' : 'bg-gray-200'
+                                                cls.avgScore >= 60 ? 'bg-yellow-500' :
+                                                    cls.avgScore > 0 ? 'bg-red-500' : 'bg-gray-200'
                                                 }`}
                                         />
                                     </div>
@@ -508,9 +508,9 @@ const TeacherAnalytics = () => {
                                 >
                                     <div className="flex items-center gap-3">
                                         <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${idx === 0 ? 'bg-yellow-400 text-yellow-900' :
-                                                idx === 1 ? 'bg-gray-300 text-gray-700' :
-                                                    idx === 2 ? 'bg-orange-300 text-orange-800' :
-                                                        'bg-gray-100 text-gray-600'
+                                            idx === 1 ? 'bg-gray-300 text-gray-700' :
+                                                idx === 2 ? 'bg-orange-300 text-orange-800' :
+                                                    'bg-gray-100 text-gray-600'
                                             }`}>
                                             {idx + 1}
                                         </div>
@@ -556,8 +556,8 @@ const TeacherAnalytics = () => {
                             <div
                                 key={student.userId}
                                 className={`p-4 rounded-xl border ${student.severity === 'high'
-                                        ? 'bg-red-100 border-red-300'
-                                        : 'bg-orange-100 border-orange-300'
+                                    ? 'bg-red-100 border-red-300'
+                                    : 'bg-orange-100 border-orange-300'
                                     }`}
                             >
                                 <div className="flex items-center gap-2 mb-2">

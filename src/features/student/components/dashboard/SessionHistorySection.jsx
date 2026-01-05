@@ -227,7 +227,8 @@ const SessionHistorySection = () => {
 
             <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
                 {/* Header */}
-                <div className="flex items-center justify-between">
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <div className="p-2.5 bg-gradient-to-br from-teal-500 to-blue-600 rounded-xl shadow-sm">
                             <Clock className="w-5 h-5 text-white" strokeWidth={2.5} />
@@ -242,7 +243,7 @@ const SessionHistorySection = () => {
                     {sessions.length > 0 && (
                         <button
                             onClick={() => setShowDeleteModal(true)}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-rose-200 text-rose-600 rounded-lg text-xs font-bold hover:bg-rose-50 hover:border-rose-300 transition-all"
+                            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-rose-200 text-rose-600 rounded-lg text-xs font-bold hover:bg-rose-50 hover:border-rose-300 transition-all self-start sm:self-auto"
                         >
                             <Trash2 size={14} strokeWidth={2.5} />
                             Delete All
@@ -251,7 +252,7 @@ const SessionHistorySection = () => {
                 </div>
 
                 {/* Stats Cards */}
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     <div className="bg-white border border-slate-200 rounded-xl p-3 hover:border-teal-300 hover:shadow-sm transition-all">
                         <div className="flex items-center gap-2 mb-2">
                             <div className="p-1.5 bg-blue-50 rounded-lg">

@@ -421,8 +421,8 @@ const AnnouncementsSection = () => {
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{ delay: index * 0.05 }}
                                 className={`bg-white border-2 rounded-2xl p-6 transition-all relative ${announcement.pinned
-                                        ? 'border-orange-300 shadow-lg shadow-orange-100'
-                                        : 'border-gray-200 hover:border-orange-200 hover:shadow-lg'
+                                    ? 'border-orange-300 shadow-lg shadow-orange-100'
+                                    : 'border-gray-200 hover:border-orange-200 hover:shadow-lg'
                                     }`}
                             >
                                 {/* Pinned Badge */}
@@ -477,12 +477,12 @@ const AnnouncementsSection = () => {
                                         )}
 
                                         {/* Actions */}
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex flex-wrap items-center gap-2">
                                             <button
                                                 onClick={() => handleTogglePin(announcement)}
                                                 className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all ${announcement.pinned
-                                                        ? 'bg-orange-50 hover:bg-orange-100 text-orange-600'
-                                                        : 'bg-gray-50 hover:bg-gray-100 text-gray-600'
+                                                    ? 'bg-orange-50 hover:bg-orange-100 text-orange-600'
+                                                    : 'bg-gray-50 hover:bg-gray-100 text-gray-600'
                                                     }`}
                                             >
                                                 <Pin className="w-4 h-4" />
@@ -597,12 +597,12 @@ const AnnouncementsSection = () => {
                                                 type="button"
                                                 onClick={() => setAnnouncementData({ ...announcementData, priority })}
                                                 className={`p-3 border-2 rounded-xl font-bold capitalize transition-all ${announcementData.priority === priority
-                                                        ? priority === 'high'
-                                                            ? 'border-red-500 bg-red-50 text-red-600'
-                                                            : priority === 'medium'
-                                                                ? 'border-yellow-500 bg-yellow-50 text-yellow-600'
-                                                                : 'border-gray-500 bg-gray-50 text-gray-600'
-                                                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                                                    ? priority === 'high'
+                                                        ? 'border-red-500 bg-red-50 text-red-600'
+                                                        : priority === 'medium'
+                                                            ? 'border-yellow-500 bg-yellow-50 text-yellow-600'
+                                                            : 'border-gray-500 bg-gray-50 text-gray-600'
+                                                    : 'border-gray-200 text-gray-600 hover:border-gray-300'
                                                     }`}
                                             >
                                                 {priority}

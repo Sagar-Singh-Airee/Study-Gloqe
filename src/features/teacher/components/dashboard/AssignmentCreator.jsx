@@ -217,7 +217,7 @@ const AssignmentCreator = ({ onClose, classId = null }) => {
 
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[calc(90vh-120px)] overflow-y-auto">
-                    
+
                     {/* Basic Info */}
                     <div className="space-y-4">
                         <h4 className="text-lg font-bold text-black flex items-center gap-2">
@@ -240,7 +240,7 @@ const AssignmentCreator = ({ onClose, classId = null }) => {
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-bold text-black mb-2">
                                     Assignment Type *
@@ -316,7 +316,7 @@ const AssignmentCreator = ({ onClose, classId = null }) => {
                             Due Date & Grading
                         </h4>
 
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                                 <label className="block text-sm font-bold text-black mb-2">
                                     Due Date *

@@ -298,12 +298,12 @@ const NotesSection = () => {
                     </div>
 
                     <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2 mb-1.5">
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-1 sm:gap-2 mb-1.5">
                             <h4 className="text-sm font-bold text-slate-900 line-clamp-2 leading-tight">
                                 {note.title || 'Untitled Note'}
                             </h4>
 
-                            <span className={`text-[10px] px-2 py-0.5 rounded-md border font-semibold whitespace-nowrap ${config.color}`}>
+                            <span className={`self-start sm:self-auto text-[10px] px-2 py-0.5 rounded-md border font-semibold whitespace-nowrap ${config.color}`}>
                                 {subject}
                             </span>
                         </div>
@@ -325,7 +325,7 @@ const NotesSection = () => {
                                 {formatDate(note.createdAt)}
                             </div>
 
-                            <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex items-center gap-1.5 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button
                                     onClick={() => note.documentId && navigate(`/study/${note.documentId}`)}
                                     disabled={!note.documentId}
@@ -455,7 +455,7 @@ const NotesSection = () => {
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
-                                className="grid grid-cols-3 gap-4"
+                                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
                             >
                                 {Object.entries(folderStats).map(([subject, stats], idx) =>
                                     renderFolderCard(subject, stats, idx)

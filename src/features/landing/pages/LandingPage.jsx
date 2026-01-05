@@ -463,16 +463,16 @@ const LandingPage = () => {
             {/* Core Features Section */}
             <section id="features" className="relative py-24 z-10">
                 <div className="container mx-auto px-4 md:px-8">
-                    <div className="text-center mb-20" data-aos="fade-up">
-                        <h2 className="text-5xl md:text-6xl font-black mb-5 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent px-4 tracking-tight" style={{ letterSpacing: '-0.02em' }}>
+                    <div className="text-center mb-16 sm:mb-20" data-aos="fade-up">
+                        <h2 className="text-4xl sm:text-5xl md:text-6xl font-black mb-4 sm:mb-5 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent px-4 tracking-tight" style={{ letterSpacing: '-0.02em' }}>
                             Core Features
                         </h2>
-                        <p className="text-[18px] text-gray-400 max-w-2xl mx-auto px-4 font-medium tracking-tight">
+                        <p className="text-base sm:text-[18px] text-gray-400 max-w-2xl mx-auto px-4 font-medium tracking-tight">
                             Everything you need for modern education
                         </p>
                     </div>
 
-                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 max-w-6xl mx-auto">
                         {coreFeatures.map((feature, index) => (
                             <div
                                 key={index}
@@ -501,18 +501,18 @@ const LandingPage = () => {
             {/* Pricing Section - Enhanced */}
             <section id="pricing" className="relative py-24 z-10">
                 <div className="container mx-auto px-4 md:px-8">
-                    <div className="text-center mb-20" data-aos="fade-up">
-                        <h2 className="text-5xl md:text-6xl font-black mb-5 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent px-4 tracking-tight" style={{ letterSpacing: '-0.02em' }}>
+                    <div className="text-center mb-16 sm:mb-20" data-aos="fade-up">
+                        <h2 className="text-4xl sm:text-5xl md:text-6xl font-black mb-4 sm:mb-5 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent px-4 tracking-tight" style={{ letterSpacing: '-0.02em' }}>
                             Simple Pricing
                         </h2>
-                        <p className="text-[18px] text-gray-400 mb-10 px-4 font-medium tracking-tight">
+                        <p className="text-base sm:text-[18px] text-gray-400 mb-8 sm:mb-10 px-4 font-medium tracking-tight">
                             Choose the plan that fits your needs
                         </p>
 
-                        <div className="inline-flex items-center gap-2 p-1.5 rounded-xl backdrop-blur-xl bg-white/5 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+                        <div className="inline-flex items-center gap-1.5 sm:gap-2 p-1 sm:p-1.5 rounded-xl backdrop-blur-xl bg-white/5 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
                             <button
                                 onClick={() => setSelectedPlan('monthly')}
-                                className={`px-6 py-3 rounded-lg text-[14px] font-bold transition-all duration-300 tracking-tight ${selectedPlan === 'monthly'
+                                className={`px-4 sm:px-6 py-2 sm:py-3 rounded-lg text-xs sm:text-[14px] font-bold transition-all duration-300 tracking-tight ${selectedPlan === 'monthly'
                                     ? 'bg-white text-black shadow-lg'
                                     : 'text-gray-400 hover:text-white hover:bg-white/5'
                                     }`}
@@ -521,7 +521,7 @@ const LandingPage = () => {
                             </button>
                             <button
                                 onClick={() => setSelectedPlan('yearly')}
-                                className={`relative px-6 py-3 rounded-lg text-[14px] font-bold transition-all duration-300 tracking-tight ${selectedPlan === 'yearly'
+                                className={`relative px-4 sm:px-6 py-2 sm:py-3 rounded-lg text-xs sm:text-[14px] font-bold transition-all duration-300 tracking-tight ${selectedPlan === 'yearly'
                                     ? 'bg-white text-black shadow-lg'
                                     : 'text-gray-400 hover:text-white hover:bg-white/5'
                                     }`}
@@ -532,7 +532,7 @@ const LandingPage = () => {
                         </div>
                     </div>
 
-                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 max-w-7xl mx-auto">
                         {pricingPlans.map((plan, index) => (
                             <div
                                 key={index}

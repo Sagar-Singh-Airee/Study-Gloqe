@@ -493,7 +493,7 @@ const MaterialsSection = () => {
                         })}
                     </div>
                 ) : (
-                    <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                    <div className="bg-white rounded-2xl border border-gray-200 overflow-x-auto">
                         <table className="w-full">
                             <thead className="bg-gray-50 border-b border-gray-200">
                                 <tr>
@@ -624,7 +624,7 @@ const MaterialsSection = () => {
                                     />
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-bold text-gray-900 mb-2">
                                             Type *
