@@ -63,10 +63,10 @@ const DESIGN = {
 
 
 // ════════════════════════════════════════════════════════════════════════════════
-// 🤖 LOMA AI BUTTON
+// 🤖 GLOQE AI BUTTON - STICKER STYLE WITH GLOW
 // ════════════════════════════════════════════════════════════════════════════════
 
-const LomaAIButton = ({ onModeSelect, isActive, currentMode }) => {
+const GloqeAIButton = ({ onModeSelect, isActive, currentMode }) => {
     const [showMenu, setShowMenu] = useState(false);
 
     return (
@@ -78,21 +78,21 @@ const LomaAIButton = ({ onModeSelect, isActive, currentMode }) => {
                         initial={{ opacity: 0, scale: 0.9, y: 10 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: 10 }}
-                        className="bg-white rounded-2xl shadow-2xl border-2 border-gray-100 p-2 mb-2"
+                        className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border-2 border-emerald-100 p-3 mb-2"
                     >
                         <button
                             onClick={() => {
                                 onModeSelect('voice');
                                 setShowMenu(false);
                             }}
-                            className="flex items-center gap-3 px-5 py-3 hover:bg-emerald-50 rounded-xl transition-all group w-full"
+                            className="flex items-center gap-3 px-5 py-3.5 hover:bg-emerald-50 rounded-xl transition-all group w-full"
                         >
-                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                                <Mic size={18} className="text-white" />
+                            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                                <Mic size={20} className="text-white" />
                             </div>
                             <div className="text-left">
                                 <p className="text-sm font-bold text-gray-900">Voice Chat</p>
-                                <p className="text-xs text-gray-500">Talk to Loma</p>
+                                <p className="text-xs text-gray-600">Talk to Gloqe</p>
                             </div>
                         </button>
 
@@ -101,88 +101,124 @@ const LomaAIButton = ({ onModeSelect, isActive, currentMode }) => {
                                 onModeSelect('text');
                                 setShowMenu(false);
                             }}
-                            className="flex items-center gap-3 px-5 py-3 hover:bg-blue-50 rounded-xl transition-all group w-full mt-2"
+                            className="flex items-center gap-3 px-5 py-3.5 hover:bg-blue-50 rounded-xl transition-all group w-full mt-2"
                         >
-                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                                <MessageSquare size={18} className="text-white" />
+                            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                                <MessageSquare size={20} className="text-white" />
                             </div>
                             <div className="text-left">
                                 <p className="text-sm font-bold text-gray-900">Text Chat</p>
-                                <p className="text-xs text-gray-500">Ask questions</p>
+                                <p className="text-xs text-gray-600">Ask questions</p>
                             </div>
                         </button>
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            {/* Main Loma Button */}
-            <motion.button
-                whileHover={{ scale: 1.1, rotate: 3 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => {
-                    if (isActive) {
-                        onModeSelect(null);
-                    } else {
-                        setShowMenu(!showMenu);
-                    }
-                }}
-                className={`relative w-20 h-20 rounded-full shadow-2xl hover:shadow-3xl transition-all group ${isActive
-                    ? 'ring-4 ring-emerald-400 animate-pulse'
-                    : 'ring-4 ring-white hover:ring-emerald-200'
-                    }`}
-                style={{ background: 'white', padding: '6px' }}
-            >
-                {/* Active indicator rings */}
-                {isActive && (
-                    <>
-                        <motion.div
-                            animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0, 0.5] }}
-                            transition={{ duration: 2, repeat: Infinity }}
-                            className="absolute inset-0 bg-emerald-400 rounded-full"
+            {/* Main Gloqe Sticker Button with Radiant Glow */}
+            <div className="relative">
+                {/* Multi-layer Glow Effect - Always Visible */}
+                <motion.div
+                    animate={{
+                        scale: [1, 1.15, 1],
+                        opacity: isActive ? [0.6, 0.8, 0.6] : [0.4, 0.6, 0.4]
+                    }}
+                    transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+                    className="absolute -inset-4 bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 rounded-full blur-2xl"
+                    style={{ zIndex: -1 }}
+                />
+                <motion.div
+                    animate={{
+                        scale: [1, 1.2, 1],
+                        opacity: isActive ? [0.5, 0.7, 0.5] : [0.3, 0.5, 0.3]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+                    className="absolute -inset-6 bg-gradient-to-br from-emerald-300 via-teal-300 to-emerald-300 rounded-full blur-3xl"
+                    style={{ zIndex: -2 }}
+                />
+                <motion.div
+                    animate={{
+                        rotate: [0, 360],
+                        opacity: isActive ? [0.4, 0.6, 0.4] : [0.2, 0.4, 0.2]
+                    }}
+                    transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+                    className="absolute -inset-8 bg-gradient-to-r from-teal-200 via-emerald-200 to-cyan-200 rounded-full blur-3xl"
+                    style={{ zIndex: -3 }}
+                />
+
+                {/* Sticker Button */}
+                <motion.button
+                    whileHover={{ scale: 1.1, rotate: [0, -5, 5, -5, 0] }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                        if (isActive) {
+                            onModeSelect(null);
+                        } else {
+                            setShowMenu(!showMenu);
+                        }
+                    }}
+                    className="relative w-28 h-28 transition-all group"
+                    style={{
+                        filter: isActive ? 'drop-shadow(0 0 20px rgba(52, 211, 153, 0.8))' : 'drop-shadow(0 10px 25px rgba(0, 0, 0, 0.15))'
+                    }}
+                >
+                    {/* Active pulse rings */}
+                    {isActive && (
+                        <>
+                            <motion.div
+                                animate={{ scale: [1, 1.4, 1], opacity: [0.6, 0, 0.6] }}
+                                transition={{ duration: 1.5, repeat: Infinity }}
+                                className="absolute inset-0 bg-emerald-400 rounded-full blur-md"
+                            />
+                            <motion.div
+                                animate={{ scale: [1, 1.6, 1], opacity: [0.4, 0, 0.4] }}
+                                transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}
+                                className="absolute inset-0 bg-teal-400 rounded-full blur-lg"
+                            />
+                        </>
+                    )}
+
+                    {/* Sticker Image */}
+                    <div className="relative w-full h-full">
+                        <img
+                            src={lomaLogo}
+                            alt="Gloqe AI"
+                            className="w-full h-full object-contain relative z-10"
+                            style={{
+                                filter: 'drop-shadow(0 4px 12px rgba(0, 0, 0, 0.1))'
+                            }}
                         />
+
+                        {/* Shimmer effect on hover */}
                         <motion.div
-                            animate={{ scale: [1, 1.5, 1], opacity: [0.3, 0, 0.3] }}
-                            transition={{ duration: 2, repeat: Infinity, delay: 0.3 }}
-                            className="absolute inset-0 bg-teal-400 rounded-full"
-                        />
-                    </>
-                )}
-
-                {/* Logo container */}
-                <div className="relative w-full h-full rounded-full bg-gradient-to-br from-white to-gray-50 flex items-center justify-center shadow-inner overflow-hidden">
-                    <img
-                        src={lomaLogo}
-                        alt="Loma AI"
-                        className="w-[85%] h-[85%] object-contain relative z-10"
-                    />
-
-                    {/* Shimmer effect */}
-                    <motion.div
-                        initial={{ x: '-100%' }}
-                        whileHover={{ x: '200%' }}
-                        transition={{ duration: 0.6 }}
-                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent"
-                    />
-                </div>
-
-                {/* Active status dot */}
-                {isActive && (
-                    <div className="absolute -top-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full border-4 border-white shadow-lg flex items-center justify-center">
-                        <motion.div
-                            animate={{ scale: [1, 1.2, 1] }}
-                            transition={{ duration: 1, repeat: Infinity }}
-                            className="w-2 h-2 bg-white rounded-full"
+                            initial={{ x: '-100%', opacity: 0 }}
+                            whileHover={{ x: '200%', opacity: 1 }}
+                            transition={{ duration: 0.6 }}
+                            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent"
+                            style={{ mixBlendMode: 'overlay' }}
                         />
                     </div>
-                )}
 
-                {/* Tooltip */}
-                <div className="absolute bottom-full right-0 mb-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                    <div className="px-3 py-2 bg-gray-900 text-white text-xs font-semibold rounded-lg shadow-2xl whitespace-nowrap">
-                        {isActive ? `End ${currentMode === 'voice' ? 'Voice' : 'Text'} Chat` : 'Ask Loma AI ✨'}
+                    {/* Active status indicator */}
+                    {isActive && (
+                        <div className="absolute -top-2 -right-2 w-7 h-7 bg-emerald-500 rounded-full border-4 border-white shadow-xl flex items-center justify-center">
+                            <motion.div
+                                animate={{ scale: [1, 1.3, 1] }}
+                                transition={{ duration: 1, repeat: Infinity }}
+                                className="w-2.5 h-2.5 bg-white rounded-full"
+                            />
+                        </div>
+                    )}
+
+                    {/* Enhanced Tooltip */}
+                    <div className="absolute bottom-full right-0 mb-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                        <div className="px-4 py-2.5 bg-gray-900/95 backdrop-blur-sm text-white text-sm font-bold rounded-xl shadow-2xl whitespace-nowrap border border-gray-700">
+                            {isActive ? `End ${currentMode === 'voice' ? 'Voice' : 'Text'} Chat` : 'Ask Gloqe AI ✨'}
+                            <div className="absolute -bottom-1 right-6 w-2 h-2 bg-gray-900 rotate-45" />
+                        </div>
                     </div>
-                </div>
-            </motion.button>
+                </motion.button>
+            </div>
         </div>
     );
 };
@@ -1116,8 +1152,8 @@ const StudySession = () => {
                 )}
             </AnimatePresence>
 
-            {/* LOMA AI BUTTON */}
-            <LomaAIButton
+            {/* GLOQE AI BUTTON */}
+            <GloqeAIButton
                 onModeSelect={setAiMode}
                 isActive={aiMode !== null}
                 currentMode={aiMode}
